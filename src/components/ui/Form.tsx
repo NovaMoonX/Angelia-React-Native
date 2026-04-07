@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Input } from './Input';
 import { Textarea } from './Textarea';
 import { Label } from './Label';
@@ -143,7 +143,7 @@ export function Form<T extends Record<string, any>>({
       ))}
 
       {submitButton ? (
-        <View onTouchEnd={handleSubmit}>{submitButton}</View>
+        <Pressable onPress={handleSubmit}>{submitButton}</Pressable>
       ) : null}
     </View>
   );
