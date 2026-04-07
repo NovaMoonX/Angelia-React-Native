@@ -3,7 +3,7 @@ import { Animated, StyleSheet, type ViewStyle } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 
 interface SkeletonProps {
-  width?: number | string;
+  width?: number;
   height?: number;
   borderRadius?: number;
   shape?: 'circle' | 'square';
@@ -33,7 +33,8 @@ export function Skeleton({ width, height = 16, borderRadius, shape, style }: Ske
       style={[
         styles.skeleton,
         {
-          width: width ?? '100%',
+          width: width,
+          flex: width == null ? 1 : undefined,
           height,
           borderRadius: computedBorderRadius,
           backgroundColor: theme.muted,

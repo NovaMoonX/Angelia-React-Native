@@ -47,7 +47,7 @@ export const FormFactories = {
   },
 };
 
-interface FormProps<T extends Record<string, unknown>> {
+interface FormProps<T extends Record<string, any>> {
   form: FormField[];
   initialData: T;
   onSubmit: (data: T) => void;
@@ -55,7 +55,7 @@ interface FormProps<T extends Record<string, unknown>> {
   submitButton?: React.ReactNode;
 }
 
-export function Form<T extends Record<string, unknown>>({
+export function Form<T extends Record<string, any>>({
   form,
   initialData,
   onSubmit,
@@ -143,7 +143,7 @@ export function Form<T extends Record<string, unknown>>({
       ))}
 
       {submitButton ? (
-        <View>{React.cloneElement(submitButton as React.ReactElement, { onPress: handleSubmit })}</View>
+        <View onTouchEnd={handleSubmit}>{submitButton}</View>
       ) : null}
     </View>
   );

@@ -30,7 +30,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resolvedTheme: 'light' | 'dark' =
-    themeMode === 'system' ? (systemScheme ?? 'light') : themeMode;
+    themeMode === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : themeMode;
 
   const toggleTheme = useCallback(() => {
     const next = resolvedTheme === 'dark' ? 'light' : 'dark';
