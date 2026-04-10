@@ -1,0 +1,75 @@
+import React from 'react';
+import { Stack, Redirect } from 'expo-router';
+import { useAuth } from '@/hooks/useAuth';
+import { useAppSelector } from '@/store/hooks';
+import { useTheme } from '@/hooks/useTheme';
+import { Loading } from '@/components/Loading';
+import { DemoModeBanner } from '@/components/DemoModeBanner';
+import { DataListenerWrapper } from '@/components/DataListenerWrapper';
+import { View } from 'react-native';
+
+export default function ProtectedLayout() {
+  const { firebaseUser, loading } = useAuth();
+  const isDemo = useAppSelector((state) => state.demo.isActive);
+  const currentUser = useAppSelector((state) => state.users.currentUser);
+  const { theme } = useTheme();
+
+  // Demo mode bypasses all auth checks
+  if (!isDemo) {
+    if (loading) return <Loading />;
+
+    if (!firebaseUser) {
+      return <Redirect href="/auth" />;
+    }
+
+    // Signup incomplete
+    if (currentUser && !currentUser.accountProgress.signUpComplete) {
+      return <Redirect href="/complete-profile" />;
+    }
+
+    // Email not verified
+    if (
+      firebaseUser &&
+      !firebaseUser.emailVerified &&
+      currentUser?.accountProgress.signUpComplete
+    ) {
+      return <Redirect href="/verify-email" />;
+    }
+  }
+
+  return (
+    <DataListenerWrapper>
+      <View style={{ flex: 1 }}>
+        <DemoModeBanner />
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: theme.background },
+            headerTintColor: theme.foreground,
+            headerTitleStyle: { fontWeight: '600' },
+            contentStyle: { backgroundColor: theme.background },
+            animation: 'slide_from_right',
+          }}
+        >
+          <Stack.Screen name="feed" options={{ title: 'Feed' }} />
+          <Stack.Screen
+            name="post/new"
+            options={{ title: 'New Post' }}
+          />
+          <Stack.Screen
+            name="post/[id]"
+            options={{ title: 'Post' }}
+          />
+          <Stack.Screen name="account" options={{ title: 'Account' }} />
+          <Stack.Screen
+            name="invite/[channelId]/[inviteCode]"
+            options={{ title: 'Join Channel' }}
+          />
+          <Stack.Screen
+            name="error-fallback"
+            options={{ title: 'Error', headerBackVisible: false }}
+          />
+        </Stack>
+      </View>
+    </DataListenerWrapper>
+  );
+}
