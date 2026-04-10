@@ -19,7 +19,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { ChannelCard } from '@/components/ChannelCard';
 import { ChannelFormModal } from '@/components/ChannelFormModal';
 import { ChannelModal } from '@/components/ChannelModal';
-import { ThemeToggle } from '@/components/ThemeToggle';
+
 import { useAuth } from '@/hooks/useAuth';
 import { useActionModal } from '@/hooks/useActionModal';
 import { useToast } from '@/hooks/useToast';
@@ -469,21 +469,12 @@ export default function AccountScreen() {
             </>
           )}
 
-          {/* Theme + Sign Out */}
+          {/* Sign Out */}
           <Separator style={{ marginVertical: 16 }} />
           <View style={styles.bottomSection}>
-            <View style={styles.themeRow}>
-              <Text
-                style={[styles.themeLabel, { color: theme.foreground }]}
-              >
-                Appearance
-              </Text>
-              <ThemeToggle />
-            </View>
             <Button
               variant="destructive"
               onPress={handleSignOut}
-              style={{ marginTop: 16 }}
             >
               Sign Out
             </Button>
@@ -725,15 +716,6 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     gap: 8,
-  },
-  themeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  themeLabel: {
-    fontSize: 15,
-    fontWeight: '600',
   },
   emptyText: {
     fontSize: 14,

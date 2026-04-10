@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
@@ -23,6 +24,7 @@ const LOAD_MORE = 3;
 export default function FeedScreen() {
   const router = useRouter();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const posts = useAppSelector((state) => state.posts.items);
   const channels = useAppSelector((state) => state.channels.items);
@@ -93,7 +95,7 @@ export default function FeedScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header Bar */}
-      <View style={styles.headerBar}>
+      <View style={[styles.headerBar, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={() => router.push('/(protected)/account')}>
           <Avatar
             preset={currentUser?.avatar || 'moon'}
@@ -139,7 +141,7 @@ export default function FeedScreen() {
         data={filteredPosts}
         keyExtractor={(item) => item.id}
         renderItem={renderPost}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
         onEndReached={loadMore}
         onEndReachedThreshold={0.3}
@@ -160,7 +162,7 @@ export default function FeedScreen() {
 
       {/* New Post FAB */}
       <Pressable
-        style={[styles.fab, { backgroundColor: theme.primary }]}
+        style={[styles.fab, { backgroundColor: theme.primary, bottom: insets.bottom + 24 }]}
         onPress={() => router.push('/(protected)/post/new')}
       >
         <Feather name="plus" size={24} color={theme.primaryForeground} />
@@ -168,7 +170,7 @@ export default function FeedScreen() {
 
       {/* Scroll to Top FAB */}
       <Pressable
-        style={[styles.scrollTopFab, { backgroundColor: theme.secondary }]}
+        style={[styles.scrollTopFab, { backgroundColor: theme.secondary, bottom: insets.bottom + 90 }]}
         onPress={scrollToTop}
       >
         <Feather name="arrow-up" size={18} color={theme.secondaryForeground} />
@@ -186,7 +188,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 8,
     paddingBottom: 12,
   },
   headerTitle: {
@@ -210,7 +211,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 100,
   },
   emptyState: {
     alignItems: 'center',
@@ -226,7 +226,6 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 24,
     right: 20,
     width: 56,
     height: 56,
@@ -241,7 +240,6 @@ const styles = StyleSheet.create({
   },
   scrollTopFab: {
     position: 'absolute',
-    bottom: 90,
     right: 20,
     width: 40,
     height: 40,

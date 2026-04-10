@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -113,11 +115,16 @@ export default function PostCreateScreen() {
   };
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.background }}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.background }}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
       {/* Channel Selector */}
       <View style={styles.section}>
         <Label>Post to Channel *</Label>
@@ -180,7 +187,8 @@ export default function PostCreateScreen() {
       <Button onPress={handleSubmit} loading={loading} style={{ marginTop: 12 }}>
         Publish Post
       </Button>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

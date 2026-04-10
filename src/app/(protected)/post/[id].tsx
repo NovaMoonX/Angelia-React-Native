@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import {
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -179,10 +181,16 @@ export default function PostDetailScreen() {
   };
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.background }}
-      contentContainerStyle={styles.content}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.background }}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
       {/* Post Header */}
       <View style={styles.header}>
         <Avatar preset={author?.avatar || 'moon'} size="md" />
@@ -353,7 +361,8 @@ export default function PostDetailScreen() {
           </Tabs>
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -418,12 +427,13 @@ const styles = StyleSheet.create({
     fontSize: 22,
   },
   customEmojiInput: {
-    width: 50,
-    height: 36,
+    width: 60,
+    height: 40,
     borderWidth: 1,
     borderRadius: 8,
     textAlign: 'center',
     fontSize: 18,
+    paddingHorizontal: 4,
   },
   reactionGroups: {
     flexDirection: 'row',

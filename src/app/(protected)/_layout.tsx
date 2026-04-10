@@ -50,7 +50,7 @@ export default function ProtectedLayout() {
             animation: 'slide_from_right',
           }}
         >
-          <Stack.Screen name="feed" options={{ title: 'Feed' }} />
+          <Stack.Screen name="feed" options={{ headerShown: false }} />
           <Stack.Screen
             name="post/new"
             options={{ title: 'New Post' }}
