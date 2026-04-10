@@ -7,54 +7,62 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
 
 export function DemoModeBanner() {
-  const isDemo = useAppSelector((state) => state.demo.isActive);
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { resolvedTheme } = useTheme();
+	const isDemo = useAppSelector((state) => state.demo.isActive);
+	const router = useRouter();
+	const insets = useSafeAreaInsets();
+	const { resolvedTheme } = useTheme();
 
-  if (!isDemo) return null;
+	if (!isDemo) return null;
 
-  const isDark = resolvedTheme === 'dark';
+	const isDark = resolvedTheme === 'dark';
 
-  return (
-    <View
-      style={[
-        styles.banner,
-        { paddingTop: insets.top + 4 },
-        isDark ? styles.bannerDark : styles.bannerLight,
-      ]}
-    >
-      <Text style={[styles.text, isDark && styles.textDark]}>🎭 Demo Mode</Text>
-      <Button
-        variant="outline"
-        size="sm"
-        onPress={() => router.replace('/')}
-      >
-        Exit Demo
-      </Button>
-    </View>
-  );
+	return (
+		<View style={[styles.banner, { paddingTop: insets.top + 4 }, isDark ? styles.bannerDark : styles.bannerLight]}>
+			<Text style={[styles.text, isDark && styles.textDark]}>🎭 Demo Mode</Text>
+			<Button
+				variant='outline'
+				size='sm'
+				onPress={() => router.replace('/')}
+				style={
+					isDark
+						? {
+								borderColor: '#FDE68A',
+							}
+						: undefined
+				}
+				textStyle={
+					isDark
+						? {
+								color: '#FDE68A',
+							}
+						: undefined
+				}
+			>
+				Exit Demo
+			</Button>
+		</View>
+	);
 }
 
 const styles = StyleSheet.create({
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-  },
-  bannerLight: {
-    backgroundColor: '#FEF3C7',
-  },
-  bannerDark: {
-    backgroundColor: '#422006',
-  },
-  text: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  textDark: {
-    color: '#FDE68A',
-  },
+	banner: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		paddingHorizontal: 16,
+		paddingBottom: 8,
+	},
+	bannerLight: {
+		backgroundColor: '#FEF3C7',
+	},
+	bannerDark: {
+		backgroundColor: '#78350F',
+	},
+	text: {
+		fontSize: 14,
+		fontWeight: '600',
+	},
+	textDark: {
+		color: '#FDE68A',
+	},
 });

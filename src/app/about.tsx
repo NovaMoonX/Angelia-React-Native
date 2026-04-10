@@ -154,15 +154,15 @@ export default function AboutScreen() {
                 contentContainerStyle={[styles.stepContent, { minHeight: contentHeight }]}
                 showsVerticalScrollIndicator={false}
               >
-                <Text style={styles.stepEmoji}>😩</Text>
+                <Text style={styles.stepEmoji}>🤔</Text>
                 <Text style={[styles.stepTitle, { color: theme.foreground }]}>
                   Sound familiar?
                 </Text>
                 <Card style={{ ...styles.problemCard, borderLeftColor: theme.destructive }}>
-                  <Text style={[styles.problemBody, { color: theme.mutedForeground }]}>
-                    📱 You have a dozen group chats and somehow still miss
-                    your cousin's baby announcement.
-                  </Text>
+                    <Text style={[styles.problemBody, { color: theme.mutedForeground }]}>
+                      📤 You end up sharing the same update across multiple
+                      groups and still aren't sure who you've told.
+                    </Text>
                 </Card>
                 <Card style={{ ...styles.problemCard, borderLeftColor: theme.destructive }}>
                   <Text style={[styles.problemBody, { color: theme.mutedForeground }]}>
@@ -271,6 +271,9 @@ export default function AboutScreen() {
                   Social media is built around followers, likes, and algorithms
                   that decide what you see. 🎰
                 </Text>
+                <Text style={[styles.stepBody, { color: theme.foreground, fontWeight: '700' }]}>
+                  The downside:
+                </Text>
                 <Card style={styles.vsCard}>
                   <Text style={[styles.vsPoint, { color: theme.mutedForeground }]}>
                     ❌  Algorithms decide who sees your post
@@ -304,6 +307,9 @@ export default function AboutScreen() {
                 <Text style={[styles.stepBody, { color: theme.mutedForeground }]}>
                   Group chats are great for quick coordination, but terrible
                   for meaningful updates. 🫠
+                </Text>
+                <Text style={[styles.stepBody, { color: theme.foreground, fontWeight: '700' }]}>
+                  The downside:
                 </Text>
                 <Card style={styles.vsCard}>
                   <Text style={[styles.vsPoint, { color: theme.mutedForeground }]}>
@@ -444,7 +450,7 @@ export default function AboutScreen() {
       />
 
       {/* Step counter + close */}
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <Text style={[styles.stepCounter, { color: theme.mutedForeground }]}>
           {currentIndex + 1} of {STEPS.length}
         </Text>
