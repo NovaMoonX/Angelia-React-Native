@@ -50,7 +50,7 @@ export default function ProtectedLayout() {
             animation: 'slide_from_right',
           }}
         >
-          <Stack.Screen name="feed" options={{ title: 'Feed' }} />
+          <Stack.Screen name="feed" options={{ headerShown: false }} />
           <Stack.Screen
             name="post/new"
             options={{ title: 'New Post' }}
@@ -60,6 +60,7 @@ export default function ProtectedLayout() {
             options={{ title: 'Post' }}
           />
           <Stack.Screen name="account" options={{ title: 'Account' }} />
+          <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
           <Stack.Screen
             name="invite/[channelId]/[inviteCode]"
             options={{ title: 'Join Channel' }}

@@ -117,6 +117,8 @@ const styles = StyleSheet.create({
   },
   previewContainer: {
     position: 'relative',
+    overflow: 'visible',
+    marginTop: 8,
   },
   preview: {
     width: 80,

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 
 interface TabsContextType {
@@ -42,14 +42,11 @@ export function TabsList({ children, style }: { children: React.ReactNode; style
   const { theme } = useTheme();
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
+    <View
       style={[styles.tabsList, { backgroundColor: theme.muted }, style]}
-      contentContainerStyle={styles.tabsListContent}
     >
       {children}
-    </ScrollView>
+    </View>
   );
 }
 
@@ -100,28 +97,27 @@ export function TabsContent({ value, children, style }: TabsContentProps) {
 
 const styles = StyleSheet.create({
   tabsList: {
-    borderRadius: 8,
-    padding: 4,
-    maxHeight: 44,
-  },
-  tabsListContent: {
     flexDirection: 'row',
-    gap: 4,
+    borderRadius: 25,
+    padding: 4,
   },
   trigger: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   activeTrigger: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   triggerText: {
     fontSize: 13,
     fontWeight: '500',
+    textAlign: 'center',
   },
 });

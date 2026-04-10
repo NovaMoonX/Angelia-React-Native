@@ -27,7 +27,7 @@ function NavigationLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="about" options={{ title: 'About Angelia' }} />
+        <Stack.Screen name="about" options={{ headerShown: false }} />
         <Stack.Screen name="auth" options={{ title: 'Sign In' }} />
         <Stack.Screen
           name="complete-profile"

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
+  KeyboardAvoidingView,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,6 +25,7 @@ import { addPost } from '@/store/slices/postsSlice';
 import { createPost } from '@/services/firebase/firestore';
 import { uploadPostMedia } from '@/services/firebase/storage';
 import { generateId } from '@/utils/generateId';
+import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import type { Post } from '@/models/types';
 
 export default function PostCreateScreen() {
@@ -113,11 +115,16 @@ export default function PostCreateScreen() {
   };
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.background }}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={KEYBOARD_BEHAVIOR}
+      keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
     >
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.background }}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
       {/* Channel Selector */}
       <View style={styles.section}>
         <Label>Post to Channel *</Label>
@@ -180,13 +187,16 @@ export default function PostCreateScreen() {
       <Button onPress={handleSubmit} loading={loading} style={{ marginTop: 12 }}>
         Publish Post
       </Button>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 20,
   },
   section: {
     marginBottom: 20,

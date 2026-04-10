@@ -16,7 +16,8 @@
         "backgroundColor": "#D97706",
         "foregroundImage": "./assets/images/icon.png"
       },
-      "package": "com.angelia.app"
+      "package": "com.angelia.app",
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "output": "static",

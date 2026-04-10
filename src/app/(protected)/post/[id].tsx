@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   FlatList,
+  KeyboardAvoidingView,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -29,6 +30,7 @@ import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName } from '@/lib/post/post.utils';
 import { isValidEmoji, getRandomPhrase } from '@/lib/post/post.constants';
 import { COMMON_EMOJIS } from '@/models/constants';
+import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import {
   updateReactionsOptimistic,
   removeReactionOptimistic,
@@ -179,10 +181,16 @@ export default function PostDetailScreen() {
   };
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.background }}
-      contentContainerStyle={styles.content}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={KEYBOARD_BEHAVIOR}
+      keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
     >
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.background }}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
       {/* Post Header */}
       <View style={styles.header}>
         <Avatar preset={author?.avatar || 'moon'} size="md" />
@@ -353,13 +361,16 @@ export default function PostDetailScreen() {
           </Tabs>
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 20,
   },
   centered: {
     flex: 1,
@@ -418,12 +429,13 @@ const styles = StyleSheet.create({
     fontSize: 22,
   },
   customEmojiInput: {
-    width: 50,
-    height: 36,
+    width: 60,
+    height: 40,
     borderWidth: 1,
     borderRadius: 8,
     textAlign: 'center',
     fontSize: 18,
+    paddingHorizontal: 4,
   },
   reactionGroups: {
     flexDirection: 'row',

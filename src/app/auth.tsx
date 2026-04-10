@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { AuthForm } from '@/components/ui/AuthForm';
 import { Button } from '@/components/ui/Button';
@@ -14,6 +14,7 @@ import { loadDemoChannels } from '@/store/slices/channelsSlice';
 import { loadDemoUsers } from '@/store/slices/usersSlice';
 import { loadDemoInvites } from '@/store/slices/invitesSlice';
 import { DEMO_DATA } from '@/lib/demoData';
+import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -66,34 +67,40 @@ export default function AuthScreen() {
   };
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.background }}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={KEYBOARD_BEHAVIOR}
+      keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
     >
-      <View style={styles.logoArea}>
-        <AngeliaLogo size={48} />
-        <Text style={[styles.logoText, { color: theme.foreground }]}>
-          Angelia
-        </Text>
-      </View>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.background }}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.logoArea}>
+          <AngeliaLogo size={48} />
+          <Text style={[styles.logoText, { color: theme.foreground }]}>
+            Angelia
+          </Text>
+        </View>
 
-      <AuthForm
-        methods={['email']}
-        action="both"
-        onActionChange={(newMode) => setAuthMode(newMode)}
-        onEmailSubmit={handleEmailSubmit}
-      />
+        <AuthForm
+          methods={['email']}
+          action="both"
+          onActionChange={(newMode) => setAuthMode(newMode)}
+          onEmailSubmit={handleEmailSubmit}
+        />
 
-      <View style={styles.demoArea}>
-        <Text style={[styles.demoText, { color: theme.mutedForeground }]}>
-          Just looking around?
-        </Text>
-        <Button variant="link" onPress={handleDemoMode}>
-          Try Demo Mode
-        </Button>
-      </View>
-    </ScrollView>
+        <View style={styles.demoArea}>
+          <Text style={[styles.demoText, { color: theme.mutedForeground }]}>
+            Just looking around?
+          </Text>
+          <Button variant="link" onPress={handleDemoMode}>
+            Try Demo Mode
+          </Button>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

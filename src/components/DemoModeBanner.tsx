@@ -1,41 +1,68 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { useAppSelector } from '@/store/hooks';
 import { useRouter } from 'expo-router';
+import { useTheme } from '@/hooks/useTheme';
 
 export function DemoModeBanner() {
-  const isDemo = useAppSelector((state) => state.demo.isActive);
-  const router = useRouter();
+	const isDemo = useAppSelector((state) => state.demo.isActive);
+	const router = useRouter();
+	const insets = useSafeAreaInsets();
+	const { resolvedTheme } = useTheme();
 
-  if (!isDemo) return null;
+	if (!isDemo) return null;
 
-  return (
-    <View style={styles.banner}>
-      <Text style={styles.text}>🎭 Demo Mode</Text>
-      <Button
-        variant="outline"
-        size="sm"
-        onPress={() => router.replace('/')}
-      >
-        Exit Demo
-      </Button>
-    </View>
-  );
+	const isDark = resolvedTheme === 'dark';
+
+	return (
+		<View style={[styles.banner, { paddingTop: insets.top + 4 }, isDark ? styles.bannerDark : styles.bannerLight]}>
+			<Text style={[styles.text, isDark && styles.textDark]}>🎭 Demo Mode</Text>
+			<Button
+				variant='outline'
+				size='sm'
+				onPress={() => router.replace('/')}
+				style={
+					isDark
+						? {
+								borderColor: '#FDE68A',
+							}
+						: undefined
+				}
+				textStyle={
+					isDark
+						? {
+								color: '#FDE68A',
+							}
+						: undefined
+				}
+			>
+				Exit Demo
+			</Button>
+		</View>
+	);
 }
 
 const styles = StyleSheet.create({
-  banner: {
-    backgroundColor: '#FEF3C7',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  text: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#78350F',
-  },
+	banner: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		paddingHorizontal: 16,
+		paddingBottom: 8,
+	},
+	bannerLight: {
+		backgroundColor: '#FEF3C7',
+	},
+	bannerDark: {
+		backgroundColor: '#78350F',
+	},
+	text: {
+		fontSize: 14,
+		fontWeight: '600',
+	},
+	textDark: {
+		color: '#FDE68A',
+	},
 });

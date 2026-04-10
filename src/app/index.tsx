@@ -1,18 +1,16 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import { AngeliaLogo } from '@/components/AngeliaLogo';
-import { ComparisonTable } from '@/components/ComparisonTable';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { Separator } from '@/components/ui/Separator';
 import { useTheme } from '@/hooks/useTheme';
 import { useAppDispatch } from '@/store/hooks';
 import { enterDemoMode } from '@/store/slices/demoSlice';
@@ -22,35 +20,75 @@ import { loadDemoUsers } from '@/store/slices/usersSlice';
 import { loadDemoInvites } from '@/store/slices/invitesSlice';
 import { DEMO_DATA } from '@/lib/demoData';
 
-const USE_CASES = [
-  {
-    emoji: '👴',
-    title: 'Remote Elder',
-    description:
-      'Grandparents wanting daily connection without tech friction',
-  },
-  {
-    emoji: '💼',
-    title: 'Global Professional',
-    description:
-      'Busy individuals who need to catch up during downtime',
-  },
-  {
-    emoji: '👨‍👩‍👧',
-    title: 'Saturated Parent',
-    description:
-      'Parents who want to share without performance pressure',
-  },
-];
+const SPLASH_TO_ACTIONS_DELAY = 600;
 
 export default function HomeScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const [showActions, setShowActions] = useState(false);
 
-  const handleGetStarted = () => {
-    router.push('/auth');
-  };
+  // Animations
+  const logoScale = useRef(new Animated.Value(0.5)).current;
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  const titleOpacity = useRef(new Animated.Value(0)).current;
+  const sloganOpacity = useRef(new Animated.Value(0)).current;
+  const actionsOpacity = useRef(new Animated.Value(0)).current;
+  const actionsTranslateY = useRef(new Animated.Value(40)).current;
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    // Splash entrance animation
+    Animated.sequence([
+      Animated.parallel([
+        Animated.spring(logoScale, {
+          toValue: 1,
+          friction: 6,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoOpacity, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.timing(titleOpacity, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.timing(sloganOpacity, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      // After splash animations, transition to actions
+      timeoutId = setTimeout(() => {
+        setShowActions(true);
+        Animated.parallel([
+          Animated.timing(actionsOpacity, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.spring(actionsTranslateY, {
+            toValue: 0,
+            friction: 8,
+            tension: 40,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }, SPLASH_TO_ACTIONS_DELAY);
+    });
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, []);
 
   const handleTryDemo = () => {
     dispatch(enterDemoMode());
@@ -62,103 +100,99 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.background }}
-      contentContainerStyle={styles.content}
+    <View
+      style={[
+        styles.fullScreen,
+        {
+          backgroundColor: theme.background,
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
+      ]}
     >
-      {/* Top bar */}
-      <View style={styles.topBar}>
-        <AngeliaLogo size={28} />
-        <ThemeToggle />
-      </View>
+      {/* Centered splash content */}
+      <View style={styles.splashCenter}>
+        <Animated.View
+          style={{
+            opacity: logoOpacity,
+            transform: [{ scale: logoScale }],
+          }}
+        >
+          <AngeliaLogo size={80} />
+        </Animated.View>
 
-      {/* Hero Section */}
-      <View style={styles.hero}>
-        <AngeliaLogo size={64} />
-        <Text style={[styles.heroTitle, { color: theme.foreground }]}>
+        <Animated.Text
+          style={[
+            styles.heroTitle,
+            { color: theme.foreground, opacity: titleOpacity },
+          ]}
+        >
           Angelia
-        </Text>
-        <Text style={[styles.heroSubtitle, { color: theme.mutedForeground }]}>
-          Family updates without the noise. Curate, subscribe, connect.
-        </Text>
+        </Animated.Text>
 
-        <View style={styles.ctaRow}>
-          <Button onPress={handleGetStarted}>Get Started</Button>
-          <Button variant="outline" onPress={handleTryDemo}>
-            Try Demo
+        <Animated.Text
+          style={[
+            styles.heroSubtitle,
+            { color: theme.mutedForeground, opacity: sloganOpacity },
+          ]}
+        >
+          Family updates without the noise.{'\n'}Curate, subscribe, connect.
+        </Animated.Text>
+      </View>
+
+      {/* Action buttons that animate in */}
+      {showActions && (
+        <Animated.View
+          style={[
+            styles.actionsContainer,
+            {
+              opacity: actionsOpacity,
+              transform: [{ translateY: actionsTranslateY }],
+            },
+          ]}
+        >
+          <Button onPress={() => router.push('/auth')} size="lg" style={styles.actionButton}>
+            Sign In / Sign Up
           </Button>
-        </View>
-      </View>
 
-      <Separator style={{ marginVertical: 24 }} />
+          <Pressable onPress={handleTryDemo} style={[styles.demoButton, { backgroundColor: theme.secondary }]}>
+            <Text style={styles.demoEmoji}>🎭</Text>
+            <View style={styles.demoTextContainer}>
+              <Text style={[styles.demoTitle, { color: theme.secondaryForeground }]}>
+                Try Demo Mode
+              </Text>
+              <Text style={[styles.demoDesc, { color: theme.secondaryForeground }]}>
+                Explore the app with sample data — no sign up needed
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={20} color={theme.secondaryForeground} />
+          </Pressable>
 
-      {/* Comparison */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: theme.foreground }]}>
-          Why Angelia?
-        </Text>
-        <ComparisonTable />
-      </View>
-
-      <Separator style={{ marginVertical: 24 }} />
-
-      {/* Use Cases */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: theme.foreground }]}>
-          Who It's For
-        </Text>
-        {USE_CASES.map((uc) => (
-          <Card key={uc.title} style={styles.useCaseCard}>
-            <Text style={styles.useCaseEmoji}>{uc.emoji}</Text>
-            <Text
-              style={[styles.useCaseTitle, { color: theme.foreground }]}
-            >
-              {uc.title}
+          <Pressable onPress={() => router.push('/about')} style={styles.learnMoreButton}>
+            <Feather name="info" size={16} color={theme.primary} />
+            <Text style={[styles.learnMoreLink, { color: theme.primary }]}>
+              Learn more about Angelia
             </Text>
-            <Text
-              style={[
-                styles.useCaseDesc,
-                { color: theme.mutedForeground },
-              ]}
-            >
-              {uc.description}
-            </Text>
-          </Card>
-        ))}
-      </View>
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Pressable onPress={() => router.push('/about')}>
-          <Text style={[styles.footerLink, { color: theme.primary }]}>
-            About Angelia
-          </Text>
-        </Pressable>
-        <Text style={[styles.footerText, { color: theme.mutedForeground }]}>
-          © 2025 Angelia — Built with ❤️ for families
-        </Text>
-      </View>
-    </ScrollView>
+          </Pressable>
+        </Animated.View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    padding: 20,
-    paddingTop: 60,
+  fullScreen: {
+    flex: 1,
   },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  splashCenter: {
+    flex: 1,
     alignItems: 'center',
-    marginBottom: 32,
-  },
-  hero: {
-    alignItems: 'center',
+    justifyContent: 'center',
     gap: 12,
+    paddingHorizontal: 40,
   },
   heroTitle: {
-    fontSize: 36,
+    fontSize: 40,
     fontWeight: '800',
     letterSpacing: -1,
   },
@@ -166,50 +200,46 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     lineHeight: 24,
-    maxWidth: 300,
   },
-  ctaRow: {
-    flexDirection: 'row',
+  actionsContainer: {
+    paddingHorizontal: 24,
+    paddingBottom: 16,
     gap: 12,
-    marginTop: 8,
   },
-  section: {
-    gap: 16,
+  actionButton: {
+    width: '100%',
   },
-  sectionTitle: {
-    fontSize: 22,
+  demoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+  },
+  demoEmoji: {
+    fontSize: 28,
+  },
+  demoTextContainer: {
+    flex: 1,
+  },
+  demoTitle: {
+    fontSize: 15,
     fontWeight: '700',
-    textAlign: 'center',
   },
-  useCaseCard: {
-    alignItems: 'center',
-    padding: 20,
-  },
-  useCaseEmoji: {
-    fontSize: 36,
-    marginBottom: 8,
-  },
-  useCaseTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  useCaseDesc: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  footer: {
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 32,
-    paddingBottom: 40,
-  },
-  footerLink: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  footerText: {
+  demoDesc: {
     fontSize: 12,
+    opacity: 0.8,
+    marginTop: 2,
+  },
+  learnMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+  },
+  learnMoreLink: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
