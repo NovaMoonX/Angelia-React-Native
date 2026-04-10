@@ -89,6 +89,8 @@ export default function HomeScreen() {
   const actionsTranslateY = useRef(new Animated.Value(40)).current;
 
   useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+
     // Splash entrance animation
     Animated.sequence([
       Animated.parallel([
@@ -116,7 +118,7 @@ export default function HomeScreen() {
       }),
     ]).start(() => {
       // After splash animations, transition to actions
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         setScreen('actions');
         Animated.parallel([
           Animated.timing(actionsOpacity, {
@@ -133,6 +135,10 @@ export default function HomeScreen() {
         ]).start();
       }, SPLASH_TO_ACTIONS_DELAY);
     });
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   const handleGetStarted = () => {
@@ -191,15 +197,13 @@ export default function HomeScreen() {
             </Card>
           ))}
 
-          <Separator style={{ marginVertical: 24 }} />
-
-          {/* What makes Angelia different */}
+          <Separator style={styles.sectionSeparator} />
           <Text style={[styles.sectionTitle, { color: theme.foreground }]}>
             How is Angelia different?
           </Text>
           <ComparisonTable />
 
-          <Separator style={{ marginVertical: 24 }} />
+          <Separator style={styles.sectionSeparator} />
 
           {/* About sections */}
           <Text style={[styles.sectionTitle, { color: theme.foreground }]}>
@@ -292,11 +296,7 @@ export default function HomeScreen() {
           ]}
         >
           <Button onPress={handleGetStarted} size="lg" style={styles.actionButton}>
-            Get Started
-          </Button>
-
-          <Button variant="outline" onPress={() => router.push('/auth')} size="lg" style={styles.actionButton}>
-            Sign In
+            Sign In / Sign Up
           </Button>
 
           <Pressable onPress={handleTryDemo} style={[styles.demoButton, { backgroundColor: theme.secondary }]}>
@@ -434,6 +434,9 @@ const styles = StyleSheet.create({
   archetypeBenefit: {
     fontSize: 13,
     lineHeight: 20,
+  },
+  sectionSeparator: {
+    marginVertical: 24,
   },
   sectionTitle: {
     fontSize: 20,
