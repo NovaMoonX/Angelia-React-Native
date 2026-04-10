@@ -42,14 +42,12 @@ import {
   unsubscribeFromChannel as firestoreUnsubscribe,
   refreshChannelInviteCode as firestoreRefreshInvite,
   removeSubscriberFromChannel as firestoreRemoveSubscriber,
-  respondToJoinRequest as firestoreRespondToJoinRequest,
 } from '@/services/firebase/firestore';
 import {
   addChannel,
   updateChannel,
   removeChannel,
 } from '@/store/slices/channelsSlice';
-import { updateJoinRequest } from '@/store/slices/invitesSlice';
 import { generateId } from '@/utils/generateId';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 
@@ -65,7 +63,6 @@ export default function AccountScreen() {
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const channels = useAppSelector((state) => state.channels.items);
   const usersMap = useAppSelector(selectAllUsersMapById);
-  const incomingRequests = useAppSelector((state) => state.invites.incoming);
   const outgoingRequests = useAppSelector((state) => state.invites.outgoing);
 
   const myChannels = useAppSelector((state) =>
@@ -109,11 +106,6 @@ export default function AccountScreen() {
   const [removingSubscriberId, setRemovingSubscriberId] = useState<
     string | null
   >(null);
-
-  const pendingIncoming = useMemo(
-    () => incomingRequests.filter((r) => r.status === 'pending'),
-    [incomingRequests]
-  );
 
   const handleSaveProfile = async () => {
     if (!currentUser) return;
@@ -236,34 +228,6 @@ export default function AccountScreen() {
     }
   };
 
-  const handleRespondToRequest = async (
-    requestId: string,
-    accept: boolean
-  ) => {
-    try {
-      if (isDemo) {
-        const request = incomingRequests.find((r) => r.id === requestId);
-        if (request) {
-          dispatch(
-            updateJoinRequest({
-              ...request,
-              status: accept ? 'accepted' : 'declined',
-              respondedAt: Date.now(),
-            })
-          );
-        }
-      } else {
-        await firestoreRespondToJoinRequest(requestId, accept);
-      }
-      addToast({
-        type: 'success',
-        title: accept ? 'Request accepted' : 'Request declined',
-      });
-    } catch {
-      addToast({ type: 'error', title: 'Failed to respond to request' });
-    }
-  };
-
   const handleSignOut = async () => {
     try {
       if (isDemo) {
@@ -301,7 +265,7 @@ export default function AccountScreen() {
         keyboardShouldPersistTaps="handled"
       >
       <Tabs defaultValue="account">
-        <TabsList>
+        <TabsList style={{ marginBottom: 16 }}>
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="my-channels">My Channels</TabsTrigger>
           <TabsTrigger value="subscribed">Subscribed</TabsTrigger>
@@ -400,83 +364,6 @@ export default function AccountScreen() {
             )}
           </Card>
 
-          {/* Notifications */}
-          {pendingIncoming.length > 0 && (
-            <>
-              <Separator style={{ marginVertical: 16 }} />
-              <Text
-                style={[styles.sectionTitle, { color: theme.foreground }]}
-              >
-                Channel Join Requests ({pendingIncoming.length})
-              </Text>
-              {pendingIncoming.map((req) => {
-                const requester = usersMap[req.requesterId];
-                const ch = channels.find((c) => c.id === req.channelId);
-                return (
-                  <Card key={req.id} style={styles.requestCard}>
-                    <View style={styles.requestHeader}>
-                      <Avatar
-                        preset={requester?.avatar || 'moon'}
-                        size="sm"
-                      />
-                      <View style={{ flex: 1, marginLeft: 8 }}>
-                        <Text
-                          style={[
-                            styles.requestName,
-                            { color: theme.foreground },
-                          ]}
-                        >
-                          {requester?.firstName || 'Unknown'}{' '}
-                          {requester?.lastName || 'User'}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.requestChannel,
-                            { color: theme.mutedForeground },
-                          ]}
-                        >
-                          wants to join{' '}
-                          <Text style={{ fontWeight: '600' }}>
-                            {ch?.name || 'channel'}
-                          </Text>
-                        </Text>
-                      </View>
-                    </View>
-                    {req.message ? (
-                      <Text
-                        style={[
-                          styles.requestMessage,
-                          { color: theme.foreground },
-                        ]}
-                      >
-                        "{req.message}"
-                      </Text>
-                    ) : null}
-                    <View style={styles.requestActions}>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onPress={() =>
-                          handleRespondToRequest(req.id, false)
-                        }
-                      >
-                        Decline
-                      </Button>
-                      <Button
-                        size="sm"
-                        onPress={() =>
-                          handleRespondToRequest(req.id, true)
-                        }
-                      >
-                        Accept
-                      </Button>
-                    </View>
-                  </Card>
-                );
-              })}
-            </>
-          )}
-
           {/* Sign Out */}
           <Separator style={{ marginVertical: 16 }} />
           <View style={styles.bottomSection}>
@@ -500,8 +387,7 @@ export default function AccountScreen() {
               }}
               style={{ marginBottom: 16 }}
             >
-              + New Channel ({myChannels.filter((c) => !c.isDaily).length}/
-              {CUSTOM_CHANNEL_LIMIT})
+              {`+ New Channel (${myChannels.filter((c) => !c.isDaily).length}/${CUSTOM_CHANNEL_LIMIT})`}
             </Button>
           )}
 
@@ -641,7 +527,8 @@ export default function AccountScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 8,
     paddingBottom: 40,
   },
   centered: {
@@ -691,37 +578,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  requestCard: {
-    marginBottom: 12,
-    padding: 16,
-  },
-  requestHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  requestName: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  requestChannel: {
-    fontSize: 13,
-  },
-  requestMessage: {
-    fontSize: 13,
-    fontStyle: 'italic',
-    marginBottom: 8,
-  },
-  requestActions: {
-    flexDirection: 'row',
-    gap: 8,
-    justifyContent: 'flex-end',
   },
   bottomSection: {
     gap: 8,

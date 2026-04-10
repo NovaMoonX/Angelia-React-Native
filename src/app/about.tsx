@@ -29,28 +29,45 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const ARCHETYPES = [
   {
     emoji: '👴',
-    title: 'The Remote Elder',
-    desc: 'Grandparents who want daily connection without tech friction.',
+    title: 'Grandparents Far Away',
+    desc: 'They want to see the grandkids grow up — without learning a new app every week.',
   },
   {
     emoji: '💼',
-    title: 'The Global Professional',
-    desc: 'Busy individuals catching up on family during downtime.',
+    title: 'The Busy Professional',
+    desc: 'Always on the go, catching up on family stuff during a lunch break or commute.',
   },
   {
     emoji: '👨‍👩‍👧',
-    title: 'The Saturated Parent',
-    desc: 'Parents who share moments without performance pressure.',
+    title: 'The Busy Parent',
+    desc: 'Wants to share moments with family without the pressure of performing for strangers.',
   },
   {
     emoji: '🌍',
-    title: 'The Diaspora Connector',
-    desc: 'Families spread across time zones, staying in the loop.',
+    title: 'Family Across the World',
+    desc: 'Different time zones, different schedules — but still wanting to stay connected.',
   },
 ];
 
-const STEPS: Step[] = ['intro', 'problem', 'solution', 'personas', 'compare', 'start'];
-type Step = 'intro' | 'problem' | 'solution' | 'personas' | 'compare' | 'start';
+const STEPS: Step[] = [
+  'intro',
+  'problem',
+  'solution',
+  'personas',
+  'vs-social',
+  'vs-groupchat',
+  'compare',
+  'start',
+];
+type Step =
+  | 'intro'
+  | 'problem'
+  | 'solution'
+  | 'personas'
+  | 'vs-social'
+  | 'vs-groupchat'
+  | 'compare'
+  | 'start';
 
 /** Approximate height reserved for navigation chrome (dots + arrows + step counter). */
 const NAV_CHROME_HEIGHT = 100;
@@ -115,15 +132,11 @@ export default function AboutScreen() {
                   What is Angelia?
                 </Text>
                 <Text style={[styles.stepBody, { color: theme.mutedForeground }]}>
-                  Angelia is a private, family-first communication app built around
-                  channels — not group chats.
+                  A private space for your family and close friends to share
+                  what matters — updates, photos, milestones 📸
                 </Text>
                 <Text style={[styles.stepBody, { color: theme.mutedForeground }]}>
-                  Share life updates, photos, and milestones with the people who
-                  matter most. No algorithms, no followers, no noise.
-                </Text>
-                <Text style={[styles.stepBody, { color: theme.mutedForeground }]}>
-                  Just intentional connection with your close circle.
+                  No algorithms. No followers. No noise. Just your people. 💛
                 </Text>
                 <View style={styles.highlightBox}>
                   <Text style={[styles.highlightText, { color: theme.primary }]}>
@@ -141,30 +154,26 @@ export default function AboutScreen() {
                 contentContainerStyle={[styles.stepContent, { minHeight: contentHeight }]}
                 showsVerticalScrollIndicator={false}
               >
-                <Text style={styles.stepEmoji}>🌪️</Text>
+                <Text style={styles.stepEmoji}>😩</Text>
                 <Text style={[styles.stepTitle, { color: theme.foreground }]}>
-                  The Problem
+                  Sound familiar?
                 </Text>
                 <Card style={{ ...styles.problemCard, borderLeftColor: theme.destructive }}>
-                  <Text style={[styles.problemTitle, { color: theme.foreground }]}>
-                    The Connectivity Paradox
-                  </Text>
                   <Text style={[styles.problemBody, { color: theme.mutedForeground }]}>
-                    We have more ways to communicate than ever before, yet meaningful
-                    connection keeps slipping through the noise. Group chats overflow.
-                    Notifications pile up. Our most important relationships get lost in
-                    the digital storm.
+                    📱 You have a dozen group chats and somehow still miss
+                    your cousin's baby announcement.
                   </Text>
                 </Card>
                 <Card style={{ ...styles.problemCard, borderLeftColor: theme.destructive }}>
-                  <Text style={[styles.problemTitle, { color: theme.foreground }]}>
-                    Synchronous Noise
-                  </Text>
                   <Text style={[styles.problemBody, { color: theme.mutedForeground }]}>
-                    Modern messaging assumes everyone is available all the time. This
-                    "always-on" expectation creates anxiety and guilt. Conversations get
-                    buried. Context gets lost. People stop sharing because it feels like
-                    shouting into a void.
+                    🔔 Notifications pile up. Important stuff gets buried
+                    under memes and "who's bringing what" messages.
+                  </Text>
+                </Card>
+                <Card style={{ ...styles.problemCard, borderLeftColor: theme.destructive }}>
+                  <Text style={[styles.problemBody, { color: theme.mutedForeground }]}>
+                    😓 Sharing on social media feels like performing.
+                    Group chats feel like shouting into the void.
                   </Text>
                 </Card>
               </ScrollView>
@@ -185,33 +194,31 @@ export default function AboutScreen() {
                 <Card style={styles.solutionCard}>
                   <Text style={styles.solutionIcon}>📢</Text>
                   <Text style={[styles.solutionTitle, { color: theme.foreground }]}>
-                    Channel-Based Sharing
+                    Channels, Not Chat Rooms
                   </Text>
                   <Text style={[styles.solutionBody, { color: theme.mutedForeground }]}>
-                    Share through channels, not chat rooms. Curate updates by topic —
-                    "Kids' Milestones," "Travel Photos," "Daily Life." Subscribers choose
-                    what to follow.
+                    Organize updates by topic — "Kids' Milestones," "Travel
+                    Photos," "Daily Life." People pick what they want to follow.
                   </Text>
                 </Card>
                 <Card style={styles.solutionCard}>
                   <Text style={styles.solutionIcon}>🕰️</Text>
                   <Text style={[styles.solutionTitle, { color: theme.foreground }]}>
-                    Asynchronous by Design
+                    Read It When You Can
                   </Text>
                   <Text style={[styles.solutionBody, { color: theme.mutedForeground }]}>
-                    No pressure to respond immediately — or at all. Read at your own
-                    pace. Share when you're ready. Life doesn't wait for read receipts.
+                    No pressure to reply right away (or at all). Check in when
+                    it works for you. Life doesn't wait for read receipts.
                   </Text>
                 </Card>
                 <Card style={styles.solutionCard}>
                   <Text style={styles.solutionIcon}>⏳</Text>
                   <Text style={[styles.solutionTitle, { color: theme.foreground }]}>
-                    The 180-Day Rule
+                    Posts Expire After 6 Months
                   </Text>
                   <Text style={[styles.solutionBody, { color: theme.mutedForeground }]}>
-                    Every post expires after 6 months. This encourages authentic,
-                    in-the-moment sharing. Life moves forward — your communication
-                    should too.
+                    This keeps things fresh and real. Share in the moment
+                    without worrying about a permanent record.
                   </Text>
                 </Card>
               </ScrollView>
@@ -227,10 +234,10 @@ export default function AboutScreen() {
               >
                 <Text style={styles.stepEmoji}>👥</Text>
                 <Text style={[styles.stepTitle, { color: theme.foreground }]}>
-                  Sound Familiar?
+                  Who It's For
                 </Text>
                 <Text style={[styles.stepSubtitle, { color: theme.mutedForeground }]}>
-                  Angelia is for people like you — and your close circle.
+                  If any of these sound like you (or someone you love) 👇
                 </Text>
                 {ARCHETYPES.map((persona) => (
                   <View key={persona.title} style={styles.personaRow}>
@@ -249,6 +256,74 @@ export default function AboutScreen() {
             </View>
           );
 
+        case 'vs-social':
+          return (
+            <View style={[styles.stepContainer, { width: SCREEN_WIDTH }]}>
+              <ScrollView
+                contentContainerStyle={[styles.stepContent, { minHeight: contentHeight }]}
+                showsVerticalScrollIndicator={false}
+              >
+                <Text style={styles.stepEmoji}>📣</Text>
+                <Text style={[styles.stepTitle, { color: theme.foreground }]}>
+                  Not Social Media
+                </Text>
+                <Text style={[styles.stepBody, { color: theme.mutedForeground }]}>
+                  Social media is built around followers, likes, and algorithms
+                  that decide what you see. 🎰
+                </Text>
+                <Card style={styles.vsCard}>
+                  <Text style={[styles.vsPoint, { color: theme.mutedForeground }]}>
+                    ❌  Algorithms decide who sees your post
+                  </Text>
+                  <Text style={[styles.vsPoint, { color: theme.mutedForeground }]}>
+                    ❌  Strangers mixed in with family
+                  </Text>
+                  <Text style={[styles.vsPoint, { color: theme.mutedForeground }]}>
+                    ❌  Pressure to perform and get engagement
+                  </Text>
+                </Card>
+                <Text style={[styles.stepBody, { color: theme.mutedForeground }]}>
+                  With Angelia, your updates go directly to the people who
+                  care — no middleman. ✅
+                </Text>
+              </ScrollView>
+            </View>
+          );
+
+        case 'vs-groupchat':
+          return (
+            <View style={[styles.stepContainer, { width: SCREEN_WIDTH }]}>
+              <ScrollView
+                contentContainerStyle={[styles.stepContent, { minHeight: contentHeight }]}
+                showsVerticalScrollIndicator={false}
+              >
+                <Text style={styles.stepEmoji}>💬</Text>
+                <Text style={[styles.stepTitle, { color: theme.foreground }]}>
+                  Not Another Group Chat
+                </Text>
+                <Text style={[styles.stepBody, { color: theme.mutedForeground }]}>
+                  Group chats are great for quick coordination, but terrible
+                  for meaningful updates. 🫠
+                </Text>
+                <Card style={styles.vsCard}>
+                  <Text style={[styles.vsPoint, { color: theme.mutedForeground }]}>
+                    ❌  Important updates get buried in chatter
+                  </Text>
+                  <Text style={[styles.vsPoint, { color: theme.mutedForeground }]}>
+                    ❌  Everyone's always expected to reply
+                  </Text>
+                  <Text style={[styles.vsPoint, { color: theme.mutedForeground }]}>
+                    ❌  Can't organize by topic
+                  </Text>
+                </Card>
+                <Text style={[styles.stepBody, { color: theme.mutedForeground }]}>
+                  Angelia gives you organized, topic-based channels with zero
+                  reply pressure. 💆
+                </Text>
+              </ScrollView>
+            </View>
+          );
+
         case 'compare':
           return (
             <View style={[styles.stepContainer, { width: SCREEN_WIDTH }]}>
@@ -258,10 +333,10 @@ export default function AboutScreen() {
               >
                 <Text style={styles.stepEmoji}>⚖️</Text>
                 <Text style={[styles.stepTitle, { color: theme.foreground }]}>
-                  How It Compares
+                  The Full Picture
                 </Text>
                 <Text style={[styles.stepSubtitle, { color: theme.mutedForeground }]}>
-                  See where Angelia fills the gap.
+                  Here's how it all stacks up 👇
                 </Text>
                 <ComparisonTable />
               </ScrollView>
@@ -300,7 +375,7 @@ export default function AboutScreen() {
                   </Pressable>
                 </View>
                 <Text style={[styles.footerText, { color: theme.mutedForeground }]}>
-                  Angelia — named after the Greek spirit of messages.
+                  Angelia — named after the Greek spirit of messages ✨
                 </Text>
               </View>
             </View>
@@ -314,8 +389,8 @@ export default function AboutScreen() {
   );
 
   return (
-    <View style={[styles.screen, { backgroundColor: theme.background }]}>
-      {/* Page dots + navigation */}
+    <View style={[styles.screen, { backgroundColor: theme.background, paddingTop: insets.top }]}>
+      {/* Close button + Page dots + navigation */}
       <View style={styles.navRow}>
         <Pressable
           onPress={goPrev}
@@ -368,10 +443,15 @@ export default function AboutScreen() {
         })}
       />
 
-      {/* Step counter */}
-      <Text style={[styles.stepCounter, { color: theme.mutedForeground }]}>
-        {currentIndex + 1} of {STEPS.length}
-      </Text>
+      {/* Step counter + close */}
+      <View style={styles.bottomBar}>
+        <Text style={[styles.stepCounter, { color: theme.mutedForeground }]}>
+          {currentIndex + 1} of {STEPS.length}
+        </Text>
+        <Pressable onPress={() => router.back()} style={styles.closeLink}>
+          <Text style={[styles.closeLinkText, { color: theme.primary }]}>Close</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -403,10 +483,22 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
+  bottomBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 12,
+  },
   stepCounter: {
-    textAlign: 'center',
     fontSize: 12,
-    paddingBottom: 8,
+  },
+  closeLink: {
+    padding: 4,
+  },
+  closeLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   stepContainer: {
     flex: 1,
@@ -454,14 +546,9 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     width: '100%',
   },
-  problemTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
   problemBody: {
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 14,
+    lineHeight: 22,
   },
   // Solution step
   solutionCard: {
@@ -505,6 +592,16 @@ const styles = StyleSheet.create({
   personaDesc: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  // VS steps
+  vsCard: {
+    padding: 16,
+    width: '100%',
+    gap: 10,
+  },
+  vsPoint: {
+    fontSize: 14,
+    lineHeight: 22,
   },
   // CTA step
   ctaStep: {

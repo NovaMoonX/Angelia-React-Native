@@ -368,7 +368,9 @@ export default function PostDetailScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 20,
   },
   centered: {
     flex: 1,

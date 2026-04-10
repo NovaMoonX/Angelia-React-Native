@@ -60,6 +60,7 @@ export default function ProtectedLayout() {
             options={{ title: 'Post' }}
           />
           <Stack.Screen name="account" options={{ title: 'Account' }} />
+          <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
           <Stack.Screen
             name="invite/[channelId]/[inviteCode]"
             options={{ title: 'Join Channel' }}

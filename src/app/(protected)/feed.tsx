@@ -95,7 +95,7 @@ export default function FeedScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header Bar */}
-      <View style={[styles.headerBar, { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.headerBar, { paddingTop: insets.top + 2 }]}>
         <Pressable onPress={() => router.push('/(protected)/account')}>
           <Avatar
             preset={currentUser?.avatar || 'moon'}
@@ -105,7 +105,7 @@ export default function FeedScreen() {
         <Text style={[styles.headerTitle, { color: theme.foreground }]}>
           Feed
         </Text>
-        <Pressable onPress={() => router.push('/(protected)/account')}>
+        <Pressable onPress={() => router.push('/(protected)/notifications')}>
           <BellIcon hasNotification={hasIncoming} />
         </Pressable>
       </View>
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 6,
   },
   headerTitle: {
     fontSize: 20,
