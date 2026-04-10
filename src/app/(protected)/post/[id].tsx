@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -31,7 +30,7 @@ import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName } from '@/lib/post/post.utils';
 import { isValidEmoji, getRandomPhrase } from '@/lib/post/post.constants';
 import { COMMON_EMOJIS } from '@/models/constants';
-import { KEYBOARD_VERTICAL_OFFSET } from '@/constants/layout';
+import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import {
   updateReactionsOptimistic,
   removeReactionOptimistic,
@@ -184,7 +183,7 @@ export default function PostDetailScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
     >
       <ScrollView

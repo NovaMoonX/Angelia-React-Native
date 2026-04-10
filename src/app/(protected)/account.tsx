@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
+  KeyboardAvoidingView,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -50,6 +51,7 @@ import {
 } from '@/store/slices/channelsSlice';
 import { updateJoinRequest } from '@/store/slices/invitesSlice';
 import { generateId } from '@/utils/generateId';
+import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 
 export default function AccountScreen() {
   const router = useRouter();
@@ -288,10 +290,16 @@ export default function AccountScreen() {
     (currentUser.customChannelCount || 0) < CUSTOM_CHANNEL_LIMIT;
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.background }}
-      contentContainerStyle={styles.content}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={KEYBOARD_BEHAVIOR}
+      keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
     >
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.background }}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
       <Tabs defaultValue="account">
         <TabsList>
           <TabsTrigger value="account">Account</TabsTrigger>
@@ -627,6 +635,7 @@ export default function AccountScreen() {
         />
       )}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

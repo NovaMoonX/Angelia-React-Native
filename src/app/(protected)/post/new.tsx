@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -26,7 +25,7 @@ import { addPost } from '@/store/slices/postsSlice';
 import { createPost } from '@/services/firebase/firestore';
 import { uploadPostMedia } from '@/services/firebase/storage';
 import { generateId } from '@/utils/generateId';
-import { KEYBOARD_VERTICAL_OFFSET } from '@/constants/layout';
+import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import type { Post } from '@/models/types';
 
 export default function PostCreateScreen() {
@@ -118,7 +117,7 @@ export default function PostCreateScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
     >
       <ScrollView
