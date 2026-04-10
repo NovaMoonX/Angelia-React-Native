@@ -38,7 +38,7 @@ export default function HomeScreen() {
   const actionsTranslateY = useRef(new Animated.Value(40)).current;
 
   useEffect(() => {
-    let timeoutId: ReturnType<typeof setTimeout>;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     // Splash entrance animation
     Animated.sequence([

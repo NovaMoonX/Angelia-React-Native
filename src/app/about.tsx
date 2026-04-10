@@ -49,8 +49,11 @@ const ARCHETYPES = [
   },
 ];
 
-const STEPS = ['intro', 'problem', 'solution', 'personas', 'compare', 'start'] as const;
-type Step = typeof STEPS[number];
+const STEPS: Step[] = ['intro', 'problem', 'solution', 'personas', 'compare', 'start'];
+type Step = 'intro' | 'problem' | 'solution' | 'personas' | 'compare' | 'start';
+
+/** Approximate height reserved for navigation chrome (dots + arrows + step counter). */
+const NAV_CHROME_HEIGHT = 100;
 
 export default function AboutScreen() {
   const { theme } = useTheme();
@@ -95,7 +98,7 @@ export default function AboutScreen() {
 
   const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
-  const contentHeight = SCREEN_HEIGHT - insets.top - insets.bottom - 100; // 100 for header + dots + nav
+  const contentHeight = SCREEN_HEIGHT - insets.top - insets.bottom - NAV_CHROME_HEIGHT;
 
   const renderStep = useCallback(
     ({ item }: { item: Step }) => {
@@ -350,7 +353,7 @@ export default function AboutScreen() {
       {/* Horizontal pager */}
       <FlatList
         ref={flatListRef}
-        data={STEPS as unknown as Step[]}
+        data={STEPS}
         keyExtractor={(item) => item}
         renderItem={renderStep}
         horizontal
