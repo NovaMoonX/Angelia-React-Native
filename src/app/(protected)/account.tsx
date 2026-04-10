@@ -77,6 +77,10 @@ export default function AccountScreen() {
       ),
     [channels, currentUser?.id]
   );
+  const customChannelCount = useMemo(
+    () => myChannels.filter((c) => !c.isDaily).length,
+    [myChannels]
+  );
 
   // Profile editing state
   const [editingProfile, setEditingProfile] = useState(false);
@@ -387,7 +391,7 @@ export default function AccountScreen() {
               }}
               style={{ marginBottom: 16 }}
             >
-              {`+ New Channel (${myChannels.filter((c) => !c.isDaily).length}/${CUSTOM_CHANNEL_LIMIT})`}
+              {`+ New Channel (${customChannelCount}/${CUSTOM_CHANNEL_LIMIT})`}
             </Button>
           )}
 

@@ -80,14 +80,14 @@ export default function AboutScreen() {
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const handleTryDemo = () => {
+  const handleTryDemo = useCallback(() => {
     dispatch(enterDemoMode());
     dispatch(loadDemoUsers(DEMO_DATA.users));
     dispatch(loadDemoChannels(DEMO_DATA.channels));
     dispatch(loadDemoPosts(DEMO_DATA.posts));
     dispatch(loadDemoInvites(DEMO_DATA.invites));
     router.replace('/(protected)/feed');
-  };
+  }, [dispatch, router]);
 
   const goToStep = useCallback((index: number) => {
     flatListRef.current?.scrollToIndex({ index, animated: true });
