@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
-import { LayoutChangeEvent, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 
 interface TabsContextType {
