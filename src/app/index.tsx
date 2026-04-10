@@ -24,6 +24,8 @@ import { loadDemoUsers } from '@/store/slices/usersSlice';
 import { loadDemoInvites } from '@/store/slices/invitesSlice';
 import { DEMO_DATA } from '@/lib/demoData';
 
+const SPLASH_TO_ACTIONS_DELAY = 600;
+
 const ARCHETYPES = [
   {
     emoji: '👴',
@@ -129,7 +131,7 @@ export default function HomeScreen() {
             useNativeDriver: true,
           }),
         ]).start();
-      }, 600);
+      }, SPLASH_TO_ACTIONS_DELAY);
     });
   }, []);
 

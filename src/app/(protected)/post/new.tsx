@@ -26,6 +26,7 @@ import { addPost } from '@/store/slices/postsSlice';
 import { createPost } from '@/services/firebase/firestore';
 import { uploadPostMedia } from '@/services/firebase/storage';
 import { generateId } from '@/utils/generateId';
+import { KEYBOARD_VERTICAL_OFFSET } from '@/constants/layout';
 import type { Post } from '@/models/types';
 
 export default function PostCreateScreen() {
@@ -118,7 +119,7 @@ export default function PostCreateScreen() {
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
     >
       <ScrollView
         style={{ flex: 1, backgroundColor: theme.background }}

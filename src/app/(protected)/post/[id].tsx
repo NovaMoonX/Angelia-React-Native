@@ -31,6 +31,7 @@ import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName } from '@/lib/post/post.utils';
 import { isValidEmoji, getRandomPhrase } from '@/lib/post/post.constants';
 import { COMMON_EMOJIS } from '@/models/constants';
+import { KEYBOARD_VERTICAL_OFFSET } from '@/constants/layout';
 import {
   updateReactionsOptimistic,
   removeReactionOptimistic,
@@ -184,7 +185,7 @@ export default function PostDetailScreen() {
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
     >
       <ScrollView
         style={{ flex: 1, backgroundColor: theme.background }}
