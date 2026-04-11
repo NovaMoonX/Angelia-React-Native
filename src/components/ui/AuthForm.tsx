@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { Button } from './Button';
 import { Input } from './Input';
 import { Label } from './Label';
@@ -21,6 +22,7 @@ interface AuthFormProps {
 
 export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoogleSignIn }: AuthFormProps) {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [selectedMethod, setSelectedMethod] = useState<'email' | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -74,81 +76,109 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
     }
   };
 
+  const handleBackToMethods = () => {
+    setSelectedMethod(null);
+    setError('');
+  };
+
+  // ---- Method picker (initial view) ----
+  if (!selectedMethod) {
+    return (
+      <View style={styles.container}>
+        <Text style={[styles.heading, { color: theme.foreground }]}>
+          Get Started
+        </Text>
+
+        {methods.includes('google') && onGoogleSignIn && (
+          <Button
+            variant="outline"
+            onPress={handleGoogleSignIn}
+            loading={isGoogleLoading}
+            disabled={isGoogleLoading}
+          >
+            Continue with Google
+          </Button>
+        )}
+
+        {methods.includes('email') && (
+          <Button
+            variant="outline"
+            onPress={() => setSelectedMethod('email')}
+            disabled={isGoogleLoading}
+          >
+            Continue with Email
+          </Button>
+        )}
+
+        {error ? (
+          <Text style={styles.error}>{error}</Text>
+        ) : null}
+      </View>
+    );
+  }
+
+  // ---- Email form (after selecting "Continue with Email") ----
   return (
     <View style={styles.container}>
+      <Pressable onPress={handleBackToMethods} style={styles.backRow}>
+        <Feather name="arrow-left" size={18} color={theme.primary} />
+        <Text style={[styles.backText, { color: theme.primary }]}>
+          All sign-in options
+        </Text>
+      </Pressable>
+
       <Text style={[styles.heading, { color: theme.foreground }]}>
         {mode === 'login' ? 'Welcome Back' : 'Create Account'}
       </Text>
 
-      {methods.includes('google') && onGoogleSignIn && (
-        <Button
-          variant="outline"
-          onPress={handleGoogleSignIn}
-          loading={isGoogleLoading}
-          disabled={isGoogleLoading || isSubmitting}
-        >
-          Continue with Google
-        </Button>
-      )}
-
-      {methods.includes('google') && methods.includes('email') && (
-        <View style={styles.dividerRow}>
-          <Separator style={styles.dividerLine} />
-          <Text style={[styles.dividerText, { color: theme.mutedForeground }]}>or</Text>
-          <Separator style={styles.dividerLine} />
+      <View style={styles.form}>
+        <View>
+          <Label>Email</Label>
+          <Input
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+          />
         </View>
-      )}
 
-      {methods.includes('email') && (
-        <View style={styles.form}>
-          <View>
-            <Label>Email</Label>
-            <Input
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@example.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-            />
-          </View>
+        <View>
+          <Label>Password</Label>
+          <Input
+            value={password}
+            onChangeText={setPassword}
+            placeholder="••••••••"
+            secureTextEntry
+            autoComplete="password"
+          />
+        </View>
 
+        {mode === 'signup' && (
           <View>
-            <Label>Password</Label>
+            <Label>Confirm Password</Label>
             <Input
-              value={password}
-              onChangeText={setPassword}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
               placeholder="••••••••"
               secureTextEntry
-              autoComplete="password"
             />
           </View>
+        )}
 
-          {mode === 'signup' && (
-            <View>
-              <Label>Confirm Password</Label>
-              <Input
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="••••••••"
-                secureTextEntry
-              />
-            </View>
-          )}
+        {error ? (
+          <Text style={styles.error}>{error}</Text>
+        ) : null}
 
-          {error ? (
-            <Text style={styles.error}>{error}</Text>
-          ) : null}
-
-          <Button
-            onPress={handleSubmit}
-            loading={isSubmitting}
-            disabled={isSubmitting || isGoogleLoading}
-          >
-            {mode === 'login' ? 'Sign In' : 'Sign Up'}
-          </Button>
-        </View>
-      )}
+        <Button
+          onPress={handleSubmit}
+          loading={isSubmitting}
+          disabled={isSubmitting}
+        >
+          {mode === 'login' ? 'Sign In' : 'Sign Up'}
+        </Button>
+      </View>
 
       <View style={styles.toggleRow}>
         <Text style={{ color: theme.mutedForeground }}>
@@ -185,16 +215,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
   },
-  dividerRow: {
+  backRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 6,
   },
-  dividerLine: {
-    flex: 1,
-  },
-  dividerText: {
-    fontSize: 13,
-    fontWeight: '500',
+  backText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
