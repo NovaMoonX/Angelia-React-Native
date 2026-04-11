@@ -5,16 +5,23 @@ import { Button } from '@/components/ui/Button';
 import { useAppSelector } from '@/store/hooks';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
+import { useAuth } from '@/hooks/useAuth';
 
 export function DemoModeBanner() {
 	const isDemo = useAppSelector((state) => state.demo.isActive);
 	const router = useRouter();
 	const insets = useSafeAreaInsets();
 	const { resolvedTheme } = useTheme();
+	const { exitDemo } = useAuth();
 
 	if (!isDemo) return null;
 
 	const isDark = resolvedTheme === 'dark';
+
+	const handleExitDemo = async () => {
+		await exitDemo();
+		router.replace('/');
+	};
 
 	return (
 		<View style={[styles.banner, { paddingTop: insets.top + 4 }, isDark ? styles.bannerDark : styles.bannerLight]}>
@@ -22,7 +29,7 @@ export function DemoModeBanner() {
 			<Button
 				variant='outline'
 				size='sm'
-				onPress={() => router.replace('/')}
+				onPress={handleExitDemo}
 				style={
 					isDark
 						? {

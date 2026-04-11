@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Button } from './Button';
 import { Input } from './Input';
 import { Label } from './Label';
+import { Separator } from './Separator';
 import { useTheme } from '@/hooks/useTheme';
 
 export type AuthFormOnEmailSubmit = (params: {
@@ -15,15 +16,17 @@ interface AuthFormProps {
   action: 'both';
   onActionChange: (newMode: 'login' | 'sign up') => void;
   onEmailSubmit: AuthFormOnEmailSubmit;
+  onGoogleSignIn?: () => Promise<{ error?: { message: string } }>;
 }
 
-export function AuthForm({ methods, action, onActionChange, onEmailSubmit }: AuthFormProps) {
+export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoogleSignIn }: AuthFormProps) {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const { theme } = useTheme();
 
   const handleToggle = () => {
@@ -60,11 +63,41 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit }: Aut
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    if (!onGoogleSignIn) return;
+    setError('');
+    setIsGoogleLoading(true);
+    const result = await onGoogleSignIn();
+    setIsGoogleLoading(false);
+    if (result.error) {
+      setError(result.error.message);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={[styles.heading, { color: theme.foreground }]}>
         {mode === 'login' ? 'Welcome Back' : 'Create Account'}
       </Text>
+
+      {methods.includes('google') && onGoogleSignIn && (
+        <Button
+          variant="outline"
+          onPress={handleGoogleSignIn}
+          loading={isGoogleLoading}
+          disabled={isGoogleLoading || isSubmitting}
+        >
+          Continue with Google
+        </Button>
+      )}
+
+      {methods.includes('google') && methods.includes('email') && (
+        <View style={styles.dividerRow}>
+          <Separator style={styles.dividerLine} />
+          <Text style={[styles.dividerText, { color: theme.mutedForeground }]}>or</Text>
+          <Separator style={styles.dividerLine} />
+        </View>
+      )}
 
       {methods.includes('email') && (
         <View style={styles.form}>
@@ -110,7 +143,7 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit }: Aut
           <Button
             onPress={handleSubmit}
             loading={isSubmitting}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isGoogleLoading}
           >
             {mode === 'login' ? 'Sign In' : 'Sign Up'}
           </Button>
@@ -151,5 +184,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+  },
+  dividerText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
 });

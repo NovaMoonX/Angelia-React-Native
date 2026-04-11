@@ -1,5 +1,4 @@
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { storage } from './config';
+import storage from '@react-native-firebase/storage';
 
 export async function uploadPostMedia(
   postId: string,
@@ -7,23 +6,10 @@ export async function uploadPostMedia(
   fileName: string,
   mimeType: string
 ): Promise<string> {
-  const storageRef = ref(storage, `posts/${postId}/${fileName}`);
+  const storageRef = storage().ref(`posts/${postId}/${fileName}`);
   const response = await fetch(fileUri);
   const blob = await response.blob();
 
-  const uploadTask = uploadBytesResumable(storageRef, blob, {
-    contentType: mimeType,
-  });
-
-  return new Promise((resolve, reject) => {
-    uploadTask.on(
-      'state_changed',
-      null,
-      (error) => reject(error),
-      async () => {
-        const url = await getDownloadURL(uploadTask.snapshot.ref);
-        resolve(url);
-      }
-    );
-  });
+  await storageRef.put(blob, { contentType: mimeType });
+  return storageRef.getDownloadURL();
 }

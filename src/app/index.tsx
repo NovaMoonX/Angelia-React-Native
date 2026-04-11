@@ -12,6 +12,7 @@ import { Feather } from '@expo/vector-icons';
 import { AngeliaLogo } from '@/components/AngeliaLogo';
 import { Button } from '@/components/ui/Button';
 import { useTheme } from '@/hooks/useTheme';
+import { useAuth } from '@/hooks/useAuth';
 import { useAppDispatch } from '@/store/hooks';
 import { enterDemoMode } from '@/store/slices/demoSlice';
 import { loadDemoPosts } from '@/store/slices/postsSlice';
@@ -26,8 +27,31 @@ export default function HomeScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
+  const { firebaseUser, loading, isDemoMode, enterDemo } = useAuth();
   const insets = useSafeAreaInsets();
   const [showActions, setShowActions] = useState(false);
+  const didRedirect = useRef(false);
+
+  // Auto-redirect when auth state or demo mode was persisted
+  useEffect(() => {
+    if (loading || didRedirect.current) return;
+
+    if (firebaseUser) {
+      didRedirect.current = true;
+      router.replace('/(protected)/feed');
+      return;
+    }
+
+    if (isDemoMode) {
+      didRedirect.current = true;
+      dispatch(enterDemoMode());
+      dispatch(loadDemoUsers(DEMO_DATA.users));
+      dispatch(loadDemoChannels(DEMO_DATA.channels));
+      dispatch(loadDemoPosts(DEMO_DATA.posts));
+      dispatch(loadDemoInvites(DEMO_DATA.invites));
+      router.replace('/(protected)/feed');
+    }
+  }, [loading, firebaseUser, isDemoMode, dispatch, router]);
 
   // Animations
   const logoScale = useRef(new Animated.Value(0.5)).current;
@@ -90,7 +114,8 @@ export default function HomeScreen() {
     };
   }, []);
 
-  const handleTryDemo = () => {
+  const handleTryDemo = async () => {
+    await enterDemo();
     dispatch(enterDemoMode());
     dispatch(loadDemoUsers(DEMO_DATA.users));
     dispatch(loadDemoChannels(DEMO_DATA.channels));

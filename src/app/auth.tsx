@@ -15,6 +15,7 @@ import { loadDemoUsers } from '@/store/slices/usersSlice';
 import { loadDemoInvites } from '@/store/slices/invitesSlice';
 import { DEMO_DATA } from '@/lib/demoData';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
+import { getUserProfile } from '@/services/firebase/firestore';
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export default function AuthScreen() {
     mode?: string;
     redirect?: string;
   }>();
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, signInWithGoogle, enterDemo } = useAuth();
   const { addToast } = useToast();
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
@@ -57,7 +58,27 @@ export default function AuthScreen() {
     }
   };
 
-  const handleDemoMode = () => {
+  const handleGoogleSignIn = async (): Promise<{ error?: { message: string } }> => {
+    try {
+      const user = await signInWithGoogle();
+      const profile = await getUserProfile(user.uid);
+      if (profile) {
+        addToast({ type: 'success', title: 'Welcome back!' });
+        router.replace('/(protected)/feed');
+      } else {
+        addToast({ type: 'success', title: 'Signed in with Google!' });
+        router.replace('/complete-profile');
+      }
+      return {};
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Google sign-in failed';
+      return { error: { message } };
+    }
+  };
+
+  const handleDemoMode = async () => {
+    await enterDemo();
     dispatch(enterDemoMode());
     dispatch(loadDemoUsers(DEMO_DATA.users));
     dispatch(loadDemoChannels(DEMO_DATA.channels));
@@ -85,10 +106,11 @@ export default function AuthScreen() {
         </View>
 
         <AuthForm
-          methods={['email']}
+          methods={['google', 'email']}
           action="both"
           onActionChange={(newMode) => setAuthMode(newMode)}
           onEmailSubmit={handleEmailSubmit}
+          onGoogleSignIn={handleGoogleSignIn}
         />
 
         <View style={styles.demoArea}>

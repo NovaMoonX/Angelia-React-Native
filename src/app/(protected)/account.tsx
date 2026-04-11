@@ -54,7 +54,7 @@ import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout'
 export default function AccountScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { signOut } = useAuth();
+  const { signOut, exitDemo } = useAuth();
   const { confirm } = useActionModal();
   const { addToast } = useToast();
   const { theme } = useTheme();
@@ -235,6 +235,7 @@ export default function AccountScreen() {
   const handleSignOut = async () => {
     try {
       if (isDemo) {
+        await exitDemo();
         router.replace('/');
       } else {
         await signOut();
