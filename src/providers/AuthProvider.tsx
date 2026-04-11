@@ -5,9 +5,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const DEMO_MODE_KEY = '@angelia/demo_mode';
 
-GoogleSignin.configure({
-  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-});
+const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+if (googleWebClientId) {
+  GoogleSignin.configure({ webClientId: googleWebClientId });
+}
 
 interface AuthContextType {
   firebaseUser: FirebaseAuthTypes.User | null;
@@ -67,6 +68,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
+    if (!googleWebClientId) {
+      throw new Error('Google sign-in is not configured. Set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID.');
+    }
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
     const signInResult = await GoogleSignin.signIn();
     const idToken = signInResult.data?.idToken;
