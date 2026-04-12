@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "138444289538",
+    "project_id": "angelia-020726",
+    "storage_bucket": "angelia-020726.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:138444289538:android:6c4204904ee329c900591b",
+        "android_client_info": {
+          "package_name": "com.angelia.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "138444289538-i3jhvtslehk5sbv2cupo6j0dta881b21.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyApONQw79rdy9Yc4_LnoCdhbVy6zfj2Ab4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "138444289538-i3jhvtslehk5sbv2cupo6j0dta881b21.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

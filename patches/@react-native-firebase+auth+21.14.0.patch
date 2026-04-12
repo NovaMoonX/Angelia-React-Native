@@ -1,0 +1,16 @@
+diff --git a/node_modules/@react-native-firebase/auth/plugin/build/ios/openUrlFix.js b/node_modules/@react-native-firebase/auth/plugin/build/ios/openUrlFix.js
+index a7ed95a..54d3a56 100644
+--- a/node_modules/@react-native-firebase/auth/plugin/build/ios/openUrlFix.js
++++ b/node_modules/@react-native-firebase/auth/plugin/build/ios/openUrlFix.js
+@@ -68,7 +68,10 @@ function withOpenUrlFixForAppDelegate({ config, props, }) {
+     }
+     else {
+         // TODO: Support Swift
+-        throw new Error(`Don't know how to apply openUrlFix to AppDelegate of language "${language}"`);
++        // throw new Error(`Don't know how to apply openUrlFix to AppDelegate of language "${language}"`);
++        console.warn(`@react-native-firebase/auth: Skipping openUrlFix for Swift AppDelegate. Language: ${language}`);
++        return config;
++
+     }
+ }
+ const skipOpenUrlForFirebaseAuthBlock = `\
