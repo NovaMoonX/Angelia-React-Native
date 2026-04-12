@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/Button';
 import { Callout } from '@/components/ui/Callout';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
-import { reload } from 'firebase/auth';
 
 export default function VerifyEmailScreen() {
   const router = useRouter();
@@ -15,7 +14,7 @@ export default function VerifyEmailScreen() {
 
   const checkVerification = useCallback(async () => {
     if (firebaseUser) {
-      await reload(firebaseUser);
+      await firebaseUser.reload();
       if (firebaseUser.emailVerified) {
         router.replace('/(protected)/feed');
       }

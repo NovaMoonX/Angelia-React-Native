@@ -1,32 +1,19 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  onSnapshot,
-  arrayUnion,
-  arrayRemove,
-  runTransaction,
-  type Unsubscribe,
-} from 'firebase/firestore';
-import { db } from './config';
+import firestore from '@react-native-firebase/firestore';
 import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
+const db = firestore();
+
 // ---- User Operations ----
 
 export async function getUserProfile(uid: string): Promise<User | null> {
-  const snap = await getDoc(doc(db, 'users', uid));
-  return snap.exists() ? (snap.data() as User) : null;
+  const snap = await db.collection('users').doc(uid).get();
+  return snap.exists ? (snap.data() as User) : null;
 }
 
 export async function createUserProfile(userData: NewUser): Promise<void> {
-  await setDoc(doc(db, 'users', userData.id), {
+  await db.collection('users').doc(userData.id).set({
     ...userData,
     joinedAt: Date.now(),
     accountProgress: {
@@ -39,7 +26,7 @@ export async function createUserProfile(userData: NewUser): Promise<void> {
 }
 
 export async function updateUserProfile(uid: string, data: UpdateUserProfileData): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), { ...data });
+  await db.collection('users').doc(uid).update({ ...data });
 }
 
 export async function updateAccountProgress(
@@ -47,7 +34,7 @@ export async function updateAccountProgress(
   field: string,
   value: boolean
 ): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), {
+  await db.collection('users').doc(uid).update({
     [`accountProgress.${field}`]: value,
   });
 }
@@ -68,7 +55,7 @@ export async function createDailyChannel(userId: string): Promise<Channel> {
     createdAt: Date.now(),
     markedForDeletionAt: null,
   };
-  await setDoc(doc(db, 'channels', channelId), channel);
+  await db.collection('channels').doc(channelId).set(channel);
   return channel;
 }
 
@@ -84,17 +71,17 @@ export async function createCustomChannel(channelData: NewChannel): Promise<Chan
     markedForDeletionAt: null,
   };
 
-  await runTransaction(db, async (transaction) => {
-    const userRef = doc(db, 'users', channelData.ownerId);
+  await db.runTransaction(async (transaction) => {
+    const userRef = db.collection('users').doc(channelData.ownerId);
     const userSnap = await transaction.get(userRef);
-    if (!userSnap.exists()) throw new Error('User not found');
+    if (!userSnap.exists) throw new Error('User not found');
 
     const userData = userSnap.data() as User;
     if (userData.customChannelCount >= 3) {
       throw new Error('Maximum custom channels reached');
     }
 
-    transaction.set(doc(db, 'channels', channelId), channel);
+    transaction.set(db.collection('channels').doc(channelId), channel);
     transaction.update(userRef, {
       customChannelCount: userData.customChannelCount + 1,
     });
@@ -108,17 +95,17 @@ export async function updateCustomChannel(channel: Channel): Promise<void> {
   void ownerId;
   void isDaily;
   void createdAt;
-  await updateDoc(doc(db, 'channels', id), updateData);
+  await db.collection('channels').doc(id).update(updateData);
 }
 
 export async function deleteCustomChannel(channelId: string, ownerId: string): Promise<void> {
-  await runTransaction(db, async (transaction) => {
-    const userRef = doc(db, 'users', ownerId);
+  await db.runTransaction(async (transaction) => {
+    const userRef = db.collection('users').doc(ownerId);
     const userSnap = await transaction.get(userRef);
-    if (!userSnap.exists()) throw new Error('User not found');
+    if (!userSnap.exists) throw new Error('User not found');
 
     const userData = userSnap.data() as User;
-    transaction.update(doc(db, 'channels', channelId), {
+    transaction.update(db.collection('channels').doc(channelId), {
       markedForDeletionAt: Date.now(),
     });
     transaction.update(userRef, {
@@ -129,20 +116,20 @@ export async function deleteCustomChannel(channelId: string, ownerId: string): P
 
 export async function refreshChannelInviteCode(channelId: string): Promise<string> {
   const newCode = generateId('nano').substring(0, 8).toUpperCase();
-  await runTransaction(db, async (transaction) => {
-    const channelRef = doc(db, 'channels', channelId);
+  await db.runTransaction(async (transaction) => {
+    const channelRef = db.collection('channels').doc(channelId);
     const channelSnap = await transaction.get(channelRef);
-    if (!channelSnap.exists()) throw new Error('Channel not found');
+    if (!channelSnap.exists) throw new Error('Channel not found');
     transaction.update(channelRef, { inviteCode: newCode });
   });
   return newCode;
 }
 
 export async function unsubscribeFromChannel(channelId: string, userId: string): Promise<void> {
-  await runTransaction(db, async (transaction) => {
-    const channelRef = doc(db, 'channels', channelId);
+  await db.runTransaction(async (transaction) => {
+    const channelRef = db.collection('channels').doc(channelId);
     transaction.update(channelRef, {
-      subscribers: arrayRemove(userId),
+      subscribers: firestore.FieldValue.arrayRemove(userId),
     });
   });
 }
@@ -151,8 +138,8 @@ export async function removeSubscriberFromChannel(
   channelId: string,
   subscriberId: string
 ): Promise<void> {
-  await updateDoc(doc(db, 'channels', channelId), {
-    subscribers: arrayRemove(subscriberId),
+  await db.collection('channels').doc(channelId).update({
+    subscribers: firestore.FieldValue.arrayRemove(subscriberId),
   });
 }
 
@@ -176,7 +163,7 @@ export async function createJoinRequest(
     createdAt: Date.now(),
     respondedAt: null,
   };
-  await setDoc(doc(db, 'channelJoinRequests', id), request);
+  await db.collection('channelJoinRequests').doc(id).set(request);
   return request;
 }
 
@@ -184,10 +171,10 @@ export async function respondToJoinRequest(
   requestId: string,
   accept: boolean
 ): Promise<void> {
-  await runTransaction(db, async (transaction) => {
-    const requestRef = doc(db, 'channelJoinRequests', requestId);
+  await db.runTransaction(async (transaction) => {
+    const requestRef = db.collection('channelJoinRequests').doc(requestId);
     const requestSnap = await transaction.get(requestRef);
-    if (!requestSnap.exists()) throw new Error('Request not found');
+    if (!requestSnap.exists) throw new Error('Request not found');
 
     const request = requestSnap.data() as ChannelJoinRequest;
     const status = accept ? 'accepted' : 'declined';
@@ -198,8 +185,8 @@ export async function respondToJoinRequest(
     });
 
     if (accept) {
-      transaction.update(doc(db, 'channels', request.channelId), {
-        subscribers: arrayUnion(request.requesterId),
+      transaction.update(db.collection('channels').doc(request.channelId), {
+        subscribers: firestore.FieldValue.arrayUnion(request.requesterId),
       });
     }
   });
@@ -208,31 +195,31 @@ export async function respondToJoinRequest(
 // ---- Post Operations ----
 
 export async function createPost(post: Post): Promise<void> {
-  await setDoc(doc(db, 'posts', post.id), post);
+  await db.collection('posts').doc(post.id).set(post);
 }
 
 export async function updatePost(postId: string, data: Partial<Post>): Promise<void> {
-  await updateDoc(doc(db, 'posts', postId), data);
+  await db.collection('posts').doc(postId).update(data);
 }
 
 export async function deletePost(postId: string): Promise<void> {
-  await updateDoc(doc(db, 'posts', postId), {
+  await db.collection('posts').doc(postId).update({
     markedForDeletionAt: Date.now(),
   });
 }
 
 export async function joinConversation(postId: string, userId: string): Promise<void> {
-  await updateDoc(doc(db, 'posts', postId), {
-    conversationEnrollees: arrayUnion(userId),
+  await db.collection('posts').doc(postId).update({
+    conversationEnrollees: firestore.FieldValue.arrayUnion(userId),
   });
 }
 
 export async function updatePostReactions(postId: string, reactions: unknown[]): Promise<void> {
-  await updateDoc(doc(db, 'posts', postId), { reactions });
+  await db.collection('posts').doc(postId).update({ reactions });
 }
 
 export async function updatePostComments(postId: string, comments: unknown[]): Promise<void> {
-  await updateDoc(doc(db, 'posts', postId), { comments });
+  await db.collection('posts').doc(postId).update({ comments });
 }
 
 // ---- Subscriptions ----
@@ -240,59 +227,57 @@ export async function updatePostComments(postId: string, comments: unknown[]): P
 export function subscribeToCurrentUser(
   uid: string,
   callback: (user: User | null) => void
-): Unsubscribe {
-  return onSnapshot(doc(db, 'users', uid), (snap) => {
-    callback(snap.exists() ? (snap.data() as User) : null);
+): () => void {
+  return db.collection('users').doc(uid).onSnapshot((snap) => {
+    callback(snap.exists ? (snap.data() as User) : null);
   });
 }
 
 export function subscribeToChannels(
   uid: string,
   callback: (channels: Channel[]) => void
-): Unsubscribe {
-  const q = query(
-    collection(db, 'channels'),
-    where('markedForDeletionAt', '==', null)
-  );
-  return onSnapshot(q, (snap) => {
-    const channels = snap.docs
-      .map((d) => d.data() as Channel)
-      .filter((ch) => ch.ownerId === uid || ch.subscribers.includes(uid));
-    callback(channels);
-  });
+): () => void {
+  return db
+    .collection('channels')
+    .where('markedForDeletionAt', '==', null)
+    .onSnapshot((snap) => {
+      const channels = snap.docs
+        .map((d) => d.data() as Channel)
+        .filter((ch) => ch.ownerId === uid || ch.subscribers.includes(uid));
+      callback(channels);
+    });
 }
 
 export function subscribeToPosts(
   uid: string,
   channelIds: string[],
   callback: (posts: Post[]) => void
-): Unsubscribe {
+): () => void {
   if (channelIds.length === 0) {
     callback([]);
     return () => {};
   }
 
   // Firestore `in` queries limited to 30 values — batch if needed
-  const batches = [];
+  const batches: string[][] = [];
   for (let i = 0; i < channelIds.length; i += 30) {
     batches.push(channelIds.slice(i, i + 30));
   }
 
   const allPosts: Map<string, Post> = new Map();
-  const unsubscribes: Unsubscribe[] = [];
+  const unsubscribes: Array<() => void> = [];
 
   for (const batch of batches) {
-    const q = query(
-      collection(db, 'posts'),
-      where('channelId', 'in', batch),
-      where('markedForDeletionAt', '==', null)
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      for (const d of snap.docs) {
-        allPosts.set(d.id, d.data() as Post);
-      }
-      callback(Array.from(allPosts.values()));
-    });
+    const unsub = db
+      .collection('posts')
+      .where('channelId', 'in', batch)
+      .where('markedForDeletionAt', '==', null)
+      .onSnapshot((snap) => {
+        for (const d of snap.docs) {
+          allPosts.set(d.id, d.data() as Post);
+        }
+        callback(Array.from(allPosts.values()));
+      });
     unsubscribes.push(unsub);
   }
 
@@ -302,54 +287,54 @@ export function subscribeToPosts(
 export function subscribeToIncomingJoinRequests(
   uid: string,
   callback: (requests: ChannelJoinRequest[]) => void
-): Unsubscribe {
-  const q = query(
-    collection(db, 'channelJoinRequests'),
-    where('channelOwnerId', '==', uid)
-  );
-  return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => d.data() as ChannelJoinRequest));
-  });
+): () => void {
+  return db
+    .collection('channelJoinRequests')
+    .where('channelOwnerId', '==', uid)
+    .onSnapshot((snap) => {
+      callback(snap.docs.map((d) => d.data() as ChannelJoinRequest));
+    });
 }
 
 export function subscribeToOutgoingJoinRequests(
   uid: string,
   callback: (requests: ChannelJoinRequest[]) => void
-): Unsubscribe {
-  const q = query(
-    collection(db, 'channelJoinRequests'),
-    where('requesterId', '==', uid)
-  );
-  return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => d.data() as ChannelJoinRequest));
-  });
+): () => void {
+  return db
+    .collection('channelJoinRequests')
+    .where('requesterId', '==', uid)
+    .onSnapshot((snap) => {
+      callback(snap.docs.map((d) => d.data() as ChannelJoinRequest));
+    });
 }
 
 export function subscribeToChannelUsers(
   userIds: string[],
   callback: (users: User[]) => void
-): Unsubscribe {
+): () => void {
   if (userIds.length === 0) {
     callback([]);
     return () => {};
   }
 
-  const batches = [];
+  const batches: string[][] = [];
   for (let i = 0; i < userIds.length; i += 30) {
     batches.push(userIds.slice(i, i + 30));
   }
 
   const allUsers: Map<string, User> = new Map();
-  const unsubscribes: Unsubscribe[] = [];
+  const unsubscribes: Array<() => void> = [];
 
   for (const batch of batches) {
-    const q = query(collection(db, 'users'), where('__name__', 'in', batch));
-    const unsub = onSnapshot(q, (snap) => {
-      for (const d of snap.docs) {
-        allUsers.set(d.id, d.data() as User);
-      }
-      callback(Array.from(allUsers.values()));
-    });
+    const unsub = db
+      .collection('users')
+      .where('__name__', 'in', batch)
+      .onSnapshot((snap) => {
+        for (const d of snap.docs) {
+          allUsers.set(d.id, d.data() as User);
+        }
+        callback(Array.from(allUsers.values()));
+      });
     unsubscribes.push(unsub);
   }
 
