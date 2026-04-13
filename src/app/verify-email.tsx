@@ -1,25 +1,42 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Button } from '@/components/ui/Button';
 import { Callout } from '@/components/ui/Callout';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { updateAccountProgress } from '@/store/actions/userActions';
+import { ensureDailyChannelExists } from '@/store/actions/channelActions';
 
 export default function VerifyEmailScreen() {
   const router = useRouter();
   const { firebaseUser, sendVerificationEmail } = useAuth();
   const { theme } = useTheme();
+  const dispatch = useAppDispatch();
+  const currentUser = useAppSelector((state) => state.users.currentUser);
+  const currentUserRef = useRef(currentUser);
+  currentUserRef.current = currentUser;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const insets = useSafeAreaInsets();
 
   const checkVerification = useCallback(async () => {
-    if (firebaseUser) {
-      await firebaseUser.reload();
-      if (firebaseUser.emailVerified) {
-        router.replace('/(protected)/feed');
+    if (!firebaseUser) return;
+    await firebaseUser.reload();
+    if (firebaseUser.emailVerified) {
+      const user = currentUserRef.current;
+      if (user && !user.accountProgress.emailVerified) {
+        await dispatch(
+          updateAccountProgress({ uid: firebaseUser.uid, field: 'emailVerified', value: true })
+        );
       }
+      if (user?.accountProgress.signUpComplete) {
+        dispatch(ensureDailyChannelExists(firebaseUser.uid));
+      }
+      router.replace('/(protected)/feed');
     }
-  }, [firebaseUser, router]);
+  }, [firebaseUser, router, dispatch]);
 
   useEffect(() => {
     intervalRef.current = setInterval(checkVerification, 3000);
@@ -34,7 +51,7 @@ export default function VerifyEmailScreen() {
 
   return (
     <View
-      style={[styles.container, { backgroundColor: theme.background }]}
+      style={[styles.container, { backgroundColor: theme.background, paddingTop: insets.top }]}
     >
       <Text style={styles.emoji}>📧</Text>
       <Text style={[styles.heading, { color: theme.foreground }]}>
@@ -45,12 +62,8 @@ export default function VerifyEmailScreen() {
         <Text style={{ fontWeight: '600' }}>
           {firebaseUser?.email || 'your email'}
         </Text>
-        . Click the link to verify your account.
+        . Click the link to verify your account. You may need to check your spam folder.
       </Text>
-
-      <Callout variant="info" style={{ marginTop: 16, marginBottom: 16 }}
-        description="This page automatically checks for verification every few seconds."
-      />
 
       <Button variant="outline" onPress={handleResend}>
         Resend Verification Email

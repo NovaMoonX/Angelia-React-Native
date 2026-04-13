@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -16,12 +17,11 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
+import { useAppDispatch } from '@/store/hooks';
+import { createUserProfile } from '@/store/actions/userActions';
+import { createDailyChannel } from '@/store/actions/channelActions';
 import { AVATAR_PRESETS } from '@/models/constants';
 import type { AvatarPreset } from '@/models/types';
-import {
-  createUserProfile,
-  createDailyChannel,
-} from '@/services/firebase/firestore';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 
 export default function CompleteProfileScreen() {
@@ -29,6 +29,8 @@ export default function CompleteProfileScreen() {
   const { firebaseUser, sendVerificationEmail } = useAuth();
   const { addToast } = useToast();
   const { theme } = useTheme();
+  const dispatch = useAppDispatch();
+  const insets = useSafeAreaInsets();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -45,16 +47,18 @@ export default function CompleteProfileScreen() {
 
     setLoading(true);
     try {
-      await createUserProfile({
-        id: firebaseUser.uid,
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        email: firebaseUser.email || '',
-        funFact: funFact.trim(),
-        avatar,
-      });
+      await dispatch(
+        createUserProfile({
+          id: firebaseUser.uid,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: firebaseUser.email || '',
+          funFact: funFact.trim(),
+          avatar,
+        })
+      ).unwrap();
 
-      await createDailyChannel(firebaseUser.uid);
+      await dispatch(createDailyChannel(firebaseUser.uid)).unwrap();
       await sendVerificationEmail();
 
       addToast({ type: 'success', title: 'Profile created!' });
@@ -80,7 +84,7 @@ export default function CompleteProfileScreen() {
     >
       <ScrollView
         style={{ flex: 1, backgroundColor: theme.background }}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
         keyboardShouldPersistTaps="handled"
       >
       <Text style={[styles.heading, { color: theme.foreground }]}>

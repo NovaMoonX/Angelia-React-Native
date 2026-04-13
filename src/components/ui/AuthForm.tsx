@@ -4,7 +4,6 @@ import { Feather } from '@expo/vector-icons';
 import { Button } from './Button';
 import { Input } from './Input';
 import { Label } from './Label';
-import { Separator } from './Separator';
 import { useTheme } from '@/hooks/useTheme';
 
 export type AuthFormOnEmailSubmit = (params: {
@@ -18,23 +17,27 @@ interface AuthFormProps {
   onActionChange: (newMode: 'login' | 'sign up') => void;
   onEmailSubmit: AuthFormOnEmailSubmit;
   onGoogleSignIn?: () => Promise<{ error?: { message: string } }>;
+  defaultMethod?: 'email';
+  onBack?: () => void;
 }
 
-export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoogleSignIn }: AuthFormProps) {
+export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoogleSignIn, defaultMethod, onBack }: AuthFormProps) {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
-  const [selectedMethod, setSelectedMethod] = useState<'email' | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<'email' | null>(defaultMethod ?? null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { theme } = useTheme();
 
   const handleToggle = () => {
     const newMode = mode === 'login' ? 'signup' : 'login';
     setMode(newMode);
     setError('');
+    setShowPassword(false);
     onActionChange(newMode === 'login' ? 'login' : 'sign up');
   };
 
@@ -77,8 +80,12 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
   };
 
   const handleBackToMethods = () => {
-    setSelectedMethod(null);
-    setError('');
+    if (defaultMethod && onBack) {
+      onBack();
+    } else {
+      setSelectedMethod(null);
+      setError('');
+    }
   };
 
   // ---- Method picker (initial view) ----
@@ -146,24 +153,54 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
 
         <View>
           <Label>Password</Label>
-          <Input
-            value={password}
-            onChangeText={setPassword}
-            placeholder="••••••••"
-            secureTextEntry
-            autoComplete="password"
-          />
+          <View style={styles.passwordContainer}>
+            <Input
+              value={password}
+              onChangeText={setPassword}
+              placeholder="••••••••"
+              secureTextEntry={!showPassword}
+              autoComplete="password"
+              style={styles.passwordInput}
+            />
+            {mode === 'login' && (
+              <Pressable
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeButton}
+                hitSlop={8}
+              >
+                <Feather
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={18}
+                  color={theme.mutedForeground}
+                />
+              </Pressable>
+            )}
+          </View>
         </View>
 
         {mode === 'signup' && (
           <View>
             <Label>Confirm Password</Label>
-            <Input
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="••••••••"
-              secureTextEntry
-            />
+            <View style={styles.passwordContainer}>
+              <Input
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="••••••••"
+                secureTextEntry={!showPassword}
+                style={styles.passwordInput}
+              />
+              <Pressable
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeButton}
+                hitSlop={8}
+              >
+                <Feather
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={18}
+                  color={theme.mutedForeground}
+                />
+              </Pressable>
+            </View>
           </View>
         )}
 
@@ -223,5 +260,18 @@ const styles = StyleSheet.create({
   backText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  passwordContainer: {
+    position: 'relative',
+  },
+  passwordInput: {
+    paddingRight: 44,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 12,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
   },
 });

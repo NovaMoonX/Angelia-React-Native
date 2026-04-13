@@ -22,17 +22,18 @@ export default function ProtectedLayout() {
       return <Redirect href="/auth" />;
     }
 
+    // Profile not loaded yet — could be a new signup or still fetching
+    if (!currentUser) {
+      return <Redirect href="/complete-profile" />;
+    }
+
     // Signup incomplete
-    if (currentUser && !currentUser.accountProgress.signUpComplete) {
+    if (!currentUser.accountProgress.signUpComplete) {
       return <Redirect href="/complete-profile" />;
     }
 
     // Email not verified
-    if (
-      firebaseUser &&
-      !firebaseUser.emailVerified &&
-      currentUser?.accountProgress.signUpComplete
-    ) {
+    if (!firebaseUser.emailVerified) {
       return <Redirect href="/verify-email" />;
     }
   }

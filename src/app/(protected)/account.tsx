@@ -32,6 +32,7 @@ import {
 } from '@/store/slices/channelsSlice';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { updateCurrentUser } from '@/store/slices/usersSlice';
+import { exitDemoMode } from '@/store/actions/demoActions';
 import { AVATAR_PRESETS, CUSTOM_CHANNEL_LIMIT } from '@/models/constants';
 import type { AvatarPreset, Channel } from '@/models/types';
 import {
@@ -236,6 +237,7 @@ export default function AccountScreen() {
     try {
       if (isDemo) {
         await exitDemo();
+        dispatch(exitDemoMode());
         router.replace('/');
       } else {
         await signOut();
