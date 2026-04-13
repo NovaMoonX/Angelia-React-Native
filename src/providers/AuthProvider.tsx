@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppDispatch } from '@/store/hooks';
 import { fetchUserProfile, updateAccountProgress } from '@/store/actions/userActions';
 import { ensureDailyChannelExists } from '@/store/actions/channelActions';
+import { resetAllState } from '@/store/actions/demoActions';
 import type { User } from '@/models/types';
 
 const DEMO_MODE_KEY = '@angelia/demo_mode';
@@ -77,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Profile not yet created (new sign-up in progress)
         }
       } else {
-        dispatch({ type: 'RESET_ALL_STATE' });
+        dispatch(resetAllState());
       }
       setFirebaseUser(user);
       setLoading(false);

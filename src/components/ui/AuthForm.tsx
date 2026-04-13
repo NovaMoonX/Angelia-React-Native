@@ -179,31 +179,29 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
         </View>
 
         {mode === 'signup' && (
-          <>
-            <View>
-              <Label>Confirm Password</Label>
-              <View style={styles.passwordContainer}>
-                <Input
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  placeholder="••••••••"
-                  secureTextEntry={!showPassword}
-                  style={styles.passwordInput}
+          <View>
+            <Label>Confirm Password</Label>
+            <View style={styles.passwordContainer}>
+              <Input
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="••••••••"
+                secureTextEntry={!showPassword}
+                style={styles.passwordInput}
+              />
+              <Pressable
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeButton}
+                hitSlop={8}
+              >
+                <Feather
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={18}
+                  color={theme.mutedForeground}
                 />
-                <Pressable
-                  onPress={() => setShowPassword(!showPassword)}
-                  style={styles.eyeButton}
-                  hitSlop={8}
-                >
-                  <Feather
-                    name={showPassword ? 'eye-off' : 'eye'}
-                    size={18}
-                    color={theme.mutedForeground}
-                  />
-                </Pressable>
-              </View>
+              </Pressable>
             </View>
-          </>
+          </View>
         )}
 
         {error ? (
