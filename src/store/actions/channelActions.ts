@@ -23,26 +23,25 @@ export const ensureDailyChannelExists = createAsyncThunk(
     const state = getState() as RootState;
     const dailyChannelId = `${userId}${DAILY_CHANNEL_SUFFIX}`;
 
-    const existsInRedux = state.channels.items.some((c) => c.id === dailyChannelId);
-    if (existsInRedux) {
-      const currentUser = state.users.currentUser;
+    const syncProgress = async () => {
+      const currentUser = (getState() as RootState).users.currentUser;
       if (currentUser && !currentUser.accountProgress.dailyChannelCreated) {
         await dispatch(
           updateAccountProgress({ uid: userId, field: 'dailyChannelCreated', value: true })
         );
       }
+    };
+
+    const existsInRedux = state.channels.items.some((c) => c.id === dailyChannelId);
+    if (existsInRedux) {
+      await syncProgress();
       return;
     }
 
     const channel = await getChannel(dailyChannelId);
     if (channel) {
       dispatch(addChannel(channel));
-      const currentUser = state.users.currentUser;
-      if (currentUser && !currentUser.accountProgress.dailyChannelCreated) {
-        await dispatch(
-          updateAccountProgress({ uid: userId, field: 'dailyChannelCreated', value: true })
-        );
-      }
+      await syncProgress();
       return;
     }
 
