@@ -41,6 +41,11 @@ export async function updateAccountProgress(
 
 // ---- Channel Operations ----
 
+export async function getChannel(channelId: string): Promise<Channel | null> {
+  const snap = await db.collection('channels').doc(channelId).get();
+  return snap.exists ? (snap.data() as Channel) : null;
+}
+
 export async function createDailyChannel(userId: string): Promise<Channel> {
   const channelId = `${userId}${DAILY_CHANNEL_SUFFIX}`;
   const channel: Channel = {

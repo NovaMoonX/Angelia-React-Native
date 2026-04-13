@@ -13,6 +13,7 @@ import { AngeliaLogo } from '@/components/AngeliaLogo';
 import { Button } from '@/components/ui/Button';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/useToast';
 import { useAppDispatch } from '@/store/hooks';
 import { enterDemoMode } from '@/store/slices/demoSlice';
 import { loadDemoPosts } from '@/store/slices/postsSlice';
@@ -20,6 +21,7 @@ import { loadDemoChannels } from '@/store/slices/channelsSlice';
 import { loadDemoUsers } from '@/store/slices/usersSlice';
 import { loadDemoInvites } from '@/store/slices/invitesSlice';
 import { DEMO_DATA } from '@/lib/demoData';
+import { getUserProfile } from '@/services/firebase/firestore';
 
 const SPLASH_TO_ACTIONS_DELAY = 600;
 
@@ -27,9 +29,11 @@ export default function HomeScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
-  const { firebaseUser, loading, isDemoMode, enterDemo } = useAuth();
+  const { firebaseUser, loading, isDemoMode, enterDemo, signInWithGoogle } = useAuth();
+  const { addToast } = useToast();
   const insets = useSafeAreaInsets();
   const [showActions, setShowActions] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const didRedirect = useRef(false);
 
   // Auto-redirect when auth state or demo mode was persisted
@@ -124,6 +128,26 @@ export default function HomeScreen() {
     router.replace('/(protected)/feed');
   };
 
+  const handleGoogleContinue = async () => {
+    setIsGoogleLoading(true);
+    try {
+      const user = await signInWithGoogle();
+      const profile = await getUserProfile(user.uid);
+      if (profile) {
+        router.replace('/(protected)/feed');
+      } else {
+        router.replace('/complete-profile');
+      }
+    } catch (err) {
+      addToast({
+        type: 'error',
+        title: err instanceof Error ? err.message : 'Google sign-in failed',
+      });
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
   return (
     <View
       style={[
@@ -176,8 +200,25 @@ export default function HomeScreen() {
             },
           ]}
         >
-          <Button onPress={() => router.push('/auth')} size="lg" style={styles.actionButton}>
-            Sign In / Sign Up
+          <Button
+            variant="outline"
+            onPress={handleGoogleContinue}
+            loading={isGoogleLoading}
+            disabled={isGoogleLoading}
+            size="lg"
+            style={styles.actionButton}
+          >
+            Continue with Google
+          </Button>
+
+          <Button
+            variant="outline"
+            onPress={() => router.push('/auth')}
+            disabled={isGoogleLoading}
+            size="lg"
+            style={styles.actionButton}
+          >
+            Continue with Email
           </Button>
 
           <Pressable onPress={handleTryDemo} style={[styles.demoButton, { backgroundColor: theme.secondary }]}>

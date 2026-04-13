@@ -5,21 +5,34 @@ import { Button } from '@/components/ui/Button';
 import { Callout } from '@/components/ui/Callout';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { updateAccountProgress } from '@/store/actions/userActions';
+import { ensureDailyChannelExists } from '@/store/actions/channelActions';
 
 export default function VerifyEmailScreen() {
   const router = useRouter();
   const { firebaseUser, sendVerificationEmail } = useAuth();
   const { theme } = useTheme();
+  const dispatch = useAppDispatch();
+  const currentUser = useAppSelector((state) => state.users.currentUser);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const checkVerification = useCallback(async () => {
     if (firebaseUser) {
       await firebaseUser.reload();
       if (firebaseUser.emailVerified) {
+        if (currentUser && !currentUser.accountProgress.emailVerified) {
+          await dispatch(
+            updateAccountProgress({ uid: firebaseUser.uid, field: 'emailVerified', value: true })
+          );
+        }
+        if (currentUser?.accountProgress.signUpComplete) {
+          dispatch(ensureDailyChannelExists(firebaseUser.uid));
+        }
         router.replace('/(protected)/feed');
       }
     }
-  }, [firebaseUser, router]);
+  }, [firebaseUser, router, dispatch, currentUser]);
 
   useEffect(() => {
     intervalRef.current = setInterval(checkVerification, 3000);

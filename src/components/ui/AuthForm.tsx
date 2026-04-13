@@ -18,11 +18,13 @@ interface AuthFormProps {
   onActionChange: (newMode: 'login' | 'sign up') => void;
   onEmailSubmit: AuthFormOnEmailSubmit;
   onGoogleSignIn?: () => Promise<{ error?: { message: string } }>;
+  defaultMethod?: 'email';
+  onBack?: () => void;
 }
 
-export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoogleSignIn }: AuthFormProps) {
+export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoogleSignIn, defaultMethod, onBack }: AuthFormProps) {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
-  const [selectedMethod, setSelectedMethod] = useState<'email' | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<'email' | null>(defaultMethod ?? null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -77,8 +79,12 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
   };
 
   const handleBackToMethods = () => {
-    setSelectedMethod(null);
-    setError('');
+    if (defaultMethod && onBack) {
+      onBack();
+    } else {
+      setSelectedMethod(null);
+      setError('');
+    }
   };
 
   // ---- Method picker (initial view) ----

@@ -2,6 +2,10 @@ import React, { createContext, useCallback, useEffect, useState } from 'react';
 import auth, { type FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAppDispatch } from '@/store/hooks';
+import { fetchUserProfile, updateAccountProgress } from '@/store/actions/userActions';
+import { ensureDailyChannelExists } from '@/store/actions/channelActions';
+import type { User } from '@/models/types';
 
 const DEMO_MODE_KEY = '@angelia/demo_mode';
 
@@ -40,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseAuthTypes.User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const dispatch = useAppDispatch();
 
   // Restore persisted demo mode flag on mount
   useEffect(() => {
@@ -50,12 +55,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Native Firebase auth state is automatically persisted
   useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged((user) => {
+    const unsubscribe = auth().onAuthStateChanged(async (user) => {
+      if (user) {
+        try {
+          const result = await dispatch(fetchUserProfile(user.uid));
+          const profile = result.payload as User | null;
+
+          if (user.emailVerified && profile && !profile.accountProgress.emailVerified) {
+            await dispatch(
+              updateAccountProgress({ uid: user.uid, field: 'emailVerified', value: true })
+            );
+          }
+
+          if (
+            profile?.accountProgress.signUpComplete &&
+            (user.emailVerified || profile.accountProgress.emailVerified)
+          ) {
+            dispatch(ensureDailyChannelExists(user.uid));
+          }
+        } catch {
+          // Profile not yet created (new sign-up in progress)
+        }
+      } else {
+        dispatch({ type: 'RESET_ALL_STATE' });
+      }
       setFirebaseUser(user);
       setLoading(false);
     });
     return unsubscribe;
-  }, []);
+  }, [dispatch]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const result = await auth().signInWithEmailAndPassword(email, password);

@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { AuthForm } from '@/components/ui/AuthForm';
-import { Button } from '@/components/ui/Button';
 import { AngeliaLogo } from '@/components/AngeliaLogo';
+import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
@@ -15,7 +15,6 @@ import { loadDemoUsers } from '@/store/slices/usersSlice';
 import { loadDemoInvites } from '@/store/slices/invitesSlice';
 import { DEMO_DATA } from '@/lib/demoData';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
-import { getUserProfile } from '@/services/firebase/firestore';
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -23,11 +22,11 @@ export default function AuthScreen() {
     mode?: string;
     redirect?: string;
   }>();
-  const { signIn, signUp, signInWithGoogle, enterDemo } = useAuth();
+  const { signIn, signUp, enterDemo } = useAuth();
   const { addToast } = useToast();
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
-  const [authMode, setAuthMode] = useState<'login' | 'sign up'>(
+  const [, setAuthMode] = useState<'login' | 'sign up'>(
     params.mode === 'signup' ? 'sign up' : 'login'
   );
 
@@ -54,25 +53,6 @@ export default function AuthScreen() {
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'Authentication failed';
-      return { error: { message } };
-    }
-  };
-
-  const handleGoogleSignIn = async (): Promise<{ error?: { message: string } }> => {
-    try {
-      const user = await signInWithGoogle();
-      const profile = await getUserProfile(user.uid);
-      if (profile) {
-        addToast({ type: 'success', title: 'Welcome back!' });
-        router.replace('/(protected)/feed');
-      } else {
-        addToast({ type: 'success', title: 'Signed in with Google!' });
-        router.replace('/complete-profile');
-      }
-      return {};
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'Google sign-in failed';
       return { error: { message } };
     }
   };
@@ -106,11 +86,12 @@ export default function AuthScreen() {
         </View>
 
         <AuthForm
-          methods={['google', 'email']}
+          methods={['email']}
           action="both"
           onActionChange={(newMode) => setAuthMode(newMode)}
           onEmailSubmit={handleEmailSubmit}
-          onGoogleSignIn={handleGoogleSignIn}
+          defaultMethod="email"
+          onBack={() => router.back()}
         />
 
         <View style={styles.demoArea}>
