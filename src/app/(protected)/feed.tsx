@@ -160,12 +160,12 @@ export default function FeedScreen() {
         }
       />
 
-      {/* New Post FAB */}
+      {/* New Post FAB → Camera */}
       <Pressable
         style={[styles.fab, { backgroundColor: theme.primary, bottom: insets.bottom + 24 }]}
-        onPress={() => router.push('/(protected)/post/new')}
+        onPress={() => router.push('/(protected)/camera')}
       >
-        <Feather name="plus" size={24} color={theme.primaryForeground} />
+        <Feather name="camera" size={24} color={theme.primaryForeground} />
       </Pressable>
 
       {/* Scroll to Top FAB */}

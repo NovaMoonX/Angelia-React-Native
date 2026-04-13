@@ -52,6 +52,7 @@ export default function ProtectedLayout() {
           }}
         >
           <Stack.Screen name="feed" options={{ headerShown: false }} />
+          <Stack.Screen name="camera" options={{ headerShown: false, animation: 'fade' }} />
           <Stack.Screen
             name="post/new"
             options={{ title: 'New Post' }}
