@@ -215,7 +215,7 @@ export default function PostCreateScreen() {
 
       {/* Media uploader — shown collapsed if arriving from camera, open if arriving directly */}
       <View style={styles.section}>
-        <Label>Photos &amp; Videos</Label>
+        <Label>Photos & Videos</Label>
         <PostCreateMediaUploader value={media} onValueChange={setMedia} />
       </View>
 

@@ -1,10 +1,10 @@
 import React, { useRef, useState, useCallback } from 'react';
 import {
+  Alert,
   Pressable,
   StyleSheet,
   Text,
   View,
-  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -17,6 +17,7 @@ import {
 } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { MAX_FILES, MAX_FILE_SIZE_MB } from '@/models/constants';
+import { useToast } from '@/hooks/useToast';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 
 const VIDEO_MAX_DURATION_SECONDS = 60;
@@ -24,6 +25,7 @@ const VIDEO_MAX_DURATION_SECONDS = 60;
 export default function CameraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { addToast } = useToast();
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
@@ -81,8 +83,10 @@ export default function CameraScreen() {
         };
         goToCompose([file]);
       }
-    } catch (_err) {
-      // recording cancelled
+    } catch (err) {
+      if (err instanceof Error && err.message !== 'Recording was stopped') {
+        addToast({ type: 'error', title: 'Could not record video' });
+      }
     } finally {
       setIsRecording(false);
     }
@@ -103,12 +107,14 @@ export default function CameraScreen() {
     });
 
     if (!result.canceled && result.assets.length > 0) {
+      const rejected: string[] = [];
       const files: MediaFile[] = result.assets
         .filter((asset) => {
           if (
             asset.fileSize &&
             asset.fileSize > MAX_FILE_SIZE_MB * 1024 * 1024
           ) {
+            rejected.push(asset.fileName || 'file');
             return false;
           }
           return true;
@@ -119,6 +125,13 @@ export default function CameraScreen() {
           type: asset.mimeType || 'image/jpeg',
           size: asset.fileSize,
         }));
+
+      if (rejected.length > 0) {
+        addToast({
+          type: 'warning',
+          title: `${rejected.length} file(s) skipped — over ${MAX_FILE_SIZE_MB}MB limit`,
+        });
+      }
 
       if (files.length > 0) {
         goToCompose(files);
