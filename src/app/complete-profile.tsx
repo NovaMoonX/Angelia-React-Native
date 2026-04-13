@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -29,6 +30,7 @@ export default function CompleteProfileScreen() {
   const { addToast } = useToast();
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
+  const insets = useSafeAreaInsets();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -82,7 +84,7 @@ export default function CompleteProfileScreen() {
     >
       <ScrollView
         style={{ flex: 1, backgroundColor: theme.background }}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
         keyboardShouldPersistTaps="handled"
       >
       <Text style={[styles.heading, { color: theme.foreground }]}>

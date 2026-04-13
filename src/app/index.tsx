@@ -15,12 +15,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useAppDispatch } from '@/store/hooks';
-import { enterDemoMode } from '@/store/slices/demoSlice';
-import { loadDemoPosts } from '@/store/slices/postsSlice';
-import { loadDemoChannels } from '@/store/slices/channelsSlice';
-import { loadDemoUsers } from '@/store/slices/usersSlice';
-import { loadDemoInvites } from '@/store/slices/invitesSlice';
-import { DEMO_DATA } from '@/lib/demoData';
+import { enterDemoMode } from '@/store/actions/demoActions';
 import { getUserProfile } from '@/services/firebase/firestore';
 
 const SPLASH_TO_ACTIONS_DELAY = 600;
@@ -49,10 +44,6 @@ export default function HomeScreen() {
     if (isDemoMode) {
       didRedirect.current = true;
       dispatch(enterDemoMode());
-      dispatch(loadDemoUsers(DEMO_DATA.users));
-      dispatch(loadDemoChannels(DEMO_DATA.channels));
-      dispatch(loadDemoPosts(DEMO_DATA.posts));
-      dispatch(loadDemoInvites(DEMO_DATA.invites));
       router.replace('/(protected)/feed');
     }
   }, [loading, firebaseUser, isDemoMode, dispatch, router]);
@@ -121,10 +112,6 @@ export default function HomeScreen() {
   const handleTryDemo = async () => {
     await enterDemo();
     dispatch(enterDemoMode());
-    dispatch(loadDemoUsers(DEMO_DATA.users));
-    dispatch(loadDemoChannels(DEMO_DATA.channels));
-    dispatch(loadDemoPosts(DEMO_DATA.posts));
-    dispatch(loadDemoInvites(DEMO_DATA.invites));
     router.replace('/(protected)/feed');
   };
 

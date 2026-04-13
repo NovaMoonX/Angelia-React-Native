@@ -2,10 +2,11 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
-import { useAppSelector } from '@/store/hooks';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
+import { exitDemoMode } from '@/store/actions/demoActions';
 
 export function DemoModeBanner() {
 	const isDemo = useAppSelector((state) => state.demo.isActive);
@@ -13,6 +14,7 @@ export function DemoModeBanner() {
 	const insets = useSafeAreaInsets();
 	const { resolvedTheme } = useTheme();
 	const { exitDemo } = useAuth();
+	const dispatch = useAppDispatch();
 
 	if (!isDemo) return null;
 
@@ -20,6 +22,7 @@ export function DemoModeBanner() {
 
 	const handleExitDemo = async () => {
 		await exitDemo();
+		dispatch(exitDemoMode());
 		router.replace('/');
 	};
 

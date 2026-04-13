@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { AuthForm } from '@/components/ui/AuthForm';
 import { AngeliaLogo } from '@/components/AngeliaLogo';
@@ -8,16 +9,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { useAppDispatch } from '@/store/hooks';
-import { enterDemoMode } from '@/store/slices/demoSlice';
-import { loadDemoPosts } from '@/store/slices/postsSlice';
-import { loadDemoChannels } from '@/store/slices/channelsSlice';
-import { loadDemoUsers } from '@/store/slices/usersSlice';
-import { loadDemoInvites } from '@/store/slices/invitesSlice';
-import { DEMO_DATA } from '@/lib/demoData';
+import { enterDemoMode } from '@/store/actions/demoActions';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 
 export default function AuthScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     mode?: string;
     redirect?: string;
@@ -60,10 +57,6 @@ export default function AuthScreen() {
   const handleDemoMode = async () => {
     await enterDemo();
     dispatch(enterDemoMode());
-    dispatch(loadDemoUsers(DEMO_DATA.users));
-    dispatch(loadDemoChannels(DEMO_DATA.channels));
-    dispatch(loadDemoPosts(DEMO_DATA.posts));
-    dispatch(loadDemoInvites(DEMO_DATA.invites));
     router.replace('/(protected)/feed');
   };
 
@@ -75,7 +68,7 @@ export default function AuthScreen() {
     >
       <ScrollView
         style={{ flex: 1, backgroundColor: theme.background }}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.logoArea}>
@@ -91,7 +84,7 @@ export default function AuthScreen() {
           onActionChange={(newMode) => setAuthMode(newMode)}
           onEmailSubmit={handleEmailSubmit}
           defaultMethod="email"
-          onBack={() => router.back()}
+          onBack={() => router.replace('/')}
         />
 
         <View style={styles.demoArea}>
@@ -110,7 +103,6 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   content: {
     padding: 20,
-    paddingTop: 40,
   },
   logoArea: {
     alignItems: 'center',

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Button } from '@/components/ui/Button';
 import { Callout } from '@/components/ui/Callout';
@@ -18,6 +19,7 @@ export default function VerifyEmailScreen() {
   const currentUserRef = useRef(currentUser);
   currentUserRef.current = currentUser;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const insets = useSafeAreaInsets();
 
   const checkVerification = useCallback(async () => {
     if (!firebaseUser) return;
@@ -49,7 +51,7 @@ export default function VerifyEmailScreen() {
 
   return (
     <View
-      style={[styles.container, { backgroundColor: theme.background }]}
+      style={[styles.container, { backgroundColor: theme.background, paddingTop: insets.top }]}
     >
       <Text style={styles.emoji}>📧</Text>
       <Text style={[styles.heading, { color: theme.foreground }]}>

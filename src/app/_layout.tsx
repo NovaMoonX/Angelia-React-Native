@@ -28,14 +28,14 @@ function NavigationLayout() {
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="about" options={{ headerShown: false }} />
-        <Stack.Screen name="auth" options={{ title: 'Sign In' }} />
+        <Stack.Screen name="auth" options={{ headerShown: false }} />
         <Stack.Screen
           name="complete-profile"
-          options={{ title: 'Complete Profile', headerBackVisible: false }}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="verify-email"
-          options={{ title: 'Verify Email', headerBackVisible: false }}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="(protected)"
