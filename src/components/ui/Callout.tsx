@@ -9,6 +9,7 @@ interface CalloutProps {
   dismissible?: boolean;
   onDismiss?: () => void;
   style?: ViewStyle;
+  textAlign?: 'left' | 'center' | 'right';
 }
 
 const VARIANT_STYLES: Record<string, { bg: string; border: string; text: string }> = {
@@ -26,6 +27,7 @@ export function Callout({
   dismissible = false,
   onDismiss,
   style,
+  textAlign = 'center',
 }: CalloutProps) {
   const colors = VARIANT_STYLES[variant];
 
@@ -40,9 +42,9 @@ export function Callout({
       <View style={styles.content}>
         {icon && <Text style={styles.icon}>{icon}</Text>}
         <View style={styles.textContainer}>
-          {title && <Text style={[styles.title, { color: colors.text }]}>{title}</Text>}
+          {title && <Text style={[styles.title, { color: colors.text, textAlign }]}>{title}</Text>}
           {typeof description === 'string' ? (
-            <Text style={[styles.description, { color: colors.text }]}>{description}</Text>
+            <Text style={[styles.description, { color: colors.text, textAlign }]}>{description}</Text>
           ) : (
             description
           )}
@@ -73,7 +75,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   textContainer: {
-    flex: 1,
+    flexShrink: 1,
+    flexGrow: 1,
   },
   title: {
     fontSize: 14,

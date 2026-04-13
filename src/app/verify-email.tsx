@@ -62,12 +62,8 @@ export default function VerifyEmailScreen() {
         <Text style={{ fontWeight: '600' }}>
           {firebaseUser?.email || 'your email'}
         </Text>
-        . Click the link to verify your account.
+        . Click the link to verify your account. You may need to check your spam folder.
       </Text>
-
-      <Callout variant="info" style={{ marginTop: 16, marginBottom: 16 }}
-        description="This page automatically checks for verification every few seconds."
-      />
 
       <Button variant="outline" onPress={handleResend}>
         Resend Verification Email
