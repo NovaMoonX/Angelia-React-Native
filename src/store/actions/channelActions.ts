@@ -40,7 +40,13 @@ export const ensureDailyChannelExists = createAsyncThunk(
 
     const channel = await getChannel(dailyChannelId);
     if (channel) {
-      dispatch(addChannel(channel));
+      // Re-check Redux state after the async fetch to avoid a race with
+      // subscribeToChannels' setChannels call, which could have already
+      // populated the store while getChannel() was in-flight.
+      const latestState = getState() as RootState;
+      if (!latestState.channels.items.some((c) => c.id === dailyChannelId)) {
+        dispatch(addChannel(channel));
+      }
       await syncProgress();
       return;
     }

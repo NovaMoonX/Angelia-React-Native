@@ -135,6 +135,13 @@ export default function HomeScreen() {
     }
   };
 
+  // While auth state is resolving, render a plain background so that
+  // authenticated users never see the welcome screen flash before the
+  // redirect to the feed fires.
+  if (loading) {
+    return <View style={[styles.fullScreen, { backgroundColor: theme.background }]} />;
+  }
+
   return (
     <View
       style={[
