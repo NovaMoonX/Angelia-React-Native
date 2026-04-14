@@ -36,6 +36,7 @@ export default function FeedScreen() {
   const [channelFilter, setChannelFilter] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [displayCount, setDisplayCount] = useState(INITIAL_PAGE);
+  const [fabExpanded, setFabExpanded] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   const channelOptions = useMemo(
@@ -160,21 +161,74 @@ export default function FeedScreen() {
         }
       />
 
-      {/* New Post FAB → Camera */}
+      {/* Dim overlay when FAB expanded */}
+      {fabExpanded && (
+        <Pressable
+          style={styles.overlay}
+          onPress={() => setFabExpanded(false)}
+        />
+      )}
+
+      {/* Expanded FAB actions */}
+      {fabExpanded && (
+        <View style={[styles.fabMenu, { bottom: insets.bottom + 92 }]}>
+          {/* Media (camera / gallery) */}
+          <Pressable
+            style={[styles.fabMenuItem, { backgroundColor: theme.secondary }]}
+            onPress={() => {
+              setFabExpanded(false);
+              router.push('/(protected)/camera');
+            }}
+          >
+            <Feather name="camera" size={18} color={theme.secondaryForeground} />
+            <Text style={[styles.fabMenuLabel, { color: theme.secondaryForeground }]}>
+              Media
+            </Text>
+          </Pressable>
+
+          {/* Compose (text post) */}
+          <Pressable
+            style={[styles.fabMenuItemPrimary, { backgroundColor: theme.primary }]}
+            onPress={() => {
+              setFabExpanded(false);
+              router.push('/(protected)/post/new');
+            }}
+          >
+            <Feather name="edit-2" size={18} color={theme.primaryForeground} />
+            <Text style={[styles.fabMenuLabelPrimary, { color: theme.primaryForeground }]}>
+              Compose
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* Primary FAB — "+" */}
       <Pressable
-        style={[styles.fab, { backgroundColor: theme.primary, bottom: insets.bottom + 24 }]}
-        onPress={() => router.push('/(protected)/camera')}
+        style={[
+          styles.fab,
+          {
+            backgroundColor: fabExpanded ? theme.foreground : theme.primary,
+            bottom: insets.bottom + 24,
+          },
+        ]}
+        onPress={() => setFabExpanded((prev) => !prev)}
       >
-        <Feather name="camera" size={24} color={theme.primaryForeground} />
+        <Feather
+          name={fabExpanded ? 'x' : 'plus'}
+          size={24}
+          color={fabExpanded ? theme.background : theme.primaryForeground}
+        />
       </Pressable>
 
-      {/* Scroll to Top FAB */}
-      <Pressable
-        style={[styles.scrollTopFab, { backgroundColor: theme.secondary, bottom: insets.bottom + 90 }]}
-        onPress={scrollToTop}
-      >
-        <Feather name="arrow-up" size={18} color={theme.secondaryForeground} />
-      </Pressable>
+      {/* Scroll to Top FAB — hidden when expanded */}
+      {!fabExpanded && (
+        <Pressable
+          style={[styles.scrollTopFab, { backgroundColor: theme.secondary, bottom: insets.bottom + 90 }]}
+          onPress={scrollToTop}
+        >
+          <Feather name="arrow-up" size={18} color={theme.secondaryForeground} />
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -224,6 +278,52 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: 'center',
   },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    zIndex: 10,
+  },
+  fabMenu: {
+    position: 'absolute',
+    right: 20,
+    alignItems: 'flex-end',
+    gap: 12,
+    zIndex: 20,
+  },
+  fabMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    gap: 8,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  fabMenuLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  fabMenuItemPrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 28,
+    gap: 8,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  fabMenuLabelPrimary: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
   fab: {
     position: 'absolute',
     right: 20,
@@ -237,6 +337,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
+    zIndex: 20,
   },
   scrollTopFab: {
     position: 'absolute',
