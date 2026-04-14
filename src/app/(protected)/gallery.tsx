@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   FlatList,
   Image,
@@ -34,10 +34,6 @@ export default function GalleryScreen() {
 
   const [selected, setSelected] = useState<MediaFile[]>([]);
   const remaining = MAX_FILES - existingCount;
-
-  useEffect(() => {
-    openPicker();
-  }, []);
 
   const openPicker = async () => {
     if (remaining <= 0) {
@@ -89,6 +85,14 @@ export default function GalleryScreen() {
     const merged = [...selected, ...files].slice(0, remaining);
     setSelected(merged);
   };
+
+  const hasOpenedRef = useRef(false);
+  useEffect(() => {
+    if (!hasOpenedRef.current) {
+      hasOpenedRef.current = true;
+      openPicker();
+    }
+  });
 
   const removeFile = (index: number) => {
     setSelected((prev) => prev.filter((_, i) => i !== index));

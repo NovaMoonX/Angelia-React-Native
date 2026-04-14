@@ -64,7 +64,7 @@ export default function CameraScreen() {
         goToCompose([file]);
       }
     } catch (_err) {
-      // camera not ready — ignore
+      addToast({ type: 'error', title: 'Could not take photo' });
     }
   };
 
