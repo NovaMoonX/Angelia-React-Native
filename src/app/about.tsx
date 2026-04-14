@@ -18,9 +18,9 @@ import Animated, {
   withTiming,
   cancelAnimation,
   Easing,
-  runOnJS,
   type SharedValue,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ComparisonTable } from '@/components/ComparisonTable';
@@ -160,14 +160,21 @@ export default function AboutScreen() {
   const progressAnim = useSharedValue(0);
   const isAutoPlayingRef = useRef(true);
   const currentIndexRef = useRef(0);
+  /** Animation progress value at the moment auto-play was paused (0–1). */
+  const pausedProgressRef = useRef(0);
   const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** Mirrors isAutoPlayingRef for rendering the pause/resume button. */
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  /** Seconds remaining until auto-resume (0 when not counting). */
+  const [resumeCountdown, setResumeCountdown] = useState(0);
 
   // Keep currentIndexRef in sync so worklet callbacks read the latest value.
   useEffect(() => {
     currentIndexRef.current = currentIndex;
   }, [currentIndex]);
 
-  /** Scroll to the next step (called from the UI thread via runOnJS). */
+  /** Scroll to the next step (called from the RN thread via scheduleOnRN). */
   const advanceStep = useCallback(() => {
     const next = currentIndexRef.current + 1;
     if (next < STEPS.length) {
@@ -175,51 +182,134 @@ export default function AboutScreen() {
     } else {
       // Reached the last step — stop auto-play so the user can act.
       isAutoPlayingRef.current = false;
+      setIsAutoPlaying(false);
     }
   }, []);
 
-  /** Start the progress animation + auto-advance timer for the given step. */
-  const startProgress = useCallback(
-    (stepIndex: number) => {
-      const duration = STEP_DURATIONS[STEPS[stepIndex]];
+  /** Clear any running countdown interval and reset countdown state. */
+  const clearCountdown = useCallback(() => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setResumeCountdown(0);
+  }, []);
+
+  /**
+   * Start the progress animation for `stepIndex`, beginning from `fromProgress`
+   * (a value 0–1). The remaining duration is proportional to (1 - fromProgress).
+   */
+  const startProgressFrom = useCallback(
+    (stepIndex: number, fromProgress: number) => {
+      const totalDuration = STEP_DURATIONS[STEPS[stepIndex]];
+      const remainingDuration = Math.round((1 - fromProgress) * totalDuration);
       cancelAnimation(progressAnim);
-      progressAnim.value = 0;
-      progressAnim.value = withTiming(1, { duration, easing: Easing.linear }, (finished) => {
+      progressAnim.value = fromProgress;
+      if (remainingDuration <= 0) {
+        scheduleOnRN(advanceStep);
+        return;
+      }
+      progressAnim.value = withTiming(1, { duration: remainingDuration, easing: Easing.linear }, (finished) => {
         if (finished) {
-          runOnJS(advanceStep)();
+          scheduleOnRN(advanceStep);
         }
       });
     },
     [advanceStep, progressAnim]
   );
 
-  /** Pause auto-play and schedule a resume after RESUME_DELAY_MS of inaction. */
+  /**
+   * Pause auto-play (saving progress), start the countdown display, and
+   * schedule a resume after RESUME_DELAY_MS of inaction.
+   */
   const pauseAndScheduleResume = useCallback(() => {
-    isAutoPlayingRef.current = false;
+    // Capture exactly where we are in the current step's animation.
+    pausedProgressRef.current = progressAnim.value;
     cancelAnimation(progressAnim);
+    isAutoPlayingRef.current = false;
+    setIsAutoPlaying(false);
+
+    // (Re-)start the visual countdown.
+    clearCountdown();
+    let remaining = Math.ceil(RESUME_DELAY_MS / 1000);
+    setResumeCountdown(remaining);
+    countdownIntervalRef.current = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+        setResumeCountdown(0);
+      } else {
+        setResumeCountdown(remaining);
+      }
+    }, 1000);
+
+    // Schedule the actual auto-resume.
     if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     resumeTimerRef.current = setTimeout(() => {
+      resumeTimerRef.current = null;
       isAutoPlayingRef.current = true;
-      startProgress(currentIndexRef.current);
+      setIsAutoPlaying(true);
+      // Resume from the saved progress on whichever step is current.
+      startProgressFrom(currentIndexRef.current, pausedProgressRef.current);
     }, RESUME_DELAY_MS);
-  }, [progressAnim, startProgress]);
+  }, [progressAnim, startProgressFrom, clearCountdown]);
+
+  /** Immediately resume auto-play from the saved progress position. */
+  const handleResumeNow = useCallback(() => {
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = null;
+    clearCountdown();
+    isAutoPlayingRef.current = true;
+    setIsAutoPlaying(true);
+    startProgressFrom(currentIndexRef.current, pausedProgressRef.current);
+  }, [clearCountdown, startProgressFrom]);
+
+  /** Manually pause without scheduling an auto-resume. */
+  const handleManualPause = useCallback(() => {
+    pausedProgressRef.current = progressAnim.value;
+    cancelAnimation(progressAnim);
+    isAutoPlayingRef.current = false;
+    setIsAutoPlaying(false);
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = null;
+    clearCountdown();
+  }, [progressAnim, clearCountdown]);
+
+  /** Restart the entire flow from step 0. */
+  const handleRestart = useCallback(() => {
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = null;
+    clearCountdown();
+    pausedProgressRef.current = 0;
+    isAutoPlayingRef.current = true;
+    setIsAutoPlaying(true);
+    // Scroll directly without triggering pauseAndScheduleResume.
+    flatListRef.current?.scrollToIndex({ index: 0, animated: true });
+  }, [clearCountdown]);
 
   // Start / restart progress when the active step changes.
   useEffect(() => {
+    // Always reset the progress display for the new step.
+    pausedProgressRef.current = 0;
+    progressAnim.value = 0;
+
     if (isAutoPlayingRef.current) {
-      startProgress(currentIndex);
+      startProgressFrom(currentIndex, 0);
     }
+    // Deliberately do NOT clear the resume timer here: if the user was paused
+    // and navigated to a new step, the timer should still fire on the new step
+    // (it will resume from 0 because pausedProgressRef was just reset above).
     return () => {
       cancelAnimation(progressAnim);
-      // Clear any pending resume timer so it doesn't fire for a stale step.
-      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     };
   }, [currentIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Cleanup timers on unmount.
+  // Cleanup on unmount.
   useEffect(() => {
     return () => {
       if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       cancelAnimation(progressAnim);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -621,8 +711,30 @@ export default function AboutScreen() {
         })}
       />
 
-      {/* Bottom bar — Close only */}
+      {/* Bottom bar — Left control + Close */}
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        {currentIndex === STEPS.length - 1 ? (
+          /* On the last step: offer a restart */
+          <Pressable onPress={handleRestart} style={styles.controlButton}>
+            <Feather name="refresh-cw" size={15} color={theme.primary} />
+            <Text style={[styles.controlButtonText, { color: theme.primary }]}>Restart</Text>
+          </Pressable>
+        ) : isAutoPlaying ? (
+          /* Auto-play running: show pause button */
+          <Pressable onPress={handleManualPause} style={styles.controlButton}>
+            <Feather name="pause" size={15} color={theme.mutedForeground} />
+          </Pressable>
+        ) : (
+          /* Auto-play paused: show resume button + countdown */
+          <Pressable onPress={handleResumeNow} style={styles.controlButton}>
+            <Feather name="play" size={15} color={theme.primary} />
+            {resumeCountdown > 0 && (
+              <Text style={[styles.controlButtonText, { color: theme.mutedForeground }]}>
+                {resumeCountdown}s
+              </Text>
+            )}
+          </Pressable>
+        )}
         <Pressable onPress={() => router.back()} style={styles.closeLink}>
           <Text style={[styles.closeLinkText, { color: theme.primary }]}>Close</Text>
         </Pressable>
@@ -665,9 +777,21 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   bottomBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingBottom: 12,
+  },
+  controlButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    padding: 4,
+    minWidth: 40,
+  },
+  controlButtonText: {
+    fontSize: 13,
   },
   closeLink: {
     padding: 4,
