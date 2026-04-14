@@ -83,13 +83,13 @@ const NAV_CHROME_HEIGHT = 100;
 
 /** Duration each step is displayed before auto-advancing (ms). */
 const STEP_DURATIONS: Record<Step, number> = {
-  intro: 5000,
-  problem: 7000,
-  solution: 8000,
-  personas: 9000,
-  'vs-social': 6000,
-  'vs-groupchat': 6000,
-  compare: 10000,
+  intro: 13000,
+  problem: 15000,
+  solution: 18000,
+  personas: 15000,
+  'vs-social': 16000,
+  'vs-groupchat': 16000,
+  compare: 18000,
   start: 15000,
 };
 
@@ -97,7 +97,7 @@ const STEP_DURATIONS: Record<Step, number> = {
 const ACTIVE_PILL_WIDTH = 40;
 
 /** After user interaction, auto-play resumes after this many ms. */
-const RESUME_DELAY_MS = 20_000;
+const RESUME_DELAY_MS = 10_000;
 
 // ---------------------------------------------------------------------------
 // Sub-components
