@@ -24,7 +24,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
-  const { firebaseUser, loading, isDemoMode, enterDemo, signInWithGoogle } = useAuth();
+  const { firebaseUser, loading: authLoading, isDemoMode, enterDemo, signInWithGoogle } = useAuth();
   const { addToast } = useToast();
   const insets = useSafeAreaInsets();
   const [showActions, setShowActions] = useState(false);
@@ -33,7 +33,7 @@ export default function HomeScreen() {
 
   // Auto-redirect when auth state or demo mode was persisted
   useEffect(() => {
-    if (loading || didRedirect.current) return;
+    if (authLoading || didRedirect.current) return;
 
     if (firebaseUser) {
       didRedirect.current = true;
@@ -46,7 +46,7 @@ export default function HomeScreen() {
       dispatch(enterDemoMode());
       router.replace('/(protected)/feed');
     }
-  }, [loading, firebaseUser, isDemoMode, dispatch, router]);
+  }, [authLoading, firebaseUser, isDemoMode, dispatch, router]);
 
   // Animations
   const logoScale = useRef(new Animated.Value(0.5)).current;
@@ -138,7 +138,7 @@ export default function HomeScreen() {
   // While auth state is resolving, render a plain background so that
   // authenticated users never see the welcome screen flash before the
   // redirect to the feed fires.
-  if (loading) {
+  if (authLoading) {
     return <View style={[styles.fullScreen, { backgroundColor: theme.background }]} />;
   }
 
