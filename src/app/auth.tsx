@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, ExternalPathString } from 'expo-router';
 import { AuthForm } from '@/components/ui/AuthForm';
 import { AngeliaLogo } from '@/components/AngeliaLogo';
 import { Button } from '@/components/ui/Button';
@@ -19,7 +19,7 @@ export default function AuthScreen() {
     mode?: string;
     redirect?: string;
   }>();
-  const { signIn, signUp, enterDemo } = useAuth();
+  const { signIn, signUp, enterDemo, loading: authLoading, firebaseUser } = useAuth();
   const { addToast } = useToast();
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
@@ -43,7 +43,7 @@ export default function AuthScreen() {
         await signIn(data.email, data.password);
         addToast({ type: 'success', title: 'Welcome back!' });
         router.replace(
-          (params.redirect as `/${string}`) || '/(protected)/feed'
+          (params.redirect as ExternalPathString) || '/(protected)/feed'
         );
       }
       return {};
@@ -59,6 +59,13 @@ export default function AuthScreen() {
     dispatch(enterDemoMode());
     router.replace('/(protected)/feed');
   };
+
+    // While auth state is resolving or resolved, render a plain background 
+    // so that authenticated users never see the welcome screen flash before 
+    // the redirect to the feed fires.
+    if (authLoading || firebaseUser) {
+      return <View style={{ flex: 1, backgroundColor: theme.background }} />;
+    }
 
   return (
     <KeyboardAvoidingView
