@@ -54,7 +54,10 @@ export default function FeedScreen() {
   const channelOptions = useMemo(
     () => [
       { text: 'All Channels', value: 'all' },
-      ...channels.map((ch) => ({ text: ch.name, value: ch.id })),
+      { text: 'Daily Channels', value: 'daily' },
+      ...channels
+        .filter((ch) => !ch.isDaily)
+        .map((ch) => ({ text: ch.name, value: ch.id })),
     ],
     [channels]
   );
@@ -62,7 +65,12 @@ export default function FeedScreen() {
   const filteredPosts = useMemo(() => {
     let result = [...posts].filter((p) => p.status === 'ready');
 
-    if (channelFilter !== 'all') {
+    if (channelFilter === 'daily') {
+      const dailyChannelIds = channels
+        .filter((ch) => ch.isDaily)
+        .map((ch) => ch.id);
+      result = result.filter((p) => dailyChannelIds.includes(p.channelId));
+    } else if (channelFilter !== 'all') {
       result = result.filter((p) => p.channelId === channelFilter);
     }
 
@@ -76,14 +84,23 @@ export default function FeedScreen() {
   }, [posts, channelFilter, sortOrder, displayCount]);
 
   const hasMore = useMemo(() => {
-    const total =
-      channelFilter === 'all'
-        ? posts.filter((p) => p.status === 'ready').length
-        : posts.filter(
-            (p) => p.channelId === channelFilter && p.status === 'ready'
-          ).length;
+    let total: number;
+    if (channelFilter === 'all') {
+      total = posts.filter((p) => p.status === 'ready').length;
+    } else if (channelFilter === 'daily') {
+      const dailyChannelIds = channels
+        .filter((ch) => ch.isDaily)
+        .map((ch) => ch.id);
+      total = posts.filter(
+        (p) => p.status === 'ready' && dailyChannelIds.includes(p.channelId)
+      ).length;
+    } else {
+      total = posts.filter(
+        (p) => p.channelId === channelFilter && p.status === 'ready'
+      ).length;
+    }
     return displayCount < total;
-  }, [posts, channelFilter, displayCount]);
+  }, [posts, channels, channelFilter, displayCount]);
 
   const loadMore = useCallback(() => {
     if (hasMore) {
