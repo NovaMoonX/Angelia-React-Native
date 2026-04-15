@@ -45,13 +45,6 @@ export function ChannelCard({
           >
             {channel.name}
           </Badge>
-          {channel.isDaily && (
-            <Text
-              style={[styles.dailyLabel, { color: theme.mutedForeground }]}
-            >
-              Daily
-            </Text>
-          )}
         </View>
 
         {channel.description ? (
@@ -118,10 +111,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 8,
-  },
-  dailyLabel: {
-    fontSize: 12,
-    fontStyle: 'italic',
   },
   description: {
     fontSize: 13,

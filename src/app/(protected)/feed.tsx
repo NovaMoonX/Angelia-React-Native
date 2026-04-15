@@ -1,6 +1,9 @@
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
+  Animated,
   FlatList,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
   Pressable,
   StyleSheet,
   Text,
@@ -29,6 +32,7 @@ export default function FeedScreen() {
   const posts = useAppSelector((state) => state.posts.items);
   const channels = useAppSelector((state) => state.channels.items);
   const currentUser = useAppSelector((state) => state.users.currentUser);
+  const isDemo = useAppSelector((state) => state.demo.isActive);
   const hasIncoming = useAppSelector(
     (state) => state.invites.incoming.filter((r) => r.status === 'pending').length > 0
   );
@@ -38,6 +42,13 @@ export default function FeedScreen() {
   const [displayCount, setDisplayCount] = useState(INITIAL_PAGE);
   const [fabExpanded, setFabExpanded] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+
+  // Animated header (slides up on scroll-down, back on scroll-up)
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const headerTranslateY = useRef(new Animated.Value(0)).current;
+  const prevScrollY = useRef(0);
+  const headerVisible = useRef(true);
+  const [scrolledPast, setScrolledPast] = useState(false);
 
   const channelOptions = useMemo(
     () => [
@@ -83,6 +94,41 @@ export default function FeedScreen() {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
+  const onScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const currentY = event.nativeEvent.contentOffset.y;
+      const delta = currentY - prevScrollY.current;
+      const threshold = headerHeight;
+
+      if (currentY <= 0 && !headerVisible.current) {
+        headerVisible.current = true;
+        Animated.timing(headerTranslateY, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }).start();
+      } else if (delta > 5 && currentY > threshold && headerVisible.current) {
+        headerVisible.current = false;
+        Animated.timing(headerTranslateY, {
+          toValue: -threshold,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      } else if (delta < -5 && !headerVisible.current) {
+        headerVisible.current = true;
+        Animated.timing(headerTranslateY, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      }
+
+      setScrolledPast(currentY > 100);
+      prevScrollY.current = currentY;
+    },
+    [headerTranslateY, headerHeight]
+  );
+
   const renderPost = useCallback(
     ({ item }: { item: Post }) => (
       <PostCard
@@ -93,56 +139,24 @@ export default function FeedScreen() {
     [router]
   );
 
+  // In demo mode the DemoModeBanner already consumes the top safe-area inset,
+  // so the feed header only needs a small breathing-room top padding.
+  const headerPaddingTop = isDemo ? 12 : insets.top + 12;
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Header Bar */}
-      <View style={[styles.headerBar, { paddingTop: insets.top + 2 }]}>
-        <Pressable onPress={() => router.push('/(protected)/account')}>
-          <Avatar
-            preset={currentUser?.avatar || 'moon'}
-            size="sm"
-          />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: theme.foreground }]}>
-          Feed
-        </Text>
-        <Pressable onPress={() => router.push('/(protected)/notifications')}>
-          <BellIcon hasNotification={hasIncoming} />
-        </Pressable>
-      </View>
-
-      {/* Filters */}
-      <View style={styles.filterRow}>
-        <View style={{ flex: 1 }}>
-          <Select
-            value={channelFilter}
-            onChange={setChannelFilter}
-            options={channelOptions}
-          />
-        </View>
-        <Pressable
-          onPress={() =>
-            setSortOrder((prev) =>
-              prev === 'newest' ? 'oldest' : 'newest'
-            )
-          }
-          style={[styles.sortButton, { borderColor: theme.border }]}
-        >
-          <Feather
-            name={sortOrder === 'newest' ? 'arrow-down' : 'arrow-up'}
-            size={16}
-            color={theme.foreground}
-          />
-        </Pressable>
-      </View>
-
-      {/* Post List */}
+      {/* Post List — fills the full container; paddingTop reserves space for the absolute header */}
       <FlatList
         ref={flatListRef}
         data={filteredPosts}
         keyExtractor={(item) => item.id}
         renderItem={renderPost}
-        contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingTop: headerHeight, paddingBottom: insets.bottom + 100 },
+        ]}
         showsVerticalScrollIndicator={false}
         onEndReached={loadMore}
         onEndReachedThreshold={0.3}
@@ -160,6 +174,63 @@ export default function FeedScreen() {
           hasMore ? <SkeletonPostCard /> : null
         }
       />
+
+      {/* Animated header — absolute so it slides up without affecting FlatList layout */}
+      <Animated.View
+        style={[
+          styles.headerContainer,
+          {
+            backgroundColor: theme.background,
+            transform: [{ translateY: headerTranslateY }],
+          },
+        ]}
+        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+      >
+        {/* Header Bar */}
+        <View style={[styles.headerBar, { paddingTop: headerPaddingTop }]}>
+          <View style={styles.headerSide}>
+            <Pressable onPress={() => router.push('/(protected)/account')}>
+              <Avatar
+                preset={currentUser?.avatar || 'moon'}
+                size="sm"
+              />
+            </Pressable>
+          </View>
+          <Text style={[styles.headerTitle, { color: theme.foreground }]}>
+            Feed
+          </Text>
+          <View style={[styles.headerSide, styles.headerSideRight]}>
+            <Pressable onPress={() => router.push('/(protected)/notifications')}>
+              <BellIcon hasNotification={hasIncoming} />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Filters */}
+        <View style={styles.filterRow}>
+          <View style={{ flex: 1 }}>
+            <Select
+              value={channelFilter}
+              onChange={setChannelFilter}
+              options={channelOptions}
+            />
+          </View>
+          <Pressable
+            onPress={() =>
+              setSortOrder((prev) =>
+                prev === 'newest' ? 'oldest' : 'newest'
+              )
+            }
+            style={[styles.sortButton, { borderColor: theme.border }]}
+          >
+            <Feather
+              name={sortOrder === 'newest' ? 'arrow-down' : 'arrow-up'}
+              size={16}
+              color={theme.foreground}
+            />
+          </Pressable>
+        </View>
+      </Animated.View>
 
       {/* Dim overlay when FAB expanded */}
       {fabExpanded && (
@@ -220,8 +291,8 @@ export default function FeedScreen() {
         />
       </Pressable>
 
-      {/* Scroll to Top FAB — hidden when expanded */}
-      {!fabExpanded && (
+      {/* Scroll to Top FAB — only when feed has posts and user has scrolled past first post */}
+      {!fabExpanded && scrolledPast && filteredPosts.length > 0 && (
         <Pressable
           style={[styles.scrollTopFab, { backgroundColor: theme.secondary, bottom: insets.bottom + 90 }]}
           onPress={scrollToTop}
@@ -237,22 +308,36 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
   headerBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 6,
+    paddingBottom: 10,
+  },
+  headerSide: {
+    width: 40,
+  },
+  headerSideRight: {
+    alignItems: 'flex-end',
   },
   headerTitle: {
+    flex: 1,
     fontSize: 20,
     fontWeight: '700',
+    textAlign: 'center',
   },
   filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginBottom: 12,
+    paddingBottom: 12,
     gap: 8,
   },
   sortButton: {
