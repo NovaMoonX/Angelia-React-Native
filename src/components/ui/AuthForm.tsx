@@ -61,6 +61,7 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
 
     setIsSubmitting(true);
     const result = await onEmailSubmit({ data: { email, password }, action: mode });
+    console.log('result', result); // REMOVE
     setIsSubmitting(false);
 
     if (result.error) {
