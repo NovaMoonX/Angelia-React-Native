@@ -48,6 +48,7 @@ export default function FeedScreen() {
   const headerTranslateY = useRef(new Animated.Value(0)).current;
   const prevScrollY = useRef(0);
   const headerVisible = useRef(true);
+  const headerAnimation = useRef<Animated.CompositeAnimation | null>(null);
   const [scrolledPast, setScrolledPast] = useState(false);
 
   const channelOptions = useMemo(
@@ -94,6 +95,19 @@ export default function FeedScreen() {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
+  const animateHeader = useCallback(
+    (toValue: number, duration: number) => {
+      headerAnimation.current?.stop();
+      headerAnimation.current = Animated.timing(headerTranslateY, {
+        toValue,
+        duration,
+        useNativeDriver: true,
+      });
+      headerAnimation.current.start();
+    },
+    [headerTranslateY]
+  );
+
   const onScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const currentY = event.nativeEvent.contentOffset.y;
@@ -102,31 +116,19 @@ export default function FeedScreen() {
 
       if (currentY <= 0 && !headerVisible.current) {
         headerVisible.current = true;
-        Animated.timing(headerTranslateY, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        }).start();
+        animateHeader(0, 150);
       } else if (delta > 5 && currentY > threshold && headerVisible.current) {
         headerVisible.current = false;
-        Animated.timing(headerTranslateY, {
-          toValue: -threshold,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
+        animateHeader(-threshold, 200);
       } else if (delta < -5 && !headerVisible.current) {
         headerVisible.current = true;
-        Animated.timing(headerTranslateY, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
+        animateHeader(0, 200);
       }
 
       setScrolledPast(currentY > 100);
       prevScrollY.current = currentY;
     },
-    [headerTranslateY, headerHeight]
+    [animateHeader, headerHeight]
   );
 
   const renderPost = useCallback(
