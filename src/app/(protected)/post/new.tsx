@@ -34,7 +34,11 @@ import type { Post } from '@/models/types';
 export default function PostCreateScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ capturedMedia?: string }>();
+  const params = useLocalSearchParams<{
+    capturedMedia?: string;
+    existingText?: string;
+    existingChannel?: string;
+  }>();
   const dispatch = useAppDispatch();
   const { addToast } = useToast();
   const { theme } = useTheme();
@@ -54,9 +58,9 @@ export default function PostCreateScreen() {
   }, [params.capturedMedia]);
 
   const [selectedChannel, setSelectedChannel] = useState(
-    userChannels[0]?.id || ''
+    params.existingChannel || userChannels[0]?.id || ''
   );
-  const [text, setText] = useState('');
+  const [text, setText] = useState(params.existingText || '');
   const [media, setMedia] = useState<MediaFile[]>(initialMedia);
   const [loading, setLoading] = useState(false);
   const [previewItem, setPreviewItem] = useState<MediaFile | null>(null);
@@ -280,9 +284,13 @@ export default function PostCreateScreen() {
           <Pressable
             style={[styles.toolbarButton, atMaxFiles && styles.toolbarButtonDisabled]}
             onPress={() =>
-              router.push({
+              router.replace({
                 pathname: '/(protected)/camera',
-                params: { existingMedia: JSON.stringify(media) },
+                params: {
+                  existingMedia: JSON.stringify(media),
+                  existingText: text,
+                  existingChannel: selectedChannel,
+                },
               })
             }
             disabled={atMaxFiles}
@@ -293,9 +301,13 @@ export default function PostCreateScreen() {
           <Pressable
             style={[styles.toolbarButton, atMaxFiles && styles.toolbarButtonDisabled]}
             onPress={() =>
-              router.push({
+              router.replace({
                 pathname: '/(protected)/gallery',
-                params: { existingMedia: JSON.stringify(media) },
+                params: {
+                  existingMedia: JSON.stringify(media),
+                  existingText: text,
+                  existingChannel: selectedChannel,
+                },
               })
             }
             disabled={atMaxFiles}

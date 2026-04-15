@@ -24,7 +24,11 @@ import { MAX_FILES } from '@/models/constants';
 export default function CameraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ existingMedia?: string }>();
+  const params = useLocalSearchParams<{
+    existingMedia?: string;
+    existingText?: string;
+    existingChannel?: string;
+  }>();
 
   const existingMedia = useMemo<MediaFile[]>(() => {
     if (!params.existingMedia) return [];
@@ -90,11 +94,15 @@ export default function CameraScreen() {
       router.back();
       return;
     }
-    router.push({
+    router.replace({
       pathname: '/(protected)/post/new',
-      params: { capturedMedia: JSON.stringify(allMedia) },
+      params: {
+        capturedMedia: JSON.stringify(allMedia),
+        existingText: params.existingText,
+        existingChannel: params.existingChannel,
+      },
     });
-  }, [capturedPhotos, existingMedia, router]);
+  }, [capturedPhotos, existingMedia, params.existingChannel, params.existingText, router]);
 
   const takePhoto = async () => {
     if (!camera.current || atMax) return;
@@ -127,9 +135,13 @@ export default function CameraScreen() {
         const uri = `file://${video.path}`;
         const file: MediaFile = { uri, name: `video-${generateId()}.mp4`, type: 'video/mp4' };
         const allMedia = [...existingMedia, file].slice(0, MAX_FILES);
-        router.push({
+        router.replace({
           pathname: '/(protected)/post/new',
-          params: { capturedMedia: JSON.stringify(allMedia) },
+          params: {
+            capturedMedia: JSON.stringify(allMedia),
+            existingText: params.existingText,
+            existingChannel: params.existingChannel,
+          },
         });
       },
       onRecordingError: () => {
@@ -222,13 +234,18 @@ export default function CameraScreen() {
       <View style={[styles.bottomControls, { paddingBottom: insets.bottom + 16 }]}>
         {/* Gallery shortcut */}
         <Pressable
-          style={styles.iconButton}
+          style={[styles.iconButton, recording && styles.iconButtonDisabled]}
           onPress={() =>
             router.replace({
               pathname: '/(protected)/gallery',
-              params: { existingMedia: JSON.stringify(existingMedia) },
+              params: {
+                existingMedia: JSON.stringify(existingMedia),
+                existingText: params.existingText,
+                existingChannel: params.existingChannel,
+              },
             })
           }
+          disabled={recording}
           hitSlop={8}
         >
           <Feather name="image" size={26} color="#FFF" />
@@ -244,7 +261,12 @@ export default function CameraScreen() {
         </Pressable>
 
         {/* Flip camera */}
-        <Pressable style={styles.iconButton} onPress={togglePosition} hitSlop={8}>
+        <Pressable
+          style={[styles.iconButton, recording && styles.iconButtonDisabled]}
+          onPress={togglePosition}
+          disabled={recording}
+          hitSlop={8}
+        >
           <Feather name="refresh-ccw" size={26} color="#FFF" />
         </Pressable>
       </View>
@@ -383,6 +405,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  iconButtonDisabled: {
+    opacity: 0.3,
   },
   shutter: {
     width: SHUTTER_SIZE,

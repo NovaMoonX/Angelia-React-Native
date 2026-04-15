@@ -21,7 +21,11 @@ export default function GalleryScreen() {
   const { theme } = useTheme();
   const { addToast } = useToast();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ existingMedia?: string }>();
+  const params = useLocalSearchParams<{
+    existingMedia?: string;
+    existingText?: string;
+    existingChannel?: string;
+  }>();
 
   const existingFiles = useMemo<MediaFile[]>(() => {
     if (!params.existingMedia) return [];
@@ -106,9 +110,13 @@ export default function GalleryScreen() {
       return;
     }
     const merged = [...existingFiles, ...selected].slice(0, MAX_FILES);
-    router.push({
+    router.replace({
       pathname: '/(protected)/post/new',
-      params: { capturedMedia: JSON.stringify(merged) },
+      params: {
+        capturedMedia: JSON.stringify(merged),
+        existingText: params.existingText,
+        existingChannel: params.existingChannel,
+      },
     });
   };
 
