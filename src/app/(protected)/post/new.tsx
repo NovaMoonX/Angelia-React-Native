@@ -132,7 +132,7 @@ export default function PostCreateScreen() {
       keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
     >
       {/* Top bar: Cancel + Post */}
-      <View style={[styles.topBar, { borderBottomColor: theme.border }]}>
+      <View style={[styles.topBar, { borderBottomColor: theme.border, paddingTop: isDemo ? 12 : insets.top + 8 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <Text style={[styles.cancelText, { color: theme.foreground }]}>Cancel</Text>
         </Pressable>

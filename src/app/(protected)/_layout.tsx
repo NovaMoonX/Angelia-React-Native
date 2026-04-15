@@ -56,7 +56,7 @@ export default function ProtectedLayout() {
           <Stack.Screen name="gallery" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
           <Stack.Screen
             name="post/new"
-            options={{ title: 'New Post' }}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="post/[id]"
