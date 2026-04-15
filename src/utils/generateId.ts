@@ -1,6 +1,7 @@
-import { nanoid } from 'nanoid';
-import { v4 as uuidv4 } from 'uuid';
+import * as Crypto from 'expo-crypto';
 
 export function generateId(type: 'nano' | 'uuid' = 'nano'): string {
-  return type === 'uuid' ? uuidv4() : nanoid();
+  return type === 'uuid' 
+    ? Crypto.randomUUID() 
+    : Crypto.randomUUID().replace(/-/g, '').slice(0, 21); // nanoid-like
 }
