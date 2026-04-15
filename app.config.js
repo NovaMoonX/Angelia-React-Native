@@ -70,6 +70,14 @@ export default {
 			],
 			'expo-video',
 			'expo-web-browser',
+			[
+				'react-native-vision-camera',
+				{
+					cameraPermissionText: 'Angelia needs camera access to let you capture photos and videos for posts.',
+					enableMicrophonePermission: true,
+					microphonePermissionText: 'Angelia needs microphone access to record audio with your videos.',
+				},
+			],
 		],
 		experiments: {
 			typedRoutes: true,
