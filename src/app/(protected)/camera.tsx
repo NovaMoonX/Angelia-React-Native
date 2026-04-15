@@ -1,6 +1,5 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React from 'react';
 import {
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -9,94 +8,18 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import {
-  CameraView,
-  CameraType,
-  useCameraPermissions,
-  useMicrophonePermissions,
-} from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { MAX_FILES, MAX_FILE_SIZE_MB } from '@/models/constants';
 import { useToast } from '@/hooks/useToast';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 
-const VIDEO_MAX_DURATION_SECONDS = 60;
+// TODO: Live camera capture will be implemented in a follow-up PR once the
+// appropriate camera package and native build configuration are finalised.
 
 export default function CameraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { addToast } = useToast();
-
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const [micPermission, requestMicPermission] = useMicrophonePermissions();
-
-  const [facing, setFacing] = useState<CameraType>('back');
-  const [isRecording, setIsRecording] = useState(false);
-  const [flash, setFlash] = useState<'off' | 'on'>('off');
-  const cameraRef = useRef<CameraView>(null);
-
-  const permissionsGranted =
-    cameraPermission?.granted && micPermission?.granted;
-
-  const requestPermissions = useCallback(async () => {
-    await requestCameraPermission();
-    await requestMicPermission();
-  }, [requestCameraPermission, requestMicPermission]);
-
-  const flipCamera = () => {
-    setFacing((prev) => (prev === 'back' ? 'front' : 'back'));
-  };
-
-  const toggleFlash = () => {
-    setFlash((prev) => (prev === 'off' ? 'on' : 'off'));
-  };
-
-  const capturePhoto = async () => {
-    if (!cameraRef.current || isRecording) return;
-    try {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.85 });
-      if (photo) {
-        const file: MediaFile = {
-          uri: photo.uri,
-          name: `photo-${Date.now()}.jpg`,
-          type: 'image/jpeg',
-        };
-        goToCompose([file]);
-      }
-    } catch (_err) {
-      addToast({ type: 'error', title: 'Could not take photo' });
-    }
-  };
-
-  const startRecording = async () => {
-    if (!cameraRef.current || isRecording) return;
-    setIsRecording(true);
-    try {
-      const video = await cameraRef.current.recordAsync({
-        maxDuration: VIDEO_MAX_DURATION_SECONDS,
-      });
-      if (video) {
-        const file: MediaFile = {
-          uri: video.uri,
-          name: `video-${Date.now()}.mp4`,
-          type: 'video/mp4',
-        };
-        goToCompose([file]);
-      }
-    } catch (err) {
-      if (err instanceof Error && err.message !== 'Recording was stopped') {
-        addToast({ type: 'error', title: 'Could not record video' });
-      }
-    } finally {
-      setIsRecording(false);
-    }
-  };
-
-  const stopRecording = () => {
-    if (cameraRef.current && isRecording) {
-      cameraRef.current.stopRecording();
-    }
-  };
 
   const pickFromGallery = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -134,60 +57,18 @@ export default function CameraScreen() {
       }
 
       if (files.length > 0) {
-        goToCompose(files);
+        router.push({
+          pathname: '/(protected)/post/new',
+          params: { capturedMedia: JSON.stringify(files) },
+        });
       }
     }
   };
 
-  const goToCompose = (capturedMedia: MediaFile[]) => {
-    router.push({
-      pathname: '/(protected)/post/new',
-      params: {
-        capturedMedia: JSON.stringify(capturedMedia),
-      },
-    });
-  };
-
-  if (!permissionsGranted) {
-    return (
-      <View style={[styles.permissionContainer, { paddingTop: insets.top }]}>
-        <Feather name="camera-off" size={56} color="#888" />
-        <Text style={styles.permissionTitle}>Camera Access Needed</Text>
-        <Text style={styles.permissionBody}>
-          Angelia needs access to your camera and microphone to capture photos
-          and videos.
-        </Text>
-        <Pressable style={styles.permissionButton} onPress={requestPermissions}>
-          <Text style={styles.permissionButtonText}>Grant Access</Text>
-        </Pressable>
-        <Pressable
-          style={styles.permissionSkip}
-          onPress={() => router.push('/(protected)/post/new')}
-        >
-          <Text style={styles.permissionSkipText}>Upload instead</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      <CameraView
-        ref={cameraRef}
-        style={StyleSheet.absoluteFill}
-        facing={facing}
-        flash={flash}
-        mode={isRecording ? 'video' : 'picture'}
-        videoQuality="1080p"
-      />
-
       {/* Top controls */}
-      <View
-        style={[
-          styles.topControls,
-          { paddingTop: insets.top + 8 },
-        ]}
-      >
+      <View style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
         <Pressable
           style={styles.iconButton}
           onPress={() => router.back()}
@@ -195,35 +76,20 @@ export default function CameraScreen() {
         >
           <Feather name="x" size={24} color="#FFF" />
         </Pressable>
-
-        <Pressable
-          style={styles.iconButton}
-          onPress={toggleFlash}
-          hitSlop={12}
-        >
-          <Feather
-            name={flash === 'on' ? 'zap' : 'zap-off'}
-            size={22}
-            color="#FFF"
-          />
-        </Pressable>
       </View>
 
-      {/* Recording indicator */}
-      {isRecording && (
-        <View style={[styles.recordingBadge, { top: insets.top + 56 }]}>
-          <View style={styles.recordingDot} />
-          <Text style={styles.recordingText}>REC</Text>
-        </View>
-      )}
+      {/* Camera placeholder */}
+      <View style={styles.placeholder}>
+        <Feather name="camera-off" size={56} color="rgba(255,255,255,0.3)" />
+        <Text style={styles.placeholderTitle}>Camera Coming Soon</Text>
+        <Text style={styles.placeholderBody}>
+          Live capture will be available in a future update.{'\n'}
+          Use the gallery to attach photos or videos.
+        </Text>
+      </View>
 
       {/* Bottom controls */}
-      <View
-        style={[
-          styles.bottomControls,
-          { paddingBottom: insets.bottom + 24 },
-        ]}
-      >
+      <View style={[styles.bottomControls, { paddingBottom: insets.bottom + 24 }]}>
         {/* Gallery picker */}
         <Pressable
           style={styles.galleryButton}
@@ -234,44 +100,21 @@ export default function CameraScreen() {
           <Text style={styles.galleryLabel}>Gallery</Text>
         </Pressable>
 
-        {/* Shutter */}
-        <Pressable
-          style={[
-            styles.shutterOuter,
-            isRecording && styles.shutterRecording,
-          ]}
-          onPress={isRecording ? stopRecording : capturePhoto}
-          onLongPress={startRecording}
-          delayLongPress={300}
-        >
-          <View
-            style={[
-              styles.shutterInner,
-              isRecording && styles.shutterInnerRecording,
-            ]}
-          />
-        </Pressable>
+        {/* Disabled shutter placeholder */}
+        <View style={[styles.shutterOuter, styles.shutterDisabled]}>
+          <View style={[styles.shutterInner, styles.shutterInnerDisabled]} />
+        </View>
 
-        {/* Flip camera */}
-        <Pressable
-          style={styles.flipButton}
-          onPress={flipCamera}
-          hitSlop={8}
-        >
-          <Feather name="refresh-cw" size={28} color="#FFF" />
-          <Text style={styles.flipLabel}>Flip</Text>
-        </Pressable>
+        {/* Spacer to balance layout */}
+        <View style={styles.flipPlaceholder} />
       </View>
 
-      {/* Capture hint */}
-      {!isRecording && (
-        <Text
-          style={[styles.hint, { bottom: insets.bottom + 112 }]}
-          pointerEvents="none"
-        >
-          Tap for photo · Hold for video
-        </Text>
-      )}
+      <Text
+        style={[styles.hint, { bottom: insets.bottom + 112 }]}
+        pointerEvents="none"
+      >
+        Gallery available · Camera coming soon
+      </Text>
     </View>
   );
 }
@@ -281,47 +124,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
-  permissionContainer: {
-    flex: 1,
-    backgroundColor: '#111',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-    gap: 16,
-  },
-  permissionTitle: {
-    color: '#FFF',
-    fontSize: 22,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  permissionBody: {
-    color: '#AAA',
-    fontSize: 15,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  permissionButton: {
-    backgroundColor: '#F59E0B',
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 30,
-    marginTop: 8,
-  },
-  permissionButtonText: {
-    color: '#000',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  permissionSkip: {
-    paddingVertical: 8,
-  },
-  permissionSkipText: {
-    color: '#888',
-    fontSize: 14,
-    textDecorationLine: 'underline',
-  },
   topControls: {
     position: 'absolute',
     top: 0,
@@ -330,6 +132,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+    zIndex: 10,
   },
   iconButton: {
     width: 44,
@@ -339,28 +142,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  recordingBadge: {
-    position: 'absolute',
-    alignSelf: 'center',
-    flexDirection: 'row',
+  placeholder: {
+    flex: 1,
     alignItems: 'center',
-    backgroundColor: 'rgba(220,38,38,0.85)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-    gap: 6,
+    justifyContent: 'center',
+    gap: 12,
+    paddingHorizontal: 40,
   },
-  recordingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FFF',
-  },
-  recordingText: {
-    color: '#FFF',
+  placeholderTitle: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 20,
     fontWeight: '700',
-    fontSize: 13,
-    letterSpacing: 1,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  placeholderBody: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   bottomControls: {
     position: 'absolute',
@@ -382,16 +182,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
   },
-  flipButton: {
-    alignItems: 'center',
-    gap: 4,
-    width: 60,
-  },
-  flipLabel: {
-    color: '#FFF',
-    fontSize: 11,
-    fontWeight: '500',
-  },
   shutterOuter: {
     width: 80,
     height: 80,
@@ -401,8 +191,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  shutterRecording: {
-    borderColor: '#DC2626',
+  shutterDisabled: {
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   shutterInner: {
     width: 64,
@@ -410,17 +200,18 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     backgroundColor: '#FFF',
   },
-  shutterInnerRecording: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
-    backgroundColor: '#DC2626',
+  shutterInnerDisabled: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  flipPlaceholder: {
+    width: 60,
   },
   hint: {
     position: 'absolute',
     alignSelf: 'center',
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(255,255,255,0.5)',
     fontSize: 13,
     fontWeight: '500',
   },
 });
+

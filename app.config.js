@@ -68,7 +68,6 @@ export default {
 					},
 				},
 			],
-			'expo-camera',
 			'expo-video',
 			'expo-web-browser',
 		],
