@@ -17,6 +17,8 @@ import {
 } from 'react-native-vision-camera';
 import type { CameraPosition, PhotoFile, VideoFile } from 'react-native-vision-camera';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
+import { generateId } from '@/utils/generateId';
+import { useToast } from '@/hooks/useToast';
 
 export default function CameraScreen() {
   const router = useRouter();
@@ -25,7 +27,9 @@ export default function CameraScreen() {
   const [position, setPosition] = useState<CameraPosition>('back');
   const [flash, setFlash] = useState<'off' | 'on'>('off');
   const [recording, setRecording] = useState(false);
+  const [videoMode, setVideoMode] = useState(false);
   const camera = useRef<Camera>(null);
+  const { addToast } = useToast();
 
   const { hasPermission: hasCameraPermission, requestPermission: requestCamera } =
     useCameraPermission();
@@ -59,9 +63,11 @@ export default function CameraScreen() {
         flash,
       });
       const uri = `file://${photo.path}`;
-      navigateWithMedia({ uri, name: `photo-${Date.now()}.jpg`, type: 'image/jpeg' });
-    } catch {
-      // silently ignore cancelled / failed captures
+      navigateWithMedia({ uri, name: `photo-${generateId()}.jpg`, type: 'image/jpeg' });
+    } catch (err) {
+      // CaptureAbortedError means the user or system cancelled — ignore silently
+      if (err instanceof Error && err.message.includes('aborted')) return;
+      addToast({ type: 'error', title: 'Failed to capture photo' });
     }
   };
 
@@ -72,11 +78,13 @@ export default function CameraScreen() {
       flash: flash === 'on' ? 'on' : 'off',
       onRecordingFinished: (video: VideoFile) => {
         setRecording(false);
+        setVideoMode(false);
         const uri = `file://${video.path}`;
-        navigateWithMedia({ uri, name: `video-${Date.now()}.mp4`, type: 'video/mp4' });
+        navigateWithMedia({ uri, name: `video-${generateId()}.mp4`, type: 'video/mp4' });
       },
       onRecordingError: () => {
         setRecording(false);
+        addToast({ type: 'error', title: 'Failed to record video' });
       },
     });
   };
@@ -174,9 +182,7 @@ export default function CameraScreen() {
         {/* Shutter */}
         <Pressable
           style={[styles.shutter, recording && styles.shutterRecording]}
-          onPress={recording ? stopRecording : takePhoto}
-          onLongPress={hasMicPermission ? startRecording : undefined}
-          delayLongPress={400}
+          onPress={recording ? stopRecording : videoMode ? startRecording : takePhoto}
         >
           {recording && <View style={styles.recordingDot} />}
         </Pressable>
@@ -186,6 +192,28 @@ export default function CameraScreen() {
           <Feather name="refresh-ccw" size={26} color="#FFF" />
         </Pressable>
       </View>
+
+      {/* Photo / Video mode toggle */}
+      {hasMicPermission && !recording && (
+        <View style={[styles.modeRow, { bottom: insets.bottom + 100 }]}>
+          <Pressable
+            style={[styles.modeButton, !videoMode && styles.modeButtonActive]}
+            onPress={() => setVideoMode(false)}
+          >
+            <Text style={[styles.modeText, !videoMode && styles.modeTextActive]}>
+              Photo
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.modeButton, videoMode && styles.modeButtonActive]}
+            onPress={() => setVideoMode(true)}
+          >
+            <Text style={[styles.modeText, videoMode && styles.modeTextActive]}>
+              Video
+            </Text>
+          </Pressable>
+        </View>
+      )}
 
       {recording && (
         <View style={[styles.recordingBadge, { top: insets.top + 60 }]}>
@@ -330,6 +358,32 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 1,
+  },
+  modeRow: {
+    position: 'absolute',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: 20,
+    padding: 4,
+    zIndex: 10,
+  },
+  modeButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  modeButtonActive: {
+    backgroundColor: '#FFF',
+  },
+  modeText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  modeTextActive: {
+    color: '#000',
   },
 });
 
