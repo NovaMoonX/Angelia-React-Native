@@ -307,9 +307,10 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
               renderItem={renderItem}
               keyExtractor={keyExtractor}
               getItemLayout={getItemLayout}
-              initialNumToRender={20}
-              maxToRenderPerBatch={30}
-              windowSize={11}
+              initialNumToRender={12}
+              maxToRenderPerBatch={10}
+              updateCellsBatchingPeriod={50}
+              windowSize={5}
               removeClippedSubviews
               onScrollToIndexFailed={(info) => {
                 flatListRef.current?.scrollToOffset({
