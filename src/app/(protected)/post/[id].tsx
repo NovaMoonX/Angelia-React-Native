@@ -2,13 +2,10 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  FlatList,
   KeyboardAvoidingView,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,8 +30,8 @@ import { useToast } from '@/hooks/useToast';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName } from '@/lib/post/post.utils';
-import { isValidEmoji, getRandomPhrase, getRandomFirstCommentPhrase } from '@/lib/post/post.constants';
-import { COMMON_EMOJIS } from '@/models/constants';
+import { getRandomPhrase, getRandomFirstCommentPhrase } from '@/lib/post/post.constants';
+import EmojiPicker, { emojiData } from '@hiraku-ai/react-native-emoji-picker';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import {
   updateReactionsOptimistic,
@@ -65,7 +62,7 @@ export default function PostDetailScreen() {
   );
   const currentUser = useAppSelector((state) => state.users.currentUser);
 
-  const [customEmoji, setCustomEmoji] = useState('');
+  const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [activeTab, setActiveTab] = useState<'reactions' | 'conversation'>(
     'reactions'
@@ -169,49 +166,56 @@ export default function PostDetailScreen() {
     return groups;
   }, [post.reactions, currentUser.id]);
 
+  const triggerCommentPrompt = () => {
+    setShowCommentPrompt(true);
+    Animated.parallel([
+      Animated.timing(popoverOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.spring(popoverScale, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(popoverOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(popoverScale, {
+          toValue: 0.8,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => setShowCommentPrompt(false));
+    }, 4000);
+  };
+
   const handleReaction = async (emoji: string) => {
+    // Prevent adding the same reaction twice
+    const alreadyReactedWithEmoji = post.reactions.some(
+      (r) => r.userId === currentUser.id && r.emoji === emoji
+    );
+    if (alreadyReactedWithEmoji) return;
+
     const wasFirstReaction = !hasReacted;
     const newReaction: Reaction = { emoji, userId: currentUser.id };
     const updatedReactions = [...post.reactions, newReaction];
     dispatch(
       updateReactionsOptimistic({ postId: post.id, reactions: updatedReactions })
     );
-    
+
     // Show comment prompt if this is the first reaction and no comments exist
-    if (wasFirstReaction && post.comments.length === 0 && isInConversation) {
-      setShowCommentPrompt(true);
-      // Animate the popover in
-      Animated.parallel([
-        Animated.timing(popoverOpacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(popoverScale, {
-          toValue: 1,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-      ]).start();
-      
-      // Auto-hide after 4 seconds
-      setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(popoverOpacity, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(popoverScale, {
-            toValue: 0.8,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-        ]).start(() => setShowCommentPrompt(false));
-      }, 4000);
+    if (wasFirstReaction && post.comments.length === 0) {
+      triggerCommentPrompt();
     }
-    
+
     if (!isDemo) {
       try {
         await updatePostReactions(post.id, updatedReactions);
@@ -244,13 +248,6 @@ export default function PostDetailScreen() {
     }
   };
 
-  const handleCustomEmoji = () => {
-    const trimmed = customEmoji.trim();
-    if (trimmed && isValidEmoji(trimmed)) {
-      handleReaction(trimmed);
-      setCustomEmoji('');
-    }
-  };
 
   const handleJoinConversation = async () => {
     if (!isDemo) {
@@ -258,7 +255,12 @@ export default function PostDetailScreen() {
         await firestoreJoinConversation(post.id, currentUser.id);
       } catch {
         addToast({ type: 'error', title: 'Failed to join conversation' });
+        return;
       }
+    }
+    // Show comment prompt when user has already reacted but no comments exist yet
+    if (hasReacted && post.comments.length === 0) {
+      triggerCommentPrompt();
     }
   };
 
@@ -388,25 +390,25 @@ export default function PostDetailScreen() {
         <Text style={[styles.sectionLabel, { color: theme.foreground }]}>
           React
         </Text>
-        <View style={styles.emojiRow}>
-          {COMMON_EMOJIS.map((emoji) => (
-            <Pressable
-              key={emoji}
-              onPress={() => handleReaction(emoji)}
-              style={styles.emojiButton}
-            >
-              <Text style={styles.emojiText}>{emoji}</Text>
-            </Pressable>
-          ))}
-          <TextInput
-            value={customEmoji}
-            onChangeText={setCustomEmoji}
-            placeholder="🎯"
-            maxLength={2}
-            onSubmitEditing={handleCustomEmoji}
-            style={[styles.customEmojiInput, { borderColor: theme.border, color: theme.foreground }]}
-          />
-        </View>
+        <Button
+          variant="outline"
+          size="sm"
+          onPress={() => setEmojiPickerVisible(true)}
+          style={styles.emojiPickerButton}
+        >
+          😊 Pick a reaction
+        </Button>
+        <EmojiPicker
+          emojis={emojiData}
+          visible={emojiPickerVisible}
+          onEmojiSelect={(emoji) => {
+            handleReaction(emoji);
+            setEmojiPickerVisible(false);
+          }}
+          onClose={() => setEmojiPickerVisible(false)}
+          showHistoryTab={true}
+          showSearchBar={true}
+        />
       </View>
 
       {/* Tabs: Reactions + Conversation (shown after reacting) */}
@@ -597,26 +599,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  emojiRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    alignItems: 'center',
-  },
-  emojiButton: {
-    padding: 6,
-  },
-  emojiText: {
-    fontSize: 22,
-  },
-  customEmojiInput: {
-    width: 60,
-    height: 40,
-    borderWidth: 1,
-    borderRadius: 8,
-    textAlign: 'center',
-    fontSize: 18,
-    paddingHorizontal: 4,
+  emojiPickerButton: {
+    alignSelf: 'flex-start',
   },
   reactionGroups: {
     flexDirection: 'row',
