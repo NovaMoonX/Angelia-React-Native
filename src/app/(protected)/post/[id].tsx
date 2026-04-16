@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Animated,
   KeyboardAvoidingView,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,6 +32,7 @@ import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName } from '@/lib/post/post.utils';
 import { getRandomPhrase, getRandomFirstCommentPhrase } from '@/lib/post/post.constants';
+import { COMMON_EMOJIS } from '@/models/constants';
 import EmojiPicker, { emojiData } from '@hiraku-ai/react-native-emoji-picker';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import {
@@ -390,14 +392,23 @@ export default function PostDetailScreen() {
         <Text style={[styles.sectionLabel, { color: theme.foreground }]}>
           React
         </Text>
-        <Button
-          variant="outline"
-          size="sm"
-          onPress={() => setEmojiPickerVisible(true)}
-          style={styles.emojiPickerButton}
-        >
-          😊 Pick a reaction
-        </Button>
+        <View style={styles.emojiRow}>
+          {COMMON_EMOJIS.map((emoji) => (
+            <Pressable
+              key={emoji}
+              onPress={() => handleReaction(emoji)}
+              style={styles.emojiButton}
+            >
+              <Text style={styles.emojiText}>{emoji}</Text>
+            </Pressable>
+          ))}
+          <Pressable
+            onPress={() => setEmojiPickerVisible(true)}
+            style={styles.emojiButton}
+          >
+            <Text style={styles.emojiText}>➕</Text>
+          </Pressable>
+        </View>
         <EmojiPicker
           emojis={emojiData}
           visible={emojiPickerVisible}
@@ -599,8 +610,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  emojiPickerButton: {
-    alignSelf: 'flex-start',
+  emojiRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    alignItems: 'center',
+  },
+  emojiButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emojiText: {
+    fontSize: 24,
   },
   reactionGroups: {
     flexDirection: 'row',
