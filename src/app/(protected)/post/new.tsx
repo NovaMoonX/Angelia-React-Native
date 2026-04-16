@@ -465,10 +465,11 @@ function MediaPreviewModal({
   item: MediaFile;
   onClose: () => void;
 }) {
+  const insets = useSafeAreaInsets();
   const isVideo = item.type.startsWith('video/');
   return (
     <Modal visible animationType="fade" transparent statusBarTranslucent>
-      <View style={previewStyles.overlay}>
+      <View style={[previewStyles.overlay, { paddingBottom: insets.bottom }]}>
         <Pressable style={previewStyles.closeButton} onPress={onClose} hitSlop={12}>
           <Feather name="x" size={26} color="#FFF" />
         </Pressable>
@@ -476,7 +477,7 @@ function MediaPreviewModal({
           <VideoPreview uri={item.uri} />
         ) : (
           <Image
-            source={{ uri: item.uri }}
+            source={{ uri: item.uri}}
             style={previewStyles.image}
             resizeMode="contain"
           />
