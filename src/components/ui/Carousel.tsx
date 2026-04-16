@@ -92,6 +92,7 @@ const styles = StyleSheet.create({
   navButton: {
     position: 'absolute',
     top: '50%',
+    marginTop: -16,
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -110,9 +111,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 24,
     fontWeight: '600',
-    lineHeight: 32,
-    textAlign: 'center',
-    marginTop: -2,
   },
   dots: {
     flexDirection: 'row',
@@ -128,8 +126,5 @@ const styles = StyleSheet.create({
   },
   activeDot: {
     backgroundColor: '#D97706',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
   },
 });

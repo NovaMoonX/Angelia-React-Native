@@ -63,7 +63,6 @@ export default function ProtectedLayout() {
             options={{ 
               headerShown: true, 
               title: 'Post',
-              headerTitleStyle: { fontWeight: '600', fontSize: 16 },
             }}
           />
           <Stack.Screen name="account" options={{ headerShown: false }} />

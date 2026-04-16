@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -46,6 +46,30 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
       }
     }
   );
+
+  // Create video players for carousel items - hooks must be called unconditionally
+  const carouselVideoPlayers = useMemo(() => {
+    if (!post.media || post.media.length <= 1) return [];
+    return post.media.map(item => 
+      item.type === 'video' ? item.url : ''
+    );
+  }, [post.media]);
+
+  // Create players for all carousel video URLs
+  const player0 = useVideoPlayer(carouselVideoPlayers[0] || '', (p) => {
+    if (carouselVideoPlayers[0]) { p.loop = true; p.muted = true; }
+  });
+  const player1 = useVideoPlayer(carouselVideoPlayers[1] || '', (p) => {
+    if (carouselVideoPlayers[1]) { p.loop = true; p.muted = true; }
+  });
+  const player2 = useVideoPlayer(carouselVideoPlayers[2] || '', (p) => {
+    if (carouselVideoPlayers[2]) { p.loop = true; p.muted = true; }
+  });
+  const player3 = useVideoPlayer(carouselVideoPlayers[3] || '', (p) => {
+    if (carouselVideoPlayers[3]) { p.loop = true; p.muted = true; }
+  });
+
+  const carouselPlayers = [player0, player1, player2, player3];
 
   const colors = channel
     ? getColorPair(channel)
@@ -106,24 +130,29 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
               />
             )
           ) : (
-            <Carousel>
-              {post.media.map((item, index) => (
-                item.type === 'video' ? (
-                  <View key={`media-${index}`} style={styles.carouselImage}>
-                    <Text style={[styles.videoLabel, { color: theme.mutedForeground }]}>
-                      📹 Video
-                    </Text>
-                  </View>
-                ) : (
-                  <Image
-                    key={`media-${index}`}
-                    source={{ uri: item.url }}
-                    style={styles.carouselImage}
-                    contentFit="cover"
-                  />
-                )
-              ))}
-            </Carousel>
+            <View onStartShouldSetResponder={() => true}>
+              <Carousel>
+                {post.media.map((item, index) => (
+                  item.type === 'video' ? (
+                    <View key={`media-${index}`} style={styles.carouselImage}>
+                      <VideoView
+                        player={carouselPlayers[index]}
+                        style={StyleSheet.absoluteFill}
+                        contentFit="cover"
+                        nativeControls={false}
+                      />
+                    </View>
+                  ) : (
+                    <Image
+                      key={`media-${index}`}
+                      source={{ uri: item.url }}
+                      style={styles.carouselImage}
+                      contentFit="cover"
+                    />
+                  )
+                ))}
+              </Carousel>
+            </View>
           )
         ) : null}
 
@@ -188,10 +217,5 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-  },
-  videoLabel: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 80,
   },
 });
