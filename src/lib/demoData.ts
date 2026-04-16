@@ -212,11 +212,12 @@ const DEMO_POSTS: Post[] = [
     id: 'demo-post-5',
     authorId: 'demo-user-2',
     channelId: 'demo-user-2-daily',
-    text: 'Check out this bad bunny video I found! 🐰🎬',
+    text: 'Taking a moment to appreciate the little things in life. Today, it was a flower blooming in the garden. 🌸 Nature always finds a way to surprise us.',
     media: [
       {
         type: 'video',
-        url: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4'
+        url: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+        // url: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4'
         // url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
       }
     ],
