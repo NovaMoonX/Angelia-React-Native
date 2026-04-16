@@ -20,7 +20,6 @@ import { Callout } from '@/components/ui/Callout';
 import { Card } from '@/components/ui/Card';
 import { Carousel } from '@/components/ui/Carousel';
 import { Input } from '@/components/ui/Input';
-import { Separator } from '@/components/ui/Separator';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { ChatMessage } from '@/components/ChatMessage';
 import { ReactionDisplay } from '@/components/ReactionDisplay';
@@ -386,162 +385,158 @@ export default function PostDetailScreen() {
         )
       ) : null}
 
-      <Separator style={{ marginVertical: 16 }} />
+      {/* Tabs directly below post content */}
+      <Tabs
+        defaultValue="reactions"
+        onValueChange={(v) =>
+          setActiveTab(v as 'reactions' | 'conversation')
+        }
+        style={{ marginTop: 16 }}
+      >
+        <TabsList>
+          <TabsTrigger value="reactions">
+            Reactions ({post.reactions.length})
+          </TabsTrigger>
+          <TabsTrigger value="conversation">
+            Conversation ({post.comments.length})
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Reaction Buttons */}
-      <View style={styles.reactionSection}>
-        <Text style={[styles.sectionLabel, { color: theme.foreground }]}>
-          React
-        </Text>
-        <View style={styles.emojiRow}>
-          {COMMON_EMOJIS.map((emoji) => (
+        <TabsContent value="reactions">
+          {/* Existing reaction groups */}
+          {Object.keys(reactionGroups).length > 0 && (
+            <View style={styles.reactionGroups}>
+              {Object.entries(reactionGroups).map(([emoji, data]) => (
+                <ReactionDisplay
+                  key={emoji}
+                  emoji={emoji}
+                  count={data.count}
+                  isUserReacted={data.isUserReacted}
+                  onClick={() =>
+                    data.isUserReacted
+                      ? handleRemoveReaction(emoji)
+                      : handleReaction(emoji)
+                  }
+                />
+              ))}
+            </View>
+          )}
+
+          {/* Horizontal scrollable emoji row */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalEmojiRow}
+            style={styles.horizontalEmojiScroll}
+          >
+            {COMMON_EMOJIS.map((emoji) => (
+              <Pressable
+                key={emoji}
+                onPress={() => handleReaction(emoji)}
+                style={styles.emojiButton}
+              >
+                <Text style={styles.emojiText}>{emoji}</Text>
+              </Pressable>
+            ))}
             <Pressable
-              key={emoji}
-              onPress={() => handleReaction(emoji)}
-              style={styles.emojiButton}
+              onPress={() => setEmojiPickerVisible(true)}
+              style={[styles.emojiButton, styles.addReactionButton, { borderColor: theme.border }]}
             >
-              <Text style={styles.emojiText}>{emoji}</Text>
+              <AddReactionIcon size={28} color={theme.mutedForeground} />
             </Pressable>
-          ))}
-          <Pressable
-            onPress={() => setEmojiPickerVisible(true)}
-            style={[styles.emojiButton, styles.addReactionButton, { borderColor: theme.border }]}
-          >
-            <AddReactionIcon size={28} color={theme.mutedForeground} />
-          </Pressable>
-        </View>
-        <EmojiPicker
-          visible={emojiPickerVisible}
-          onSelect={(emoji) => {
-            handleReaction(emoji);
-            setEmojiPickerVisible(false);
-          }}
-          onClose={() => setEmojiPickerVisible(false)}
-        />
-      </View>
+          </ScrollView>
 
-      {/* Tabs: Reactions + Conversation (shown after reacting) */}
-      {(hasReacted ||
-        post.reactions.length > 0 ||
-        post.comments.length > 0) && (
-        <>
-          <Separator style={{ marginVertical: 16 }} />
-          <Tabs
-            defaultValue="reactions"
-            onValueChange={(v) =>
-              setActiveTab(v as 'reactions' | 'conversation')
-            }
-          >
-            <TabsList>
-              <TabsTrigger value="reactions">
-                Reactions ({post.reactions.length})
-              </TabsTrigger>
-              <TabsTrigger value="conversation">
-                Conversation ({post.comments.length})
-              </TabsTrigger>
-            </TabsList>
+          <EmojiPicker
+            visible={emojiPickerVisible}
+            onSelect={(emoji) => {
+              handleReaction(emoji);
+              setEmojiPickerVisible(false);
+            }}
+            onClose={() => setEmojiPickerVisible(false)}
+          />
+        </TabsContent>
 
-            <TabsContent value="reactions">
-              <View style={styles.reactionGroups}>
-                {Object.entries(reactionGroups).map(([emoji, data]) => (
-                  <ReactionDisplay
-                    key={emoji}
-                    emoji={emoji}
-                    count={data.count}
-                    isUserReacted={data.isUserReacted}
-                    onClick={() =>
-                      data.isUserReacted
-                        ? handleRemoveReaction(emoji)
-                        : handleReaction(emoji)
+        <TabsContent value="conversation">
+          {!hasReacted ? (
+            <Card style={styles.joinCard}>
+              <Callout
+                variant="info"
+                description="👋 React to this post to join the conversation and see comments!"
+                style={styles.calloutNoBorder}
+              />
+            </Card>
+          ) : !isInConversation ? (
+            <Card style={styles.joinCard}>
+              <Text
+                style={[
+                  styles.joinText,
+                  { color: theme.mutedForeground },
+                ]}
+              >
+                Join the conversation to see and post comments.
+              </Text>
+              <Button onPress={handleJoinConversation}>
+                Join Conversation
+              </Button>
+            </Card>
+          ) : (
+            <View style={styles.conversationArea}>
+              {post.comments.length === 0 ? (
+                <View style={styles.emptyCommentsContainer}>
+                  <Text style={[styles.emptyCommentsText, { color: theme.mutedForeground }]}>
+                    {getRandomFirstCommentPhrase()}
+                  </Text>
+                </View>
+              ) : (
+                post.comments.map((comment) => (
+                  <ChatMessage
+                    key={comment.id}
+                    authorId={comment.authorId}
+                    text={comment.text}
+                    timestamp={comment.timestamp}
+                    isCurrentUser={
+                      comment.authorId === currentUser.id
                     }
                   />
-                ))}
-              </View>
-            </TabsContent>
-
-            <TabsContent value="conversation">
-              {!hasReacted ? (
-                <Card style={styles.joinCard}>
-                  <Callout
-                    variant="info"
-                    description="👋 React to this post to join the conversation and see comments!"
-                    style={styles.calloutNoBorder}
-                  />
-                </Card>
-              ) : !isInConversation ? (
-                <Card style={styles.joinCard}>
-                  <Text
-                    style={[
-                      styles.joinText,
-                      { color: theme.mutedForeground },
-                    ]}
-                  >
-                    Join the conversation to see and post comments.
-                  </Text>
-                  <Button onPress={handleJoinConversation}>
-                    Join Conversation
-                  </Button>
-                </Card>
-              ) : (
-                <View style={styles.conversationArea}>
-                  {post.comments.length === 0 ? (
-                    <View style={styles.emptyCommentsContainer}>
-                      <Text style={[styles.emptyCommentsText, { color: theme.mutedForeground }]}>
-                        {getRandomFirstCommentPhrase()}
-                      </Text>
-                    </View>
-                  ) : (
-                    post.comments.map((comment) => (
-                      <ChatMessage
-                        key={comment.id}
-                        authorId={comment.authorId}
-                        text={comment.text}
-                        timestamp={comment.timestamp}
-                        isCurrentUser={
-                          comment.authorId === currentUser.id
-                        }
-                      />
-                    ))
-                  )}
-
-                  <View style={styles.commentInput}>
-                    <Input
-                      value={commentText}
-                      onChangeText={setCommentText}
-                      placeholder={getRandomPhrase()}
-                      style={{ flex: 1 }}
-                    />
-                    <Button
-                      onPress={handleSendComment}
-                      size="sm"
-                      disabled={!commentText.trim()}
-                    >
-                      Send
-                    </Button>
-                  </View>
-                </View>
+                ))
               )}
-            </TabsContent>
-          </Tabs>
-          
-          {/* Animated popover for prompting first comment */}
-          {showCommentPrompt && (
-            <Animated.View
-              style={[
-                styles.commentPromptPopover,
-                {
-                  backgroundColor: theme.primary,
-                  opacity: popoverOpacity,
-                  transform: [{ scale: popoverScale }],
-                },
-              ]}
-            >
-              <Text style={[styles.commentPromptText, { color: theme.primaryForeground }]}>
-                Make the first comment! 💬
-              </Text>
-            </Animated.View>
+
+              <View style={styles.commentInput}>
+                <Input
+                  value={commentText}
+                  onChangeText={setCommentText}
+                  placeholder={getRandomPhrase()}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  onPress={handleSendComment}
+                  size="sm"
+                  disabled={!commentText.trim()}
+                >
+                  Send
+                </Button>
+              </View>
+            </View>
           )}
-        </>
+        </TabsContent>
+      </Tabs>
+
+      {/* Animated popover for prompting first comment */}
+      {showCommentPrompt && (
+        <Animated.View
+          style={[
+            styles.commentPromptPopover,
+            {
+              backgroundColor: theme.primary,
+              opacity: popoverOpacity,
+              transform: [{ scale: popoverScale }],
+            },
+          ]}
+        >
+          <Text style={[styles.commentPromptText, { color: theme.primaryForeground }]}>
+            Make the first comment! 💬
+          </Text>
+        </Animated.View>
       )}
       </ScrollView>
       {/* Solid background behind system nav buttons */}
@@ -602,19 +597,6 @@ const styles = StyleSheet.create({
   videoContainer: {
     backgroundColor: '#1a1a1a',
   },
-  reactionSection: {
-    gap: 8,
-  },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  emojiRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    alignItems: 'center',
-  },
   emojiButton: {
     width: 44,
     height: 44,
@@ -628,6 +610,13 @@ const styles = StyleSheet.create({
   addReactionButton: {
     borderWidth: 1.5,
     borderStyle: 'dashed',
+  },
+  horizontalEmojiScroll: {
+    marginTop: 12,
+  },
+  horizontalEmojiRow: {
+    gap: 8,
+    paddingVertical: 4,
   },
   reactionGroups: {
     flexDirection: 'row',

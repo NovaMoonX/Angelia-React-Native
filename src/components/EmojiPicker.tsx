@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, memo } from 'react';
+import React, { useState, useCallback, useMemo, memo, useRef } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -12,10 +12,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/useTheme';
 import { EMOJI_CATEGORIES, type EmojiCategory } from '@/constants/emojiData';
-import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
 
 const NUM_COLUMNS = 8;
 const EMOJI_CELL_SIZE = 44;
+const HEADER_HEIGHT = 36;
 
 interface EmojiPickerProps {
   visible: boolean;
@@ -60,8 +60,6 @@ function buildSections(
   const lowerSearch = search.toLowerCase();
 
   for (const cat of categories) {
-    // When searching, show the entire category if the title matches,
-    // otherwise only show emojis whose characters include the query.
     const titleMatch = search
       ? cat.title.toLowerCase().includes(lowerSearch)
       : false;
@@ -76,7 +74,6 @@ function buildSections(
 
     items.push({ type: 'header', key: `h-${cat.key}`, title: cat.title });
 
-    // Chunk emojis into rows of NUM_COLUMNS
     for (let i = 0; i < emojis.length; i += NUM_COLUMNS) {
       items.push({
         type: 'row',
@@ -113,11 +110,25 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
   const [activeCategory, setActiveCategory] = useState(
     EMOJI_CATEGORIES[0].key,
   );
+  const flatListRef = useRef<FlatList<SectionItem>>(null);
+  const pendingScrollCategoryRef = useRef<string | null>(null);
 
-  const sections = useMemo(() => buildSections(EMOJI_CATEGORIES, search), [search]);
-
-  // When activeCategory changes and search is cleared, scroll to that category
-  const pendingScrollCategoryRef = React.useRef<string | null>(null);
+  // Build sections and pre-compute cumulative offsets for O(1) getItemLayout
+  const { sections, offsets, categoryOffsets } = useMemo(() => {
+    const items = buildSections(EMOJI_CATEGORIES, search);
+    const cumulativeOffsets: number[] = [];
+    const catOffsets: Record<string, number> = {};
+    let offset = 0;
+    for (let i = 0; i < items.length; i++) {
+      cumulativeOffsets.push(offset);
+      if (items[i].type === 'header') {
+        const catKey = items[i].key.slice(2);
+        catOffsets[catKey] = offset;
+      }
+      offset += items[i].type === 'header' ? HEADER_HEIGHT : EMOJI_CELL_SIZE;
+    }
+    return { sections: items, offsets: cumulativeOffsets, categoryOffsets: catOffsets };
+  }, [search]);
 
   const handleSelect = useCallback(
     (emoji: string) => {
@@ -130,20 +141,16 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
     (catKey: string) => {
       setActiveCategory(catKey);
       if (search) {
-        // Clear search first; scroll will happen in the effect below
         pendingScrollCategoryRef.current = catKey;
         setSearch('');
       } else {
-        // No search active — scroll immediately
-        const idx = sections.findIndex(
-          (s) => s.type === 'header' && s.key === `h-${catKey}`,
-        );
-        if (idx >= 0) {
-          flatListRef.current?.scrollToIndex({ index: idx, animated: true });
+        const offset = categoryOffsets[catKey];
+        if (offset !== undefined) {
+          flatListRef.current?.scrollToOffset({ offset, animated: false });
         }
       }
     },
-    [sections, search],
+    [categoryOffsets, search],
   );
 
   // Handle deferred scroll after search is cleared
@@ -151,29 +158,22 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
     const key = pendingScrollCategoryRef.current;
     if (key && !search) {
       pendingScrollCategoryRef.current = null;
-      const idx = sections.findIndex(
-        (s) => s.type === 'header' && s.key === `h-${key}`,
-      );
-      if (idx >= 0) {
-        flatListRef.current?.scrollToIndex({ index: idx, animated: true });
+      const offset = categoryOffsets[key];
+      if (offset !== undefined) {
+        requestAnimationFrame(() => {
+          flatListRef.current?.scrollToOffset({ offset, animated: false });
+        });
       }
     }
-  }, [sections, search]);
-
-  const flatListRef = React.useRef<FlatList<SectionItem>>(null);
+  }, [categoryOffsets, search]);
 
   const getItemLayout = useCallback(
-    (_: unknown, index: number) => {
-      // Headers are 36px, rows are EMOJI_CELL_SIZE
-      let offset = 0;
-      for (let i = 0; i < index; i++) {
-        offset += sections[i]?.type === 'header' ? 36 : EMOJI_CELL_SIZE;
-      }
-      const length =
-        sections[index]?.type === 'header' ? 36 : EMOJI_CELL_SIZE;
-      return { length, offset, index };
-    },
-    [sections],
+    (_: unknown, index: number) => ({
+      length: sections[index]?.type === 'header' ? HEADER_HEIGHT : EMOJI_CELL_SIZE,
+      offset: offsets[index] ?? 0,
+      index,
+    }),
+    [sections, offsets],
   );
 
   const renderItem = useCallback(
@@ -199,6 +199,10 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
     onClose();
   }, [onClose]);
 
+  const handleClearSearch = useCallback(() => {
+    setSearch('');
+  }, []);
+
   return (
     <Modal
       visible={visible}
@@ -206,8 +210,12 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView style={styles.keyboardAvoiding} behavior={KEYBOARD_BEHAVIOR}>
-        <Pressable style={styles.backdrop} onPress={handleClose}>
+      <KeyboardAvoidingView style={styles.keyboardAvoiding} behavior="padding">
+        <View style={styles.backdrop}>
+          {/* Tap-to-dismiss area at top */}
+          <Pressable style={styles.dismissArea} onPress={handleClose} />
+
+          {/* Bottom sheet */}
           <View
             style={[
               styles.sheet,
@@ -216,7 +224,6 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
                 paddingBottom: insets.bottom + 8,
               },
             ]}
-            onStartShouldSetResponder={() => true}
           >
             {/* Header */}
             <View
@@ -239,22 +246,41 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
 
             {/* Search */}
             <View style={styles.searchContainer}>
-              <TextInput
-                value={search}
-                onChangeText={setSearch}
-                placeholder="Search emojis…"
-                placeholderTextColor={theme.mutedForeground}
+              <View
                 style={[
-                  styles.searchInput,
+                  styles.searchInputWrapper,
                   {
-                    color: theme.foreground,
                     backgroundColor: theme.background,
                     borderColor: theme.border,
                   },
                 ]}
-                autoCorrect={false}
-                returnKeyType="search"
-              />
+              >
+                <TextInput
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder="Search by emoji or category (e.g. 😊, food)"
+                  placeholderTextColor={theme.mutedForeground}
+                  style={[styles.searchInput, { color: theme.foreground }]}
+                  autoCorrect={false}
+                  returnKeyType="search"
+                />
+                {search.length > 0 && (
+                  <Pressable
+                    onPress={handleClearSearch}
+                    hitSlop={8}
+                    style={styles.clearSearchButton}
+                  >
+                    <Text
+                      style={[
+                        styles.clearSearchText,
+                        { color: theme.mutedForeground },
+                      ]}
+                    >
+                      ✕
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
             </View>
 
             {/* Category tabs */}
@@ -283,35 +309,51 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
               renderItem={renderItem}
               keyExtractor={keyExtractor}
               getItemLayout={getItemLayout}
-              initialNumToRender={15}
-              maxToRenderPerBatch={20}
-              windowSize={7}
+              initialNumToRender={20}
+              maxToRenderPerBatch={30}
+              windowSize={11}
               removeClippedSubviews
-              onScrollToIndexFailed={() => {}}
+              onScrollToIndexFailed={(info) => {
+                flatListRef.current?.scrollToOffset({
+                  offset: info.averageItemLength * info.index,
+                  animated: false,
+                });
+                setTimeout(() => {
+                  if (info.index < sections.length) {
+                    flatListRef.current?.scrollToIndex({
+                      index: info.index,
+                      animated: false,
+                    });
+                  }
+                }, 100);
+              }}
               style={styles.list}
               contentContainerStyle={styles.listContent}
               keyboardShouldPersistTaps="handled"
             />
           </View>
-        </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
   keyboardAvoiding: {
     flex: 1,
   },
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  dismissArea: {
+    flex: 1,
+    minHeight: 40,
+  },
   sheet: {
+    flex: 3,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    height: '75%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
@@ -338,12 +380,25 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 4,
   },
-  searchInput: {
+  searchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
+  },
+  searchInput: {
+    flex: 1,
     paddingVertical: 8,
     fontSize: 14,
+  },
+  clearSearchButton: {
+    padding: 4,
+    marginLeft: 4,
+  },
+  clearSearchText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   categoryBar: {
     flexDirection: 'row',
@@ -371,8 +426,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     paddingHorizontal: 8,
-    height: 36,
-    lineHeight: 36,
+    height: HEADER_HEIGHT,
+    lineHeight: HEADER_HEIGHT,
   },
   row: {
     flexDirection: 'row',
