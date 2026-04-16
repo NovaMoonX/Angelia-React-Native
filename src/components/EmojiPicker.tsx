@@ -115,7 +115,7 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
   const sections = useMemo(() => buildSections(EMOJI_CATEGORIES, search), [search]);
 
   // When activeCategory changes and search is cleared, scroll to that category
-  const pendingScrollRef = React.useRef<string | null>(null);
+  const pendingScrollCategoryRef = React.useRef<string | null>(null);
 
   const handleSelect = useCallback(
     (emoji: string) => {
@@ -129,7 +129,7 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
       setActiveCategory(catKey);
       if (search) {
         // Clear search first; scroll will happen in the effect below
-        pendingScrollRef.current = catKey;
+        pendingScrollCategoryRef.current = catKey;
         setSearch('');
       } else {
         // No search active — scroll immediately
@@ -146,9 +146,9 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
 
   // Handle deferred scroll after search is cleared
   React.useEffect(() => {
-    const key = pendingScrollRef.current;
+    const key = pendingScrollCategoryRef.current;
     if (key && !search) {
-      pendingScrollRef.current = null;
+      pendingScrollCategoryRef.current = null;
       const idx = sections.findIndex(
         (s) => s.type === 'header' && s.key === `h-${key}`,
       );
@@ -239,7 +239,7 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
             <TextInput
               value={search}
               onChangeText={setSearch}
-              placeholder="Search by category…"
+              placeholder="Search emojis…"
               placeholderTextColor={theme.mutedForeground}
               style={[
                 styles.searchInput,
