@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
+  Animated,
   FlatList,
   KeyboardAvoidingView,
   Pressable,
@@ -31,7 +32,7 @@ import { useToast } from '@/hooks/useToast';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName } from '@/lib/post/post.utils';
-import { isValidEmoji, getRandomPhrase } from '@/lib/post/post.constants';
+import { isValidEmoji, getRandomPhrase, getRandomFirstCommentPhrase } from '@/lib/post/post.constants';
 import { COMMON_EMOJIS } from '@/models/constants';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import {
@@ -68,6 +69,9 @@ export default function PostDetailScreen() {
   const [activeTab, setActiveTab] = useState<'reactions' | 'conversation'>(
     'reactions'
   );
+  const [showCommentPrompt, setShowCommentPrompt] = useState(false);
+  const popoverOpacity = useRef(new Animated.Value(0)).current;
+  const popoverScale = useRef(new Animated.Value(0.8)).current;
 
   const firstMediaItem = post?.media?.[0];
   const hasVideo = firstMediaItem?.type === 'video' && post?.media?.length === 1;
@@ -122,11 +126,48 @@ export default function PostDetailScreen() {
   }, [post.reactions, currentUser.id]);
 
   const handleReaction = async (emoji: string) => {
+    const wasFirstReaction = !hasReacted;
     const newReaction: Reaction = { emoji, userId: currentUser.id };
     const updatedReactions = [...post.reactions, newReaction];
     dispatch(
       updateReactionsOptimistic({ postId: post.id, reactions: updatedReactions })
     );
+    
+    // Show comment prompt if this is the first reaction and no comments exist
+    if (wasFirstReaction && post.comments.length === 0 && isInConversation) {
+      setShowCommentPrompt(true);
+      // Animate the popover in
+      Animated.parallel([
+        Animated.timing(popoverOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(popoverScale, {
+          toValue: 1,
+          friction: 8,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      
+      // Auto-hide after 4 seconds
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(popoverOpacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(popoverScale, {
+            toValue: 0.8,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start(() => setShowCommentPrompt(false));
+      }, 4000);
+    }
+    
     if (!isDemo) {
       try {
         await updatePostReactions(post.id, updatedReactions);
@@ -379,17 +420,25 @@ export default function PostDetailScreen() {
                 </Card>
               ) : (
                 <View style={styles.conversationArea}>
-                  {post.comments.map((comment) => (
-                    <ChatMessage
-                      key={comment.id}
-                      authorId={comment.authorId}
-                      text={comment.text}
-                      timestamp={comment.timestamp}
-                      isCurrentUser={
-                        comment.authorId === currentUser.id
-                      }
-                    />
-                  ))}
+                  {post.comments.length === 0 ? (
+                    <View style={styles.emptyCommentsContainer}>
+                      <Text style={[styles.emptyCommentsText, { color: theme.mutedForeground }]}>
+                        {getRandomFirstCommentPhrase()}
+                      </Text>
+                    </View>
+                  ) : (
+                    post.comments.map((comment) => (
+                      <ChatMessage
+                        key={comment.id}
+                        authorId={comment.authorId}
+                        text={comment.text}
+                        timestamp={comment.timestamp}
+                        isCurrentUser={
+                          comment.authorId === currentUser.id
+                        }
+                      />
+                    ))
+                  )}
 
                   <View style={styles.commentInput}>
                     <Input
@@ -410,6 +459,24 @@ export default function PostDetailScreen() {
               )}
             </TabsContent>
           </Tabs>
+          
+          {/* Animated popover for prompting first comment */}
+          {showCommentPrompt && (
+            <Animated.View
+              style={[
+                styles.commentPromptPopover,
+                {
+                  backgroundColor: theme.primary,
+                  opacity: popoverOpacity,
+                  transform: [{ scale: popoverScale }],
+                },
+              ]}
+            >
+              <Text style={[styles.commentPromptText, { color: theme.primaryForeground }]}>
+                Make the first comment! 💬
+              </Text>
+            </Animated.View>
+          )}
         </>
       )}
       </ScrollView>
@@ -507,11 +574,38 @@ const styles = StyleSheet.create({
     marginTop: 12,
     gap: 4,
   },
+  emptyCommentsContainer: {
+    paddingVertical: 32,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  emptyCommentsText: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
   commentInput: {
     flexDirection: 'row',
     gap: 8,
     marginTop: 12,
     alignItems: 'center',
+  },
+  commentPromptPopover: {
+    position: 'absolute',
+    top: -50,
+    right: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  commentPromptText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   videoLabel: {
     fontSize: 14,
