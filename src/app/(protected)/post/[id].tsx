@@ -83,6 +83,8 @@ export default function PostDetailScreen() {
     (player) => {
       if (hasVideo) {
         player.loop = true;
+        player.muted = false;
+        player.play();
       }
     }
   );
@@ -253,7 +255,10 @@ export default function PostDetailScreen() {
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: isDemo ? 12 : insets.top + 8 }
+          { 
+            paddingTop: 8,
+            paddingBottom: insets.bottom + 20
+          }
         ]}
         keyboardShouldPersistTaps="handled"
       >
@@ -329,15 +334,6 @@ export default function PostDetailScreen() {
 
       <Separator style={{ marginVertical: 16 }} />
 
-      {/* First interaction encouragement */}
-      {!hasInteracted && (
-        <Callout
-          variant="info"
-          description="👋 React to this post to join the conversation and see comments!"
-          style={{ marginBottom: 16 }}
-        />
-      )}
-
       {/* Reaction Buttons */}
       <View style={styles.reactionSection}>
         <Text style={[styles.sectionLabel, { color: theme.foreground }]}>
@@ -404,7 +400,14 @@ export default function PostDetailScreen() {
             </TabsContent>
 
             <TabsContent value="conversation">
-              {!isInConversation ? (
+              {!hasReacted ? (
+                <Card style={styles.joinCard}>
+                  <Callout
+                    variant="info"
+                    description="👋 React to this post to join the conversation and see comments!"
+                  />
+                </Card>
+              ) : !isInConversation ? (
                 <Card style={styles.joinCard}>
                   <Text
                     style={[

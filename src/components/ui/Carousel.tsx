@@ -50,6 +50,8 @@ export function Carousel({ children, onIndexChange, style }: CarouselProps) {
           <View style={{ width: screenWidth }}>{item}</View>
         )}
         keyExtractor={(_, index) => `carousel-${index}`}
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
       />
       {children.length > 1 && (
         <>
@@ -90,7 +92,6 @@ const styles = StyleSheet.create({
   navButton: {
     position: 'absolute',
     top: '50%',
-    marginTop: -16,
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -107,8 +108,11 @@ const styles = StyleSheet.create({
   },
   navText: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '600',
+    lineHeight: 32,
+    textAlign: 'center',
+    marginTop: -2,
   },
   dots: {
     flexDirection: 'row',
@@ -120,7 +124,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(150,150,150,0.5)',
   },
   activeDot: {
     backgroundColor: '#D97706',

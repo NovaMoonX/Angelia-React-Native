@@ -90,12 +90,14 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
         {post.media && post.media.length > 0 ? (
           post.media.length === 1 ? (
             post.media[0].type === 'video' ? (
-              <VideoView
-                player={videoPlayer}
-                style={styles.singleImage}
-                contentFit="cover"
-                nativeControls={false}
-              />
+              <View style={styles.singleImage}>
+                <VideoView
+                  player={videoPlayer}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
+                  nativeControls={false}
+                />
+              </View>
             ) : (
               <Image
                 source={{ uri: post.media[0].url }}

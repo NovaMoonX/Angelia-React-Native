@@ -229,6 +229,46 @@ const DEMO_POSTS: Post[] = [
     markedForDeletionAt: null,
     status: 'ready',
   },
+  {
+    id: 'demo-post-6',
+    authorId: 'demo-user-1',
+    channelId: 'demo-channel-travel',
+    text: 'Planning our next adventure! Here are some of the places we\'re considering. Which one should we visit first? 🗺️✨',
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&h=600&fit=crop'
+      },
+      {
+        type: 'video',
+        url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
+      },
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop'
+      },
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&h=600&fit=crop'
+      }
+    ],
+    timestamp: Date.now() - 4 * 24 * 60 * 60 * 1000,
+    reactions: [
+      { emoji: '🌍', userId: 'demo-user-2' },
+      { emoji: '✈️', userId: 'demo-user-3' },
+    ],
+    comments: [
+      {
+        id: 'demo-comment-3',
+        authorId: 'demo-user-2',
+        text: 'The mountain scenery looks amazing!',
+        timestamp: Date.now() - 4 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
+      },
+    ],
+    conversationEnrollees: ['demo-user-1', 'demo-user-2'],
+    markedForDeletionAt: null,
+    status: 'ready',
+  },
 ];
 
 const DEMO_INVITES: {
