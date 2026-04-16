@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, memo } from 'react';
 import {
   FlatList,
+  KeyboardAvoidingView,
   Modal,
   Pressable,
   StyleSheet,
@@ -11,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/useTheme';
 import { EMOJI_CATEGORIES, type EmojiCategory } from '@/constants/emojiData';
+import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
 
 const NUM_COLUMNS = 8;
 const EMOJI_CELL_SIZE = 44;
@@ -204,93 +206,95 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <Pressable style={styles.backdrop} onPress={handleClose}>
-        <View
-          style={[
-            styles.sheet,
-            {
-              backgroundColor: theme.card,
-              paddingBottom: insets.bottom + 8,
-            },
-          ]}
-          onStartShouldSetResponder={() => true}
-        >
-          {/* Header */}
+      <KeyboardAvoidingView style={styles.keyboardAvoiding} behavior={KEYBOARD_BEHAVIOR}>
+        <Pressable style={styles.backdrop} onPress={handleClose}>
           <View
-            style={[styles.sheetHeader, { borderBottomColor: theme.border }]}
+            style={[
+              styles.sheet,
+              {
+                backgroundColor: theme.card,
+                paddingBottom: insets.bottom + 8,
+              },
+            ]}
+            onStartShouldSetResponder={() => true}
           >
-            <Text style={[styles.sheetTitle, { color: theme.foreground }]}>
-              Pick an emoji
-            </Text>
-            <Pressable onPress={handleClose} hitSlop={8}>
-              <Text
-                style={[
-                  styles.closeButton,
-                  { color: theme.mutedForeground },
-                ]}
-              >
-                ✕
+            {/* Header */}
+            <View
+              style={[styles.sheetHeader, { borderBottomColor: theme.border }]}
+            >
+              <Text style={[styles.sheetTitle, { color: theme.foreground }]}>
+                Pick an emoji
               </Text>
-            </Pressable>
-          </View>
+              <Pressable onPress={handleClose} hitSlop={8}>
+                <Text
+                  style={[
+                    styles.closeButton,
+                    { color: theme.mutedForeground },
+                  ]}
+                >
+                  ✕
+                </Text>
+              </Pressable>
+            </View>
 
-          {/* Search */}
-          <View style={styles.searchContainer}>
-            <TextInput
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search emojis…"
-              placeholderTextColor={theme.mutedForeground}
-              style={[
-                styles.searchInput,
-                {
-                  color: theme.foreground,
-                  backgroundColor: theme.background,
-                  borderColor: theme.border,
-                },
-              ]}
-              autoCorrect={false}
-              returnKeyType="search"
-            />
-          </View>
-
-          {/* Category tabs */}
-          <View style={styles.categoryBar}>
-            {EMOJI_CATEGORIES.map((cat) => (
-              <Pressable
-                key={cat.key}
-                onPress={() => handleCategoryPress(cat.key)}
+            {/* Search */}
+            <View style={styles.searchContainer}>
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search emojis…"
+                placeholderTextColor={theme.mutedForeground}
                 style={[
-                  styles.categoryTab,
-                  activeCategory === cat.key && {
-                    borderBottomColor: theme.primary,
-                    borderBottomWidth: 2,
+                  styles.searchInput,
+                  {
+                    color: theme.foreground,
+                    backgroundColor: theme.background,
+                    borderColor: theme.border,
                   },
                 ]}
-              >
-                <Text style={styles.categoryIcon}>{cat.icon}</Text>
-              </Pressable>
-            ))}
-          </View>
+                autoCorrect={false}
+                returnKeyType="search"
+              />
+            </View>
 
-          {/* Emoji grid */}
-          <FlatList
-            ref={flatListRef}
-            data={sections}
-            renderItem={renderItem}
-            keyExtractor={keyExtractor}
-            getItemLayout={getItemLayout}
-            initialNumToRender={15}
-            maxToRenderPerBatch={20}
-            windowSize={7}
-            removeClippedSubviews
-            onScrollToIndexFailed={() => {}}
-            style={styles.list}
-            contentContainerStyle={styles.listContent}
-            keyboardShouldPersistTaps="handled"
-          />
-        </View>
-      </Pressable>
+            {/* Category tabs */}
+            <View style={styles.categoryBar}>
+              {EMOJI_CATEGORIES.map((cat) => (
+                <Pressable
+                  key={cat.key}
+                  onPress={() => handleCategoryPress(cat.key)}
+                  style={[
+                    styles.categoryTab,
+                    activeCategory === cat.key && {
+                      borderBottomColor: theme.primary,
+                      borderBottomWidth: 2,
+                    },
+                  ]}
+                >
+                  <Text style={styles.categoryIcon}>{cat.icon}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Emoji grid */}
+            <FlatList
+              ref={flatListRef}
+              data={sections}
+              renderItem={renderItem}
+              keyExtractor={keyExtractor}
+              getItemLayout={getItemLayout}
+              initialNumToRender={15}
+              maxToRenderPerBatch={20}
+              windowSize={7}
+              removeClippedSubviews
+              onScrollToIndexFailed={() => {}}
+              style={styles.list}
+              contentContainerStyle={styles.listContent}
+              keyboardShouldPersistTaps="handled"
+            />
+          </View>
+        </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -301,10 +305,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
+  keyboardAvoiding: {
+    flex: 1,
+  },
   sheet: {
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    maxHeight: '75%',
+    height: '75%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
