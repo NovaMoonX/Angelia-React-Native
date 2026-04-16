@@ -212,11 +212,12 @@ const DEMO_POSTS: Post[] = [
     id: 'demo-post-5',
     authorId: 'demo-user-2',
     channelId: 'demo-user-2-daily',
-    text: 'Took the kids to the park today. They loved the new swing set! 🎠',
+    text: 'Check out this bad bunny video I found! 🐰🎬',
     media: [
       {
         type: 'video',
-        url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+        url: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4'
+        // url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
       }
     ],
     timestamp: Date.now() - 3 * 24 * 60 * 60 * 1000,
@@ -241,7 +242,8 @@ const DEMO_POSTS: Post[] = [
       },
       {
         type: 'video',
-        url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
+        url: 'https://samplelib.com/preview/mp4/sample-5s.mp4',
+        // url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
       },
       {
         type: 'image',
