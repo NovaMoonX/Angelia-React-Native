@@ -72,6 +72,8 @@ export default function PostDetailScreen() {
   const firstMediaItem = post?.media?.[0];
   const hasVideo = firstMediaItem?.type === 'video' && post?.media?.length === 1;
   
+  // Note: Hook must be called unconditionally per React rules.
+  // When hasVideo is false, we pass an empty string which creates a minimal player instance.
   const videoPlayer = useVideoPlayer(
     hasVideo ? firstMediaItem.url : '',
     (player) => {
