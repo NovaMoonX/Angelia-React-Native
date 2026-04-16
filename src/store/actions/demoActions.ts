@@ -7,9 +7,8 @@ import {
   enterDemoMode as enterDemoModeAction,
   exitDemoMode as exitDemoModeAction,
 } from '@/store/slices/demoSlice';
+import { resetAllState } from '@/store/actions/globalActions';
 import { DEMO_DATA } from '@/lib/demoData';
-
-export const resetAllState = () => ({ type: 'RESET_ALL_STATE' as const });
 
 // Thunk to enter demo mode - loads all demo data
 export const enterDemoMode = createAsyncThunk(

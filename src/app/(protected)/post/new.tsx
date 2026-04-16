@@ -23,8 +23,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { selectUserChannels } from '@/store/slices/channelsSlice';
 import { addPost } from '@/store/slices/postsSlice';
-import { createPost } from '@/services/firebase/firestore';
-import { uploadPostMedia } from '@/services/firebase/storage';
+import { uploadPost } from '@/store/actions/postActions';
 import { generateId } from '@/utils/generateId';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { MAX_FILES } from '@/models/constants';
@@ -89,36 +88,33 @@ export default function PostCreateScreen() {
 
     setLoading(true);
     try {
-      const postId = generateId('nano');
-      const post: Post = {
-        id: postId,
-        authorId: currentUser.id,
-        channelId: selectedChannel,
-        text: text.trim(),
-        media: null,
-        timestamp: Date.now(),
-        reactions: [],
-        comments: [],
-        conversationEnrollees: [],
-        markedForDeletionAt: null,
-        status: media.length > 0 ? 'uploading' : 'ready',
-      };
-
       if (isDemo) {
-        dispatch(addPost({ ...post, status: 'ready' }));
-        addToast({ type: 'success', title: 'Post created!' });
-        router.back();
-        return;
-      }
-
-      await createPost(post);
-
-      if (media.length > 0) {
-        await Promise.all(
-          media.map((file) =>
-            uploadPostMedia(postId, file.uri, file.name, file.type)
-          )
+        const postId = generateId('nano');
+        const post: Post = {
+          id: postId,
+          authorId: currentUser.id,
+          channelId: selectedChannel,
+          text: text.trim(),
+          media: null,
+          timestamp: Date.now(),
+          reactions: [],
+          comments: [],
+          conversationEnrollees: [],
+          markedForDeletionAt: null,
+          status: 'ready',
+        };
+        dispatch(addPost(post));
+      } else {
+        const result = await dispatch(
+          uploadPost({ channelId: selectedChannel, text, media })
         );
+        if (uploadPost.rejected.match(result)) {
+          throw new Error(
+            typeof result.payload === 'string'
+              ? result.payload
+              : 'Failed to create post',
+          );
+        }
       }
 
       addToast({ type: 'success', title: 'Post created!' });

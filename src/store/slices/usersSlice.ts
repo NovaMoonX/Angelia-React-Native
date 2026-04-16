@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { User } from '@/models/types';
 import type { RootState } from '../index';
+import { resetAllState } from '../actions/globalActions';
 
 interface UsersState {
   currentUser: User | null;
@@ -37,7 +38,7 @@ const usersSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    builder.addCase('RESET_ALL_STATE', () => initialState);
+    builder.addCase(resetAllState, () => initialState);
   },
 });
 

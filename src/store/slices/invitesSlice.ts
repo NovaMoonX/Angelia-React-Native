@@ -1,5 +1,6 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { ChannelJoinRequest } from '@/models/types';
+import { resetAllState } from '../actions/globalActions';
 
 interface InvitesState {
   incoming: ChannelJoinRequest[];
@@ -41,7 +42,7 @@ const invitesSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    builder.addCase('RESET_ALL_STATE', () => initialState);
+    builder.addCase(resetAllState, () => initialState);
   },
 });
 

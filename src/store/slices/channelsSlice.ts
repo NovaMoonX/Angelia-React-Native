@@ -2,6 +2,7 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { Channel } from '@/models/types';
 import type { RootState } from '../index';
 import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
+import { resetAllState } from '../actions/globalActions';
 
 interface ChannelsState {
   items: Channel[];
@@ -38,7 +39,7 @@ const channelsSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    builder.addCase('RESET_ALL_STATE', () => initialState);
+    builder.addCase(resetAllState, () => initialState);
   },
 });
 

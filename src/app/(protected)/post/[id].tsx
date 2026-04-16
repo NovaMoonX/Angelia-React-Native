@@ -36,15 +36,11 @@ import { EmojiPicker } from '@/components/EmojiPicker';
 import { AddReactionIcon } from '@/components/AddReactionIcon';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import {
-  updateReactionsOptimistic,
-  removeReactionOptimistic,
-  updateCommentsOptimistic,
-} from '@/store/slices/postsSlice';
-import {
   updatePostReactions,
+  removePostReaction,
   updatePostComments,
-  joinConversation as firestoreJoinConversation,
-} from '@/services/firebase/firestore';
+  joinConversation,
+} from '@/store/actions/postActions';
 import { generateId } from '@/utils/generateId';
 import type { Post, Reaction, Comment as CommentType } from '@/models/types';
 
@@ -216,44 +212,38 @@ export default function PostDetailScreen() {
 
     const wasFirstReaction = !hasReacted;
     const newReaction: Reaction = { emoji, userId: currentUser.id };
-    const updatedReactions = [...post.reactions, newReaction];
-    dispatch(
-      updateReactionsOptimistic({ postId: post.id, reactions: updatedReactions })
-    );
+
+    // Thunk handles optimistic update + Firestore sync; in demo mode dispatch directly
+    if (isDemo) {
+      dispatch(
+        updatePostReactions({ postId: post.id, newReaction })
+      );
+    } else {
+      const result = await dispatch(
+        updatePostReactions({ postId: post.id, newReaction })
+      );
+      if (updatePostReactions.rejected.match(result)) {
+        addToast({ type: 'error', title: 'Failed to add reaction' });
+      }
+    }
 
     // Show comment prompt if this is the first reaction and no comments exist
     if (wasFirstReaction && post.comments.length === 0) {
       triggerCommentPrompt();
     }
-
-    if (!isDemo) {
-      try {
-        await updatePostReactions(post.id, updatedReactions);
-      } catch {
-        addToast({ type: 'error', title: 'Failed to add reaction' });
-      }
-    }
   };
 
   const handleRemoveReaction = async (emoji: string) => {
-    dispatch(
-      removeReactionOptimistic({
-        postId: post.id,
-        emoji,
-        userId: currentUser.id,
-      })
-    );
-    if (!isDemo) {
-      try {
-        const updated = post.reactions.filter(
-          (r) => !(r.emoji === emoji && r.userId === currentUser.id)
-        );
-        await updatePostReactions(post.id, updated);
-      } catch {
-        addToast({
-          type: 'error',
-          title: 'Failed to remove reaction',
-        });
+    if (isDemo) {
+      dispatch(
+        removePostReaction({ postId: post.id, emoji, userId: currentUser.id })
+      );
+    } else {
+      const result = await dispatch(
+        removePostReaction({ postId: post.id, emoji, userId: currentUser.id })
+      );
+      if (removePostReaction.rejected.match(result)) {
+        addToast({ type: 'error', title: 'Failed to remove reaction' });
       }
     }
   };
@@ -261,9 +251,10 @@ export default function PostDetailScreen() {
 
   const handleJoinConversation = async () => {
     if (!isDemo) {
-      try {
-        await firestoreJoinConversation(post.id, currentUser.id);
-      } catch {
+      const result = await dispatch(
+        joinConversation({ postId: post.id, userId: currentUser.id })
+      );
+      if (joinConversation.rejected.match(result)) {
         addToast({ type: 'error', title: 'Failed to join conversation' });
         return;
       }
@@ -284,16 +275,17 @@ export default function PostDetailScreen() {
       timestamp: Date.now(),
     };
 
-    const updatedComments = [...post.comments, comment];
-    dispatch(
-      updateCommentsOptimistic({ postId: post.id, comments: updatedComments })
-    );
     setCommentText('');
 
-    if (!isDemo) {
-      try {
-        await updatePostComments(post.id, updatedComments);
-      } catch {
+    if (isDemo) {
+      dispatch(
+        updatePostComments({ postId: post.id, newComment: comment })
+      );
+    } else {
+      const result = await dispatch(
+        updatePostComments({ postId: post.id, newComment: comment })
+      );
+      if (updatePostComments.rejected.match(result)) {
         addToast({ type: 'error', title: 'Failed to send comment' });
       }
     }

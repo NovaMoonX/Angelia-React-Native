@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { Post, Reaction, Comment } from '@/models/types';
 import type { RootState } from '../index';
+import { resetAllState } from '../actions/globalActions';
 
 interface PostsState {
   items: Post[];
@@ -32,12 +33,12 @@ const postsSlice = createSlice({
     },
     updateReactionsOptimistic(
       state,
-      action: PayloadAction<{ postId: string; reactions: Reaction[] }>
+      action: PayloadAction<{ postId: string; newReaction: Reaction }>
     ) {
       const post = state.items.find((p) => p.id === action.payload.postId);
       if (post) {
         state.previousReactions[action.payload.postId] = [...post.reactions];
-        post.reactions = action.payload.reactions;
+        post.reactions = [...post.reactions, action.payload.newReaction];
       }
     },
     removeReactionOptimistic(
@@ -52,8 +53,8 @@ const postsSlice = createSlice({
         );
       }
     },
-    revertReactionsOptimistic(state, action: PayloadAction<string>) {
-      const postId = action.payload;
+    revertReactionsOptimistic(state, action: PayloadAction<{ postId: string }>) {
+      const { postId } = action.payload;
       const post = state.items.find((p) => p.id === postId);
       if (post && state.previousReactions[postId]) {
         post.reactions = state.previousReactions[postId];
@@ -62,16 +63,16 @@ const postsSlice = createSlice({
     },
     updateCommentsOptimistic(
       state,
-      action: PayloadAction<{ postId: string; comments: Comment[] }>
+      action: PayloadAction<{ postId: string; newComment: Comment }>
     ) {
       const post = state.items.find((p) => p.id === action.payload.postId);
       if (post) {
         state.previousComments[action.payload.postId] = [...post.comments];
-        post.comments = action.payload.comments;
+        post.comments = [...post.comments, action.payload.newComment];
       }
     },
-    revertCommentsOptimistic(state, action: PayloadAction<string>) {
-      const postId = action.payload;
+    revertCommentsOptimistic(state, action: PayloadAction<{ postId: string }>) {
+      const { postId } = action.payload;
       const post = state.items.find((p) => p.id === postId);
       if (post && state.previousComments[postId]) {
         post.comments = state.previousComments[postId];
@@ -80,7 +81,7 @@ const postsSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    builder.addCase('RESET_ALL_STATE', () => initialState);
+    builder.addCase(resetAllState, () => initialState);
   },
 });
 
