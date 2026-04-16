@@ -168,6 +168,11 @@ export default function PostDetailScreen() {
     return groups;
   }, [post.reactions, currentUser.id]);
 
+  // Filter out emojis the user has already reacted with
+  const availableCommonEmojis = useMemo(() => {
+    return COMMON_EMOJIS.filter((emoji) => !reactionGroups[emoji]?.isUserReacted);
+  }, [reactionGroups]);
+
   const triggerCommentPrompt = () => {
     // Reset animation values to initial state
     popoverOpacity.setValue(0);
@@ -527,7 +532,7 @@ export default function PostDetailScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.fixedEmojiBarContent}
           >
-            {COMMON_EMOJIS.map((emoji) => (
+            {availableCommonEmojis.map((emoji) => (
               <Pressable
                 key={emoji}
                 onPress={() => handleReaction(emoji)}
@@ -632,8 +637,10 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   fixedEmojiBarContent: {
+    flexGrow: 1,
     gap: 6,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   tabsListWrapper: {
     position: 'relative',
