@@ -538,7 +538,7 @@ export default function PostDetailScreen() {
             ))}
             <Pressable
               onPress={() => setEmojiPickerVisible(true)}
-              style={[styles.emojiButton, styles.addReactionButton, { borderColor: theme.border }]}
+              style={[styles.emojiButton, { borderColor: theme.border }]}
             >
               <AddReactionIcon size={28} color={theme.mutedForeground} />
             </Pressable>
@@ -622,10 +622,6 @@ const styles = StyleSheet.create({
   },
   emojiText: {
     fontSize: 24,
-  },
-  addReactionButton: {
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
   },
   fixedEmojiBar: {
     borderWidth: 1.5,
