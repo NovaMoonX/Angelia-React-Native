@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -23,6 +24,7 @@ export default function InviteAcceptScreen() {
   const router = useRouter();
   const { addToast } = useToast();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const channel = useAppSelector((state) =>
@@ -76,7 +78,14 @@ export default function InviteAcceptScreen() {
 
   if (!channel) {
     return (
-      <View style={[styles.centered, { backgroundColor: theme.background }]}>
+      <View style={[
+        styles.centered,
+        {
+          backgroundColor: theme.background,
+          paddingTop: isDemo ? 12 : insets.top + 8,
+          paddingHorizontal: 20
+        }
+      ]}>
         <Callout variant="destructive"
           description="This invite link is invalid or the channel no longer exists."
         />
@@ -93,7 +102,14 @@ export default function InviteAcceptScreen() {
 
   if (isInvalidCode) {
     return (
-      <View style={[styles.centered, { backgroundColor: theme.background }]}>
+      <View style={[
+        styles.centered,
+        {
+          backgroundColor: theme.background,
+          paddingTop: isDemo ? 12 : insets.top + 8,
+          paddingHorizontal: 20
+        }
+      ]}>
         <Callout variant="destructive"
           description="This invite code has expired or is invalid."
         />
@@ -110,7 +126,14 @@ export default function InviteAcceptScreen() {
 
   return (
     <View
-      style={[styles.container, { backgroundColor: theme.background }]}
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.background,
+          paddingTop: isDemo ? 12 : insets.top + 8,
+          paddingHorizontal: 20
+        }
+      ]}
     >
       <Card style={styles.card}>
         <Text style={[styles.heading, { color: theme.foreground }]}>
@@ -203,14 +226,12 @@ export default function InviteAcceptScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     justifyContent: 'center',
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
   },
   card: {
     padding: 24,

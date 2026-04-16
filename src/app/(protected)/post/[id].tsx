@@ -9,11 +9,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Callout } from '@/components/ui/Callout';
 import { Card } from '@/components/ui/Card';
 import { Carousel } from '@/components/ui/Carousel';
 import { Input } from '@/components/ui/Input';
@@ -49,6 +51,7 @@ export default function PostDetailScreen() {
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
   const { addToast } = useToast();
+  const insets = useSafeAreaInsets();
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const post = useAppSelector((state) => selectPostById(state, id || ''));
   const author = useAppSelector((state) =>
@@ -80,6 +83,10 @@ export default function PostDetailScreen() {
   const hasReacted = post.reactions.some(
     (r) => r.userId === currentUser.id
   );
+  const hasCommented = post.comments.some(
+    (c) => c.authorId === currentUser.id
+  );
+  const hasInteracted = hasReacted || hasCommented;
   const isInConversation = post.conversationEnrollees.includes(
     currentUser.id
   );
@@ -188,7 +195,10 @@ export default function PostDetailScreen() {
     >
       <ScrollView
         style={{ flex: 1, backgroundColor: theme.background }}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: isDemo ? 12 : insets.top + 8 }
+        ]}
         keyboardShouldPersistTaps="handled"
       >
       {/* Post Header */}
@@ -245,6 +255,15 @@ export default function PostDetailScreen() {
       ) : null}
 
       <Separator style={{ marginVertical: 16 }} />
+
+      {/* First interaction encouragement */}
+      {!hasInteracted && (
+        <Callout
+          variant="info"
+          description="👋 React to this post to join the conversation and see comments!"
+          style={{ marginBottom: 16 }}
+        />
+      )}
 
       {/* Reaction Buttons */}
       <View style={styles.reactionSection}>
@@ -369,7 +388,6 @@ export default function PostDetailScreen() {
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
-    paddingTop: 8,
     paddingBottom: 20,
   },
   centered: {

@@ -105,7 +105,12 @@ const DEMO_POSTS: Post[] = [
     authorId: 'demo-user-1',
     channelId: 'demo-user-1-daily',
     text: 'Beautiful sunrise this morning! ☀️ Starting the day with gratitude.',
-    media: null,
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1506815444479-bfdb1e96c566?w=800&h=600&fit=crop'
+      }
+    ],
     timestamp: Date.now() - 2 * 60 * 60 * 1000,
     reactions: [
       { emoji: '❤️', userId: 'demo-user-2' },
@@ -128,7 +133,16 @@ const DEMO_POSTS: Post[] = [
     authorId: 'demo-user-2',
     channelId: 'demo-channel-cooking',
     text: "Made grandma's famous apple pie today! 🥧 The secret is a pinch of cinnamon in the crust. Recipe in the comments.",
-    media: null,
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1535920527002-b35e96722eb9?w=800&h=600&fit=crop'
+      },
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1464305795204-6f5bbfc7fb81?w=800&h=600&fit=crop'
+      }
+    ],
     timestamp: Date.now() - 5 * 60 * 60 * 1000,
     reactions: [
       { emoji: '🔥', userId: 'demo-user-1' },
@@ -145,7 +159,20 @@ const DEMO_POSTS: Post[] = [
     authorId: 'demo-user-1',
     channelId: 'demo-channel-travel',
     text: 'Just booked flights to Japan for next spring! 🇯🇵 Cherry blossom season, here we come!',
-    media: null,
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=800&h=600&fit=crop'
+      },
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=800&h=600&fit=crop'
+      },
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1480796927426-f609979314bd?w=800&h=600&fit=crop'
+      }
+    ],
     timestamp: Date.now() - 24 * 60 * 60 * 1000,
     reactions: [{ emoji: '🎉', userId: 'demo-user-2' }],
     comments: [
@@ -165,7 +192,12 @@ const DEMO_POSTS: Post[] = [
     authorId: 'demo-user-3',
     channelId: 'demo-channel-cooking',
     text: 'Tried making sourdough bread for the first time. It actually turned out great! 🍞',
-    media: null,
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&h=600&fit=crop'
+      }
+    ],
     timestamp: Date.now() - 2 * 24 * 60 * 60 * 1000,
     reactions: [
       { emoji: '👀', userId: 'demo-user-1' },
@@ -181,7 +213,12 @@ const DEMO_POSTS: Post[] = [
     authorId: 'demo-user-2',
     channelId: 'demo-user-2-daily',
     text: 'Took the kids to the park today. They loved the new swing set! 🎠',
-    media: null,
+    media: [
+      {
+        type: 'video',
+        url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+      }
+    ],
     timestamp: Date.now() - 3 * 24 * 60 * 60 * 1000,
     reactions: [
       { emoji: '❤️', userId: 'demo-user-1' },

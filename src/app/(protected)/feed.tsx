@@ -216,7 +216,7 @@ export default function FeedScreen() {
             </Pressable>
           </View>
           <Text style={[styles.headerTitle, { color: theme.foreground }]}>
-            Feed
+            Angelia
           </Text>
           <View style={[styles.headerSide, styles.headerSideRight]}>
             <Pressable onPress={() => router.push('/(protected)/notifications')}>

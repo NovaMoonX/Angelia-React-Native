@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -16,6 +17,7 @@ export default function NotificationsScreen() {
   const dispatch = useAppDispatch();
   const { addToast } = useToast();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const channels = useAppSelector((state) => state.channels.items);
@@ -54,7 +56,10 @@ export default function NotificationsScreen() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.background }}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: isDemo ? 12 : insets.top + 8 }
+      ]}
     >
       {pendingIncoming.length === 0 ? (
         <View style={styles.emptyState}>
@@ -144,7 +149,7 @@ export default function NotificationsScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    padding: 20,
+    paddingHorizontal: 20,
     paddingBottom: 40,
   },
   emptyState: {

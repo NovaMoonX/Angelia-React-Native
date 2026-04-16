@@ -1,14 +1,18 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
+import { useAppSelector } from '@/store/hooks';
 
 export default function ErrorFallbackScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const isDemo = useAppSelector((state) => state.demo.isActive);
 
   const handleGoHome = () => {
     router.replace('/');
@@ -26,7 +30,14 @@ export default function ErrorFallbackScreen() {
 
   return (
     <View
-      style={[styles.container, { backgroundColor: theme.background }]}
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.background,
+          paddingTop: isDemo ? 12 : insets.top + 8,
+          paddingHorizontal: 32
+        }
+      ]}
     >
       <Text style={styles.emoji}>⚠️</Text>
       <Text style={[styles.title, { color: theme.foreground }]}>
@@ -51,7 +62,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
   },
   emoji: {
     fontSize: 64,
