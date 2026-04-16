@@ -70,12 +70,14 @@ export default function PostDetailScreen() {
   );
 
   const firstMediaItem = post?.media?.[0];
+  const hasVideo = firstMediaItem?.type === 'video' && post?.media?.length === 1;
+  
   const videoPlayer = useVideoPlayer(
-    firstMediaItem?.type === 'video' && post?.media?.length === 1
-      ? firstMediaItem.url
-      : '',
+    hasVideo ? firstMediaItem.url : '',
     (player) => {
-      player.loop = true;
+      if (hasVideo) {
+        player.loop = true;
+      }
     }
   );
 
