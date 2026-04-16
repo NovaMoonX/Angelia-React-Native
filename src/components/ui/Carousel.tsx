@@ -46,6 +46,8 @@ export function Carousel({ children, onIndexChange, style }: CarouselProps) {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={handleScroll}
+        snapToInterval={screenWidth}
+        decelerationRate="fast"
         renderItem={({ item }) => (
           <View style={{ width: screenWidth }}>{item}</View>
         )}
@@ -111,6 +113,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 24,
     fontWeight: '600',
+    lineHeight: 24,
+    textAlign: 'center',
   },
   dots: {
     flexDirection: 'row',

@@ -119,7 +119,7 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
                   player={videoPlayer}
                   style={StyleSheet.absoluteFill}
                   contentFit="cover"
-                  nativeControls={false}
+                  nativeControls={true}
                 />
               </View>
             ) : (
@@ -130,7 +130,10 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
               />
             )
           ) : (
-            <View onStartShouldSetResponder={() => true}>
+            <View 
+              onStartShouldSetResponder={() => true}
+              onMoveShouldSetResponder={() => true}
+            >
               <Carousel>
                 {post.media.map((item, index) => (
                   item.type === 'video' ? (
@@ -139,7 +142,7 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
                         player={carouselPlayers[index]}
                         style={StyleSheet.absoluteFill}
                         contentFit="cover"
-                        nativeControls={false}
+                        nativeControls={true}
                       />
                     </View>
                   ) : (
