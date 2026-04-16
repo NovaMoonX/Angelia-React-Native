@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
@@ -30,6 +31,17 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
   );
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const { theme } = useTheme();
+
+  const firstMediaItem = post.media?.[0];
+  const videoPlayer = useVideoPlayer(
+    firstMediaItem?.type === 'video' && post.media?.length === 1
+      ? firstMediaItem.url
+      : '',
+    (player) => {
+      player.loop = true;
+      player.muted = true;
+    }
+  );
 
   const colors = channel
     ? getColorPair(channel)
@@ -73,20 +85,37 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
 
         {post.media && post.media.length > 0 ? (
           post.media.length === 1 ? (
-            <Image
-              source={{ uri: post.media[0].url }}
-              style={styles.singleImage}
-              contentFit="cover"
-            />
+            post.media[0].type === 'video' ? (
+              <VideoView
+                player={videoPlayer}
+                style={styles.singleImage}
+                contentFit="cover"
+                nativeControls={false}
+              />
+            ) : (
+              <Image
+                source={{ uri: post.media[0].url }}
+                style={styles.singleImage}
+                contentFit="cover"
+              />
+            )
           ) : (
             <Carousel>
               {post.media.map((item, index) => (
-                <Image
-                  key={`media-${index}`}
-                  source={{ uri: item.url }}
-                  style={styles.carouselImage}
-                  contentFit="cover"
-                />
+                item.type === 'video' ? (
+                  <View key={`media-${index}`} style={styles.carouselImage}>
+                    <Text style={[styles.videoLabel, { color: theme.mutedForeground }]}>
+                      📹 Video
+                    </Text>
+                  </View>
+                ) : (
+                  <Image
+                    key={`media-${index}`}
+                    source={{ uri: item.url }}
+                    style={styles.carouselImage}
+                    contentFit="cover"
+                  />
+                )
               ))}
             </Carousel>
           )
@@ -153,5 +182,10 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
+  },
+  videoLabel: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 80,
   },
 });

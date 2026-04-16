@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -66,6 +67,16 @@ export default function PostDetailScreen() {
   const [commentText, setCommentText] = useState('');
   const [activeTab, setActiveTab] = useState<'reactions' | 'conversation'>(
     'reactions'
+  );
+
+  const firstMediaItem = post?.media?.[0];
+  const videoPlayer = useVideoPlayer(
+    firstMediaItem?.type === 'video' && post?.media?.length === 1
+      ? firstMediaItem.url
+      : '',
+    (player) => {
+      player.loop = true;
+    }
   );
 
   if (!post || !currentUser) {
@@ -235,21 +246,38 @@ export default function PostDetailScreen() {
       {/* Media */}
       {post.media && post.media.length > 0 ? (
         post.media.length === 1 ? (
-          <Image
-            source={{ uri: post.media[0].url }}
-            style={styles.singleMedia}
-            contentFit="cover"
-          />
+          post.media[0].type === 'video' ? (
+            <VideoView
+              player={videoPlayer}
+              style={styles.singleMedia}
+              contentFit="cover"
+              nativeControls={true}
+            />
+          ) : (
+            <Image
+              source={{ uri: post.media[0].url }}
+              style={styles.singleMedia}
+              contentFit="cover"
+            />
+          )
         ) : (
           <Carousel>
-            {post.media.map((item, index) => (
-              <Image
-                key={`media-${index}`}
-                source={{ uri: item.url }}
-                style={styles.carouselMedia}
-                contentFit="cover"
-              />
-            ))}
+            {post.media.map((item, index) =>
+              item.type === 'video' ? (
+                <View key={`media-${index}`} style={styles.carouselMedia}>
+                  <Text style={[styles.videoLabel, { color: theme.mutedForeground }]}>
+                    📹 Video (tap post to view)
+                  </Text>
+                </View>
+              ) : (
+                <Image
+                  key={`media-${index}`}
+                  source={{ uri: item.url }}
+                  style={styles.carouselMedia}
+                  contentFit="cover"
+                />
+              )
+            )}
           </Carousel>
         )
       ) : null}
@@ -480,5 +508,10 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 12,
     alignItems: 'center',
+  },
+  videoLabel: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 100,
   },
 });
