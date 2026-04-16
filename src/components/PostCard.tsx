@@ -89,7 +89,6 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
         <View style={styles.header}>
           <Pressable
             onPress={isOtherUser ? () => setProfileModalOpen(true) : undefined}
-            disabled={!isOtherUser}
           >
             <Avatar preset={author?.avatar || 'moon'} size="sm" />
           </Pressable>

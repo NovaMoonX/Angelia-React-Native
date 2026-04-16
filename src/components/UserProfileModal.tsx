@@ -90,17 +90,17 @@ export function UserProfileModal({ visible, onClose, user }: UserProfileModalPro
               <View
                 style={[styles.statusCard, { backgroundColor: theme.secondary }]}
               >
-                <Text style={styles.statusEmoji}>{user.status!.emoji}</Text>
+                <Text style={styles.statusEmoji}>{user.status?.emoji}</Text>
                 <View style={styles.statusContent}>
                   <Text
                     style={[styles.statusText, { color: theme.secondaryForeground }]}
                   >
-                    {user.status!.text}
+                    {user.status?.text}
                   </Text>
                   <Text
                     style={[styles.statusExpiry, { color: theme.mutedForeground }]}
                   >
-                    {formatTimeRemaining(user.status!.expiresAt)}
+                    {formatTimeRemaining(user.status?.expiresAt ?? 0)}
                   </Text>
                 </View>
               </View>

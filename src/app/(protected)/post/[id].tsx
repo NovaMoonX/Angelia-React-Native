@@ -301,7 +301,6 @@ export default function PostDetailScreen() {
               ? () => setProfileModalOpen(true)
               : undefined
           }
-          disabled={!author || !currentUser || author.id === currentUser.id}
         >
           <Avatar preset={author?.avatar || 'moon'} size="md" />
         </Pressable>
