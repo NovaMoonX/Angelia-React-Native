@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppDispatch } from '@/store/hooks';
 import { fetchUserProfile, updateAccountProgress } from '@/store/actions/userActions';
 import { ensureDailyChannelExists } from '@/store/actions/channelActions';
-import { resetAllState } from '@/store/actions/demoActions';
+import { resetAllState } from '@/store/actions/globalActions';
 import type { User } from '@/models/types';
 
 const DEMO_MODE_KEY = '@angelia/demo_mode';
@@ -59,13 +59,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = auth().onAuthStateChanged(async (user) => {
       if (user) {
         try {
-          const result = await dispatch(fetchUserProfile(user.uid));
-          const profile = result.payload as User | null;
+          const profile = await dispatch(fetchUserProfile(user.uid)).unwrap();
 
           if (user.emailVerified && profile && !profile.accountProgress.emailVerified) {
             await dispatch(
               updateAccountProgress({ uid: user.uid, field: 'emailVerified', value: true })
-            );
+            ).unwrap();
           }
 
           if (

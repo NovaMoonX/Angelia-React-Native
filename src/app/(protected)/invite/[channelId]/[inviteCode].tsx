@@ -8,13 +8,13 @@ import { Button } from '@/components/ui/Button';
 import { Callout } from '@/components/ui/Callout';
 import { Card } from '@/components/ui/Card';
 import { Textarea } from '@/components/ui/Textarea';
-import { useAppSelector } from '@/store/hooks';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { selectChannelById } from '@/store/slices/channelsSlice';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
-import { createJoinRequest } from '@/services/firebase/firestore';
+import { sendJoinRequest } from '@/store/actions/inviteActions';
 
 export default function InviteAcceptScreen() {
   const { channelId, inviteCode } = useLocalSearchParams<{
@@ -22,6 +22,7 @@ export default function InviteAcceptScreen() {
     inviteCode: string;
   }>();
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const { addToast } = useToast();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
@@ -54,15 +55,14 @@ export default function InviteAcceptScreen() {
     if (!currentUser || !channelId || !inviteCode) return;
     setLoading(true);
     try {
-      if (!isDemo) {
-        await createJoinRequest(
+      await dispatch(
+        sendJoinRequest({
           channelId,
           inviteCode,
-          currentUser.id,
-          channel?.ownerId || '',
-          message.trim(),
-        );
-      }
+          channelOwnerId: channel?.ownerId || '',
+          message: message.trim(),
+        })
+      ).unwrap();
       addToast({ type: 'success', title: 'Join request sent!' });
       router.replace('/(protected)/feed');
     } catch (err) {

@@ -22,14 +22,10 @@ import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { selectUserChannels } from '@/store/slices/channelsSlice';
-import { addPost } from '@/store/slices/postsSlice';
-import { createPost } from '@/services/firebase/firestore';
-import { uploadPostMedia } from '@/services/firebase/storage';
-import { generateId } from '@/utils/generateId';
+import { uploadPost } from '@/store/actions/postActions';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { MAX_FILES } from '@/models/constants';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
-import type { Post } from '@/models/types';
 
 export default function PostCreateScreen() {
   const router = useRouter();
@@ -45,7 +41,7 @@ export default function PostCreateScreen() {
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const userChannels = useAppSelector((state) =>
-    selectUserChannels(state, currentUser?.id || '')
+    selectUserChannels(state, state.users.currentUser?.id || '')
   );
 
   const initialMedia = useMemo<MediaFile[]>(() => {
@@ -89,37 +85,9 @@ export default function PostCreateScreen() {
 
     setLoading(true);
     try {
-      const postId = generateId('nano');
-      const post: Post = {
-        id: postId,
-        authorId: currentUser.id,
-        channelId: selectedChannel,
-        text: text.trim(),
-        media: null,
-        timestamp: Date.now(),
-        reactions: [],
-        comments: [],
-        conversationEnrollees: [],
-        markedForDeletionAt: null,
-        status: media.length > 0 ? 'uploading' : 'ready',
-      };
-
-      if (isDemo) {
-        dispatch(addPost({ ...post, status: 'ready' }));
-        addToast({ type: 'success', title: 'Post created!' });
-        router.back();
-        return;
-      }
-
-      await createPost(post);
-
-      if (media.length > 0) {
-        await Promise.all(
-          media.map((file) =>
-            uploadPostMedia(postId, file.uri, file.name, file.type)
-          )
-        );
-      }
+      await dispatch(
+        uploadPost({ channelId: selectedChannel, text, media })
+      ).unwrap();
 
       addToast({ type: 'success', title: 'Post created!' });
       router.back();

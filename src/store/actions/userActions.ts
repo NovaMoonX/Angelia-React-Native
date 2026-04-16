@@ -3,9 +3,12 @@ import {
   getUserProfile,
   createUserProfile as firestoreCreateUserProfile,
   updateAccountProgress as firestoreUpdateAccountProgress,
+  updateUserProfile as firestoreUpdateUserProfile,
 } from '@/services/firebase/firestore';
-import { setCurrentUser } from '@/store/slices/usersSlice';
-import type { NewUser } from '@/models/types';
+import { setCurrentUser, updateCurrentUser } from '@/store/slices/usersSlice';
+import type { NewUser, UpdateUserProfileData } from '@/models/types';
+import type { RootState } from '@/store';
+import { isDemoActive } from './globalActions';
 
 export const fetchUserProfile = createAsyncThunk(
   'auth/fetchUserProfile',
@@ -37,4 +40,28 @@ export const updateAccountProgress = createAsyncThunk(
     dispatch(setCurrentUser(user));
     return user;
   }
+);
+
+export const saveProfile = createAsyncThunk(
+  'users/saveProfile',
+  async (
+    data: UpdateUserProfileData,
+    { getState, dispatch, rejectWithValue },
+  ) => {
+    const state = getState() as RootState;
+    const user = state.users.currentUser;
+    if (!user) return rejectWithValue('User not authenticated');
+
+    if (isDemoActive(getState)) {
+      dispatch(updateCurrentUser(data));
+      return data;
+    }
+
+    try {
+      await firestoreUpdateUserProfile(user.id, data);
+      return data;
+    } catch (err) {
+      return rejectWithValue(err instanceof Error ? err.message : err);
+    }
+  },
 );

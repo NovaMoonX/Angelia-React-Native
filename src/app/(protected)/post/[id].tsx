@@ -36,17 +36,13 @@ import { EmojiPicker } from '@/components/EmojiPicker';
 import { AddReactionIcon } from '@/components/AddReactionIcon';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import {
-  updateReactionsOptimistic,
-  removeReactionOptimistic,
-  updateCommentsOptimistic,
-} from '@/store/slices/postsSlice';
-import {
   updatePostReactions,
+  removePostReaction,
   updatePostComments,
-  joinConversation as firestoreJoinConversation,
-} from '@/services/firebase/firestore';
+  joinConversation,
+} from '@/store/actions/postActions';
 import { generateId } from '@/utils/generateId';
-import type { Post, Reaction, Comment as CommentType } from '@/models/types';
+import type { Reaction, Comment as CommentType } from '@/models/types';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -54,7 +50,6 @@ export default function PostDetailScreen() {
   const { theme } = useTheme();
   const { addToast } = useToast();
   const insets = useSafeAreaInsets();
-  const isDemo = useAppSelector((state) => state.demo.isActive);
   const post = useAppSelector((state) => selectPostById(state, id || ''));
   const author = useAppSelector((state) =>
     selectPostAuthor(state, post?.authorId || '')
@@ -216,57 +211,40 @@ export default function PostDetailScreen() {
 
     const wasFirstReaction = !hasReacted;
     const newReaction: Reaction = { emoji, userId: currentUser.id };
-    const updatedReactions = [...post.reactions, newReaction];
-    dispatch(
-      updateReactionsOptimistic({ postId: post.id, reactions: updatedReactions })
-    );
+
+    try {
+      await dispatch(
+        updatePostReactions({ postId: post.id, newReaction })
+      ).unwrap();
+    } catch {
+      addToast({ type: 'error', title: 'Failed to add reaction' });
+    }
 
     // Show comment prompt if this is the first reaction and no comments exist
     if (wasFirstReaction && post.comments.length === 0) {
       triggerCommentPrompt();
     }
-
-    if (!isDemo) {
-      try {
-        await updatePostReactions(post.id, updatedReactions);
-      } catch {
-        addToast({ type: 'error', title: 'Failed to add reaction' });
-      }
-    }
   };
 
   const handleRemoveReaction = async (emoji: string) => {
-    dispatch(
-      removeReactionOptimistic({
-        postId: post.id,
-        emoji,
-        userId: currentUser.id,
-      })
-    );
-    if (!isDemo) {
-      try {
-        const updated = post.reactions.filter(
-          (r) => !(r.emoji === emoji && r.userId === currentUser.id)
-        );
-        await updatePostReactions(post.id, updated);
-      } catch {
-        addToast({
-          type: 'error',
-          title: 'Failed to remove reaction',
-        });
-      }
+    try {
+      await dispatch(
+        removePostReaction({ postId: post.id, emoji, userId: currentUser.id })
+      ).unwrap();
+    } catch {
+      addToast({ type: 'error', title: 'Failed to remove reaction' });
     }
   };
 
 
   const handleJoinConversation = async () => {
-    if (!isDemo) {
-      try {
-        await firestoreJoinConversation(post.id, currentUser.id);
-      } catch {
-        addToast({ type: 'error', title: 'Failed to join conversation' });
-        return;
-      }
+    try {
+      await dispatch(
+        joinConversation({ postId: post.id, userId: currentUser.id })
+      ).unwrap();
+    } catch {
+      addToast({ type: 'error', title: 'Failed to join conversation' });
+      return;
     }
     // Show comment prompt when user has already reacted but no comments exist yet
     if (hasReacted && post.comments.length === 0) {
@@ -284,18 +262,14 @@ export default function PostDetailScreen() {
       timestamp: Date.now(),
     };
 
-    const updatedComments = [...post.comments, comment];
-    dispatch(
-      updateCommentsOptimistic({ postId: post.id, comments: updatedComments })
-    );
     setCommentText('');
 
-    if (!isDemo) {
-      try {
-        await updatePostComments(post.id, updatedComments);
-      } catch {
-        addToast({ type: 'error', title: 'Failed to send comment' });
-      }
+    try {
+      await dispatch(
+        updatePostComments({ postId: post.id, newComment: comment })
+      ).unwrap();
+    } catch {
+      addToast({ type: 'error', title: 'Failed to send comment' });
     }
   };
 

@@ -34,7 +34,7 @@ export default function FeedScreen() {
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const hasIncoming = useAppSelector(
-    (state) => state.invites.incoming.filter((r) => r.status === 'pending').length > 0
+    (state) => state.invites.incoming.some((r) => r.status === 'pending')
   );
 
   const [channelFilter, setChannelFilter] = useState<string>('all');

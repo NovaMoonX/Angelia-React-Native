@@ -1,6 +1,7 @@
-import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createSelector, type PayloadAction } from '@reduxjs/toolkit';
 import type { User } from '@/models/types';
 import type { RootState } from '../index';
+import { resetAllState } from '../actions/globalActions';
 
 interface UsersState {
   currentUser: User | null;
@@ -37,7 +38,7 @@ const usersSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    builder.addCase('RESET_ALL_STATE', () => initialState);
+    builder.addCase(resetAllState, () => initialState);
   },
 });
 
@@ -50,12 +51,15 @@ export const {
 } = usersSlice.actions;
 
 // Selectors
-export const selectAllUsersMapById = (state: RootState) => {
-  const map: Record<string, User> = {};
-  for (const user of state.users.users) {
-    map[user.id] = user;
+export const selectAllUsersMapById = createSelector(
+  [(state: RootState) => state.users.users],
+  (users) => {
+    const map: Record<string, User> = {};
+    for (const user of users) {
+      map[user.id] = user;
+    }
+    return map;
   }
-  return map;
-};
+);
 
 export default usersSlice.reducer;

@@ -223,8 +223,26 @@ export async function updatePostReactions(postId: string, reactions: unknown[]):
   await db.collection('posts').doc(postId).update({ reactions });
 }
 
+export async function addReactionToPost(postId: string, reaction: { emoji: string; userId: string }): Promise<void> {
+  await db.collection('posts').doc(postId).update({
+    reactions: firestore.FieldValue.arrayUnion(reaction),
+  });
+}
+
+export async function removeReactionFromPost(postId: string, reaction: { emoji: string; userId: string }): Promise<void> {
+  await db.collection('posts').doc(postId).update({
+    reactions: firestore.FieldValue.arrayRemove(reaction),
+  });
+}
+
 export async function updatePostComments(postId: string, comments: unknown[]): Promise<void> {
   await db.collection('posts').doc(postId).update({ comments });
+}
+
+export async function addCommentToPost(postId: string, comment: { id: string; authorId: string; text: string; timestamp: number }): Promise<void> {
+  await db.collection('posts').doc(postId).update({
+    comments: firestore.FieldValue.arrayUnion(comment),
+  });
 }
 
 // ---- Subscriptions ----
