@@ -169,6 +169,9 @@ export default function PostDetailScreen() {
   }, [post.reactions, currentUser.id]);
 
   const triggerCommentPrompt = () => {
+    // Reset animation values to initial state
+    popoverOpacity.setValue(0);
+    popoverScale.setValue(0.8);
     setShowCommentPrompt(true);
     Animated.parallel([
       Animated.timing(popoverOpacity, {
@@ -393,18 +396,39 @@ export default function PostDetailScreen() {
         }
         style={{ marginTop: 16 }}
       >
-        <TabsList>
-          <TabsTrigger value="reactions">
-            Reactions ({post.reactions.length})
-          </TabsTrigger>
-          <TabsTrigger value="conversation">
-            Conversation ({post.comments.length})
-          </TabsTrigger>
-        </TabsList>
+        {/* TabsList wrapper for popover positioning */}
+        <View style={styles.tabsListWrapper}>
+          <TabsList>
+            <TabsTrigger value="reactions">
+              Reactions ({post.reactions.length})
+            </TabsTrigger>
+            <TabsTrigger value="conversation">
+              Conversation ({post.comments.length})
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Animated popover for prompting first comment */}
+          {showCommentPrompt && (
+            <Animated.View
+              style={[
+                styles.commentPromptPopover,
+                {
+                  backgroundColor: theme.primary,
+                  opacity: popoverOpacity,
+                  transform: [{ scale: popoverScale }],
+                },
+              ]}
+            >
+              <Text style={[styles.commentPromptText, { color: theme.primaryForeground }]}>
+                Make the first comment! 💬
+              </Text>
+            </Animated.View>
+          )}
+        </View>
 
         <TabsContent value="reactions">
-          {/* Existing reaction groups */}
-          {Object.keys(reactionGroups).length > 0 && (
+          {/* Existing reaction groups or empty state */}
+          {Object.keys(reactionGroups).length > 0 ? (
             <View style={styles.reactionGroups}>
               {Object.entries(reactionGroups).map(([emoji, data]) => (
                 <ReactionDisplay
@@ -420,40 +444,13 @@ export default function PostDetailScreen() {
                 />
               ))}
             </View>
+          ) : (
+            <View style={styles.emptyReactionsContainer}>
+              <Text style={[styles.emptyReactionsText, { color: theme.mutedForeground }]}>
+                No reactions yet — be the first to react! 🎉
+              </Text>
+            </View>
           )}
-
-          {/* Horizontal scrollable emoji row */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalEmojiRow}
-            style={styles.horizontalEmojiScroll}
-          >
-            {COMMON_EMOJIS.map((emoji) => (
-              <Pressable
-                key={emoji}
-                onPress={() => handleReaction(emoji)}
-                style={styles.emojiButton}
-              >
-                <Text style={styles.emojiText}>{emoji}</Text>
-              </Pressable>
-            ))}
-            <Pressable
-              onPress={() => setEmojiPickerVisible(true)}
-              style={[styles.emojiButton, styles.addReactionButton, { borderColor: theme.border }]}
-            >
-              <AddReactionIcon size={28} color={theme.mutedForeground} />
-            </Pressable>
-          </ScrollView>
-
-          <EmojiPicker
-            visible={emojiPickerVisible}
-            onSelect={(emoji) => {
-              handleReaction(emoji);
-              setEmojiPickerVisible(false);
-            }}
-            onClose={() => setEmojiPickerVisible(false)}
-          />
         </TabsContent>
 
         <TabsContent value="conversation">
@@ -520,25 +517,44 @@ export default function PostDetailScreen() {
           )}
         </TabsContent>
       </Tabs>
-
-      {/* Animated popover for prompting first comment */}
-      {showCommentPrompt && (
-        <Animated.View
-          style={[
-            styles.commentPromptPopover,
-            {
-              backgroundColor: theme.primary,
-              opacity: popoverOpacity,
-              transform: [{ scale: popoverScale }],
-            },
-          ]}
-        >
-          <Text style={[styles.commentPromptText, { color: theme.primaryForeground }]}>
-            Make the first comment! 💬
-          </Text>
-        </Animated.View>
-      )}
       </ScrollView>
+
+      {/* Fixed bottom emoji bar — always visible in Reactions tab */}
+      {activeTab === 'reactions' && (
+        <View style={[styles.fixedEmojiBar, { borderColor: theme.border, backgroundColor: theme.background }]}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.fixedEmojiBarContent}
+          >
+            {COMMON_EMOJIS.map((emoji) => (
+              <Pressable
+                key={emoji}
+                onPress={() => handleReaction(emoji)}
+                style={styles.emojiButton}
+              >
+                <Text style={styles.emojiText}>{emoji}</Text>
+              </Pressable>
+            ))}
+            <Pressable
+              onPress={() => setEmojiPickerVisible(true)}
+              style={[styles.emojiButton, styles.addReactionButton, { borderColor: theme.border }]}
+            >
+              <AddReactionIcon size={28} color={theme.mutedForeground} />
+            </Pressable>
+          </ScrollView>
+        </View>
+      )}
+
+      <EmojiPicker
+        visible={emojiPickerVisible}
+        onSelect={(emoji) => {
+          handleReaction(emoji);
+          setEmojiPickerVisible(false);
+        }}
+        onClose={() => setEmojiPickerVisible(false)}
+      />
+
       {/* Solid background behind system nav buttons */}
       {insets.bottom > 0 && (
         <View style={{
@@ -611,12 +627,22 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderStyle: 'dashed',
   },
-  horizontalEmojiScroll: {
-    marginTop: 12,
-  },
-  horizontalEmojiRow: {
-    gap: 8,
+  fixedEmojiBar: {
+    borderWidth: 1.5,
+    borderRadius: 28,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    paddingHorizontal: 8,
     paddingVertical: 4,
+  },
+  fixedEmojiBarContent: {
+    gap: 6,
+    alignItems: 'center',
+  },
+  tabsListWrapper: {
+    position: 'relative',
+    overflow: 'visible',
+    zIndex: 10,
   },
   reactionGroups: {
     flexDirection: 'row',
@@ -656,8 +682,8 @@ const styles = StyleSheet.create({
   },
   commentPromptPopover: {
     position: 'absolute',
-    top: -50,
-    right: 20,
+    top: -46,
+    right: 8,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 20,
@@ -666,6 +692,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
+    zIndex: 10,
   },
   commentPromptText: {
     fontSize: 14,
@@ -673,5 +700,15 @@ const styles = StyleSheet.create({
   },
   calloutNoBorder: {
     borderWidth: 0,
+  },
+  emptyReactionsContainer: {
+    paddingVertical: 32,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  emptyReactionsText: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });
