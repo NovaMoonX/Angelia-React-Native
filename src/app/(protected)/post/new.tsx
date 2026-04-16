@@ -41,7 +41,7 @@ export default function PostCreateScreen() {
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const userChannels = useAppSelector((state) =>
-    selectUserChannels(state, currentUser?.id || '')
+    selectUserChannels(state, state.users.currentUser?.id || '')
   );
 
   const initialMedia = useMemo<MediaFile[]>(() => {

@@ -1,4 +1,4 @@
-import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createSelector, type PayloadAction } from '@reduxjs/toolkit';
 import type { Channel } from '@/models/types';
 import type { RootState } from '../index';
 import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
@@ -53,24 +53,31 @@ export const {
 } = channelsSlice.actions;
 
 // Selectors
-export const selectUserChannels = (state: RootState, userId: string) =>
-  state.channels.items.filter((c) => c.ownerId === userId);
+export const selectUserChannels = createSelector(
+  [(state: RootState) => state.channels.items, (_state: RootState, userId: string) => userId],
+  (items, userId) => items.filter((c) => c.ownerId === userId)
+);
 
 export const selectUserDailyChannel = (state: RootState, userId: string) =>
   state.channels.items.find((c) => c.id === `${userId}${DAILY_CHANNEL_SUFFIX}`);
 
-export const selectChannelMapById = (state: RootState) => {
-  const map: Record<string, Channel> = {};
-  for (const ch of state.channels.items) {
-    map[ch.id] = ch;
+export const selectChannelMapById = createSelector(
+  [(state: RootState) => state.channels.items],
+  (items) => {
+    const map: Record<string, Channel> = {};
+    for (const ch of items) {
+      map[ch.id] = ch;
+    }
+    return map;
   }
-  return map;
-};
+);
 
 export const selectChannelById = (state: RootState, channelId: string) =>
   state.channels.items.find((c) => c.id === channelId);
 
-export const selectAllDailyChannels = (state: RootState) =>
-  state.channels.items.filter((c) => c.isDaily === true);
+export const selectAllDailyChannels = createSelector(
+  [(state: RootState) => state.channels.items],
+  (items) => items.filter((c) => c.isDaily === true)
+);
 
 export default channelsSlice.reducer;

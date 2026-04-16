@@ -62,7 +62,7 @@ export default function AccountScreen() {
   const outgoingRequests = useAppSelector((state) => state.invites.outgoing);
 
   const myChannels = useAppSelector((state) =>
-    selectUserChannels(state, currentUser?.id || '')
+    selectUserChannels(state, state.users.currentUser?.id || '')
   );
   const subscribedChannels = useMemo(
     () =>
