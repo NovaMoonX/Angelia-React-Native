@@ -1,5 +1,5 @@
 import { createSlice, createSelector, type PayloadAction } from '@reduxjs/toolkit';
-import type { User } from '@/models/types';
+import type { User, UserStatus } from '@/models/types';
 import type { RootState } from '../index';
 import { resetAllState } from '../actions/globalActions';
 
@@ -28,6 +28,11 @@ const usersSlice = createSlice({
         Object.assign(state.currentUser, action.payload);
       }
     },
+    updateCurrentUserStatus(state, action: PayloadAction<UserStatus | null>) {
+      if (state.currentUser) {
+        state.currentUser.status = action.payload;
+      }
+    },
     clearUsers(state) {
       state.currentUser = null;
       state.users = [];
@@ -46,6 +51,7 @@ export const {
   setCurrentUser,
   setUsers,
   updateCurrentUser,
+  updateCurrentUserStatus,
   clearUsers,
   loadDemoUsers,
 } = usersSlice.actions;
