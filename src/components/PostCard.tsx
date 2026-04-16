@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { Carousel } from '@/components/ui/Carousel';
 import { NowStatusBadge } from '@/components/NowStatusBadge';
+import { UserProfileModal } from '@/components/UserProfileModal';
 import { useAppSelector } from '@/store/hooks';
 import {
   selectPostAuthor,
@@ -78,13 +79,20 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
     : { backgroundColor: '#6366F1', textColor: '#FFF' };
   const authorName = getPostAuthorName(author, currentUser);
   const hasMultipleMedia = post.media && post.media.length > 1;
+  const isOtherUser = author && currentUser && author.id !== currentUser.id;
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   return (
     <Card style={styles.card}>
       {/* Tappable header + text area */}
       <Pressable onPress={onNavigate}>
         <View style={styles.header}>
-          <Avatar preset={author?.avatar || 'moon'} size="sm" />
+          <Pressable
+            onPress={isOtherUser ? () => setProfileModalOpen(true) : undefined}
+            disabled={!isOtherUser}
+          >
+            <Avatar preset={author?.avatar || 'moon'} size="sm" />
+          </Pressable>
           <View style={styles.headerText}>
             <Text style={[styles.authorName, { color: theme.foreground }]}>
               {authorName}
@@ -184,6 +192,13 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
           )}
         </View>
       </Pressable>
+
+      {/* User profile modal for other users */}
+      <UserProfileModal
+        visible={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+        user={author}
+      />
     </Card>
   );
 }

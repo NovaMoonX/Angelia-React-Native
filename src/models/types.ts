@@ -5,8 +5,8 @@ export type AvatarPreset =
 export interface UserStatus {
   emoji: string;
   text: string;
-  startAt: number;
-  endAt: number;
+  updatedAt: number;
+  expiresAt: number;
 }
 
 export interface User {

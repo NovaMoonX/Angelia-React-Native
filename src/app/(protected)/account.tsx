@@ -302,7 +302,7 @@ export default function AccountScreen() {
             >
               <Feather name="smile" size={15} color={theme.mutedForeground} />
               <Text style={[styles.statusButtonText, { color: theme.foreground }]}>
-                {currentUser.status && Date.now() < currentUser.status.endAt
+                {currentUser.status && Date.now() < currentUser.status.expiresAt
                   ? `${currentUser.status.emoji} ${currentUser.status.text}`
                   : 'Set a status'}
               </Text>

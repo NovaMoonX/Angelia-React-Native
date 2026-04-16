@@ -9,12 +9,11 @@ interface NowStatusBadgeProps {
 }
 
 /**
- * Returns true when the status is active (now is between startAt and endAt).
+ * Returns true when the status is active (now is before expiresAt).
  */
 function isStatusActive(status: UserStatus | null | undefined): status is UserStatus {
   if (!status) return false;
-  const now = Date.now();
-  return now >= status.startAt && now < status.endAt;
+  return Date.now() < status.expiresAt;
 }
 
 /**

@@ -71,7 +71,7 @@ export function NowStatusModal({
   const [customMinutes, setCustomMinutes] = useState('');
 
   const hasExistingStatus =
-    currentStatus != null && Date.now() < (currentStatus.endAt ?? 0);
+    currentStatus != null && Date.now() < (currentStatus.expiresAt ?? 0);
 
   const resetForm = useCallback(() => {
     setEmoji('😊');
@@ -91,25 +91,25 @@ export function NowStatusModal({
     if (!text.trim()) return;
 
     const now = Date.now();
-    let endAt: number;
+    let expiresAt: number;
     const option = DURATION_OPTIONS[selectedDuration];
 
     if (option.label === 'Today') {
-      endAt = endOfToday();
+      expiresAt = endOfToday();
     } else if (option.label === 'Custom') {
       const h = parseInt(customHours, 10) || 0;
       const m = parseInt(customMinutes, 10) || 0;
       const totalMs = (h * 60 + m) * 60 * 1000;
-      endAt = now + (totalMs > 0 ? totalMs : 60 * 60 * 1000); // fallback 1h
+      expiresAt = now + (totalMs > 0 ? totalMs : 60 * 60 * 1000); // fallback 1h
     } else {
-      endAt = now + option.ms;
+      expiresAt = now + option.ms;
     }
 
     onSave({
       emoji,
       text: text.trim(),
-      startAt: now,
-      endAt,
+      updatedAt: now,
+      expiresAt,
     });
     resetForm();
   }, [text, emoji, selectedDuration, customHours, customMinutes, onSave, resetForm]);

@@ -24,6 +24,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { ChatMessage } from '@/components/ChatMessage';
 import { ReactionDisplay } from '@/components/ReactionDisplay';
 import { NowStatusBadge } from '@/components/NowStatusBadge';
+import { UserProfileModal } from '@/components/UserProfileModal';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { useTheme } from '@/hooks/useTheme';
@@ -67,6 +68,7 @@ export default function PostDetailScreen() {
   );
   const [showCommentPrompt, setShowCommentPrompt] = useState(false);
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const popoverOpacity = useRef(new Animated.Value(0)).current;
   const popoverScale = useRef(new Animated.Value(0.8)).current;
 
@@ -293,7 +295,16 @@ export default function PostDetailScreen() {
       >
       {/* Post Header */}
       <View style={styles.header}>
-        <Avatar preset={author?.avatar || 'moon'} size="md" />
+        <Pressable
+          onPress={
+            author && currentUser && author.id !== currentUser.id
+              ? () => setProfileModalOpen(true)
+              : undefined
+          }
+          disabled={!author || !currentUser || author.id === currentUser.id}
+        >
+          <Avatar preset={author?.avatar || 'moon'} size="md" />
+        </Pressable>
         <View style={styles.headerText}>
           <Text style={[styles.authorName, { color: theme.foreground }]}>
             {authorName}
@@ -536,6 +547,12 @@ export default function PostDetailScreen() {
           setEmojiPickerVisible(false);
         }}
         onClose={() => setEmojiPickerVisible(false)}
+      />
+
+      <UserProfileModal
+        visible={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+        user={author}
       />
 
       {/* Solid background behind system nav buttons */}

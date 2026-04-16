@@ -17,8 +17,8 @@ const DEMO_USER: User = {
   status: {
     emoji: '🚀',
     text: 'Building something cool',
-    startAt: Date.now() - 2 * 60 * 60 * 1000,
-    endAt: Date.now() + 6 * 60 * 60 * 1000,
+    updatedAt: Date.now() - 2 * 60 * 60 * 1000,
+    expiresAt: Date.now() + 6 * 60 * 60 * 1000,
   },
 };
 
@@ -39,8 +39,8 @@ const DEMO_USER_2: User = {
   status: {
     emoji: '🍳',
     text: 'Cooking dinner',
-    startAt: Date.now() - 1 * 60 * 60 * 1000,
-    endAt: Date.now() + 3 * 60 * 60 * 1000,
+    updatedAt: Date.now() - 1 * 60 * 60 * 1000,
+    expiresAt: Date.now() + 3 * 60 * 60 * 1000,
   },
 };
 
