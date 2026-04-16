@@ -55,21 +55,14 @@ export default function InviteAcceptScreen() {
     if (!currentUser || !channelId || !inviteCode) return;
     setLoading(true);
     try {
-      const result = await dispatch(
+      await dispatch(
         sendJoinRequest({
           channelId,
           inviteCode,
           channelOwnerId: channel?.ownerId || '',
           message: message.trim(),
         })
-      );
-      if (sendJoinRequest.rejected.match(result)) {
-        throw new Error(
-          typeof result.payload === 'string'
-            ? result.payload
-            : 'Failed to send request',
-        );
-      }
+      ).unwrap();
       addToast({ type: 'success', title: 'Join request sent!' });
       router.replace('/(protected)/feed');
     } catch (err) {

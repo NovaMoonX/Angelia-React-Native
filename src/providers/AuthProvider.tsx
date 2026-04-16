@@ -59,13 +59,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = auth().onAuthStateChanged(async (user) => {
       if (user) {
         try {
-          const result = await dispatch(fetchUserProfile(user.uid));
-          const profile = result.payload as User | null;
+          const profile = await dispatch(fetchUserProfile(user.uid)).unwrap();
 
           if (user.emailVerified && profile && !profile.accountProgress.emailVerified) {
             await dispatch(
               updateAccountProgress({ uid: user.uid, field: 'emailVerified', value: true })
-            );
+            ).unwrap();
           }
 
           if (

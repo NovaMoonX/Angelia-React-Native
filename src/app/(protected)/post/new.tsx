@@ -85,16 +85,9 @@ export default function PostCreateScreen() {
 
     setLoading(true);
     try {
-      const result = await dispatch(
+      await dispatch(
         uploadPost({ channelId: selectedChannel, text, media })
-      );
-      if (uploadPost.rejected.match(result)) {
-        throw new Error(
-          typeof result.payload === 'string'
-            ? result.payload
-            : 'Failed to create post',
-        );
-      }
+      ).unwrap();
 
       addToast({ type: 'success', title: 'Post created!' });
       router.back();

@@ -30,12 +30,9 @@ export default function NotificationsScreen() {
     const request = pendingIncoming.find((r) => r.id === requestId);
     if (!request) return;
     try {
-      const result = await dispatch(
+      await dispatch(
         respondToJoinRequest({ request, accept })
-      );
-      if (respondToJoinRequest.rejected.match(result)) {
-        throw new Error('Failed to respond');
-      }
+      ).unwrap();
       addToast({
         type: 'success',
         title: accept ? 'Request accepted' : 'Request declined',

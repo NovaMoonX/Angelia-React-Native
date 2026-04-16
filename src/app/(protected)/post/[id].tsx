@@ -42,7 +42,7 @@ import {
   joinConversation,
 } from '@/store/actions/postActions';
 import { generateId } from '@/utils/generateId';
-import type { Post, Reaction, Comment as CommentType } from '@/models/types';
+import type { Reaction, Comment as CommentType } from '@/models/types';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -212,10 +212,11 @@ export default function PostDetailScreen() {
     const wasFirstReaction = !hasReacted;
     const newReaction: Reaction = { emoji, userId: currentUser.id };
 
-    const result = await dispatch(
-      updatePostReactions({ postId: post.id, newReaction })
-    );
-    if (updatePostReactions.rejected.match(result)) {
+    try {
+      await dispatch(
+        updatePostReactions({ postId: post.id, newReaction })
+      ).unwrap();
+    } catch {
       addToast({ type: 'error', title: 'Failed to add reaction' });
     }
 
@@ -226,20 +227,22 @@ export default function PostDetailScreen() {
   };
 
   const handleRemoveReaction = async (emoji: string) => {
-    const result = await dispatch(
-      removePostReaction({ postId: post.id, emoji, userId: currentUser.id })
-    );
-    if (removePostReaction.rejected.match(result)) {
+    try {
+      await dispatch(
+        removePostReaction({ postId: post.id, emoji, userId: currentUser.id })
+      ).unwrap();
+    } catch {
       addToast({ type: 'error', title: 'Failed to remove reaction' });
     }
   };
 
 
   const handleJoinConversation = async () => {
-    const result = await dispatch(
-      joinConversation({ postId: post.id, userId: currentUser.id })
-    );
-    if (joinConversation.rejected.match(result)) {
+    try {
+      await dispatch(
+        joinConversation({ postId: post.id, userId: currentUser.id })
+      ).unwrap();
+    } catch {
       addToast({ type: 'error', title: 'Failed to join conversation' });
       return;
     }
@@ -261,10 +264,11 @@ export default function PostDetailScreen() {
 
     setCommentText('');
 
-    const result = await dispatch(
-      updatePostComments({ postId: post.id, newComment: comment })
-    );
-    if (updatePostComments.rejected.match(result)) {
+    try {
+      await dispatch(
+        updatePostComments({ postId: post.id, newComment: comment })
+      ).unwrap();
+    } catch {
       addToast({ type: 'error', title: 'Failed to send comment' });
     }
   };

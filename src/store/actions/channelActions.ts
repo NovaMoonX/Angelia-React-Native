@@ -43,7 +43,7 @@ export const ensureDailyChannelExists = createAsyncThunk(
       if (currentUser && !currentUser.accountProgress.dailyChannelCreated) {
         await dispatch(
           updateAccountProgress({ uid: userId, field: 'dailyChannelCreated', value: true })
-        );
+        ).unwrap();
       }
     };
 
@@ -66,10 +66,10 @@ export const ensureDailyChannelExists = createAsyncThunk(
       return;
     }
 
-    await dispatch(createDailyChannel(userId));
+    await dispatch(createDailyChannel(userId)).unwrap();
     await dispatch(
       updateAccountProgress({ uid: userId, field: 'dailyChannelCreated', value: true })
-    );
+    ).unwrap();
   }
 );
 

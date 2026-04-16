@@ -110,17 +110,14 @@ export default function AccountScreen() {
   const handleSaveProfile = async () => {
     if (!currentUser) return;
     try {
-      const result = await dispatch(
+      await dispatch(
         saveProfile({
           firstName: editFirstName.trim(),
           lastName: editLastName.trim(),
           funFact: editFunFact.trim(),
           avatar: editAvatar,
         })
-      );
-      if (saveProfile.rejected.match(result)) {
-        throw new Error('Failed to update profile');
-      }
+      ).unwrap();
       addToast({ type: 'success', title: 'Profile updated!' });
       setEditingProfile(false);
     } catch {
@@ -135,10 +132,7 @@ export default function AccountScreen() {
   }) => {
     if (!currentUser) return;
     try {
-      const result = await dispatch(createCustomChannel(data));
-      if (createCustomChannel.rejected.match(result)) {
-        throw new Error('Failed to create channel');
-      }
+      await dispatch(createCustomChannel(data)).unwrap();
       addToast({ type: 'success', title: 'Channel created!' });
       setChannelFormOpen(false);
     } catch {
@@ -153,12 +147,9 @@ export default function AccountScreen() {
   }) => {
     if (!editingChannel) return;
     try {
-      const result = await dispatch(
+      await dispatch(
         editCustomChannel({ channel: editingChannel, data })
-      );
-      if (editCustomChannel.rejected.match(result)) {
-        throw new Error('Failed to update channel');
-      }
+      ).unwrap();
       addToast({ type: 'success', title: 'Channel updated!' });
       setChannelFormOpen(false);
       setEditingChannel(undefined);
@@ -176,10 +167,7 @@ export default function AccountScreen() {
     });
     if (!ok) return;
     try {
-      const result = await dispatch(deleteCustomChannel(channelId));
-      if (deleteCustomChannel.rejected.match(result)) {
-        throw new Error('Failed to delete channel');
-      }
+      await dispatch(deleteCustomChannel(channelId)).unwrap();
       addToast({ type: 'success', title: 'Channel deleted' });
     } catch {
       addToast({ type: 'error', title: 'Failed to delete channel' });
@@ -193,12 +181,9 @@ export default function AccountScreen() {
     });
     if (!ok) return;
     try {
-      const result = await dispatch(
+      await dispatch(
         unsubscribeFromChannel({ channelId, userId: currentUser?.id || '' })
-      );
-      if (unsubscribeFromChannel.rejected.match(result)) {
-        throw new Error('Failed to unsubscribe');
-      }
+      ).unwrap();
       addToast({ type: 'success', title: 'Unsubscribed' });
     } catch {
       addToast({ type: 'error', title: 'Failed to unsubscribe' });
@@ -457,12 +442,9 @@ export default function AccountScreen() {
             selectedChannel.ownerId === currentUser.id
               ? async () => {
                   try {
-                    const result = await dispatch(
+                    await dispatch(
                       refreshChannelInviteCode(selectedChannel.id)
-                    );
-                    if (refreshChannelInviteCode.rejected.match(result)) {
-                      throw new Error('Failed to refresh invite');
-                    }
+                    ).unwrap();
                     addToast({
                       type: 'success',
                       title: 'Invite code refreshed',
@@ -481,15 +463,12 @@ export default function AccountScreen() {
               ? async (subscriberId: string) => {
                   setRemovingSubscriberId(subscriberId);
                   try {
-                    const result = await dispatch(
+                    await dispatch(
                       removeChannelSubscriber({
                         channelId: selectedChannel.id,
                         subscriberId,
                       })
-                    );
-                    if (removeChannelSubscriber.rejected.match(result)) {
-                      throw new Error('Failed to remove subscriber');
-                    }
+                    ).unwrap();
                     addToast({
                       type: 'success',
                       title: 'Subscriber removed',
