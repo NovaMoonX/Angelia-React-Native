@@ -21,6 +21,8 @@ import { Textarea } from '@/components/ui/Textarea';
 import { ChannelCard } from '@/components/ChannelCard';
 import { ChannelFormModal } from '@/components/ChannelFormModal';
 import { ChannelModal } from '@/components/ChannelModal';
+import { NowStatusBadge } from '@/components/NowStatusBadge';
+import { NowStatusModal } from '@/components/NowStatusModal';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useActionModal } from '@/hooks/useActionModal';
@@ -33,7 +35,7 @@ import {
 } from '@/store/slices/channelsSlice';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { exitDemoMode } from '@/store/actions/demoActions';
-import { saveProfile } from '@/store/actions/userActions';
+import { saveProfile, saveStatus, clearStatus } from '@/store/actions/userActions';
 import {
   createCustomChannel,
   editCustomChannel,
@@ -43,7 +45,7 @@ import {
   removeChannelSubscriber,
 } from '@/store/actions/channelActions';
 import { AVATAR_PRESETS, CUSTOM_CHANNEL_LIMIT } from '@/models/constants';
-import type { AvatarPreset, Channel } from '@/models/types';
+import type { AvatarPreset, Channel, UserStatus } from '@/models/types';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 
 export default function AccountScreen() {
@@ -106,6 +108,9 @@ export default function AccountScreen() {
   const [removingSubscriberId, setRemovingSubscriberId] = useState<
     string | null
   >(null);
+
+  // Status modal state
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
 
   const handleSaveProfile = async () => {
     if (!currentUser) return;
@@ -205,6 +210,26 @@ export default function AccountScreen() {
     }
   };
 
+  const handleSaveStatus = async (status: UserStatus) => {
+    try {
+      await dispatch(saveStatus(status)).unwrap();
+      addToast({ type: 'success', title: 'Status updated!' });
+      setStatusModalOpen(false);
+    } catch {
+      addToast({ type: 'error', title: 'Failed to set status' });
+    }
+  };
+
+  const handleClearStatus = async () => {
+    try {
+      await dispatch(clearStatus()).unwrap();
+      addToast({ type: 'success', title: 'Status cleared' });
+      setStatusModalOpen(false);
+    } catch {
+      addToast({ type: 'error', title: 'Failed to clear status' });
+    }
+  };
+
   if (!currentUser) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
@@ -264,7 +289,24 @@ export default function AccountScreen() {
                   💡 {currentUser.funFact}
                 </Text>
               ) : null}
+              <NowStatusBadge
+                status={currentUser.status}
+                style={{ marginTop: 6 }}
+              />
             </View>
+
+            {/* Set / Edit Status */}
+            <Pressable
+              onPress={() => setStatusModalOpen(true)}
+              style={[styles.statusButton, { borderColor: theme.border }]}
+            >
+              <Feather name="smile" size={15} color={theme.mutedForeground} />
+              <Text style={[styles.statusButtonText, { color: theme.foreground }]}>
+                {currentUser.status && Date.now() < currentUser.status.endAt
+                  ? `${currentUser.status.emoji} ${currentUser.status.text}`
+                  : 'Set a status'}
+              </Text>
+            </Pressable>
 
             {editingProfile ? (
               <View style={styles.editForm}>
@@ -487,6 +529,15 @@ export default function AccountScreen() {
           removingSubscriberId={removingSubscriberId}
         />
       )}
+
+      {/* Status modal */}
+      <NowStatusModal
+        visible={statusModalOpen}
+        onClose={() => setStatusModalOpen(false)}
+        onSave={handleSaveStatus}
+        onClear={handleClearStatus}
+        currentStatus={currentUser.status}
+      />
     </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -522,6 +573,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontStyle: 'italic',
     marginTop: 4,
+  },
+  statusButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginTop: 10,
+    alignSelf: 'center',
+  },
+  statusButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   editForm: {
     width: '100%',

@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/Input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { ChatMessage } from '@/components/ChatMessage';
 import { ReactionDisplay } from '@/components/ReactionDisplay';
+import { NowStatusBadge } from '@/components/NowStatusBadge';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { useTheme } from '@/hooks/useTheme';
@@ -297,9 +298,12 @@ export default function PostDetailScreen() {
           <Text style={[styles.authorName, { color: theme.foreground }]}>
             {authorName}
           </Text>
-          <Text style={[styles.timestamp, { color: theme.mutedForeground }]}>
-            {getRelativeTime(post.timestamp)}
-          </Text>
+          <View style={styles.headerMeta}>
+            <Text style={[styles.timestamp, { color: theme.mutedForeground }]}>
+              {getRelativeTime(post.timestamp)}
+            </Text>
+            <NowStatusBadge status={author?.status} />
+          </View>
         </View>
         {channel && (
           <Badge
@@ -564,6 +568,12 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
     marginLeft: 12,
+  },
+  headerMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
   },
   authorName: {
     fontSize: 16,

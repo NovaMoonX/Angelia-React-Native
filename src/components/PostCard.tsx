@@ -6,6 +6,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { Carousel } from '@/components/ui/Carousel';
+import { NowStatusBadge } from '@/components/NowStatusBadge';
 import { useAppSelector } from '@/store/hooks';
 import {
   selectPostAuthor,
@@ -88,9 +89,12 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
             <Text style={[styles.authorName, { color: theme.foreground }]}>
               {authorName}
             </Text>
-            <Text style={[styles.time, { color: theme.mutedForeground }]}>
-              {getRelativeTime(post.timestamp)}
-            </Text>
+            <View style={styles.headerMeta}>
+              <Text style={[styles.time, { color: theme.mutedForeground }]}>
+                {getRelativeTime(post.timestamp)}
+              </Text>
+              <NowStatusBadge status={author?.status} />
+            </View>
           </View>
           {channel && (
             <Badge
@@ -196,6 +200,12 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
     marginLeft: 10,
+  },
+  headerMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
   },
   authorName: {
     fontSize: 14,
