@@ -218,6 +218,7 @@ export default function CameraScreen() {
         photo
         video={hasMicPermission}
         audio={hasMicPermission}
+        torch={flash === 'on' ? 'on' : 'off'}
       />
 
       {/* Top controls */}
@@ -232,24 +233,27 @@ export default function CameraScreen() {
 
       {/* Bottom controls */}
       <View style={[styles.bottomControls, { paddingBottom: insets.bottom + 16 }]}>
-        {/* Gallery shortcut */}
-        <Pressable
-          style={[styles.iconButton, recording && styles.iconButtonDisabled]}
-          onPress={() =>
-            router.replace({
-              pathname: '/(protected)/gallery',
-              params: {
-                existingMedia: JSON.stringify(existingMedia),
-                existingText: params.existingText,
-                existingChannel: params.existingChannel,
-              },
-            })
-          }
-          disabled={recording}
-          hitSlop={8}
-        >
-          <Feather name="image" size={26} color="#FFF" />
-        </Pressable>
+        {/* Gallery shortcut — hidden while recording */}
+        {recording ? (
+          <View style={styles.iconButtonPlaceholder} />
+        ) : (
+          <Pressable
+            style={styles.iconButton}
+            onPress={() =>
+              router.replace({
+                pathname: '/(protected)/gallery',
+                params: {
+                  existingMedia: JSON.stringify(existingMedia),
+                  existingText: params.existingText,
+                  existingChannel: params.existingChannel,
+                },
+              })
+            }
+            hitSlop={8}
+          >
+            <Feather name="image" size={26} color="#FFF" />
+          </Pressable>
+        )}
 
         {/* Shutter */}
         <Pressable
@@ -260,15 +264,14 @@ export default function CameraScreen() {
           {recording && <View style={styles.recordingDot} />}
         </Pressable>
 
-        {/* Flip camera */}
-        <Pressable
-          style={[styles.iconButton, recording && styles.iconButtonDisabled]}
-          onPress={togglePosition}
-          disabled={recording}
-          hitSlop={8}
-        >
-          <Feather name="refresh-ccw" size={26} color="#FFF" />
-        </Pressable>
+        {/* Flip camera — hidden while recording */}
+        {recording ? (
+          <View style={styles.iconButtonPlaceholder} />
+        ) : (
+          <Pressable style={styles.iconButton} onPress={togglePosition} hitSlop={8}>
+            <Feather name="refresh-ccw" size={26} color="#FFF" />
+          </Pressable>
+        )}
       </View>
 
       {/* Photo / Video mode toggle */}
@@ -406,8 +409,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconButtonDisabled: {
-    opacity: 0.3,
+  iconButtonPlaceholder: {
+    width: 48,
+    height: 48,
   },
   shutter: {
     width: SHUTTER_SIZE,
