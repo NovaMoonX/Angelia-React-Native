@@ -257,7 +257,7 @@ export default function PostDetailScreen() {
           styles.content,
           { 
             paddingTop: 8,
-            paddingBottom: insets.bottom + 20
+            paddingBottom: insets.bottom + 40
           }
         ]}
         keyboardShouldPersistTaps="handled"

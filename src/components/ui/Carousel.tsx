@@ -20,7 +20,7 @@ interface CarouselProps {
 export function Carousel({ children, onIndexChange, style }: CarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
-  const screenWidth = Dimensions.get('window').width - 32; // Account for padding
+  const screenWidth = Dimensions.get('window').width;
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x;

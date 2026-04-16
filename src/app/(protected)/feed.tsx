@@ -174,7 +174,7 @@ export default function FeedScreen() {
         scrollEventThrottle={16}
         contentContainerStyle={[
           styles.listContent,
-          { paddingTop: headerHeight, paddingBottom: insets.bottom + 100 },
+          { paddingTop: headerHeight, paddingBottom: insets.bottom + 120 },
         ]}
         showsVerticalScrollIndicator={false}
         onEndReached={loadMore}
