@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   FlatList,
   Image,
@@ -21,16 +21,22 @@ export default function GalleryScreen() {
   const { theme } = useTheme();
   const { addToast } = useToast();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ existingMedia?: string }>();
+  const params = useLocalSearchParams<{
+    existingMedia?: string;
+    existingText?: string;
+    existingChannel?: string;
+  }>();
 
-  const existingCount = (() => {
-    if (!params.existingMedia) return 0;
+  const existingFiles = useMemo<MediaFile[]>(() => {
+    if (!params.existingMedia) return [];
     try {
-      return (JSON.parse(params.existingMedia) as MediaFile[]).length;
+      return JSON.parse(params.existingMedia) as MediaFile[];
     } catch {
-      return 0;
+      return [];
     }
-  })();
+  }, [params.existingMedia]);
+
+  const existingCount = existingFiles.length;
 
   const [selected, setSelected] = useState<MediaFile[]>([]);
   const remaining = MAX_FILES - existingCount;
@@ -103,9 +109,14 @@ export default function GalleryScreen() {
       router.back();
       return;
     }
-    router.push({
+    const merged = [...existingFiles, ...selected].slice(0, MAX_FILES);
+    router.replace({
       pathname: '/(protected)/post/new',
-      params: { capturedMedia: JSON.stringify(selected) },
+      params: {
+        capturedMedia: JSON.stringify(merged),
+        existingText: params.existingText,
+        existingChannel: params.existingChannel,
+      },
     });
   };
 

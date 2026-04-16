@@ -3,6 +3,7 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
@@ -32,7 +34,11 @@ import type { Post } from '@/models/types';
 export default function PostCreateScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ capturedMedia?: string }>();
+  const params = useLocalSearchParams<{
+    capturedMedia?: string;
+    existingText?: string;
+    existingChannel?: string;
+  }>();
   const dispatch = useAppDispatch();
   const { addToast } = useToast();
   const { theme } = useTheme();
@@ -52,11 +58,14 @@ export default function PostCreateScreen() {
   }, [params.capturedMedia]);
 
   const [selectedChannel, setSelectedChannel] = useState(
-    userChannels[0]?.id || ''
+    params.existingChannel || userChannels[0]?.id || ''
   );
-  const [text, setText] = useState('');
+  const [text, setText] = useState(params.existingText || '');
   const [media, setMedia] = useState<MediaFile[]>(initialMedia);
   const [loading, setLoading] = useState(false);
+  const [previewItem, setPreviewItem] = useState<MediaFile | null>(null);
+
+  const atMaxFiles = media.length >= MAX_FILES;
 
   const canPublish = (text.trim().length > 0 || media.length > 0) && !!selectedChannel;
 
@@ -238,15 +247,24 @@ export default function PostCreateScreen() {
             keyExtractor={(_, i) => `media-${i}`}
             contentContainerStyle={styles.mediaStrip}
             renderItem={({ item, index }) => (
-              <View style={[styles.mediaThumb, { borderColor: theme.border }]}>
+              <Pressable
+                style={[styles.mediaThumb, { borderColor: theme.border }]}
+                onPress={() => setPreviewItem(item)}
+              >
                 <Image source={{ uri: item.uri }} style={styles.mediaImage} />
+                {item.type.startsWith('video/') && (
+                  <View style={styles.videoOverlay}>
+                    <Feather name="play" size={18} color="#FFF" />
+                  </View>
+                )}
                 <Pressable
                   style={styles.mediaRemove}
                   onPress={() => removeMedia(index)}
+                  hitSlop={8}
                 >
                   <Feather name="x" size={12} color="#FFF" />
                 </Pressable>
-              </View>
+              </Pressable>
             )}
           />
         )}
@@ -264,32 +282,52 @@ export default function PostCreateScreen() {
       >
         <View style={styles.toolbarActions}>
           <Pressable
-            style={styles.toolbarButton}
-            onPress={() => router.push('/(protected)/camera')}
-            hitSlop={8}
-          >
-            <Feather name="camera" size={22} color={theme.primary} />
-          </Pressable>
-          <Pressable
-            style={styles.toolbarButton}
+            style={[styles.toolbarButton, atMaxFiles && styles.toolbarButtonDisabled]}
             onPress={() =>
-              router.push({
-                pathname: '/(protected)/gallery',
-                params: { existingMedia: JSON.stringify(media) },
+              router.replace({
+                pathname: '/(protected)/camera',
+                params: {
+                  existingMedia: JSON.stringify(media),
+                  existingText: text,
+                  existingChannel: selectedChannel,
+                },
               })
             }
+            disabled={atMaxFiles}
             hitSlop={8}
           >
-            <Feather name="image" size={22} color={theme.primary} />
+            <Feather name="camera" size={22} color={atMaxFiles ? theme.mutedForeground : theme.primary} />
+          </Pressable>
+          <Pressable
+            style={[styles.toolbarButton, atMaxFiles && styles.toolbarButtonDisabled]}
+            onPress={() =>
+              router.replace({
+                pathname: '/(protected)/gallery',
+                params: {
+                  existingMedia: JSON.stringify(media),
+                  existingText: text,
+                  existingChannel: selectedChannel,
+                },
+              })
+            }
+            disabled={atMaxFiles}
+            hitSlop={8}
+          >
+            <Feather name="image" size={22} color={atMaxFiles ? theme.mutedForeground : theme.primary} />
           </Pressable>
         </View>
 
         {media.length > 0 && (
-          <Text style={[styles.mediaCount, { color: theme.mutedForeground }]}>
+          <Text style={[styles.mediaCount, { color: atMaxFiles ? '#EF4444' : theme.mutedForeground }]}>
             {media.length}/{MAX_FILES}
           </Text>
         )}
       </View>
+
+      {/* Media preview modal */}
+      {previewItem && (
+        <MediaPreviewModal item={previewItem} onClose={() => setPreviewItem(null)} />
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -391,5 +429,89 @@ const styles = StyleSheet.create({
   mediaCount: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  toolbarButtonDisabled: {
+    opacity: 0.4,
+  },
+  videoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+});
+
+// ── Media preview modal ────────────────────────────────────────────────────
+
+function VideoPreview({ uri }: { uri: string }) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = true;
+    p.play();
+  });
+  return (
+    <VideoView
+      player={player}
+      style={previewStyles.videoView}
+      contentFit="contain"
+      nativeControls
+    />
+  );
+}
+
+function MediaPreviewModal({
+  item,
+  onClose,
+}: {
+  item: MediaFile;
+  onClose: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const isVideo = item.type.startsWith('video/');
+  return (
+    <Modal visible animationType="fade" transparent statusBarTranslucent>
+      <View style={[previewStyles.overlay, { paddingBottom: insets.bottom }]}>
+        <Pressable style={previewStyles.closeButton} onPress={onClose} hitSlop={12}>
+          <Feather name="x" size={26} color="#FFF" />
+        </Pressable>
+        {isVideo ? (
+          <VideoPreview uri={item.uri} />
+        ) : (
+          <Image
+            source={{ uri: item.uri}}
+            style={previewStyles.image}
+            resizeMode="contain"
+          />
+        )}
+      </View>
+    </Modal>
+  );
+}
+
+const previewStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 56,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  videoView: {
+    width: '100%',
+    height: '100%',
   },
 });
