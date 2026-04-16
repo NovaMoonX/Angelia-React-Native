@@ -60,13 +60,19 @@ export default function ProtectedLayout() {
           />
           <Stack.Screen
             name="post/[id]"
-            options={{ title: 'Post' }}
+            options={{ 
+              headerShown: true, 
+              title: 'Post',
+              headerStyle: { backgroundColor: theme.background },
+              headerTintColor: theme.foreground,
+              ...(isDemo ? { headerStatusBarHeight: 0 } : {}),
+            }}
           />
-          <Stack.Screen name="account" options={{ title: 'Account' }} />
-          <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
+          <Stack.Screen name="account" options={{ headerShown: false }} />
+          <Stack.Screen name="notifications" options={{ headerShown: false }} />
           <Stack.Screen
             name="invite/[channelId]/[inviteCode]"
-            options={{ title: 'Join Channel' }}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="error-fallback"

@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
+  ActivityIndicator,
+  Animated,
   FlatList,
   KeyboardAvoidingView,
   Pressable,
@@ -9,11 +11,14 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Callout } from '@/components/ui/Callout';
 import { Card } from '@/components/ui/Card';
 import { Carousel } from '@/components/ui/Carousel';
 import { Input } from '@/components/ui/Input';
@@ -28,7 +33,7 @@ import { useToast } from '@/hooks/useToast';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName } from '@/lib/post/post.utils';
-import { isValidEmoji, getRandomPhrase } from '@/lib/post/post.constants';
+import { isValidEmoji, getRandomPhrase, getRandomFirstCommentPhrase } from '@/lib/post/post.constants';
 import { COMMON_EMOJIS } from '@/models/constants';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import {
@@ -49,6 +54,7 @@ export default function PostDetailScreen() {
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
   const { addToast } = useToast();
+  const insets = useSafeAreaInsets();
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const post = useAppSelector((state) => selectPostById(state, id || ''));
   const author = useAppSelector((state) =>
@@ -64,6 +70,66 @@ export default function PostDetailScreen() {
   const [activeTab, setActiveTab] = useState<'reactions' | 'conversation'>(
     'reactions'
   );
+  const [showCommentPrompt, setShowCommentPrompt] = useState(false);
+  const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
+  const popoverOpacity = useRef(new Animated.Value(0)).current;
+  const popoverScale = useRef(new Animated.Value(0.8)).current;
+
+  const firstMediaItem = post?.media?.[0];
+  const hasVideo = firstMediaItem?.type === 'video' && post?.media?.length === 1;
+  
+  // Note: Hook must be called unconditionally per React rules.
+  // When hasVideo is false, we pass an empty string which creates a minimal player instance.
+  const videoPlayer = useVideoPlayer(
+    hasVideo ? firstMediaItem.url : '',
+    (player) => {
+      if (hasVideo) {
+        player.loop = true;
+        player.muted = false;
+        // Don't auto-play - let user control via native controls
+      }
+    }
+  );
+
+  // Create video players for carousel items - hooks must be called unconditionally
+  const carouselVideoUrls = useMemo(() => {
+    if (!post?.media || post.media.length <= 1) return [];
+    return post.media.map(item => item.type === 'video' ? item.url : '');
+  }, [post?.media]);
+
+  const detailPlayer0 = useVideoPlayer(carouselVideoUrls[0] || '', (p) => {
+    if (carouselVideoUrls[0]) { p.loop = true; p.muted = false; }
+  });
+  const detailPlayer1 = useVideoPlayer(carouselVideoUrls[1] || '', (p) => {
+    if (carouselVideoUrls[1]) { p.loop = true; p.muted = false; }
+  });
+  const detailPlayer2 = useVideoPlayer(carouselVideoUrls[2] || '', (p) => {
+    if (carouselVideoUrls[2]) { p.loop = true; p.muted = false; }
+  });
+  const detailPlayer3 = useVideoPlayer(carouselVideoUrls[3] || '', (p) => {
+    if (carouselVideoUrls[3]) { p.loop = true; p.muted = false; }
+  });
+
+  const detailCarouselPlayers = [detailPlayer0, detailPlayer1, detailPlayer2, detailPlayer3];
+
+  // Play/pause carousel videos based on active index
+  useEffect(() => {
+    if (post?.media && post.media.length > 1) {
+      carouselVideoUrls.forEach((url, i) => {
+        if (url) {
+          if (i === activeCarouselIndex) {
+            detailCarouselPlayers[i]?.play();
+          } else {
+            detailCarouselPlayers[i]?.pause();
+          }
+        }
+      });
+    }
+  }, [activeCarouselIndex, carouselVideoUrls, detailCarouselPlayers, post?.media]);
+
+  const handleCarouselIndexChange = (index: number) => {
+    setActiveCarouselIndex(index);
+  };
 
   if (!post || !currentUser) {
     return (
@@ -80,6 +146,10 @@ export default function PostDetailScreen() {
   const hasReacted = post.reactions.some(
     (r) => r.userId === currentUser.id
   );
+  const hasCommented = post.comments.some(
+    (c) => c.authorId === currentUser.id
+  );
+  const hasInteracted = hasReacted || hasCommented;
   const isInConversation = post.conversationEnrollees.includes(
     currentUser.id
   );
@@ -100,11 +170,48 @@ export default function PostDetailScreen() {
   }, [post.reactions, currentUser.id]);
 
   const handleReaction = async (emoji: string) => {
+    const wasFirstReaction = !hasReacted;
     const newReaction: Reaction = { emoji, userId: currentUser.id };
     const updatedReactions = [...post.reactions, newReaction];
     dispatch(
       updateReactionsOptimistic({ postId: post.id, reactions: updatedReactions })
     );
+    
+    // Show comment prompt if this is the first reaction and no comments exist
+    if (wasFirstReaction && post.comments.length === 0 && isInConversation) {
+      setShowCommentPrompt(true);
+      // Animate the popover in
+      Animated.parallel([
+        Animated.timing(popoverOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(popoverScale, {
+          toValue: 1,
+          friction: 8,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      
+      // Auto-hide after 4 seconds
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(popoverOpacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(popoverScale, {
+            toValue: 0.8,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start(() => setShowCommentPrompt(false));
+      }, 4000);
+    }
+    
     if (!isDemo) {
       try {
         await updatePostReactions(post.id, updatedReactions);
@@ -188,7 +295,13 @@ export default function PostDetailScreen() {
     >
       <ScrollView
         style={{ flex: 1, backgroundColor: theme.background }}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { 
+            paddingTop: 0,
+            paddingBottom: insets.bottom + 80
+          }
+        ]}
         keyboardShouldPersistTaps="handled"
       >
       {/* Post Header */}
@@ -225,21 +338,45 @@ export default function PostDetailScreen() {
       {/* Media */}
       {post.media && post.media.length > 0 ? (
         post.media.length === 1 ? (
-          <Image
-            source={{ uri: post.media[0].url }}
-            style={styles.singleMedia}
-            contentFit="cover"
-          />
-        ) : (
-          <Carousel>
-            {post.media.map((item, index) => (
-              <Image
-                key={`media-${index}`}
-                source={{ uri: item.url }}
-                style={styles.carouselMedia}
+          post.media[0].type === 'video' ? (
+            <View style={[styles.singleMedia, styles.videoContainer]}>
+              <ActivityIndicator style={StyleSheet.absoluteFill} size="large" color="#666" />
+              <VideoView
+                player={videoPlayer}
+                style={StyleSheet.absoluteFill}
                 contentFit="cover"
+                nativeControls={true}
               />
-            ))}
+            </View>
+          ) : (
+            <Image
+              source={{ uri: post.media[0].url }}
+              style={styles.singleMedia}
+              contentFit="cover"
+            />
+          )
+        ) : (
+          <Carousel style={{ borderRadius: 12 }} onIndexChange={handleCarouselIndexChange}>
+            {post.media.map((item, index) =>
+              item.type === 'video' ? (
+                <View key={`media-${index}`} style={[styles.carouselMedia, styles.videoContainer]}>
+                  <ActivityIndicator style={StyleSheet.absoluteFill} size="large" color="#666" />
+                  <VideoView
+                    player={detailCarouselPlayers[index]}
+                    style={StyleSheet.absoluteFill}
+                    contentFit="cover"
+                    nativeControls={true}
+                  />
+                </View>
+              ) : (
+                <Image
+                  key={`media-${index}`}
+                  source={{ uri: item.url }}
+                  style={styles.carouselMedia}
+                  contentFit="cover"
+                />
+              )
+            )}
           </Carousel>
         )
       ) : null}
@@ -312,7 +449,15 @@ export default function PostDetailScreen() {
             </TabsContent>
 
             <TabsContent value="conversation">
-              {!isInConversation ? (
+              {!hasReacted ? (
+                <Card style={styles.joinCard}>
+                  <Callout
+                    variant="info"
+                    description="👋 React to this post to join the conversation and see comments!"
+                    style={styles.calloutNoBorder}
+                  />
+                </Card>
+              ) : !isInConversation ? (
                 <Card style={styles.joinCard}>
                   <Text
                     style={[
@@ -328,17 +473,25 @@ export default function PostDetailScreen() {
                 </Card>
               ) : (
                 <View style={styles.conversationArea}>
-                  {post.comments.map((comment) => (
-                    <ChatMessage
-                      key={comment.id}
-                      authorId={comment.authorId}
-                      text={comment.text}
-                      timestamp={comment.timestamp}
-                      isCurrentUser={
-                        comment.authorId === currentUser.id
-                      }
-                    />
-                  ))}
+                  {post.comments.length === 0 ? (
+                    <View style={styles.emptyCommentsContainer}>
+                      <Text style={[styles.emptyCommentsText, { color: theme.mutedForeground }]}>
+                        {getRandomFirstCommentPhrase()}
+                      </Text>
+                    </View>
+                  ) : (
+                    post.comments.map((comment) => (
+                      <ChatMessage
+                        key={comment.id}
+                        authorId={comment.authorId}
+                        text={comment.text}
+                        timestamp={comment.timestamp}
+                        isCurrentUser={
+                          comment.authorId === currentUser.id
+                        }
+                      />
+                    ))
+                  )}
 
                   <View style={styles.commentInput}>
                     <Input
@@ -359,9 +512,34 @@ export default function PostDetailScreen() {
               )}
             </TabsContent>
           </Tabs>
+          
+          {/* Animated popover for prompting first comment */}
+          {showCommentPrompt && (
+            <Animated.View
+              style={[
+                styles.commentPromptPopover,
+                {
+                  backgroundColor: theme.primary,
+                  opacity: popoverOpacity,
+                  transform: [{ scale: popoverScale }],
+                },
+              ]}
+            >
+              <Text style={[styles.commentPromptText, { color: theme.primaryForeground }]}>
+                Make the first comment! 💬
+              </Text>
+            </Animated.View>
+          )}
         </>
       )}
       </ScrollView>
+      {/* Solid background behind system nav buttons */}
+      {insets.bottom > 0 && (
+        <View style={{
+          height: insets.bottom,
+          backgroundColor: theme.background,
+        }} />
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -369,7 +547,6 @@ export default function PostDetailScreen() {
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
-    paddingTop: 8,
     paddingBottom: 20,
   },
   centered: {
@@ -402,12 +579,16 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 250,
     borderRadius: 12,
+    overflow: 'hidden',
     marginBottom: 16,
   },
   carouselMedia: {
     width: '100%',
     height: 250,
-    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  videoContainer: {
+    backgroundColor: '#1a1a1a',
   },
   reactionSection: {
     gap: 8,
@@ -457,10 +638,40 @@ const styles = StyleSheet.create({
     marginTop: 12,
     gap: 4,
   },
+  emptyCommentsContainer: {
+    paddingVertical: 32,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  emptyCommentsText: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
   commentInput: {
     flexDirection: 'row',
     gap: 8,
     marginTop: 12,
     alignItems: 'center',
+  },
+  commentPromptPopover: {
+    position: 'absolute',
+    top: -50,
+    right: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  commentPromptText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  calloutNoBorder: {
+    borderWidth: 0,
   },
 });

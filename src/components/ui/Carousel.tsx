@@ -1,15 +1,14 @@
 import React, { useRef, useState } from 'react';
 import {
-  Dimensions,
   FlatList,
   Pressable,
   StyleSheet,
-  Text,
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   type ViewStyle,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 
 interface CarouselProps {
   children: React.ReactNode[];
@@ -19,12 +18,13 @@ interface CarouselProps {
 
 export function Carousel({ children, onIndexChange, style }: CarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
   const flatListRef = useRef<FlatList>(null);
-  const screenWidth = Dimensions.get('window').width - 32; // Account for padding
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (containerWidth === 0) return;
     const offsetX = event.nativeEvent.contentOffset.x;
-    const newIndex = Math.round(offsetX / screenWidth);
+    const newIndex = Math.round(offsetX / containerWidth);
     if (newIndex !== currentIndex) {
       setCurrentIndex(newIndex);
       onIndexChange?.(newIndex);
@@ -38,46 +38,60 @@ export function Carousel({ children, onIndexChange, style }: CarouselProps) {
   };
 
   return (
-    <View style={[styles.container, style]}>
-      <FlatList
-        ref={flatListRef}
-        data={children}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={handleScroll}
-        renderItem={({ item }) => (
-          <View style={{ width: screenWidth }}>{item}</View>
+    <View>
+      <View
+        style={[styles.container, style]}
+        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      >
+        {containerWidth > 0 && (
+          <FlatList
+            ref={flatListRef}
+            data={children}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={handleScroll}
+            renderItem={({ item }) => (
+              <View style={{ width: containerWidth }}>{item}</View>
+            )}
+            keyExtractor={(_, index) => `carousel-${index}`}
+            getItemLayout={(_, index) => ({
+              length: containerWidth,
+              offset: containerWidth * index,
+              index,
+            })}
+          />
         )}
-        keyExtractor={(_, index) => `carousel-${index}`}
-      />
+        {children.length > 1 && (
+          <>
+            {currentIndex > 0 && (
+              <Pressable
+                style={[styles.navButton, styles.navLeft]}
+                onPress={() => goTo(currentIndex - 1)}
+              >
+                <Feather name="chevron-left" size={20} color="#FFFFFF" />
+              </Pressable>
+            )}
+            {currentIndex < children.length - 1 && (
+              <Pressable
+                style={[styles.navButton, styles.navRight]}
+                onPress={() => goTo(currentIndex + 1)}
+              >
+                <Feather name="chevron-right" size={20} color="#FFFFFF" />
+              </Pressable>
+            )}
+          </>
+        )}
+      </View>
       {children.length > 1 && (
-        <>
-          {currentIndex > 0 && (
-            <Pressable
-              style={[styles.navButton, styles.navLeft]}
-              onPress={() => goTo(currentIndex - 1)}
-            >
-              <Text style={styles.navText}>‹</Text>
-            </Pressable>
-          )}
-          {currentIndex < children.length - 1 && (
-            <Pressable
-              style={[styles.navButton, styles.navRight]}
-              onPress={() => goTo(currentIndex + 1)}
-            >
-              <Text style={styles.navText}>›</Text>
-            </Pressable>
-          )}
-          <View style={styles.dots}>
-            {children.map((_, i) => (
-              <View
-                key={`dot-${i}`}
-                style={[styles.dot, i === currentIndex && styles.activeDot]}
-              />
-            ))}
-          </View>
-        </>
+        <View style={styles.dots}>
+          {children.map((_, i) => (
+            <View
+              key={`dot-${i}`}
+              style={[styles.dot, i === currentIndex && styles.activeDot]}
+            />
+          ))}
+        </View>
       )}
     </View>
   );
@@ -86,6 +100,8 @@ export function Carousel({ children, onIndexChange, style }: CarouselProps) {
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 8,
   },
   navButton: {
     position: 'absolute',
@@ -105,11 +121,6 @@ const styles = StyleSheet.create({
   navRight: {
     right: 8,
   },
-  navText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '600',
-  },
   dots: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -120,12 +131,9 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(150,150,150,0.5)',
   },
   activeDot: {
     backgroundColor: '#D97706',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
   },
 });

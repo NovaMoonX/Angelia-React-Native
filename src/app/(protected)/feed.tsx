@@ -174,7 +174,7 @@ export default function FeedScreen() {
         scrollEventThrottle={16}
         contentContainerStyle={[
           styles.listContent,
-          { paddingTop: headerHeight, paddingBottom: insets.bottom + 100 },
+          { paddingTop: headerHeight, paddingBottom: insets.bottom + 150 },
         ]}
         showsVerticalScrollIndicator={false}
         onEndReached={loadMore}
@@ -216,7 +216,7 @@ export default function FeedScreen() {
             </Pressable>
           </View>
           <Text style={[styles.headerTitle, { color: theme.foreground }]}>
-            Feed
+            Angelia
           </Text>
           <View style={[styles.headerSide, styles.headerSideRight]}>
             <Pressable onPress={() => router.push('/(protected)/notifications')}>
@@ -318,6 +318,14 @@ export default function FeedScreen() {
         >
           <Feather name="arrow-up" size={18} color={theme.secondaryForeground} />
         </Pressable>
+      )}
+
+      {/* Solid background behind system nav buttons */}
+      {insets.bottom > 0 && (
+        <View style={[styles.bottomBar, {
+          height: insets.bottom,
+          backgroundColor: theme.background,
+        }]} />
       )}
     </View>
   );
@@ -456,5 +464,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 3,
+  },
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
 });

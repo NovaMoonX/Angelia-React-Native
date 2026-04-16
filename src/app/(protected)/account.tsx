@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
@@ -59,6 +60,7 @@ export default function AccountScreen() {
   const { confirm } = useActionModal();
   const { addToast } = useToast();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const currentUser = useAppSelector((state) => state.users.currentUser);
@@ -268,7 +270,10 @@ export default function AccountScreen() {
     >
       <ScrollView
         style={{ flex: 1, backgroundColor: theme.background }}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: isDemo ? 12 : insets.top + 8 }
+        ]}
         keyboardShouldPersistTaps="handled"
       >
       <Tabs defaultValue="account">
@@ -535,7 +540,6 @@ export default function AccountScreen() {
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
-    paddingTop: 8,
     paddingBottom: 40,
   },
   centered: {

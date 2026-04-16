@@ -1,6 +1,7 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
@@ -31,14 +32,56 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const { theme } = useTheme();
 
+  const firstMediaItem = post.media?.[0];
+  const hasVideo = firstMediaItem?.type === 'video' && post.media?.length === 1;
+  
+  // Note: Hook must be called unconditionally per React rules.
+  // When hasVideo is false, we pass an empty string which creates a minimal player instance.
+  const videoPlayer = useVideoPlayer(
+    hasVideo ? firstMediaItem.url : '',
+    (player) => {
+      if (hasVideo) {
+        player.loop = true;
+        player.muted = true;
+        player.play();
+      }
+    }
+  );
+
+  // Create video players for carousel items - hooks must be called unconditionally
+  const carouselVideoPlayers = useMemo(() => {
+    if (!post.media || post.media.length <= 1) return [];
+    return post.media.map(item => 
+      item.type === 'video' ? item.url : ''
+    );
+  }, [post.media]);
+
+  // Create players for all carousel video URLs
+  const player0 = useVideoPlayer(carouselVideoPlayers[0] || '', (p) => {
+    if (carouselVideoPlayers[0]) { p.loop = true; p.muted = true; p.play(); }
+  });
+  const player1 = useVideoPlayer(carouselVideoPlayers[1] || '', (p) => {
+    if (carouselVideoPlayers[1]) { p.loop = true; p.muted = true; p.play(); }
+  });
+  const player2 = useVideoPlayer(carouselVideoPlayers[2] || '', (p) => {
+    if (carouselVideoPlayers[2]) { p.loop = true; p.muted = true; p.play(); }
+  });
+  const player3 = useVideoPlayer(carouselVideoPlayers[3] || '', (p) => {
+    if (carouselVideoPlayers[3]) { p.loop = true; p.muted = true; p.play(); }
+  });
+
+  const carouselPlayers = [player0, player1, player2, player3];
+
   const colors = channel
     ? getColorPair(channel)
     : { backgroundColor: '#6366F1', textColor: '#FFF' };
   const authorName = getPostAuthorName(author, currentUser);
+  const hasMultipleMedia = post.media && post.media.length > 1;
 
   return (
-    <Pressable onPress={onNavigate}>
-      <Card style={styles.card}>
+    <Card style={styles.card}>
+      {/* Tappable header + text area */}
+      <Pressable onPress={onNavigate}>
         <View style={styles.header}>
           <Avatar preset={author?.avatar || 'moon'} size="sm" />
           <View style={styles.headerText}>
@@ -70,28 +113,58 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
             {post.text}
           </Text>
         ) : null}
+      </Pressable>
 
-        {post.media && post.media.length > 0 ? (
-          post.media.length === 1 ? (
-            <Image
-              source={{ uri: post.media[0].url }}
-              style={styles.singleImage}
-              contentFit="cover"
-            />
-          ) : (
-            <Carousel>
-              {post.media.map((item, index) => (
+      {/* Media section — carousel is NOT wrapped in Pressable so swipe/buttons work */}
+      {post.media && post.media.length > 0 ? (
+        hasMultipleMedia ? (
+          <Carousel>
+            {post.media.map((item, index) => (
+              item.type === 'video' ? (
+                <View key={`media-${index}`} style={[styles.carouselImage, styles.videoContainer]}>
+                  <ActivityIndicator style={StyleSheet.absoluteFill} size="large" color="#666" />
+                  <VideoView
+                    player={carouselPlayers[index]}
+                    style={StyleSheet.absoluteFill}
+                    contentFit="cover"
+                    nativeControls={true}
+                  />
+                </View>
+              ) : (
                 <Image
                   key={`media-${index}`}
                   source={{ uri: item.url }}
                   style={styles.carouselImage}
                   contentFit="cover"
                 />
-              ))}
-            </Carousel>
-          )
-        ) : null}
+              )
+            ))}
+          </Carousel>
+        ) : (
+          <Pressable onPress={onNavigate}>
+            {post.media[0].type === 'video' ? (
+              <View style={[styles.singleImage, styles.videoContainer]}>
+                <ActivityIndicator style={StyleSheet.absoluteFill} size="large" color="#666" />
+                <VideoView
+                  player={videoPlayer}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
+                  nativeControls={true}
+                />
+              </View>
+            ) : (
+              <Image
+                source={{ uri: post.media[0].url }}
+                style={styles.singleImage}
+                contentFit="cover"
+              />
+            )}
+          </Pressable>
+        )
+      ) : null}
 
+      {/* Tappable footer */}
+      <Pressable onPress={onNavigate}>
         <View style={styles.footer}>
           {post.reactions.length > 0 && (
             <Text style={[styles.metaText, { color: theme.mutedForeground }]}>
@@ -106,8 +179,8 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
             </Text>
           )}
         </View>
-      </Card>
-    </Pressable>
+      </Pressable>
+    </Card>
   );
 }
 
@@ -140,12 +213,16 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 200,
     borderRadius: 8,
+    overflow: 'hidden',
     marginBottom: 12,
   },
   carouselImage: {
     width: '100%',
     height: 200,
-    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  videoContainer: {
+    backgroundColor: '#1a1a1a',
   },
   footer: {
     flexDirection: 'row',

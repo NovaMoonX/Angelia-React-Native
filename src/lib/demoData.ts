@@ -105,7 +105,12 @@ const DEMO_POSTS: Post[] = [
     authorId: 'demo-user-1',
     channelId: 'demo-user-1-daily',
     text: 'Beautiful sunrise this morning! ☀️ Starting the day with gratitude.',
-    media: null,
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1506815444479-bfdb1e96c566?w=800&h=600&fit=crop'
+      }
+    ],
     timestamp: Date.now() - 2 * 60 * 60 * 1000,
     reactions: [
       { emoji: '❤️', userId: 'demo-user-2' },
@@ -128,7 +133,16 @@ const DEMO_POSTS: Post[] = [
     authorId: 'demo-user-2',
     channelId: 'demo-channel-cooking',
     text: "Made grandma's famous apple pie today! 🥧 The secret is a pinch of cinnamon in the crust. Recipe in the comments.",
-    media: null,
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1535920527002-b35e96722eb9?w=800&h=600&fit=crop'
+      },
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1464305795204-6f5bbfc7fb81?w=800&h=600&fit=crop'
+      }
+    ],
     timestamp: Date.now() - 5 * 60 * 60 * 1000,
     reactions: [
       { emoji: '🔥', userId: 'demo-user-1' },
@@ -145,7 +159,20 @@ const DEMO_POSTS: Post[] = [
     authorId: 'demo-user-1',
     channelId: 'demo-channel-travel',
     text: 'Just booked flights to Japan for next spring! 🇯🇵 Cherry blossom season, here we come!',
-    media: null,
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=800&h=600&fit=crop'
+      },
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=800&h=600&fit=crop'
+      },
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1480796927426-f609979314bd?w=800&h=600&fit=crop'
+      }
+    ],
     timestamp: Date.now() - 24 * 60 * 60 * 1000,
     reactions: [{ emoji: '🎉', userId: 'demo-user-2' }],
     comments: [
@@ -165,7 +192,12 @@ const DEMO_POSTS: Post[] = [
     authorId: 'demo-user-3',
     channelId: 'demo-channel-cooking',
     text: 'Tried making sourdough bread for the first time. It actually turned out great! 🍞',
-    media: null,
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&h=600&fit=crop'
+      }
+    ],
     timestamp: Date.now() - 2 * 24 * 60 * 60 * 1000,
     reactions: [
       { emoji: '👀', userId: 'demo-user-1' },
@@ -180,13 +212,79 @@ const DEMO_POSTS: Post[] = [
     id: 'demo-post-5',
     authorId: 'demo-user-2',
     channelId: 'demo-user-2-daily',
-    text: 'Took the kids to the park today. They loved the new swing set! 🎠',
-    media: null,
+    text: 'Taking a moment to appreciate the little things in life. Today, it was a flower blooming in the garden. 🌸 Nature always finds a way to surprise us.',
+    media: [
+      {
+        type: 'video',
+        url: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+        // url: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4'
+        // url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+      }
+    ],
     timestamp: Date.now() - 3 * 24 * 60 * 60 * 1000,
     reactions: [
       { emoji: '❤️', userId: 'demo-user-1' },
       { emoji: '😄', userId: 'demo-user-3' },
     ],
+    comments: [],
+    conversationEnrollees: [],
+    markedForDeletionAt: null,
+    status: 'ready',
+  },
+  {
+    id: 'demo-post-6',
+    authorId: 'demo-user-1',
+    channelId: 'demo-channel-travel',
+    text: 'Planning our next adventure! Here are some of the places we\'re considering. Which one should we visit first? 🗺️✨',
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&h=600&fit=crop'
+      },
+      {
+        type: 'video',
+        url: 'https://samplelib.com/preview/mp4/sample-5s.mp4',
+        // url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
+      },
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop'
+      },
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&h=600&fit=crop'
+      }
+    ],
+    timestamp: Date.now() - 4 * 24 * 60 * 60 * 1000,
+    reactions: [
+      { emoji: '🌍', userId: 'demo-user-2' },
+      { emoji: '✈️', userId: 'demo-user-3' },
+    ],
+    comments: [
+      {
+        id: 'demo-comment-3',
+        authorId: 'demo-user-2',
+        text: 'The mountain scenery looks amazing!',
+        timestamp: Date.now() - 4 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
+      },
+    ],
+    conversationEnrollees: ['demo-user-1', 'demo-user-2'],
+    markedForDeletionAt: null,
+    status: 'ready',
+  },
+  {
+    id: 'demo-post-7',
+    authorId: 'demo-user-1',
+    channelId: 'demo-user-1-daily',
+    text: 'Just finished a great book! 📚 Highly recommend "The Midnight Library" if you\'re looking for something thought-provoking.',
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=800&h=600&fit=crop'
+      }
+    ],
+    timestamp: Date.now() - 6 * 60 * 60 * 1000,
+    reactions: [],
     comments: [],
     conversationEnrollees: [],
     markedForDeletionAt: null,
