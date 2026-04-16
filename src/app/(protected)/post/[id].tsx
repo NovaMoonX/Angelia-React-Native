@@ -33,7 +33,8 @@ import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName } from '@/lib/post/post.utils';
 import { getRandomPhrase, getRandomFirstCommentPhrase } from '@/lib/post/post.constants';
 import { COMMON_EMOJIS } from '@/models/constants';
-import EmojiPicker, { emojiData } from '@hiraku-ai/react-native-emoji-picker';
+import { EmojiPicker } from '@/components/EmojiPicker';
+import { AddReactionIcon } from '@/components/AddReactionIcon';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import {
   updateReactionsOptimistic,
@@ -404,21 +405,18 @@ export default function PostDetailScreen() {
           ))}
           <Pressable
             onPress={() => setEmojiPickerVisible(true)}
-            style={styles.emojiButton}
+            style={[styles.emojiButton, styles.addReactionButton, { borderColor: theme.border }]}
           >
-            <Text style={styles.emojiText}>➕</Text>
+            <AddReactionIcon size={28} color={theme.mutedForeground} />
           </Pressable>
         </View>
         <EmojiPicker
-          emojis={emojiData}
           visible={emojiPickerVisible}
-          onEmojiSelect={(emoji) => {
+          onSelect={(emoji) => {
             handleReaction(emoji);
             setEmojiPickerVisible(false);
           }}
           onClose={() => setEmojiPickerVisible(false)}
-          showHistoryTab={true}
-          showSearchBar={true}
         />
       </View>
 
@@ -570,6 +568,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 12,
     marginBottom: 16,
   },
   headerText: {
@@ -625,6 +624,10 @@ const styles = StyleSheet.create({
   },
   emojiText: {
     fontSize: 24,
+  },
+  addReactionButton: {
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
   },
   reactionGroups: {
     flexDirection: 'row',
