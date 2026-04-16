@@ -24,6 +24,29 @@ import { isDemoActive } from './globalActions';
 
 // ── Upload a new post with optional media ──────────────────────────────────
 
+// Helper to build a base Post object
+function buildPost(params: {
+  id: string;
+  authorId: string;
+  channelId: string;
+  text: string;
+  status: Post['status'];
+}): Post {
+  return {
+    id: params.id,
+    authorId: params.authorId,
+    channelId: params.channelId,
+    text: params.text.trim(),
+    media: null,
+    timestamp: Date.now(),
+    reactions: [],
+    comments: [],
+    conversationEnrollees: [],
+    markedForDeletionAt: null,
+    status: params.status,
+  };
+}
+
 export const uploadPost = createAsyncThunk(
   'posts/uploadPost',
   async (
@@ -42,19 +65,7 @@ export const uploadPost = createAsyncThunk(
 
     // In demo mode, just add the post to local state
     if (isDemoActive(getState)) {
-      const demoPost: Post = {
-        id: postId,
-        authorId: user.id,
-        channelId,
-        text: text.trim(),
-        media: null,
-        timestamp: Date.now(),
-        reactions: [],
-        comments: [],
-        conversationEnrollees: [],
-        markedForDeletionAt: null,
-        status: 'ready',
-      };
+      const demoPost = buildPost({ id: postId, authorId: user.id, channelId, text, status: 'ready' });
       dispatch(addPost(demoPost));
       return demoPost;
     }
@@ -63,19 +74,13 @@ export const uploadPost = createAsyncThunk(
 
     try {
       // 1. Create post with status 'uploading' (or 'ready' if no media)
-      const uploadingPost: Post = {
+      const uploadingPost = buildPost({
         id: postId,
         authorId: user.id,
         channelId,
-        text: text.trim(),
-        media: null,
-        timestamp: Date.now(),
-        reactions: [],
-        comments: [],
-        conversationEnrollees: [],
-        markedForDeletionAt: null,
+        text,
         status: hasMedia ? 'uploading' : 'ready',
-      };
+      });
 
       // Optimistically add the post to the store
       dispatch(addPost(uploadingPost));

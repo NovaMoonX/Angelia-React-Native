@@ -60,7 +60,7 @@ export const sendJoinRequest = createAsyncThunk(
     if (!user) return rejectWithValue('User not authenticated');
 
     if (isDemoActive(getState)) {
-      return { channelId };
+      return { channelId, message: message.trim() };
     }
 
     try {
@@ -71,7 +71,7 @@ export const sendJoinRequest = createAsyncThunk(
         channelOwnerId,
         message.trim(),
       );
-      return { channelId };
+      return { channelId, message: message.trim() };
     } catch (err) {
       return rejectWithValue(err instanceof Error ? err.message : err);
     }

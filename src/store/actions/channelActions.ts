@@ -75,6 +75,22 @@ export const ensureDailyChannelExists = createAsyncThunk(
 
 // ── Custom channel CRUD ────────────────────────────────────────────────────
 
+// Helper to build a local Channel object (used in demo mode)
+function buildCustomChannel(ownerId: string, data: { name: string; description: string; color: string }): Channel {
+  return {
+    id: generateId('nano'),
+    name: data.name.trim(),
+    description: data.description.trim(),
+    color: data.color,
+    isDaily: false,
+    ownerId,
+    subscribers: [],
+    inviteCode: generateId('nano').slice(0, 8).toUpperCase(),
+    createdAt: Date.now(),
+    markedForDeletionAt: null,
+  };
+}
+
 export const createCustomChannel = createAsyncThunk(
   'channels/createCustom',
   async (
@@ -86,18 +102,7 @@ export const createCustomChannel = createAsyncThunk(
     if (!user) return rejectWithValue('User not authenticated');
 
     if (isDemoActive(getState)) {
-      const newChannel: Channel = {
-        id: generateId('nano'),
-        name: data.name.trim(),
-        description: data.description.trim(),
-        color: data.color,
-        isDaily: false,
-        ownerId: user.id,
-        subscribers: [],
-        inviteCode: generateId('nano').slice(0, 8).toUpperCase(),
-        createdAt: Date.now(),
-        markedForDeletionAt: null,
-      };
+      const newChannel = buildCustomChannel(user.id, data);
       dispatch(addChannel(newChannel));
       return newChannel;
     }
