@@ -26,10 +26,14 @@ export default function VerifyEmailScreen() {
     await firebaseUser.reload();
     if (firebaseUser.emailVerified) {
       const user = currentUserRef.current;
-      if (user && !user.accountProgress.emailVerified) {
-        await dispatch(
-          updateAccountProgress({ uid: firebaseUser.uid, field: 'emailVerified', value: true })
-        ).unwrap();
+      try {
+        if (user && !user.accountProgress.emailVerified) {
+          await dispatch(
+            updateAccountProgress({ uid: firebaseUser.uid, field: 'emailVerified', value: true })
+          ).unwrap();
+        }
+      } catch {
+        // Best-effort progress sync; continue to feed
       }
       if (user?.accountProgress.signUpComplete) {
         dispatch(ensureDailyChannelExists(firebaseUser.uid));

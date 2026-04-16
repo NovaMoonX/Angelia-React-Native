@@ -39,11 +39,15 @@ export const ensureDailyChannelExists = createAsyncThunk(
     const dailyChannelId = `${userId}${DAILY_CHANNEL_SUFFIX}`;
 
     const syncProgress = async () => {
-      const currentUser = (getState() as RootState).users.currentUser;
-      if (currentUser && !currentUser.accountProgress.dailyChannelCreated) {
-        await dispatch(
-          updateAccountProgress({ uid: userId, field: 'dailyChannelCreated', value: true })
-        ).unwrap();
+      try {
+        const currentUser = (getState() as RootState).users.currentUser;
+        if (currentUser && !currentUser.accountProgress.dailyChannelCreated) {
+          await dispatch(
+            updateAccountProgress({ uid: userId, field: 'dailyChannelCreated', value: true })
+          ).unwrap();
+        }
+      } catch {
+        // Best-effort progress sync
       }
     };
 
