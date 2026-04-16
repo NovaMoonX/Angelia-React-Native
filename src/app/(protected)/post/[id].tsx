@@ -2,13 +2,11 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  FlatList,
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,7 +20,6 @@ import { Callout } from '@/components/ui/Callout';
 import { Card } from '@/components/ui/Card';
 import { Carousel } from '@/components/ui/Carousel';
 import { Input } from '@/components/ui/Input';
-import { Separator } from '@/components/ui/Separator';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { ChatMessage } from '@/components/ChatMessage';
 import { ReactionDisplay } from '@/components/ReactionDisplay';
@@ -33,8 +30,10 @@ import { useToast } from '@/hooks/useToast';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName } from '@/lib/post/post.utils';
-import { isValidEmoji, getRandomPhrase, getRandomFirstCommentPhrase } from '@/lib/post/post.constants';
+import { getRandomPhrase, getRandomFirstCommentPhrase } from '@/lib/post/post.constants';
 import { COMMON_EMOJIS } from '@/models/constants';
+import { EmojiPicker } from '@/components/EmojiPicker';
+import { AddReactionIcon } from '@/components/AddReactionIcon';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import {
   updateReactionsOptimistic,
@@ -65,7 +64,7 @@ export default function PostDetailScreen() {
   );
   const currentUser = useAppSelector((state) => state.users.currentUser);
 
-  const [customEmoji, setCustomEmoji] = useState('');
+  const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [activeTab, setActiveTab] = useState<'reactions' | 'conversation'>(
     'reactions'
@@ -169,49 +168,64 @@ export default function PostDetailScreen() {
     return groups;
   }, [post.reactions, currentUser.id]);
 
+  // Filter out emojis the user has already reacted with
+  const availableCommonEmojis = useMemo(() => {
+    return COMMON_EMOJIS.filter((emoji) => !reactionGroups[emoji]?.isUserReacted);
+  }, [reactionGroups]);
+
+  const triggerCommentPrompt = () => {
+    // Reset animation values to initial state
+    popoverOpacity.setValue(0);
+    popoverScale.setValue(0.8);
+    setShowCommentPrompt(true);
+    Animated.parallel([
+      Animated.timing(popoverOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.spring(popoverScale, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(popoverOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(popoverScale, {
+          toValue: 0.8,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => setShowCommentPrompt(false));
+    }, 4000);
+  };
+
   const handleReaction = async (emoji: string) => {
+    // Prevent adding the same reaction twice
+    const alreadyReactedWithEmoji = post.reactions.some(
+      (r) => r.userId === currentUser.id && r.emoji === emoji
+    );
+    if (alreadyReactedWithEmoji) return;
+
     const wasFirstReaction = !hasReacted;
     const newReaction: Reaction = { emoji, userId: currentUser.id };
     const updatedReactions = [...post.reactions, newReaction];
     dispatch(
       updateReactionsOptimistic({ postId: post.id, reactions: updatedReactions })
     );
-    
+
     // Show comment prompt if this is the first reaction and no comments exist
-    if (wasFirstReaction && post.comments.length === 0 && isInConversation) {
-      setShowCommentPrompt(true);
-      // Animate the popover in
-      Animated.parallel([
-        Animated.timing(popoverOpacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(popoverScale, {
-          toValue: 1,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-      ]).start();
-      
-      // Auto-hide after 4 seconds
-      setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(popoverOpacity, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(popoverScale, {
-            toValue: 0.8,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-        ]).start(() => setShowCommentPrompt(false));
-      }, 4000);
+    if (wasFirstReaction && post.comments.length === 0) {
+      triggerCommentPrompt();
     }
-    
+
     if (!isDemo) {
       try {
         await updatePostReactions(post.id, updatedReactions);
@@ -244,13 +258,6 @@ export default function PostDetailScreen() {
     }
   };
 
-  const handleCustomEmoji = () => {
-    const trimmed = customEmoji.trim();
-    if (trimmed && isValidEmoji(trimmed)) {
-      handleReaction(trimmed);
-      setCustomEmoji('');
-    }
-  };
 
   const handleJoinConversation = async () => {
     if (!isDemo) {
@@ -258,7 +265,12 @@ export default function PostDetailScreen() {
         await firestoreJoinConversation(post.id, currentUser.id);
       } catch {
         addToast({ type: 'error', title: 'Failed to join conversation' });
+        return;
       }
+    }
+    // Show comment prompt when user has already reacted but no comments exist yet
+    if (hasReacted && post.comments.length === 0) {
+      triggerCommentPrompt();
     }
   };
 
@@ -381,138 +393,25 @@ export default function PostDetailScreen() {
         )
       ) : null}
 
-      <Separator style={{ marginVertical: 16 }} />
+      {/* Tabs directly below post content */}
+      <Tabs
+        defaultValue="reactions"
+        onValueChange={(v) =>
+          setActiveTab(v as 'reactions' | 'conversation')
+        }
+        style={{ marginTop: 16 }}
+      >
+        {/* TabsList wrapper for popover positioning */}
+        <View style={styles.tabsListWrapper}>
+          <TabsList>
+            <TabsTrigger value="reactions">
+              Reactions ({post.reactions.length})
+            </TabsTrigger>
+            <TabsTrigger value="conversation">
+              Conversation ({post.comments.length})
+            </TabsTrigger>
+          </TabsList>
 
-      {/* Reaction Buttons */}
-      <View style={styles.reactionSection}>
-        <Text style={[styles.sectionLabel, { color: theme.foreground }]}>
-          React
-        </Text>
-        <View style={styles.emojiRow}>
-          {COMMON_EMOJIS.map((emoji) => (
-            <Pressable
-              key={emoji}
-              onPress={() => handleReaction(emoji)}
-              style={styles.emojiButton}
-            >
-              <Text style={styles.emojiText}>{emoji}</Text>
-            </Pressable>
-          ))}
-          <TextInput
-            value={customEmoji}
-            onChangeText={setCustomEmoji}
-            placeholder="🎯"
-            maxLength={2}
-            onSubmitEditing={handleCustomEmoji}
-            style={[styles.customEmojiInput, { borderColor: theme.border, color: theme.foreground }]}
-          />
-        </View>
-      </View>
-
-      {/* Tabs: Reactions + Conversation (shown after reacting) */}
-      {(hasReacted ||
-        post.reactions.length > 0 ||
-        post.comments.length > 0) && (
-        <>
-          <Separator style={{ marginVertical: 16 }} />
-          <Tabs
-            defaultValue="reactions"
-            onValueChange={(v) =>
-              setActiveTab(v as 'reactions' | 'conversation')
-            }
-          >
-            <TabsList>
-              <TabsTrigger value="reactions">
-                Reactions ({post.reactions.length})
-              </TabsTrigger>
-              <TabsTrigger value="conversation">
-                Conversation ({post.comments.length})
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="reactions">
-              <View style={styles.reactionGroups}>
-                {Object.entries(reactionGroups).map(([emoji, data]) => (
-                  <ReactionDisplay
-                    key={emoji}
-                    emoji={emoji}
-                    count={data.count}
-                    isUserReacted={data.isUserReacted}
-                    onClick={() =>
-                      data.isUserReacted
-                        ? handleRemoveReaction(emoji)
-                        : handleReaction(emoji)
-                    }
-                  />
-                ))}
-              </View>
-            </TabsContent>
-
-            <TabsContent value="conversation">
-              {!hasReacted ? (
-                <Card style={styles.joinCard}>
-                  <Callout
-                    variant="info"
-                    description="👋 React to this post to join the conversation and see comments!"
-                    style={styles.calloutNoBorder}
-                  />
-                </Card>
-              ) : !isInConversation ? (
-                <Card style={styles.joinCard}>
-                  <Text
-                    style={[
-                      styles.joinText,
-                      { color: theme.mutedForeground },
-                    ]}
-                  >
-                    Join the conversation to see and post comments.
-                  </Text>
-                  <Button onPress={handleJoinConversation}>
-                    Join Conversation
-                  </Button>
-                </Card>
-              ) : (
-                <View style={styles.conversationArea}>
-                  {post.comments.length === 0 ? (
-                    <View style={styles.emptyCommentsContainer}>
-                      <Text style={[styles.emptyCommentsText, { color: theme.mutedForeground }]}>
-                        {getRandomFirstCommentPhrase()}
-                      </Text>
-                    </View>
-                  ) : (
-                    post.comments.map((comment) => (
-                      <ChatMessage
-                        key={comment.id}
-                        authorId={comment.authorId}
-                        text={comment.text}
-                        timestamp={comment.timestamp}
-                        isCurrentUser={
-                          comment.authorId === currentUser.id
-                        }
-                      />
-                    ))
-                  )}
-
-                  <View style={styles.commentInput}>
-                    <Input
-                      value={commentText}
-                      onChangeText={setCommentText}
-                      placeholder={getRandomPhrase()}
-                      style={{ flex: 1 }}
-                    />
-                    <Button
-                      onPress={handleSendComment}
-                      size="sm"
-                      disabled={!commentText.trim()}
-                    >
-                      Send
-                    </Button>
-                  </View>
-                </View>
-              )}
-            </TabsContent>
-          </Tabs>
-          
           {/* Animated popover for prompting first comment */}
           {showCommentPrompt && (
             <Animated.View
@@ -530,9 +429,137 @@ export default function PostDetailScreen() {
               </Text>
             </Animated.View>
           )}
-        </>
-      )}
+        </View>
+
+        <TabsContent value="reactions">
+          {/* Existing reaction groups or empty state */}
+          {Object.keys(reactionGroups).length > 0 ? (
+            <View style={styles.reactionGroups}>
+              {Object.entries(reactionGroups).map(([emoji, data]) => (
+                <ReactionDisplay
+                  key={emoji}
+                  emoji={emoji}
+                  count={data.count}
+                  isUserReacted={data.isUserReacted}
+                  onClick={() =>
+                    data.isUserReacted
+                      ? handleRemoveReaction(emoji)
+                      : handleReaction(emoji)
+                  }
+                />
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyReactionsContainer}>
+              <Text style={[styles.emptyReactionsText, { color: theme.mutedForeground }]}>
+                No reactions yet — be the first to react! 🎉
+              </Text>
+            </View>
+          )}
+        </TabsContent>
+
+        <TabsContent value="conversation">
+          {!hasReacted ? (
+            <Card style={styles.joinCard}>
+              <Callout
+                variant="info"
+                description="👋 React to this post to join the conversation and see comments!"
+                style={styles.calloutNoBorder}
+              />
+            </Card>
+          ) : !isInConversation ? (
+            <Card style={styles.joinCard}>
+              <Text
+                style={[
+                  styles.joinText,
+                  { color: theme.mutedForeground },
+                ]}
+              >
+                Join the conversation to see and post comments.
+              </Text>
+              <Button onPress={handleJoinConversation}>
+                Join Conversation
+              </Button>
+            </Card>
+          ) : (
+            <View style={styles.conversationArea}>
+              {post.comments.length === 0 ? (
+                <View style={styles.emptyCommentsContainer}>
+                  <Text style={[styles.emptyCommentsText, { color: theme.mutedForeground }]}>
+                    {getRandomFirstCommentPhrase()}
+                  </Text>
+                </View>
+              ) : (
+                post.comments.map((comment) => (
+                  <ChatMessage
+                    key={comment.id}
+                    authorId={comment.authorId}
+                    text={comment.text}
+                    timestamp={comment.timestamp}
+                    isCurrentUser={
+                      comment.authorId === currentUser.id
+                    }
+                  />
+                ))
+              )}
+
+              <View style={styles.commentInput}>
+                <Input
+                  value={commentText}
+                  onChangeText={setCommentText}
+                  placeholder={getRandomPhrase()}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  onPress={handleSendComment}
+                  size="sm"
+                  disabled={!commentText.trim()}
+                >
+                  Send
+                </Button>
+              </View>
+            </View>
+          )}
+        </TabsContent>
+      </Tabs>
       </ScrollView>
+
+      {/* Fixed bottom emoji bar — always visible in Reactions tab */}
+      {activeTab === 'reactions' && (
+        <View style={[styles.fixedEmojiBar, { borderColor: theme.border, backgroundColor: theme.background }]}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.fixedEmojiBarContent}
+          >
+            {availableCommonEmojis.map((emoji) => (
+              <Pressable
+                key={emoji}
+                onPress={() => handleReaction(emoji)}
+                style={styles.emojiButton}
+              >
+                <Text style={styles.emojiText}>{emoji}</Text>
+              </Pressable>
+            ))}
+            <Pressable
+              onPress={() => setEmojiPickerVisible(true)}
+              style={[styles.emojiButton, { borderColor: theme.border }]}
+            >
+              <AddReactionIcon size={28} color={theme.mutedForeground} />
+            </Pressable>
+          </ScrollView>
+        </View>
+      )}
+
+      <EmojiPicker
+        visible={emojiPickerVisible}
+        onSelect={(emoji) => {
+          handleReaction(emoji);
+          setEmojiPickerVisible(false);
+        }}
+        onClose={() => setEmojiPickerVisible(false)}
+      />
+
       {/* Solid background behind system nav buttons */}
       {insets.bottom > 0 && (
         <View style={{
@@ -557,6 +584,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 12,
     marginBottom: 16,
   },
   headerText: {
@@ -590,33 +618,34 @@ const styles = StyleSheet.create({
   videoContainer: {
     backgroundColor: '#1a1a1a',
   },
-  reactionSection: {
-    gap: 8,
-  },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  emojiRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  emojiButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  emojiButton: {
-    padding: 6,
-  },
   emojiText: {
-    fontSize: 22,
+    fontSize: 24,
   },
-  customEmojiInput: {
-    width: 60,
-    height: 40,
-    borderWidth: 1,
-    borderRadius: 8,
-    textAlign: 'center',
-    fontSize: 18,
-    paddingHorizontal: 4,
+  fixedEmojiBar: {
+    borderWidth: 1.5,
+    borderRadius: 28,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  fixedEmojiBarContent: {
+    flexGrow: 1,
+    gap: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabsListWrapper: {
+    position: 'relative',
+    overflow: 'visible',
+    zIndex: 10,
   },
   reactionGroups: {
     flexDirection: 'row',
@@ -656,8 +685,8 @@ const styles = StyleSheet.create({
   },
   commentPromptPopover: {
     position: 'absolute',
-    top: -50,
-    right: 20,
+    top: -46,
+    right: 8,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 20,
@@ -666,6 +695,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
+    zIndex: 10,
   },
   commentPromptText: {
     fontSize: 14,
@@ -673,5 +703,15 @@ const styles = StyleSheet.create({
   },
   calloutNoBorder: {
     borderWidth: 0,
+  },
+  emptyReactionsContainer: {
+    paddingVertical: 32,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  emptyReactionsText: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });
