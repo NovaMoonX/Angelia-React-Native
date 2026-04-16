@@ -41,6 +41,11 @@ import {
   updatePostComments,
   joinConversation,
 } from '@/store/actions/postActions';
+import {
+  updateReactionsOptimistic,
+  removeReactionOptimistic,
+  updateCommentsOptimistic,
+} from '@/store/slices/postsSlice';
 import { generateId } from '@/utils/generateId';
 import type { Post, Reaction, Comment as CommentType } from '@/models/types';
 
@@ -213,11 +218,9 @@ export default function PostDetailScreen() {
     const wasFirstReaction = !hasReacted;
     const newReaction: Reaction = { emoji, userId: currentUser.id };
 
-    // Thunk handles optimistic update + Firestore sync; in demo mode dispatch directly
+    // In demo mode, only update local state; in production, thunk handles optimistic + Firestore
     if (isDemo) {
-      dispatch(
-        updatePostReactions({ postId: post.id, newReaction })
-      );
+      dispatch(updateReactionsOptimistic({ postId: post.id, newReaction }));
     } else {
       const result = await dispatch(
         updatePostReactions({ postId: post.id, newReaction })
@@ -236,7 +239,7 @@ export default function PostDetailScreen() {
   const handleRemoveReaction = async (emoji: string) => {
     if (isDemo) {
       dispatch(
-        removePostReaction({ postId: post.id, emoji, userId: currentUser.id })
+        removeReactionOptimistic({ postId: post.id, emoji, userId: currentUser.id })
       );
     } else {
       const result = await dispatch(
@@ -278,9 +281,7 @@ export default function PostDetailScreen() {
     setCommentText('');
 
     if (isDemo) {
-      dispatch(
-        updatePostComments({ postId: post.id, newComment: comment })
-      );
+      dispatch(updateCommentsOptimistic({ postId: post.id, newComment: comment }));
     } else {
       const result = await dispatch(
         updatePostComments({ postId: post.id, newComment: comment })
