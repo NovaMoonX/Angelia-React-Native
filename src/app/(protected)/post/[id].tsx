@@ -41,11 +41,6 @@ import {
   updatePostComments,
   joinConversation,
 } from '@/store/actions/postActions';
-import {
-  updateReactionsOptimistic,
-  removeReactionOptimistic,
-  updateCommentsOptimistic,
-} from '@/store/slices/postsSlice';
 import { generateId } from '@/utils/generateId';
 import type { Post, Reaction, Comment as CommentType } from '@/models/types';
 
@@ -55,7 +50,6 @@ export default function PostDetailScreen() {
   const { theme } = useTheme();
   const { addToast } = useToast();
   const insets = useSafeAreaInsets();
-  const isDemo = useAppSelector((state) => state.demo.isActive);
   const post = useAppSelector((state) => selectPostById(state, id || ''));
   const author = useAppSelector((state) =>
     selectPostAuthor(state, post?.authorId || '')
@@ -218,16 +212,11 @@ export default function PostDetailScreen() {
     const wasFirstReaction = !hasReacted;
     const newReaction: Reaction = { emoji, userId: currentUser.id };
 
-    // In demo mode, only update local state; in production, thunk handles optimistic + Firestore
-    if (isDemo) {
-      dispatch(updateReactionsOptimistic({ postId: post.id, newReaction }));
-    } else {
-      const result = await dispatch(
-        updatePostReactions({ postId: post.id, newReaction })
-      );
-      if (updatePostReactions.rejected.match(result)) {
-        addToast({ type: 'error', title: 'Failed to add reaction' });
-      }
+    const result = await dispatch(
+      updatePostReactions({ postId: post.id, newReaction })
+    );
+    if (updatePostReactions.rejected.match(result)) {
+      addToast({ type: 'error', title: 'Failed to add reaction' });
     }
 
     // Show comment prompt if this is the first reaction and no comments exist
@@ -237,30 +226,22 @@ export default function PostDetailScreen() {
   };
 
   const handleRemoveReaction = async (emoji: string) => {
-    if (isDemo) {
-      dispatch(
-        removeReactionOptimistic({ postId: post.id, emoji, userId: currentUser.id })
-      );
-    } else {
-      const result = await dispatch(
-        removePostReaction({ postId: post.id, emoji, userId: currentUser.id })
-      );
-      if (removePostReaction.rejected.match(result)) {
-        addToast({ type: 'error', title: 'Failed to remove reaction' });
-      }
+    const result = await dispatch(
+      removePostReaction({ postId: post.id, emoji, userId: currentUser.id })
+    );
+    if (removePostReaction.rejected.match(result)) {
+      addToast({ type: 'error', title: 'Failed to remove reaction' });
     }
   };
 
 
   const handleJoinConversation = async () => {
-    if (!isDemo) {
-      const result = await dispatch(
-        joinConversation({ postId: post.id, userId: currentUser.id })
-      );
-      if (joinConversation.rejected.match(result)) {
-        addToast({ type: 'error', title: 'Failed to join conversation' });
-        return;
-      }
+    const result = await dispatch(
+      joinConversation({ postId: post.id, userId: currentUser.id })
+    );
+    if (joinConversation.rejected.match(result)) {
+      addToast({ type: 'error', title: 'Failed to join conversation' });
+      return;
     }
     // Show comment prompt when user has already reacted but no comments exist yet
     if (hasReacted && post.comments.length === 0) {
@@ -280,15 +261,11 @@ export default function PostDetailScreen() {
 
     setCommentText('');
 
-    if (isDemo) {
-      dispatch(updateCommentsOptimistic({ postId: post.id, newComment: comment }));
-    } else {
-      const result = await dispatch(
-        updatePostComments({ postId: post.id, newComment: comment })
-      );
-      if (updatePostComments.rejected.match(result)) {
-        addToast({ type: 'error', title: 'Failed to send comment' });
-      }
+    const result = await dispatch(
+      updatePostComments({ postId: post.id, newComment: comment })
+    );
+    if (updatePostComments.rejected.match(result)) {
+      addToast({ type: 'error', title: 'Failed to send comment' });
     }
   };
 

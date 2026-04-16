@@ -32,25 +32,18 @@ import {
   selectAllDailyChannels,
 } from '@/store/slices/channelsSlice';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
-import { updateCurrentUser } from '@/store/slices/usersSlice';
 import { exitDemoMode } from '@/store/actions/demoActions';
+import { saveProfile } from '@/store/actions/userActions';
+import {
+  createCustomChannel,
+  editCustomChannel,
+  deleteCustomChannel,
+  unsubscribeFromChannel,
+  refreshChannelInviteCode,
+  removeChannelSubscriber,
+} from '@/store/actions/channelActions';
 import { AVATAR_PRESETS, CUSTOM_CHANNEL_LIMIT } from '@/models/constants';
 import type { AvatarPreset, Channel } from '@/models/types';
-import {
-  updateUserProfile,
-  createCustomChannel as firestoreCreateChannel,
-  updateCustomChannel as firestoreUpdateChannel,
-  deleteCustomChannel as firestoreDeleteChannel,
-  unsubscribeFromChannel as firestoreUnsubscribe,
-  refreshChannelInviteCode as firestoreRefreshInvite,
-  removeSubscriberFromChannel as firestoreRemoveSubscriber,
-} from '@/services/firebase/firestore';
-import {
-  addChannel,
-  updateChannel,
-  removeChannel,
-} from '@/store/slices/channelsSlice';
-import { generateId } from '@/utils/generateId';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 
 export default function AccountScreen() {
@@ -117,22 +110,16 @@ export default function AccountScreen() {
   const handleSaveProfile = async () => {
     if (!currentUser) return;
     try {
-      if (isDemo) {
-        dispatch(
-          updateCurrentUser({
-            firstName: editFirstName.trim(),
-            lastName: editLastName.trim(),
-            funFact: editFunFact.trim(),
-            avatar: editAvatar,
-          })
-        );
-      } else {
-        await updateUserProfile(currentUser.id, {
+      const result = await dispatch(
+        saveProfile({
           firstName: editFirstName.trim(),
           lastName: editLastName.trim(),
           funFact: editFunFact.trim(),
           avatar: editAvatar,
-        });
+        })
+      );
+      if (saveProfile.rejected.match(result)) {
+        throw new Error('Failed to update profile');
       }
       addToast({ type: 'success', title: 'Profile updated!' });
       setEditingProfile(false);
@@ -148,23 +135,9 @@ export default function AccountScreen() {
   }) => {
     if (!currentUser) return;
     try {
-      const newChannel: Channel = {
-        id: generateId('nano'),
-        name: data.name.trim(),
-        description: data.description.trim(),
-        color: data.color,
-        isDaily: false,
-        ownerId: currentUser.id,
-        subscribers: [],
-        inviteCode: generateId('nano').slice(0, 8).toUpperCase(),
-        createdAt: Date.now(),
-        markedForDeletionAt: null,
-      };
-
-      if (isDemo) {
-        dispatch(addChannel(newChannel));
-      } else {
-        await firestoreCreateChannel(newChannel);
+      const result = await dispatch(createCustomChannel(data));
+      if (createCustomChannel.rejected.match(result)) {
+        throw new Error('Failed to create channel');
       }
       addToast({ type: 'success', title: 'Channel created!' });
       setChannelFormOpen(false);
@@ -180,16 +153,11 @@ export default function AccountScreen() {
   }) => {
     if (!editingChannel) return;
     try {
-      const updated = {
-        ...editingChannel,
-        name: data.name.trim(),
-        description: data.description.trim(),
-        color: data.color,
-      };
-      if (isDemo) {
-        dispatch(updateChannel(updated));
-      } else {
-        await firestoreUpdateChannel(updated);
+      const result = await dispatch(
+        editCustomChannel({ channel: editingChannel, data })
+      );
+      if (editCustomChannel.rejected.match(result)) {
+        throw new Error('Failed to update channel');
       }
       addToast({ type: 'success', title: 'Channel updated!' });
       setChannelFormOpen(false);
@@ -208,10 +176,9 @@ export default function AccountScreen() {
     });
     if (!ok) return;
     try {
-      if (isDemo) {
-        dispatch(removeChannel(channelId));
-      } else {
-        await firestoreDeleteChannel(channelId, currentUser?.id || '');
+      const result = await dispatch(deleteCustomChannel(channelId));
+      if (deleteCustomChannel.rejected.match(result)) {
+        throw new Error('Failed to delete channel');
       }
       addToast({ type: 'success', title: 'Channel deleted' });
     } catch {
@@ -226,8 +193,11 @@ export default function AccountScreen() {
     });
     if (!ok) return;
     try {
-      if (!isDemo) {
-        await firestoreUnsubscribe(channelId, currentUser?.id || '');
+      const result = await dispatch(
+        unsubscribeFromChannel({ channelId, userId: currentUser?.id || '' })
+      );
+      if (unsubscribeFromChannel.rejected.match(result)) {
+        throw new Error('Failed to unsubscribe');
       }
       addToast({ type: 'success', title: 'Unsubscribed' });
     } catch {
@@ -487,8 +457,11 @@ export default function AccountScreen() {
             selectedChannel.ownerId === currentUser.id
               ? async () => {
                   try {
-                    if (!isDemo) {
-                      await firestoreRefreshInvite(selectedChannel.id);
+                    const result = await dispatch(
+                      refreshChannelInviteCode(selectedChannel.id)
+                    );
+                    if (refreshChannelInviteCode.rejected.match(result)) {
+                      throw new Error('Failed to refresh invite');
                     }
                     addToast({
                       type: 'success',
@@ -508,11 +481,14 @@ export default function AccountScreen() {
               ? async (subscriberId: string) => {
                   setRemovingSubscriberId(subscriberId);
                   try {
-                    if (!isDemo) {
-                      await firestoreRemoveSubscriber(
-                        selectedChannel.id,
-                        subscriberId
-                      );
+                    const result = await dispatch(
+                      removeChannelSubscriber({
+                        channelId: selectedChannel.id,
+                        subscriberId,
+                      })
+                    );
+                    if (removeChannelSubscriber.rejected.match(result)) {
+                      throw new Error('Failed to remove subscriber');
                     }
                     addToast({
                       type: 'success',

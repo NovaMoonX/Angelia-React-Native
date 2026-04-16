@@ -20,6 +20,7 @@ import {
   updateCommentsOptimistic,
   revertCommentsOptimistic,
 } from '@/store/slices/postsSlice';
+import { isDemoActive } from './globalActions';
 
 // ── Upload a new post with optional media ──────────────────────────────────
 
@@ -38,6 +39,26 @@ export const uploadPost = createAsyncThunk(
 
     const postId = generateId('nano');
     const hasMedia = media.length > 0;
+
+    // In demo mode, just add the post to local state
+    if (isDemoActive(getState)) {
+      const demoPost: Post = {
+        id: postId,
+        authorId: user.id,
+        channelId,
+        text: text.trim(),
+        media: null,
+        timestamp: Date.now(),
+        reactions: [],
+        comments: [],
+        conversationEnrollees: [],
+        markedForDeletionAt: null,
+        status: 'ready',
+      };
+      dispatch(addPost(demoPost));
+      return demoPost;
+    }
+
     const uploadedUrls: string[] = [];
 
     try {
@@ -114,8 +135,11 @@ export const joinConversation = createAsyncThunk(
   'posts/joinConversation',
   async (
     { postId, userId }: { postId: string; userId: string },
-    { rejectWithValue },
+    { getState, rejectWithValue },
   ) => {
+    if (isDemoActive(getState)) {
+      return { postId, userId };
+    }
     try {
       await firestoreJoinConversation(postId, userId);
       return { postId, userId };
@@ -131,9 +155,12 @@ export const updatePostReactions = createAsyncThunk(
   'posts/updatePostReactions',
   async (
     { postId, newReaction }: { postId: string; newReaction: Reaction },
-    { dispatch, rejectWithValue },
+    { getState, dispatch, rejectWithValue },
   ) => {
     dispatch(updateReactionsOptimistic({ postId, newReaction }));
+    if (isDemoActive(getState)) {
+      return { postId, newReaction };
+    }
     try {
       await addReactionToPost(postId, newReaction);
       return { postId, newReaction };
@@ -150,9 +177,12 @@ export const removePostReaction = createAsyncThunk(
   'posts/removePostReaction',
   async (
     { postId, emoji, userId }: { postId: string; emoji: string; userId: string },
-    { dispatch, rejectWithValue },
+    { getState, dispatch, rejectWithValue },
   ) => {
     dispatch(removeReactionOptimistic({ postId, emoji, userId }));
+    if (isDemoActive(getState)) {
+      return { postId, emoji, userId };
+    }
     try {
       await removeReactionFromPost(postId, { emoji, userId });
       return { postId, emoji, userId };
@@ -169,9 +199,12 @@ export const updatePostComments = createAsyncThunk(
   'posts/updatePostComments',
   async (
     { postId, newComment }: { postId: string; newComment: Comment },
-    { dispatch, rejectWithValue },
+    { getState, dispatch, rejectWithValue },
   ) => {
     dispatch(updateCommentsOptimistic({ postId, newComment }));
+    if (isDemoActive(getState)) {
+      return { postId, newComment };
+    }
     try {
       await addCommentToPost(postId, newComment);
       return { postId, newComment };

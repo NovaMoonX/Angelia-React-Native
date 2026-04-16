@@ -8,10 +8,7 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
-import {
-  respondToJoinRequest as firestoreRespondToJoinRequest,
-} from '@/services/firebase/firestore';
-import { updateJoinRequest } from '@/store/slices/invitesSlice';
+import { respondToJoinRequest } from '@/store/actions/inviteActions';
 
 export default function NotificationsScreen() {
   const dispatch = useAppDispatch();
@@ -31,18 +28,13 @@ export default function NotificationsScreen() {
     accept: boolean
   ) => {
     const request = pendingIncoming.find((r) => r.id === requestId);
+    if (!request) return;
     try {
-      if (!isDemo) {
-        await firestoreRespondToJoinRequest(requestId, accept);
-      }
-      if (request) {
-        dispatch(
-          updateJoinRequest({
-            ...request,
-            status: accept ? 'accepted' : 'declined',
-            respondedAt: Date.now(),
-          })
-        );
+      const result = await dispatch(
+        respondToJoinRequest({ request, accept })
+      );
+      if (respondToJoinRequest.rejected.match(result)) {
+        throw new Error('Failed to respond');
       }
       addToast({
         type: 'success',
