@@ -65,6 +65,7 @@ export default function ProtectedLayout() {
               title: 'Post',
               headerStyle: { backgroundColor: theme.background },
               headerTintColor: theme.foreground,
+              ...(isDemo ? { headerStatusBarHeight: 0 } : {}),
             }}
           />
           <Stack.Screen name="account" options={{ headerShown: false }} />

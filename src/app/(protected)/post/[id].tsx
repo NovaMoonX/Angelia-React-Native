@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   FlatList,
   KeyboardAvoidingView,
@@ -88,6 +89,37 @@ export default function PostDetailScreen() {
       }
     }
   );
+
+  // Create video players for carousel items - hooks must be called unconditionally
+  const carouselVideoUrls = useMemo(() => {
+    if (!post?.media || post.media.length <= 1) return [];
+    return post.media.map(item => item.type === 'video' ? item.url : '');
+  }, [post?.media]);
+
+  const detailPlayer0 = useVideoPlayer(carouselVideoUrls[0] || '', (p) => {
+    if (carouselVideoUrls[0]) { p.loop = true; p.muted = false; p.play(); }
+  });
+  const detailPlayer1 = useVideoPlayer(carouselVideoUrls[1] || '', (p) => {
+    if (carouselVideoUrls[1]) { p.loop = true; p.muted = false; p.play(); }
+  });
+  const detailPlayer2 = useVideoPlayer(carouselVideoUrls[2] || '', (p) => {
+    if (carouselVideoUrls[2]) { p.loop = true; p.muted = false; p.play(); }
+  });
+  const detailPlayer3 = useVideoPlayer(carouselVideoUrls[3] || '', (p) => {
+    if (carouselVideoUrls[3]) { p.loop = true; p.muted = false; p.play(); }
+  });
+
+  const detailCarouselPlayers = [detailPlayer0, detailPlayer1, detailPlayer2, detailPlayer3];
+
+  // Ensure video players start playing after mount
+  useEffect(() => {
+    if (hasVideo) {
+      videoPlayer.play();
+    }
+    carouselVideoUrls.forEach((url, i) => {
+      if (url) detailCarouselPlayers[i]?.play();
+    });
+  }, []);
 
   if (!post || !currentUser) {
     return (
@@ -297,12 +329,15 @@ export default function PostDetailScreen() {
       {post.media && post.media.length > 0 ? (
         post.media.length === 1 ? (
           post.media[0].type === 'video' ? (
-            <VideoView
-              player={videoPlayer}
-              style={styles.singleMedia}
-              contentFit="cover"
-              nativeControls={true}
-            />
+            <View style={[styles.singleMedia, styles.videoContainer]}>
+              <ActivityIndicator style={StyleSheet.absoluteFill} size="large" color="#666" />
+              <VideoView
+                player={videoPlayer}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                nativeControls={true}
+              />
+            </View>
           ) : (
             <Image
               source={{ uri: post.media[0].url }}
@@ -311,13 +346,17 @@ export default function PostDetailScreen() {
             />
           )
         ) : (
-          <Carousel>
+          <Carousel style={{ borderRadius: 12 }}>
             {post.media.map((item, index) =>
               item.type === 'video' ? (
-                <View key={`media-${index}`} style={styles.carouselMedia}>
-                  <Text style={[styles.videoLabel, { color: theme.mutedForeground }]}>
-                    📹 Video (tap post to view)
-                  </Text>
+                <View key={`media-${index}`} style={[styles.carouselMedia, styles.videoContainer]}>
+                  <ActivityIndicator style={StyleSheet.absoluteFill} size="large" color="#666" />
+                  <VideoView
+                    player={detailCarouselPlayers[index]}
+                    style={StyleSheet.absoluteFill}
+                    contentFit="cover"
+                    nativeControls={true}
+                  />
                 </View>
               ) : (
                 <Image
@@ -405,6 +444,7 @@ export default function PostDetailScreen() {
                   <Callout
                     variant="info"
                     description="👋 React to this post to join the conversation and see comments!"
+                    style={{ borderWidth: 0 }}
                   />
                 </Card>
               ) : !isInConversation ? (
@@ -483,6 +523,13 @@ export default function PostDetailScreen() {
         </>
       )}
       </ScrollView>
+      {/* Solid background behind system nav buttons */}
+      {insets.bottom > 0 && (
+        <View style={{
+          height: insets.bottom,
+          backgroundColor: theme.background,
+        }} />
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -522,12 +569,16 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 250,
     borderRadius: 12,
+    overflow: 'hidden',
     marginBottom: 16,
   },
   carouselMedia: {
     width: '100%',
     height: 250,
-    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  videoContainer: {
+    backgroundColor: '#1a1a1a',
   },
   reactionSection: {
     gap: 8,
@@ -609,10 +660,5 @@ const styles = StyleSheet.create({
   commentPromptText: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  videoLabel: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 100,
   },
 });

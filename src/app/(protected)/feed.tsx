@@ -319,6 +319,18 @@ export default function FeedScreen() {
           <Feather name="arrow-up" size={18} color={theme.secondaryForeground} />
         </Pressable>
       )}
+
+      {/* Solid background behind system nav buttons */}
+      {insets.bottom > 0 && (
+        <View style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: insets.bottom,
+          backgroundColor: theme.background,
+        }} />
+      )}
     </View>
   );
 }
