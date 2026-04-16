@@ -112,6 +112,7 @@ export default function PostDetailScreen() {
   const detailCarouselPlayers = [detailPlayer0, detailPlayer1, detailPlayer2, detailPlayer3];
 
   // Ensure video players start playing after mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (hasVideo) {
       videoPlayer.play();
@@ -444,7 +445,7 @@ export default function PostDetailScreen() {
                   <Callout
                     variant="info"
                     description="👋 React to this post to join the conversation and see comments!"
-                    style={{ borderWidth: 0 }}
+                    style={styles.calloutNoBorder}
                   />
                 </Card>
               ) : !isInConversation ? (
@@ -660,5 +661,8 @@ const styles = StyleSheet.create({
   commentPromptText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  calloutNoBorder: {
+    borderWidth: 0,
   },
 });

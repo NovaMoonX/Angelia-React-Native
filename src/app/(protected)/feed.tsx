@@ -322,14 +322,10 @@ export default function FeedScreen() {
 
       {/* Solid background behind system nav buttons */}
       {insets.bottom > 0 && (
-        <View style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
+        <View style={[styles.bottomBar, {
           height: insets.bottom,
           backgroundColor: theme.background,
-        }} />
+        }]} />
       )}
     </View>
   );
@@ -468,5 +464,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 3,
+  },
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
 });
