@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useMemo, memo, useRef } from 'react';
 import {
   FlatList,
-  KeyboardAvoidingView,
   Modal,
   Pressable,
   StyleSheet,
@@ -210,8 +209,7 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView style={styles.keyboardAvoiding} behavior="padding">
-        <View style={styles.backdrop}>
+      <View style={styles.backdrop}>
           {/* Tap-to-dismiss area at top */}
           <Pressable style={styles.dismissArea} onPress={handleClose} />
 
@@ -332,16 +330,12 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
               keyboardShouldPersistTaps="handled"
             />
           </View>
-        </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  keyboardAvoiding: {
-    flex: 1,
-  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
