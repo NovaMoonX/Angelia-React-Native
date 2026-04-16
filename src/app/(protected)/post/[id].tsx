@@ -71,6 +71,7 @@ export default function PostDetailScreen() {
     'reactions'
   );
   const [showCommentPrompt, setShowCommentPrompt] = useState(false);
+  const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
   const popoverOpacity = useRef(new Animated.Value(0)).current;
   const popoverScale = useRef(new Animated.Value(0.8)).current;
 
@@ -85,7 +86,7 @@ export default function PostDetailScreen() {
       if (hasVideo) {
         player.loop = true;
         player.muted = false;
-        player.play();
+        // Don't auto-play - let user control via native controls
       }
     }
   );
@@ -97,30 +98,38 @@ export default function PostDetailScreen() {
   }, [post?.media]);
 
   const detailPlayer0 = useVideoPlayer(carouselVideoUrls[0] || '', (p) => {
-    if (carouselVideoUrls[0]) { p.loop = true; p.muted = false; p.play(); }
+    if (carouselVideoUrls[0]) { p.loop = true; p.muted = false; }
   });
   const detailPlayer1 = useVideoPlayer(carouselVideoUrls[1] || '', (p) => {
-    if (carouselVideoUrls[1]) { p.loop = true; p.muted = false; p.play(); }
+    if (carouselVideoUrls[1]) { p.loop = true; p.muted = false; }
   });
   const detailPlayer2 = useVideoPlayer(carouselVideoUrls[2] || '', (p) => {
-    if (carouselVideoUrls[2]) { p.loop = true; p.muted = false; p.play(); }
+    if (carouselVideoUrls[2]) { p.loop = true; p.muted = false; }
   });
   const detailPlayer3 = useVideoPlayer(carouselVideoUrls[3] || '', (p) => {
-    if (carouselVideoUrls[3]) { p.loop = true; p.muted = false; p.play(); }
+    if (carouselVideoUrls[3]) { p.loop = true; p.muted = false; }
   });
 
   const detailCarouselPlayers = [detailPlayer0, detailPlayer1, detailPlayer2, detailPlayer3];
 
-  // Ensure video players start playing after mount
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Play/pause carousel videos based on active index
   useEffect(() => {
-    if (hasVideo) {
-      videoPlayer.play();
+    if (post?.media && post.media.length > 1) {
+      carouselVideoUrls.forEach((url, i) => {
+        if (url) {
+          if (i === activeCarouselIndex) {
+            detailCarouselPlayers[i]?.play();
+          } else {
+            detailCarouselPlayers[i]?.pause();
+          }
+        }
+      });
     }
-    carouselVideoUrls.forEach((url, i) => {
-      if (url) detailCarouselPlayers[i]?.play();
-    });
-  }, []);
+  }, [activeCarouselIndex, carouselVideoUrls, detailCarouselPlayers, post?.media]);
+
+  const handleCarouselIndexChange = (index: number) => {
+    setActiveCarouselIndex(index);
+  };
 
   if (!post || !currentUser) {
     return (
@@ -347,7 +356,7 @@ export default function PostDetailScreen() {
             />
           )
         ) : (
-          <Carousel style={{ borderRadius: 12 }}>
+          <Carousel style={{ borderRadius: 12 }} onIndexChange={handleCarouselIndexChange}>
             {post.media.map((item, index) =>
               item.type === 'video' ? (
                 <View key={`media-${index}`} style={[styles.carouselMedia, styles.videoContainer]}>

@@ -271,6 +271,24 @@ const DEMO_POSTS: Post[] = [
     markedForDeletionAt: null,
     status: 'ready',
   },
+  {
+    id: 'demo-post-7',
+    authorId: 'demo-user-1',
+    channelId: 'demo-user-1-daily',
+    text: 'Just finished a great book! 📚 Highly recommend "The Midnight Library" if you\'re looking for something thought-provoking.',
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=800&h=600&fit=crop'
+      }
+    ],
+    timestamp: Date.now() - 6 * 60 * 60 * 1000,
+    reactions: [],
+    comments: [],
+    conversationEnrollees: [],
+    markedForDeletionAt: null,
+    status: 'ready',
+  },
 ];
 
 const DEMO_INVITES: {
