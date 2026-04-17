@@ -10,7 +10,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { AccountTab } from '@/components/account/AccountTab';
 import { MyChannelsTab } from '@/components/account/MyChannelsTab';
 import { SubscribedTab } from '@/components/account/SubscribedTab';
-import { NotificationsTab } from '@/components/account/NotificationsTab';
 import { useAppSelector } from '@/store/hooks';
 import { useTheme } from '@/hooks/useTheme';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
@@ -43,7 +42,6 @@ export default function AccountScreen() {
             <TabsTrigger value="account">Account</TabsTrigger>
             <TabsTrigger value="my-channels">My Channels</TabsTrigger>
             <TabsTrigger value="subscribed">Subscribed</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
           </TabsList>
 
           <TabsContent value="account">
@@ -56,10 +54,6 @@ export default function AccountScreen() {
 
           <TabsContent value="subscribed">
             <SubscribedTab />
-          </TabsContent>
-
-          <TabsContent value="notifications">
-            <NotificationsTab />
           </TabsContent>
         </Tabs>
       </ScrollView>

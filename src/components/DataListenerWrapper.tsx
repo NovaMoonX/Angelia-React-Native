@@ -163,13 +163,16 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       });
   }, [pendingInviteChannel, currentUser, dispatch, addToast]);
 
-  // Effect 5: Initialise notifications once user profile is ready
+  // Effect 5: Initialise notifications once user profile is ready.
+  // Request permission first but treat failure as non-fatal so initNotifications
+  // always runs (settings creation / FCM token refresh must not be blocked by
+  // a permission denial or a simulator environment that can't use Firebase).
   useEffect(() => {
     if (isDemo || !firebaseUser || !currentUser) return;
 
-    requestNotificationPermission().then(() => {
-      dispatch(initNotifications());
-    });
+    requestNotificationPermission()
+      .catch(() => {}) // non-fatal — proceed regardless
+      .then(() => dispatch(initNotifications()));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firebaseUser?.uid, !!currentUser, isDemo]);
 
