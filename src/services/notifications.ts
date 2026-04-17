@@ -201,7 +201,6 @@ async function ensureAndroidChannel(): Promise<void> {
   await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
     name: 'Daily Prompts',
     importance: Notifications.AndroidImportance.HIGH,
-    sound: 'default',
   });
 }
 
@@ -232,7 +231,6 @@ export async function scheduleDailyPrompt(settings: NotificationSettings): Promi
       data: { promptIndex: String(promptIndex) },
       // sound is applied via the notification channel on Android; this
       // field ensures the default sound plays on iOS.
-      sound: 'default',
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,

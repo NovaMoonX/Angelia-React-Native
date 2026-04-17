@@ -45,7 +45,6 @@ export const initNotifications = createAsyncThunk(
 
       // Load or create notification settings
       let settings = await getNotificationSettings(user.id);
-      console.log('settings', settings); // REMOVE
       if (!settings) {
         settings = await initNotificationSettings(user.id, deviceTZ);
       }

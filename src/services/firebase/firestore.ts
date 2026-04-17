@@ -73,7 +73,6 @@ const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
 };
 
 export async function getNotificationSettings(uid: string): Promise<NotificationSettings | null> {
-  console.log('GETTING'); // REMOVE
   const snap = await getDoc(doc(db, 'userNotificationSettings', uid));
   return snap?.exists ? (snap.data() as NotificationSettings) : null;
 }
@@ -82,7 +81,6 @@ export async function initNotificationSettings(
   uid: string,
   deviceTimeZone: string,
 ): Promise<NotificationSettings> {
-  console.log('INIT'); // REMOVE
   const settings: NotificationSettings = {
     ...DEFAULT_NOTIFICATION_SETTINGS,
     timeZone: deviceTimeZone,
@@ -95,12 +93,10 @@ export async function updateNotificationSettings(
   uid: string,
   data: Partial<Omit<NotificationSettings, 'fcmTokens'>>,
 ): Promise<void> {
-  console.log('UPDATING'); // REMOVE
   await updateDoc(doc(db, 'userNotificationSettings', uid), data);
 }
 
 export async function addFcmToken(uid: string, token: string): Promise<void> {
-  console.log('ADDING'); // REMOVE
   await updateDoc(doc(db, 'userNotificationSettings', uid), {
     fcmTokens: arrayUnion(token),
   });

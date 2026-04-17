@@ -167,6 +167,21 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // User notification settings
+    match /userNotificationSettings/{userId} {
+      // Users can only read their own notification settings
+      allow read: if isSignedIn() && request.auth.uid == userId;
+
+      // Users can only create their own notification settings
+      allow create: if isSignedIn() && request.auth.uid == userId;
+
+      // Users can only update their own notification settings
+      allow update: if isSignedIn() && request.auth.uid == userId;
+
+      // Prevent deletion of notification settings
+      allow delete: if false;
+    }
+
     // Default: deny all reads and writes not explicitly allowed above.
     // This prevents accidental open-read rules from exposing private data.
     match /{document=**} {
