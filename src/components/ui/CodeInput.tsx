@@ -24,6 +24,9 @@ export interface CodeInputHandle {
   focus: () => void;
 }
 
+// Delay before clearing explicit selection to let the OS apply the cursor change
+const SELECTION_APPLY_DELAY = 100;
+
 export const CodeInput = React.forwardRef<CodeInputHandle, CodeInputProps>(
   function CodeInput({ length = 8, value, onChange, onComplete, autoFocus = false }, ref) {
     const { theme } = useTheme();
@@ -40,9 +43,11 @@ export const CodeInput = React.forwardRef<CodeInputHandle, CodeInputProps>(
     }));
 
     // Reset completeFired when value drops below full length
-    if (value.length < length) {
-      completeFiredRef.current = false;
-    }
+    useEffect(() => {
+      if (value.length < length) {
+        completeFiredRef.current = false;
+      }
+    }, [value.length, length]);
 
     // Keep cursor in bounds when value shrinks (e.g. after Clear)
     useEffect(() => {
@@ -76,8 +81,7 @@ export const CodeInput = React.forwardRef<CodeInputHandle, CodeInputProps>(
         const pos = Math.min(index, value.length);
         setCursorPos(pos);
         setExplicitSelection({ start: pos, end: pos });
-        // Clear after the selection has been applied to let the OS manage cursor naturally
-        setTimeout(() => setExplicitSelection(undefined), 100);
+        setTimeout(() => setExplicitSelection(undefined), SELECTION_APPLY_DELAY);
       },
       [value.length],
     );
