@@ -68,7 +68,14 @@ export default function ProtectedLayout() {
               ...(isDemo ? { headerStatusBarHeight: 0 } : {}),
             }}
           />
-          <Stack.Screen name="account" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="account"
+            options={{
+              headerShown: true,
+              title: 'Account',
+              ...(isDemo ? { headerStatusBarHeight: 0 } : {}),
+            }}
+          />
           <Stack.Screen name="notifications" options={{ headerShown: false }} />
           <Stack.Screen
             name="invite/[channelId]/[inviteCode]"

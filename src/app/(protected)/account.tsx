@@ -7,9 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -21,6 +19,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { ChannelCard } from '@/components/ChannelCard';
 import { ChannelFormModal } from '@/components/ChannelFormModal';
 import { ChannelModal } from '@/components/ChannelModal';
+import { NowStatusModal } from '@/components/NowStatusModal';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useActionModal } from '@/hooks/useActionModal';
@@ -33,7 +32,7 @@ import {
 } from '@/store/slices/channelsSlice';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { exitDemoMode } from '@/store/actions/demoActions';
-import { saveProfile } from '@/store/actions/userActions';
+import { saveProfile, saveStatus, clearStatus } from '@/store/actions/userActions';
 import {
   createCustomChannel,
   editCustomChannel,
@@ -43,8 +42,9 @@ import {
   removeChannelSubscriber,
 } from '@/store/actions/channelActions';
 import { AVATAR_PRESETS, CUSTOM_CHANNEL_LIMIT } from '@/models/constants';
-import type { AvatarPreset, Channel } from '@/models/types';
+import type { AvatarPreset, Channel, UserStatus } from '@/models/types';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
+import { formatExactExpiry } from '@/lib/timeUtils';
 
 export default function AccountScreen() {
   const router = useRouter();
@@ -53,7 +53,6 @@ export default function AccountScreen() {
   const { confirm } = useActionModal();
   const { addToast } = useToast();
   const { theme } = useTheme();
-  const insets = useSafeAreaInsets();
 
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const currentUser = useAppSelector((state) => state.users.currentUser);
@@ -106,6 +105,9 @@ export default function AccountScreen() {
   const [removingSubscriberId, setRemovingSubscriberId] = useState<
     string | null
   >(null);
+
+  // Status modal state
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
 
   const handleSaveProfile = async () => {
     if (!currentUser) return;
@@ -205,6 +207,26 @@ export default function AccountScreen() {
     }
   };
 
+  const handleSaveStatus = async (status: UserStatus) => {
+    try {
+      await dispatch(saveStatus(status)).unwrap();
+      addToast({ type: 'success', title: 'Status updated!' });
+      setStatusModalOpen(false);
+    } catch {
+      addToast({ type: 'error', title: 'Failed to set status' });
+    }
+  };
+
+  const handleClearStatus = async () => {
+    try {
+      await dispatch(clearStatus()).unwrap();
+      addToast({ type: 'success', title: 'Status cleared' });
+      setStatusModalOpen(false);
+    } catch {
+      addToast({ type: 'error', title: 'Failed to clear status' });
+    }
+  };
+
   if (!currentUser) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
@@ -227,7 +249,7 @@ export default function AccountScreen() {
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: isDemo ? 12 : insets.top + 8 }
+          { paddingTop: 8 }
         ]}
         keyboardShouldPersistTaps="handled"
       >
@@ -265,6 +287,23 @@ export default function AccountScreen() {
                 </Text>
               ) : null}
             </View>
+
+            {/* Set / Edit Status */}
+            <Pressable
+              onPress={() => setStatusModalOpen(true)}
+              style={[styles.statusButton, { borderColor: theme.border }]}
+            >
+              <Text style={[styles.statusButtonText, { color: theme.foreground }]}>
+                {currentUser.status && Date.now() < currentUser.status.expiresAt
+                  ? `${currentUser.status.emoji} ${currentUser.status.text}`
+                  : 'Set a status'}
+              </Text>
+            </Pressable>
+            {currentUser.status && Date.now() < currentUser.status.expiresAt ? (
+              <Text style={[styles.statusExpiry, { color: theme.mutedForeground }]}>
+                {formatExactExpiry(currentUser.status.expiresAt)}
+              </Text>
+            ) : null}
 
             {editingProfile ? (
               <View style={styles.editForm}>
@@ -487,6 +526,15 @@ export default function AccountScreen() {
           removingSubscriberId={removingSubscriberId}
         />
       )}
+
+      {/* Status modal */}
+      <NowStatusModal
+        visible={statusModalOpen}
+        onClose={() => setStatusModalOpen(false)}
+        onSave={handleSaveStatus}
+        onClear={handleClearStatus}
+        currentStatus={currentUser.status}
+      />
     </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -522,6 +570,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontStyle: 'italic',
     marginTop: 4,
+  },
+  statusButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginTop: 10,
+    alignSelf: 'center',
+  },
+  statusButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  statusExpiry: {
+    fontSize: 11,
+    marginTop: 4,
+    textAlign: 'center',
   },
   editForm: {
     width: '100%',

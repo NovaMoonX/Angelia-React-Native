@@ -1,5 +1,5 @@
 import firestore from '@react-native-firebase/firestore';
-import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData } from '@/models/types';
+import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
@@ -22,6 +22,7 @@ export async function createUserProfile(userData: NewUser): Promise<void> {
       dailyChannelCreated: false,
     },
     customChannelCount: 0,
+    status: null,
   });
 }
 
@@ -37,6 +38,10 @@ export async function updateAccountProgress(
   await db.collection('users').doc(uid).update({
     [`accountProgress.${field}`]: value,
   });
+}
+
+export async function updateUserStatus(uid: string, status: UserStatus | null): Promise<void> {
+  await db.collection('users').doc(uid).update({ status });
 }
 
 // ---- Channel Operations ----

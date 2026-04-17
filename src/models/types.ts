@@ -2,6 +2,13 @@ export type AvatarPreset =
   | 'astronaut' | 'moon' | 'star' | 'galaxy' | 'nebula' | 'planet'
   | 'cosmic-cat' | 'dream-cloud' | 'rocket' | 'constellation' | 'comet' | 'twilight';
 
+export interface UserStatus {
+  emoji: string;
+  text: string;
+  updatedAt: number;
+  expiresAt: number;
+}
+
 export interface User {
   id: string;
   firstName: string;
@@ -16,9 +23,10 @@ export interface User {
     dailyChannelCreated: boolean;
   };
   customChannelCount: number;
+  status: UserStatus | null;
 }
 
-export type NewUser = Omit<User, 'joinedAt' | 'accountProgress' | 'customChannelCount'>;
+export type NewUser = Omit<User, 'joinedAt' | 'accountProgress' | 'customChannelCount' | 'status'>;
 export type UpdateUserProfileData = Pick<User, 'firstName' | 'lastName' | 'funFact' | 'avatar'>;
 
 export interface Channel {

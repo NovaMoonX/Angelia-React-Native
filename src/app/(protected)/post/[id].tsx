@@ -23,6 +23,8 @@ import { Input } from '@/components/ui/Input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { ChatMessage } from '@/components/ChatMessage';
 import { ReactionDisplay } from '@/components/ReactionDisplay';
+import { isStatusActive } from '@/components/NowStatusBadge';
+import { UserProfileModal } from '@/components/UserProfileModal';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { useTheme } from '@/hooks/useTheme';
@@ -66,6 +68,7 @@ export default function PostDetailScreen() {
   );
   const [showCommentPrompt, setShowCommentPrompt] = useState(false);
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const popoverOpacity = useRef(new Animated.Value(0)).current;
   const popoverScale = useRef(new Animated.Value(0.8)).current;
 
@@ -292,14 +295,28 @@ export default function PostDetailScreen() {
       >
       {/* Post Header */}
       <View style={styles.header}>
-        <Avatar preset={author?.avatar || 'moon'} size="md" />
+        <Pressable
+          onPress={
+            author && currentUser && author.id !== currentUser.id
+              ? () => setProfileModalOpen(true)
+              : undefined
+          }
+        >
+          <Avatar
+            preset={author?.avatar || 'moon'}
+            size="md"
+            statusEmoji={isStatusActive(author?.status) ? author?.status?.emoji : undefined}
+          />
+        </Pressable>
         <View style={styles.headerText}>
           <Text style={[styles.authorName, { color: theme.foreground }]}>
             {authorName}
           </Text>
-          <Text style={[styles.timestamp, { color: theme.mutedForeground }]}>
-            {getRelativeTime(post.timestamp)}
-          </Text>
+          <View style={styles.headerMeta}>
+            <Text style={[styles.timestamp, { color: theme.mutedForeground }]}>
+              {getRelativeTime(post.timestamp)}
+            </Text>
+          </View>
         </View>
         {channel && (
           <Badge
@@ -534,6 +551,12 @@ export default function PostDetailScreen() {
         onClose={() => setEmojiPickerVisible(false)}
       />
 
+      <UserProfileModal
+        visible={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+        user={author}
+      />
+
       {/* Solid background behind system nav buttons */}
       {insets.bottom > 0 && (
         <View style={{
@@ -564,6 +587,12 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
     marginLeft: 12,
+  },
+  headerMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
   },
   authorName: {
     fontSize: 16,

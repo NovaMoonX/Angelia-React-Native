@@ -4,9 +4,10 @@ import {
   createUserProfile as firestoreCreateUserProfile,
   updateAccountProgress as firestoreUpdateAccountProgress,
   updateUserProfile as firestoreUpdateUserProfile,
+  updateUserStatus as firestoreUpdateUserStatus,
 } from '@/services/firebase/firestore';
-import { setCurrentUser, updateCurrentUser } from '@/store/slices/usersSlice';
-import type { NewUser, UpdateUserProfileData } from '@/models/types';
+import { setCurrentUser, updateCurrentUser, updateCurrentUserStatus } from '@/store/slices/usersSlice';
+import type { NewUser, UpdateUserProfileData, UserStatus } from '@/models/types';
 import type { RootState } from '@/store';
 import { isDemoActive } from './globalActions';
 
@@ -60,6 +61,56 @@ export const saveProfile = createAsyncThunk(
     try {
       await firestoreUpdateUserProfile(user.id, data);
       return data;
+    } catch (err) {
+      return rejectWithValue(err instanceof Error ? err.message : err);
+    }
+  },
+);
+
+export const saveStatus = createAsyncThunk(
+  'users/saveStatus',
+  async (
+    status: UserStatus,
+    { getState, dispatch, rejectWithValue },
+  ) => {
+    const state = getState() as RootState;
+    const user = state.users.currentUser;
+    if (!user) return rejectWithValue('User not authenticated');
+
+    if (isDemoActive(getState)) {
+      dispatch(updateCurrentUserStatus(status));
+      return status;
+    }
+
+    try {
+      await firestoreUpdateUserStatus(user.id, status);
+      dispatch(updateCurrentUserStatus(status));
+      return status;
+    } catch (err) {
+      return rejectWithValue(err instanceof Error ? err.message : err);
+    }
+  },
+);
+
+export const clearStatus = createAsyncThunk(
+  'users/clearStatus',
+  async (
+    _: void,
+    { getState, dispatch, rejectWithValue },
+  ) => {
+    const state = getState() as RootState;
+    const user = state.users.currentUser;
+    if (!user) return rejectWithValue('User not authenticated');
+
+    if (isDemoActive(getState)) {
+      dispatch(updateCurrentUserStatus(null));
+      return null;
+    }
+
+    try {
+      await firestoreUpdateUserStatus(user.id, null);
+      dispatch(updateCurrentUserStatus(null));
+      return null;
     } catch (err) {
       return rejectWithValue(err instanceof Error ? err.message : err);
     }

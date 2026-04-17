@@ -17,9 +17,14 @@ import { Select } from '@/components/ui/Select';
 import { BellIcon } from '@/components/BellIcon';
 import { PostCard } from '@/components/PostCard';
 import { SkeletonPostCard } from '@/components/SkeletonPostCard';
-import { useAppSelector } from '@/store/hooks';
+import { isStatusActive } from '@/components/NowStatusBadge';
+import { NowStatusModal } from '@/components/NowStatusModal';
+import { formatTimeRemaining } from '@/lib/timeUtils';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
+import { saveStatus, clearStatus } from '@/store/actions/userActions';
 import { useTheme } from '@/hooks/useTheme';
-import type { Post } from '@/models/types';
+import { useToast } from '@/hooks/useToast';
+import type { Post, UserStatus } from '@/models/types';
 
 const INITIAL_PAGE = 10;
 const LOAD_MORE = 3;
@@ -28,6 +33,8 @@ export default function FeedScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const dispatch = useAppDispatch();
+  const { addToast } = useToast();
 
   const posts = useAppSelector((state) => state.posts.items);
   const channels = useAppSelector((state) => state.channels.items);
@@ -41,6 +48,7 @@ export default function FeedScreen() {
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [displayCount, setDisplayCount] = useState(INITIAL_PAGE);
   const [fabExpanded, setFabExpanded] = useState(false);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   // Animated header (slides up on scroll-down, back on scroll-up)
@@ -148,6 +156,29 @@ export default function FeedScreen() {
     [animateHeader, headerHeight]
   );
 
+  const handleSaveStatus = useCallback(
+    async (status: UserStatus) => {
+      try {
+        await dispatch(saveStatus(status)).unwrap();
+        addToast({ type: 'success', title: 'Status updated!' });
+        setStatusModalOpen(false);
+      } catch {
+        addToast({ type: 'error', title: 'Failed to set status' });
+      }
+    },
+    [dispatch, addToast],
+  );
+
+  const handleClearStatus = useCallback(async () => {
+    try {
+      await dispatch(clearStatus()).unwrap();
+      addToast({ type: 'success', title: 'Status cleared' });
+      setStatusModalOpen(false);
+    } catch {
+      addToast({ type: 'error', title: 'Failed to clear status' });
+    }
+  }, [dispatch, addToast]);
+
   const renderPost = useCallback(
     ({ item }: { item: Post }) => (
       <PostCard
@@ -212,12 +243,15 @@ export default function FeedScreen() {
               <Avatar
                 preset={currentUser?.avatar || 'moon'}
                 size="sm"
+                statusEmoji={isStatusActive(currentUser?.status) ? currentUser?.status?.emoji : undefined}
               />
             </Pressable>
           </View>
-          <Text style={[styles.headerTitle, { color: theme.foreground }]}>
-            Angelia
-          </Text>
+          <View style={styles.headerCenter}>
+            <Text style={[styles.headerTitle, { color: theme.foreground }]}>
+              Angelia
+            </Text>
+          </View>
           <View style={[styles.headerSide, styles.headerSideRight]}>
             <Pressable onPress={() => router.push('/(protected)/notifications')}>
               <BellIcon hasNotification={hasIncoming} />
@@ -262,6 +296,51 @@ export default function FeedScreen() {
       {/* Expanded FAB actions */}
       {fabExpanded && (
         <View style={[styles.fabMenu, { bottom: insets.bottom + 92 }]}>
+          {/* Set Status */}
+          {(() => {
+            const statusActive = isStatusActive(currentUser?.status);
+            return (
+              <Pressable
+                style={[
+                  styles.fabMenuItem,
+                  statusActive
+                    ? {
+                        backgroundColor: theme.background,
+                        borderWidth: 1.5,
+                        borderColor: theme.primary,
+                      }
+                    : { backgroundColor: theme.secondary },
+                ]}
+                onPress={() => {
+                  setFabExpanded(false);
+                  setStatusModalOpen(true);
+                }}
+              >
+                {statusActive ? (
+                  <Text style={styles.fabStatusEmoji}>
+                    {currentUser?.status?.emoji}
+                  </Text>
+                ) : (
+                  <Feather name="smile" size={18} color={theme.secondaryForeground} />
+                )}
+                <Text
+                  style={[
+                    styles.fabMenuLabel,
+                    {
+                      color: statusActive
+                        ? theme.foreground
+                        : theme.secondaryForeground,
+                    },
+                  ]}
+                >
+                  {statusActive
+                    ? formatTimeRemaining(currentUser?.status?.expiresAt ?? 0)
+                    : 'Status'}
+                </Text>
+              </Pressable>
+            );
+          })()}
+
           {/* Media (camera / gallery) */}
           <Pressable
             style={[styles.fabMenuItem, { backgroundColor: theme.secondary }]}
@@ -327,6 +406,15 @@ export default function FeedScreen() {
           backgroundColor: theme.background,
         }]} />
       )}
+
+      {/* Status modal */}
+      <NowStatusModal
+        visible={statusModalOpen}
+        onClose={() => setStatusModalOpen(false)}
+        onSave={handleSaveStatus}
+        onClear={handleClearStatus}
+        currentStatus={currentUser?.status}
+      />
     </View>
   );
 }
@@ -354,8 +442,12 @@ const styles = StyleSheet.create({
   headerSideRight: {
     alignItems: 'flex-end',
   },
-  headerTitle: {
+  headerCenter: {
     flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  headerTitle: {
     fontSize: 20,
     fontWeight: '700',
     textAlign: 'center',
@@ -418,6 +510,10 @@ const styles = StyleSheet.create({
   fabMenuLabel: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  fabStatusEmoji: {
+    fontSize: 18,
+    lineHeight: 22,
   },
   fabMenuItemPrimary: {
     flexDirection: 'row',

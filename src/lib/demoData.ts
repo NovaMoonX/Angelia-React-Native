@@ -14,6 +14,12 @@ const DEMO_USER: User = {
     dailyChannelCreated: true,
   },
   customChannelCount: 2,
+  status: {
+    emoji: '🚀',
+    text: 'Building something cool',
+    updatedAt: Date.now() - 2 * 60 * 60 * 1000,
+    expiresAt: Date.now() + 6 * 60 * 60 * 1000,
+  },
 };
 
 const DEMO_USER_2: User = {
@@ -30,6 +36,12 @@ const DEMO_USER_2: User = {
     dailyChannelCreated: true,
   },
   customChannelCount: 1,
+  status: {
+    emoji: '🍳',
+    text: 'Cooking dinner',
+    updatedAt: Date.now() - 1 * 60 * 60 * 1000,
+    expiresAt: Date.now() + 3 * 60 * 60 * 1000,
+  },
 };
 
 const DEMO_USER_3: User = {
@@ -46,6 +58,7 @@ const DEMO_USER_3: User = {
     dailyChannelCreated: true,
   },
   customChannelCount: 0,
+  status: null,
 };
 
 const DEMO_CHANNELS: Channel[] = [
