@@ -69,7 +69,9 @@ const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   fcmTokens: [],
   dailyPromptEnabled: true,
   dailyPromptHour: 12,
+  dailyPromptMinute: 0,
   timeZone: 'UTC',
+  autoDetectTimeZone: true,
 };
 
 export async function getNotificationSettings(uid: string): Promise<NotificationSettings | null> {
