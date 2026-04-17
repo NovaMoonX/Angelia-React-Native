@@ -51,6 +51,17 @@ export async function getChannel(channelId: string): Promise<Channel | null> {
   return snap.exists ? (snap.data() as Channel) : null;
 }
 
+export async function getChannelByInviteCode(inviteCode: string): Promise<Channel | null> {
+  const snap = await db
+    .collection('channels')
+    .where('inviteCode', '==', inviteCode)
+    .where('markedForDeletionAt', '==', null)
+    .limit(1)
+    .get();
+  if (snap.empty) return null;
+  return snap.docs[0].data() as Channel;
+}
+
 export async function createDailyChannel(userId: string): Promise<Channel> {
   const channelId = `${userId}${DAILY_CHANNEL_SUFFIX}`;
   const channel: Channel = {

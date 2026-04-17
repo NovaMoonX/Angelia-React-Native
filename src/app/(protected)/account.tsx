@@ -99,8 +99,12 @@ export default function AccountScreen() {
   >('create');
   const [editingChannel, setEditingChannel] = useState<Channel | undefined>();
   const [channelDetailOpen, setChannelDetailOpen] = useState(false);
-  const [selectedChannel, setSelectedChannel] = useState<Channel | null>(
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
     null
+  );
+  const selectedChannel = useMemo(
+    () => channels.find((c) => c.id === selectedChannelId) ?? null,
+    [channels, selectedChannelId],
   );
   const [removingSubscriberId, setRemovingSubscriberId] = useState<
     string | null
@@ -409,7 +413,7 @@ export default function AccountScreen() {
               }}
               onDelete={() => handleDeleteChannel(ch.id)}
               onClick={() => {
-                setSelectedChannel(ch);
+                setSelectedChannelId(ch.id);
                 setChannelDetailOpen(true);
               }}
             />
@@ -426,6 +430,14 @@ export default function AccountScreen() {
 
         {/* ===== SUBSCRIBED TAB ===== */}
         <TabsContent value="subscribed">
+          <Button
+            variant="outline"
+            onPress={() => router.push('/join-channel')}
+            style={{ marginBottom: 16 }}
+          >
+            {`🤝 Join a Channel`}
+          </Button>
+
           {subscribedChannels.map((ch) => (
             <ChannelCard
               key={ch.id}
@@ -433,7 +445,7 @@ export default function AccountScreen() {
               owner={usersMap[ch.ownerId]}
               onUnsubscribe={() => handleUnsubscribe(ch.id)}
               onClick={() => {
-                setSelectedChannel(ch);
+                setSelectedChannelId(ch.id);
                 setChannelDetailOpen(true);
               }}
             />
@@ -471,7 +483,7 @@ export default function AccountScreen() {
           isOpen={channelDetailOpen}
           onClose={() => {
             setChannelDetailOpen(false);
-            setSelectedChannel(null);
+            setSelectedChannelId(null);
           }}
           channel={selectedChannel}
           subscribers={selectedChannel.subscribers

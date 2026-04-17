@@ -200,14 +200,25 @@ export const refreshChannelInviteCode = createAsyncThunk(
   'channels/refreshInviteCode',
   async (
     channelId: string,
-    { getState, rejectWithValue },
+    { getState, dispatch, rejectWithValue },
   ) => {
     if (isDemoActive(getState)) {
-      return { channelId };
+      const newCode = generateId('nano').slice(0, 8).toUpperCase();
+      const state = getState() as RootState;
+      const existing = state.channels.items.find((c) => c.id === channelId);
+      if (existing) {
+        dispatch(updateChannel({ ...existing, inviteCode: newCode }));
+      }
+      return { channelId, newCode };
     }
     try {
-      await firestoreRefreshInvite(channelId);
-      return { channelId };
+      const newCode = await firestoreRefreshInvite(channelId);
+      const state = getState() as RootState;
+      const existing = state.channels.items.find((c) => c.id === channelId);
+      if (existing) {
+        dispatch(updateChannel({ ...existing, inviteCode: newCode }));
+      }
+      return { channelId, newCode };
     } catch (err) {
       return rejectWithValue(err instanceof Error ? err.message : err);
     }
