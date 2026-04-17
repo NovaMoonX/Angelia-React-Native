@@ -85,7 +85,7 @@ export function NowStatusModal({
     setShowEmojiPicker(false);
     setCustomHours('');
     setCustomMinutes('');
-  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visible, currentStatus]);
 
   const resetForm = useCallback(() => {
     setEmoji('😊');

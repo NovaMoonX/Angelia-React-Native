@@ -334,7 +334,7 @@ export default function FeedScreen() {
                   ]}
                 >
                   {statusActive
-                    ? formatTimeRemaining(currentUser!.status!.expiresAt)
+                    ? formatTimeRemaining(currentUser?.status?.expiresAt ?? 0)
                     : 'Status'}
                 </Text>
               </Pressable>
