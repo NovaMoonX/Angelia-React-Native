@@ -38,6 +38,7 @@ export default function PostCreateScreen() {
     capturedMedia?: string;
     existingText?: string;
     existingChannel?: string;
+    notificationPrompt?: string;
   }>();
   const dispatch = useAppDispatch();
   const { addToast } = useToast();
@@ -234,6 +235,16 @@ export default function PostCreateScreen() {
             );
           })}
         </View>
+
+        {/* Notification prompt banner — shown when arriving from a daily reminder tap */}
+        {!!params.notificationPrompt && (
+          <View style={[styles.notifBanner, { backgroundColor: theme.secondary }]}>
+            <Text style={styles.notifBannerEmoji}>🔔</Text>
+            <Text style={[styles.notifBannerText, { color: theme.secondaryForeground }]}>
+              {params.notificationPrompt}
+            </Text>
+          </View>
+        )}
 
         {/* Compose area: avatar + text */}
         <View style={styles.composeRow}>
@@ -575,6 +586,25 @@ const styles = StyleSheet.create({
   },
   statusPromptLabel: {
     fontSize: 14,
+  },
+  notifBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  notifBannerEmoji: {
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  notifBannerText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
   },
 });
 

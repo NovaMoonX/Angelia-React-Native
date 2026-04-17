@@ -33,6 +33,17 @@ interface DataListenerWrapperProps {
   children: React.ReactNode;
 }
 
+/**
+ * Module-level set that tracks notification response keys we've already acted
+ * on.  Using module scope (instead of a React ref) prevents re-processing the
+ * same notification after a logout/login cycle that remounts this component.
+ */
+const handledNotificationKeys = new Set<string>();
+
+function getNotificationKey(response: Notifications.NotificationResponse): string {
+  return `${response.notification.request.identifier}_${response.notification.date}`;
+}
+
 export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const dispatch = useAppDispatch();
   const { firebaseUser } = useAuth();
@@ -204,17 +215,19 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
     const subscription = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         const notification = response.notification;
-        if (notification.request.identifier === NOTIFICATION_ID) {
-          const promptIndex = parseInt(
-            (notification.request.content.data?.promptIndex as string) ?? '0',
-            10,
-          );
-          const followUp = getFollowUpForPrompt(promptIndex);
-          router.push({
-            pathname: '/(protected)/post/new',
-            params: { existingText: followUp },
-          });
-        }
+        if (notification.request.identifier !== NOTIFICATION_ID) return;
+        const key = getNotificationKey(response);
+        if (handledNotificationKeys.has(key)) return;
+        handledNotificationKeys.add(key);
+        const promptIndex = parseInt(
+          (notification.request.content.data?.promptIndex as string) ?? '0',
+          10,
+        );
+        const followUp = getFollowUpForPrompt(promptIndex);
+        router.push({
+          pathname: '/(protected)/post/new',
+          params: { notificationPrompt: followUp },
+        });
       },
     );
     return () => subscription.remove();
@@ -229,6 +242,9 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
           response &&
           response.notification.request.identifier === NOTIFICATION_ID
         ) {
+          const key = getNotificationKey(response);
+          if (handledNotificationKeys.has(key)) return;
+          handledNotificationKeys.add(key);
           const promptIndex = parseInt(
             (response.notification.request.content.data?.promptIndex as string) ?? '0',
             10,
@@ -236,7 +252,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
           const followUp = getFollowUpForPrompt(promptIndex);
           router.push({
             pathname: '/(protected)/post/new',
-            params: { existingText: followUp },
+            params: { notificationPrompt: followUp },
           });
         }
       })

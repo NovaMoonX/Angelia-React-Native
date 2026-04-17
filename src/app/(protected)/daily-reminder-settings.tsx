@@ -13,13 +13,10 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Select } from '@/components/ui/Select';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { saveNotificationSettings } from '@/store/actions/notificationActions';
-import { getDeviceTimeZone } from '@/services/notifications';
-import { NOTIFICATION_TIMEZONES } from '@/constants/notifications.constants';
 
 /** Formats a 24-hour hour + minute into a human-readable 12-hour string, e.g. "2:30 PM". */
 function formatTime(hour: number, minute: number): string {
@@ -50,9 +47,6 @@ export default function DailyReminderSettingsScreen() {
   const notifEnabled = notificationSettings?.dailyPromptEnabled ?? true;
   const notifHour = notificationSettings?.dailyPromptHour ?? 12;
   const notifMinute = notificationSettings?.dailyPromptMinute ?? 0;
-  const notifTZ = notificationSettings?.timeZone ?? getDeviceTimeZone();
-  // Treat missing field (legacy docs) as true
-  const autoDetect = notificationSettings?.autoDetectTimeZone !== false;
 
   // iOS time picker modal state
   const [showIosTimePicker, setShowIosTimePicker] = useState(false);
@@ -118,41 +112,6 @@ export default function DailyReminderSettingsScreen() {
       setShowAndroidPicker(true);
     }
   }, [notifHour, notifMinute]);
-
-  const handleToggleAutoDetect = useCallback(async () => {
-    const newAutoDetect = !autoDetect;
-    try {
-      const updates: Parameters<typeof saveNotificationSettings>[0] = {
-        autoDetectTimeZone: newAutoDetect,
-      };
-      if (newAutoDetect) {
-        // Snap the stored TZ back to the device timezone immediately
-        updates.timeZone = getDeviceTimeZone();
-      }
-      await dispatch(saveNotificationSettings(updates)).unwrap();
-      if (newAutoDetect) {
-        addToast({ type: 'success', title: 'Time zone set to device time zone' });
-      }
-    } catch {
-      addToast({ type: 'error', title: 'Failed to update time zone settings' });
-    }
-  }, [dispatch, autoDetect, addToast]);
-
-  const handleChangeTimeZone = useCallback(
-    async (value: string) => {
-      if (value === notifTZ) return;
-      try {
-        await dispatch(saveNotificationSettings({ timeZone: value })).unwrap();
-        addToast({ type: 'success', title: `Time zone updated to ${value.replace('_', ' ')}` });
-      } catch {
-        addToast({ type: 'error', title: 'Failed to update time zone' });
-      }
-    },
-    [dispatch, addToast, notifTZ],
-  );
-
-  const selectedTZText =
-    NOTIFICATION_TIMEZONES.find((o) => o.value === notifTZ)?.text ?? notifTZ;
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
@@ -236,57 +195,6 @@ export default function DailyReminderSettingsScreen() {
                   />
                 )}
               </View>
-
-              <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-              {/* Auto-detect time zone toggle */}
-              <View style={styles.row}>
-                <View style={styles.rowLeft}>
-                  <Text style={styles.rowEmoji}>📍</Text>
-                  <View style={styles.rowText}>
-                    <Text style={[styles.rowLabel, { color: theme.foreground }]}>
-                      Auto-detect time zone
-                    </Text>
-                    <Text style={[styles.rowSub, { color: theme.mutedForeground }]}>
-                      {autoDetect
-                        ? `Using ${getDeviceTimeZone().replace('_', ' ')} (device time zone)`
-                        : 'Set manually below'}
-                    </Text>
-                  </View>
-                </View>
-                <Switch
-                  value={autoDetect}
-                  onValueChange={handleToggleAutoDetect}
-                  trackColor={{ false: theme.muted, true: theme.primary }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
-
-              {/* Manual time zone picker (only shown when auto-detect is off) */}
-              {!autoDetect && (
-                <>
-                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  <View style={styles.rowStack}>
-                    <View style={styles.rowLeft}>
-                      <Text style={styles.rowEmoji}>🌍</Text>
-                      <Text style={[styles.rowLabel, { color: theme.foreground }]}>
-                        Time zone
-                      </Text>
-                    </View>
-                    <Select
-                      options={NOTIFICATION_TIMEZONES}
-                      value={notifTZ}
-                      onChange={handleChangeTimeZone}
-                      placeholder="Select your time zone"
-                      searchable
-                      searchPlaceholder="Search cities or regions…"
-                    />
-                    <Text style={[styles.rowCaption, { color: theme.mutedForeground }]}>
-                      {selectedTZText}
-                    </Text>
-                  </View>
-                </>
-              )}
             </>
           ) : null}
         </View>
