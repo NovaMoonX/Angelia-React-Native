@@ -14,7 +14,7 @@ import {
   arrayUnion,
   arrayRemove,
 } from '@react-native-firebase/firestore';
-import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, NotificationSettings } from '@/models/types';
+import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
@@ -67,9 +67,11 @@ export async function updateChannelTierPrefs(uid: string, prefs: Record<string, 
 
 const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   fcmTokens: [],
-  dailyPromptEnabled: true,
-  dailyPromptHour: 12,
-  dailyPromptMinute: 0,
+  dailyPrompt: {
+    enabled: true,
+    hour: 12,
+    minute: 0,
+  },
   timeZone: 'UTC',
   autoDetectTimeZone: true,
 };
@@ -93,20 +95,51 @@ export async function initNotificationSettings(
 
 export async function updateNotificationSettings(
   uid: string,
-  data: Partial<Omit<NotificationSettings, 'fcmTokens'>>,
+  data: NotificationSettingsUpdate,
 ): Promise<void> {
-  await updateDoc(doc(db, 'userNotificationSettings', uid), data);
+  // Flatten nested objects to Firestore dot-notation keys so partial updates
+  // of nested fields (e.g. dailyPrompt.enabled) don't overwrite siblings.
+  const flat: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      for (const [nestedKey, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+        flat[`${key}.${nestedKey}`] = nestedValue;
+      }
+    } else {
+      flat[key] = value;
+    }
+  }
+  await updateDoc(doc(db, 'userNotificationSettings', uid), flat);
 }
 
-export async function addFcmToken(uid: string, token: string): Promise<void> {
-  await updateDoc(doc(db, 'userNotificationSettings', uid), {
-    fcmTokens: arrayUnion(token),
+/**
+ * Inserts or replaces the FCM token entry for this device (keyed by deviceId).
+ * This ensures each device has exactly one entry regardless of how many times
+ * the user signs in, solving token accumulation on repeated logins.
+ */
+export async function upsertFcmToken(uid: string, entry: FcmTokenEntry): Promise<void> {
+  const docRef = doc(db, 'userNotificationSettings', uid);
+  await runTransaction(db, async (transaction) => {
+    const snap = await transaction.get(docRef);
+    if (!snap.exists) return;
+    const data = snap.data() as NotificationSettings;
+    const tokens = (data.fcmTokens ?? []).filter((t) => t.deviceId !== entry.deviceId);
+    tokens.push(entry);
+    transaction.update(docRef, { fcmTokens: tokens });
   });
 }
 
-export async function removeFcmToken(uid: string, token: string): Promise<void> {
-  await updateDoc(doc(db, 'userNotificationSettings', uid), {
-    fcmTokens: arrayRemove(token),
+/**
+ * Removes the FCM token entry for the given deviceId.
+ */
+export async function removeFcmToken(uid: string, deviceId: string): Promise<void> {
+  const docRef = doc(db, 'userNotificationSettings', uid);
+  await runTransaction(db, async (transaction) => {
+    const snap = await transaction.get(docRef);
+    if (!snap.exists) return;
+    const data = snap.data() as NotificationSettings;
+    const tokens = (data.fcmTokens ?? []).filter((t) => t.deviceId !== deviceId);
+    transaction.update(docRef, { fcmTokens: tokens });
   });
 }
 
