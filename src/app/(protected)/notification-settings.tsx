@@ -20,7 +20,7 @@ export default function NotificationSettingsScreen() {
     (state) => state.users.currentUserNotificationSettings,
   );
 
-  const dailyEnabled = notificationSettings?.dailyPromptEnabled ?? true;
+  const dailyEnabled = notificationSettings?.dailyPrompt?.enabled ?? true;
   const notifTZ = notificationSettings?.timeZone ?? getDeviceTimeZone();
   const autoDetect = notificationSettings?.autoDetectTimeZone !== false;
 

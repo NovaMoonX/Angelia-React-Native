@@ -58,6 +58,13 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const usersUnsubRef = useRef<(() => void) | null>(null);
   const notifSettingsUnsubRef = useRef<(() => void) | null>(null);
   const pendingInviteProcessed = useRef(false);
+  /**
+   * Guards against concurrent initNotifications dispatches.  Set to true while
+   * any initNotifications thunk is in flight so that the Firestore subscription
+   * callback (Effect 6) does not trigger a second init when the document does
+   * not yet exist.
+   */
+  const notifInitInFlight = useRef(false);
 
   // Effect 1: Auth state — subscribe to user, channels, join requests
   useEffect(() => {
@@ -175,17 +182,25 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   }, [pendingInviteChannel, currentUser, dispatch, addToast]);
 
   // Effect 5: Initialise notifications once user profile is ready.
+  // Always called on login and on app launch so local notifications are
+  // re-scheduled even after app reinstalls or OS-level clearing.
   // Permission is requested in parallel but never blocks settings init so the
   // UI always loads even on simulators or devices where FCM is unavailable.
   useEffect(() => {
     if (isDemo || !firebaseUser || !currentUser) return;
 
     requestNotificationPermission().catch(() => {}); // fire-and-forget
-    dispatch(initNotifications());
+    notifInitInFlight.current = true;
+    dispatch(initNotifications()).finally(() => {
+      notifInitInFlight.current = false;
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firebaseUser?.uid, !!currentUser, isDemo]);
 
-  // Effect 6: Subscribe to notification settings changes in Firestore
+  // Effect 6: Subscribe to notification settings changes in Firestore.
+  // If the document is absent (e.g. after an app reinstall clears Firestore
+  // cache, or if the doc was deleted) and we are not already initialising,
+  // trigger initNotifications to re-create it with default values.
   useEffect(() => {
     if (isDemo || !firebaseUser) return;
 
@@ -199,6 +214,12 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       uid,
       (settings: NotificationSettings | null) => {
         dispatch(setCurrentUserNotificationSettings(settings));
+        if (!settings && !notifInitInFlight.current) {
+          notifInitInFlight.current = true;
+          dispatch(initNotifications()).finally(() => {
+            notifInitInFlight.current = false;
+          });
+        }
       },
     );
 

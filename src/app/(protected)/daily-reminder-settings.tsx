@@ -44,9 +44,9 @@ export default function DailyReminderSettingsScreen() {
     (state) => state.users.currentUserNotificationSettings,
   );
 
-  const notifEnabled = notificationSettings?.dailyPromptEnabled ?? true;
-  const notifHour = notificationSettings?.dailyPromptHour ?? 12;
-  const notifMinute = notificationSettings?.dailyPromptMinute ?? 0;
+  const notifEnabled = notificationSettings?.dailyPrompt?.enabled ?? true;
+  const notifHour = notificationSettings?.dailyPrompt?.hour ?? 12;
+  const notifMinute = notificationSettings?.dailyPrompt?.minute ?? 0;
 
   // iOS time picker modal state
   const [showIosTimePicker, setShowIosTimePicker] = useState(false);
@@ -61,7 +61,7 @@ export default function DailyReminderSettingsScreen() {
   const handleToggleDailyPrompt = useCallback(async () => {
     try {
       await dispatch(
-        saveNotificationSettings({ dailyPromptEnabled: !notifEnabled }),
+        saveNotificationSettings({ dailyPrompt: { enabled: !notifEnabled } }),
       ).unwrap();
     } catch {
       addToast({ type: 'error', title: 'Failed to update notification settings' });
@@ -78,7 +78,7 @@ export default function DailyReminderSettingsScreen() {
       if (h === notifHour && m === notifMinute) return;
       try {
         await dispatch(
-          saveNotificationSettings({ dailyPromptHour: h, dailyPromptMinute: m }),
+          saveNotificationSettings({ dailyPrompt: { hour: h, minute: m } }),
         ).unwrap();
         addToast({ type: 'success', title: 'Reminder time updated' });
       } catch {
@@ -96,7 +96,7 @@ export default function DailyReminderSettingsScreen() {
     if (h === notifHour && m === notifMinute) return;
     try {
       await dispatch(
-        saveNotificationSettings({ dailyPromptHour: h, dailyPromptMinute: m }),
+        saveNotificationSettings({ dailyPrompt: { hour: h, minute: m } }),
       ).unwrap();
       addToast({ type: 'success', title: 'Reminder time updated' });
     } catch {
