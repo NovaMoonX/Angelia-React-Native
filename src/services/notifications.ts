@@ -146,10 +146,9 @@ export async function requestNotificationPermission(): Promise<boolean> {
     authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
   const permResponse = await Notifications.requestPermissionsAsync();
-  // expo-modules-core PermissionResponse has { status, granted } but the
-  // type may not resolve cleanly due to node_modules hoisting, so we cast.
   const localGranted =
-    (permResponse as unknown as { granted: boolean }).granted ?? false;
+    (permResponse as unknown as { status: string }).status ===
+    Notifications.PermissionStatus.GRANTED;
 
   return fcmGranted && localGranted;
 }
@@ -231,6 +230,8 @@ export async function scheduleDailyPrompt(settings: NotificationSettings): Promi
       title: 'Angelia',
       body,
       data: { promptIndex: String(promptIndex) },
+      // sound is applied via the notification channel on Android; this
+      // field ensures the default sound plays on iOS.
       sound: 'default',
     },
     trigger: {
