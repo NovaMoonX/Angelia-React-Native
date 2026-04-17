@@ -89,7 +89,7 @@ export default function GalleryScreen() {
         if (f.type.startsWith('video/')) {
           return {
             ...f,
-            thumbnailUri: (await generateVideoThumbnailFileUri(f.uri)) ?? undefined,
+            thumbnailUri: await generateVideoThumbnailFileUri(f.uri),
           };
         }
         return { ...f, uri: await compressImage(f.uri, f.type) };

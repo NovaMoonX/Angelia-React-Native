@@ -110,7 +110,7 @@ export const uploadPost = createAsyncThunk(
         media.map(async (file, i) => {
           if (file.type.startsWith('video/') && file.thumbnailUri) {
             try {
-              const thumbName = `${file.name}_thumb.jpg`;
+              const thumbName = `${file.name.replace(/\.[^.]+$/, '')}_thumb.jpg`;
               return await uploadPostMedia(postId, file.thumbnailUri, thumbName, 'image/jpeg');
             } catch {
               return null;

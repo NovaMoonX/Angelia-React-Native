@@ -146,7 +146,7 @@ export default function CameraScreen() {
       onRecordingFinished: async (video: VideoFile) => {
         setRecording(false);
         const uri = `file://${video.path}`;
-        const thumbnailUri = (await generateVideoThumbnailFileUri(uri)) ?? undefined;
+        const thumbnailUri = await generateVideoThumbnailFileUri(uri);
         const file: MediaFile = {
           uri,
           name: `video-${generateId()}.mp4`,
