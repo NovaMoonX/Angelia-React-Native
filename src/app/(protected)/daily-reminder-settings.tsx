@@ -86,6 +86,7 @@ export default function DailyReminderSettingsScreen() {
         await dispatch(
           saveNotificationSettings({ dailyPromptHour: h, dailyPromptMinute: m }),
         ).unwrap();
+        addToast({ type: 'success', title: 'Reminder time updated' });
       } catch {
         addToast({ type: 'error', title: 'Failed to update reminder time' });
       }
@@ -103,6 +104,7 @@ export default function DailyReminderSettingsScreen() {
       await dispatch(
         saveNotificationSettings({ dailyPromptHour: h, dailyPromptMinute: m }),
       ).unwrap();
+      addToast({ type: 'success', title: 'Reminder time updated' });
     } catch {
       addToast({ type: 'error', title: 'Failed to update reminder time' });
     }
@@ -128,6 +130,9 @@ export default function DailyReminderSettingsScreen() {
         updates.timeZone = getDeviceTimeZone();
       }
       await dispatch(saveNotificationSettings(updates)).unwrap();
+      if (newAutoDetect) {
+        addToast({ type: 'success', title: 'Time zone set to device time zone' });
+      }
     } catch {
       addToast({ type: 'error', title: 'Failed to update time zone settings' });
     }
@@ -138,6 +143,7 @@ export default function DailyReminderSettingsScreen() {
       if (value === notifTZ) return;
       try {
         await dispatch(saveNotificationSettings({ timeZone: value })).unwrap();
+        addToast({ type: 'success', title: `Time zone updated to ${value.replace('_', ' ')}` });
       } catch {
         addToast({ type: 'error', title: 'Failed to update time zone' });
       }
@@ -243,7 +249,7 @@ export default function DailyReminderSettingsScreen() {
                     </Text>
                     <Text style={[styles.rowSub, { color: theme.mutedForeground }]}>
                       {autoDetect
-                        ? `Using ${getDeviceTimeZone()}`
+                        ? `Using ${getDeviceTimeZone().replace('_', ' ')} (device time zone)`
                         : 'Set manually below'}
                     </Text>
                   </View>
