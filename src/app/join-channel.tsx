@@ -104,11 +104,7 @@ export default function JoinChannelScreen() {
       ).unwrap();
       dispatch(clearPendingInvite());
       addToast({ type: 'success', title: 'Join request sent!' });
-      if (isAuthenticated) {
-        router.replace('/(protected)/feed');
-      } else {
-        router.replace('/');
-      }
+      router.replace('/(protected)/feed');
     } catch (err) {
       addToast({
         type: 'error',

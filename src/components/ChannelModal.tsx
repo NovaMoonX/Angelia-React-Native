@@ -209,6 +209,7 @@ const styles = StyleSheet.create({
   inviteCodeRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 6,
   },
   inviteCodeLabel: {

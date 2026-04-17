@@ -148,6 +148,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
         }
       })
       .catch(() => {
+        pendingInviteProcessed.current = false;
         addToast({ type: 'error', title: 'Failed to send join request' });
       });
   }, [pendingInviteChannel, currentUser, dispatch, addToast]);
