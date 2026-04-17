@@ -177,8 +177,8 @@ export default function NotificationSettingsScreen() {
 
         {notifEnabled && notificationSettings ? (
           <Text style={[styles.footerNote, { color: theme.mutedForeground }]}>
-            You'll get a friendly nudge once a day at the time you choose.
-            Tap it anytime to share a quick update with your circles. 🌟
+            You'll get a friendly nudge at the time you choose — tap it
+            to share a quick update with your circles. 🌟
           </Text>
         ) : null}
       </ScrollView>
