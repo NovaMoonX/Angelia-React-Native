@@ -45,6 +45,7 @@ export default {
 			favicon: './assets/images/favicon.png',
 		},
 		plugins: [
+			'./plugins/withFirebaseMessagingColor',
 			'expo-router',
 			[
 				'expo-splash-screen',
