@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   KeyboardAvoidingView,
   Pressable,
@@ -14,7 +14,7 @@ import { AngeliaLogo } from '@/components/AngeliaLogo';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { CodeInput } from '@/components/ui/CodeInput';
+import { CodeInput, type CodeInputHandle } from '@/components/ui/CodeInput';
 import { Textarea } from '@/components/ui/Textarea';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
@@ -49,6 +49,7 @@ export default function JoinChannelScreen() {
   const [lookupError, setLookupError] = useState('');
   const [message, setMessage] = useState('');
   const [joinLoading, setJoinLoading] = useState(false);
+  const codeInputRef = useRef<CodeInputHandle>(null);
 
   const isAuthenticated = !!firebaseUser || isDemo;
 
@@ -208,12 +209,14 @@ export default function JoinChannelScreen() {
 
             <View style={styles.codeSection}>
               <CodeInput
+                ref={codeInputRef}
                 length={8}
                 value={code}
                 onChange={(val) => {
                   setCode(val);
                   setLookupError('');
                 }}
+                onComplete={(completed) => handleLookup(completed)}
                 autoFocus
               />
               {lookupError ? (
@@ -238,6 +241,7 @@ export default function JoinChannelScreen() {
                 onPress={() => {
                   setCode('');
                   setLookupError('');
+                  codeInputRef.current?.focus();
                 }}
               >
                 Clear
