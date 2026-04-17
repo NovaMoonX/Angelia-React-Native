@@ -17,14 +17,18 @@ import { Feather } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
+import { NowStatusModal } from '@/components/NowStatusModal';
+import { isStatusActive } from '@/components/NowStatusBadge';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { selectUserChannels } from '@/store/slices/channelsSlice';
 import { uploadPost } from '@/store/actions/postActions';
+import { saveStatus } from '@/store/actions/userActions';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { MAX_FILES } from '@/models/constants';
+import type { UserStatus } from '@/models/types';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 
 export default function PostCreateScreen() {
@@ -61,6 +65,11 @@ export default function PostCreateScreen() {
   const [loading, setLoading] = useState(false);
   const [previewItem, setPreviewItem] = useState<MediaFile | null>(null);
 
+  // Status prompt state — only shown when user has no active status
+  const [pendingStatus, setPendingStatus] = useState<UserStatus | null>(null);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const hasActiveStatus = isStatusActive(currentUser?.status);
+
   const atMaxFiles = media.length >= MAX_FILES;
 
   const canPublish = (text.trim().length > 0 || media.length > 0) && !!selectedChannel;
@@ -88,6 +97,15 @@ export default function PostCreateScreen() {
       await dispatch(
         uploadPost({ channelId: selectedChannel, text, media })
       ).unwrap();
+
+      // Save the pending status only after the post is created successfully
+      if (pendingStatus) {
+        try {
+          await dispatch(saveStatus(pendingStatus)).unwrap();
+        } catch {
+          // Status save failure shouldn't block the post success flow
+        }
+      }
 
       addToast({ type: 'success', title: 'Post created!' });
       router.back();
@@ -206,6 +224,39 @@ export default function PostCreateScreen() {
           </Text>
         )}
 
+        {/* Status prompt — shown when user has no active status */}
+        {!hasActiveStatus && (
+          <Pressable
+            style={[styles.statusPrompt, { borderColor: theme.border }]}
+            onPress={() => setStatusModalOpen(true)}
+          >
+            {pendingStatus ? (
+              <View style={styles.statusPromptInner}>
+                <Text style={styles.statusPromptEmoji}>{pendingStatus.emoji}</Text>
+                <Text
+                  style={[styles.statusPromptText, { color: theme.foreground }]}
+                  numberOfLines={1}
+                >
+                  {pendingStatus.text}
+                </Text>
+                <Pressable
+                  onPress={() => setPendingStatus(null)}
+                  hitSlop={8}
+                >
+                  <Feather name="x" size={14} color={theme.mutedForeground} />
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.statusPromptInner}>
+                <Feather name="smile" size={15} color={theme.mutedForeground} />
+                <Text style={[styles.statusPromptLabel, { color: theme.mutedForeground }]}>
+                  Add a status to your post
+                </Text>
+              </View>
+            )}
+          </Pressable>
+        )}
+
         {/* Media preview strip */}
         {media.length > 0 && (
           <FlatList
@@ -296,6 +347,21 @@ export default function PostCreateScreen() {
       {previewItem && (
         <MediaPreviewModal item={previewItem} onClose={() => setPreviewItem(null)} />
       )}
+
+      {/* Status modal — status is stored locally until post succeeds */}
+      <NowStatusModal
+        visible={statusModalOpen}
+        onClose={() => setStatusModalOpen(false)}
+        onSave={(status) => {
+          setPendingStatus(status);
+          setStatusModalOpen(false);
+        }}
+        onClear={() => {
+          setPendingStatus(null);
+          setStatusModalOpen(false);
+        }}
+        currentStatus={pendingStatus}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -406,6 +472,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  statusPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 8,
+  },
+  statusPromptInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  statusPromptEmoji: {
+    fontSize: 16,
+  },
+  statusPromptText: {
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  statusPromptLabel: {
+    fontSize: 14,
   },
 });
 
