@@ -229,6 +229,7 @@ export default function PostCreateScreen() {
           <Pressable
             style={[styles.statusPrompt, { borderColor: theme.border }]}
             onPress={() => setStatusModalOpen(true)}
+            accessibilityLabel={pendingStatus ? 'Edit status' : 'Add status to post'}
           >
             {pendingStatus ? (
               <View style={styles.statusPromptInner}>
@@ -242,6 +243,7 @@ export default function PostCreateScreen() {
                 <Pressable
                   onPress={() => setPendingStatus(null)}
                   hitSlop={8}
+                  accessibilityLabel="Clear status"
                 >
                   <Feather name="x" size={14} color={theme.mutedForeground} />
                 </Pressable>
