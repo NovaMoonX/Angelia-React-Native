@@ -10,15 +10,67 @@ import type { NotificationSettings } from '@/models/types';
 // ---- Constants ----
 
 const CHANNEL_ID = 'daily-prompt';
-const NOTIFICATION_ID = 'daily-prompt';
+export const NOTIFICATION_ID = 'daily-prompt';
 
-const DAILY_PROMPTS = [
-  "What are you up to? People want to know. ✨",
-  "Anything small worth sharing today? 💫",
-  "A tiny life update still counts. 🌙",
-  "Hey! What's been going on? 💛",
-  "Share something, anything — we're all ears. 🌟",
+// Each prompt has a notification body and a set of follow-up messages shown
+// when the user taps the notification to open the post creation screen.
+// Multiple follow-ups per prompt give variety across repeated presses.
+export interface DailyPrompt {
+  body: string;
+  followUps: string[];
+}
+
+export const DAILY_PROMPTS: DailyPrompt[] = [
+  {
+    body: "What are you up to? People want to know. ✨",
+    followUps: [
+      "Ready to share? What's going on? ✨",
+      "People are genuinely curious — drop a quick update! 👀",
+      "Even one sentence works — what's happening? 💬",
+    ],
+  },
+  {
+    body: "Anything small worth sharing today? 💫",
+    followUps: [
+      "Something small is still something! What's on your mind? 💫",
+      "The tiniest update counts — go ahead! 🌟",
+      "No pressure, just vibes — what's up? ✌️",
+    ],
+  },
+  {
+    body: "A tiny life update still counts. 🌙",
+    followUps: [
+      "What's a little thing that happened today? 🌙",
+      "Big or small, we want to hear it 💛",
+      "Your people want to know — share away! 🫶",
+    ],
+  },
+  {
+    body: "Hey! What's been going on? 💛",
+    followUps: [
+      "Tell us something! Anything! 💛",
+      "How's life treating you? Share a quick update 🌈",
+      "We've been wondering about you — what's new? 👋",
+    ],
+  },
+  {
+    body: "Share something, anything — we're all ears. 🌟",
+    followUps: [
+      "Go ahead — say something! 🌟",
+      "Your crew is listening — what's on your mind? 💬",
+      "Just a few words is all it takes 🤗",
+    ],
+  },
 ];
+
+/**
+ * Returns a random follow-up message for the given prompt index.
+ * Used to pre-fill the post creation screen when the notification is tapped.
+ */
+export function getFollowUpForPrompt(promptIndex: number): string {
+  const prompt = DAILY_PROMPTS[promptIndex % DAILY_PROMPTS.length];
+  return prompt.followUps[Math.floor(Math.random() * prompt.followUps.length)];
+}
 
 // ---- Timezone helpers ----
 
@@ -132,6 +184,8 @@ async function ensureAndroidChannel(): Promise<void> {
 /**
  * Schedules (or reschedules) the daily prompt notification based on current settings.
  * Safe to call multiple times — it cancels any existing daily prompt first.
+ * Stores the chosen promptIndex in the notification data so the press handler
+ * can look up the appropriate follow-up messages.
  */
 export async function scheduleDailyPrompt(settings: NotificationSettings): Promise<void> {
   await cancelDailyPrompt();
@@ -141,7 +195,8 @@ export async function scheduleDailyPrompt(settings: NotificationSettings): Promi
   await ensureAndroidChannel();
 
   const triggerMs = getNextDailyTriggerMs(settings.dailyPromptHour, settings.timeZone);
-  const body = DAILY_PROMPTS[Math.floor(Math.random() * DAILY_PROMPTS.length)];
+  const promptIndex = Math.floor(Math.random() * DAILY_PROMPTS.length);
+  const body = DAILY_PROMPTS[promptIndex].body;
 
   const trigger: TimestampTrigger = {
     type: TriggerType.TIMESTAMP,
@@ -155,6 +210,7 @@ export async function scheduleDailyPrompt(settings: NotificationSettings): Promi
       id: NOTIFICATION_ID,
       title: 'Angelia',
       body,
+      data: { promptIndex: String(promptIndex) },
       android: {
         channelId: CHANNEL_ID,
         smallIcon: 'ic_notification',

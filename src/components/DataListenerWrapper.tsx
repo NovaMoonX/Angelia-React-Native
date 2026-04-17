@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import { router } from 'expo-router';
+import notifee, { EventType } from '@notifee/react-native';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -20,7 +22,11 @@ import {
   subscribeToChannelUsers,
   subscribeToNotificationSettings,
 } from '@/services/firebase/firestore';
-import { requestNotificationPermission } from '@/services/notifications';
+import {
+  requestNotificationPermission,
+  NOTIFICATION_ID,
+  getFollowUpForPrompt,
+} from '@/services/notifications';
 import type { Channel, ChannelJoinRequest, NotificationSettings, Post, User } from '@/models/types';
 
 interface DataListenerWrapperProps {
@@ -191,6 +197,46 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       }
     };
   }, [firebaseUser, isDemo, dispatch]);
+
+  // Effect 7: Handle notification press while app is in foreground
+  useEffect(() => {
+    const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
+      if (type === EventType.PRESS && detail.notification?.id === NOTIFICATION_ID) {
+        const promptIndex = parseInt(
+          (detail.notification.data?.promptIndex as string) ?? '0',
+          10,
+        );
+        const followUp = getFollowUpForPrompt(promptIndex);
+        router.push({
+          pathname: '/(protected)/post/new',
+          params: { existingText: followUp },
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Effect 8: Handle notification that launched the app from a quit/killed state
+  useEffect(() => {
+    if (!currentUser) return;
+    notifee.getInitialNotification().then((initial) => {
+      if (initial?.notification?.id === NOTIFICATION_ID) {
+        const promptIndex = parseInt(
+          (initial.notification.data?.promptIndex as string) ?? '0',
+          10,
+        );
+        const followUp = getFollowUpForPrompt(promptIndex);
+        router.push({
+          pathname: '/(protected)/post/new',
+          params: { existingText: followUp },
+        });
+      }
+    }).catch(() => {
+      // Notification initial-launch check is best-effort; ignore errors
+    });
+  // Run once when the user profile first becomes available after app start
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id]);
 
   return <>{children}</>;
 }
