@@ -37,6 +37,7 @@ export const CodeInput = React.forwardRef<CodeInputHandle, CodeInputProps>(
       { start: number; end: number } | undefined
     >();
     const completeFiredRef = useRef(false);
+    const keyboardVisibleRef = useRef(false);
 
     useImperativeHandle(ref, () => ({
       focus: () => inputRef.current?.focus(),
@@ -48,6 +49,22 @@ export const CodeInput = React.forwardRef<CodeInputHandle, CodeInputProps>(
         completeFiredRef.current = false;
       }
     }, [value.length, length]);
+
+    // Track keyboard visibility so we can clear the active-cell indicator when
+    // the keyboard is dismissed without a blur event (e.g. Keyboard.dismiss()).
+    useEffect(() => {
+      const showSub = Keyboard.addListener('keyboardDidShow', () => {
+        keyboardVisibleRef.current = true;
+      });
+      const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+        keyboardVisibleRef.current = false;
+        setFocused(false);
+      });
+      return () => {
+        showSub.remove();
+        hideSub.remove();
+      };
+    }, []);
 
     // Keep cursor in bounds when value shrinks (e.g. after Clear)
     useEffect(() => {
@@ -77,7 +94,14 @@ export const CodeInput = React.forwardRef<CodeInputHandle, CodeInputProps>(
 
     const handleCellPress = useCallback(
       (index: number) => {
-        inputRef.current?.focus();
+        if (!keyboardVisibleRef.current) {
+          // Input may still hold OS focus after Keyboard.dismiss(); blur first so
+          // that the subsequent focus() call reliably reopens the keyboard.
+          inputRef.current?.blur();
+          setTimeout(() => inputRef.current?.focus(), 50);
+        } else {
+          inputRef.current?.focus();
+        }
         const pos = Math.min(index, value.length);
         setCursorPos(pos);
         setExplicitSelection({ start: pos, end: pos });
