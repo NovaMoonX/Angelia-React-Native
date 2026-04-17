@@ -1,5 +1,4 @@
-// firestore.rules
-rules_version = '2';
+rules_version='2'
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -45,19 +44,7 @@ service cloud.firestore {
       // Prevent deletion of user profiles
       allow delete: if false;
     }
-
-    // Notification settings collection (separate from user profile)
-    match /userNotificationSettings/{userId} {
-      // Only the owning user may read their notification settings
-      allow read: if isSignedIn() && request.auth.uid == userId;
-
-      // Only the owning user may create or update their notification settings
-      allow create, update: if isSignedIn() && request.auth.uid == userId;
-
-      // Prevent deletion of notification settings
-      allow delete: if false;
-    }
-
+    
     // Channels collection
     match /channels/{channelId} {
       function isOwner() {

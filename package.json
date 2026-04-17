@@ -25,8 +25,8 @@
     "postinstall": "npx patch-package",
     "env:pull": "eas env:pull --environment development --output .env.development",
     "deploy:rules:firestore": "firebase deploy --only firestore:rules",
-    "deploy:rules:storage": "firebase deploy --only storage:rules",
-    "deploy:rules": "firebase deploy --only firestore:rules,storage:rules"
+    "deploy:rules:storage": "firebase deploy --only storage",
+    "deploy:rules": "firebase deploy --only firestore:rules,storage"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

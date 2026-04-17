@@ -110,6 +110,7 @@ export function subscribeToNotificationSettings(
   callback: (settings: NotificationSettings | null) => void,
 ): () => void {
   return db.collection('userNotificationSettings').doc(uid).onSnapshot((snap) => {
+    if (!snap) return;
     callback(snap.exists ? (snap.data() as NotificationSettings) : null);
   });
 }
