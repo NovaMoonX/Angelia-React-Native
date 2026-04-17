@@ -97,22 +97,12 @@ export default function PostCreateScreen() {
 
   const removeMedia = (index: number) => {
     setMedia((prev) => prev.filter((_, i) => i !== index));
-    setVideoThumbnails((prev) => {
-      const next: Record<number, VideoThumbnail | null> = {};
-      Object.entries(prev).forEach(([k, v]) => {
-        const ki = parseInt(k, 10);
-        if (ki < index) next[ki] = v;
-        else if (ki > index) next[ki - 1] = v;
-      });
-      return next;
-    });
-    thumbnailsRef.current = Object.fromEntries(
-      Object.entries(thumbnailsRef.current)
-        .filter(([k]) => parseInt(k, 10) !== index)
-        .map(([k, v]) => {
-          const ki = parseInt(k, 10);
-          return [ki > index ? ki - 1 : ki, v];
-        })
+    setVideoThumbnails((prev) => reindexAfterRemoval(prev, index));
+    thumbnailsRef.current = reindexAfterRemoval(
+      Object.fromEntries(
+        Object.entries(thumbnailsRef.current).filter(([k]) => parseInt(k, 10) !== index)
+      ) as Record<number, boolean>,
+      index,
     );
   };
 
@@ -627,3 +617,22 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Re-indexes a numeric-keyed record after an item at `removedIndex` is removed.
+ * Keys less than `removedIndex` are kept as-is; keys greater are decremented by 1.
+ */
+function reindexAfterRemoval<T>(
+  record: Record<number, T>,
+  removedIndex: number,
+): Record<number, T> {
+  const next: Record<number, T> = {};
+  Object.entries(record).forEach(([k, v]) => {
+    const ki = parseInt(k, 10);
+    if (ki < removedIndex) next[ki] = v;
+    else if (ki > removedIndex) next[ki - 1] = v;
+  });
+  return next;
+}

@@ -118,7 +118,7 @@ export default function PostUploadingScreen() {
       await Notifications.scheduleNotificationAsync({
         content: {
           title: 'Angelia',
-          body: "Your post is live! 🎉 Tap to check it out.",
+          body: "Your post just dropped! 🎉 Tap to check it out.",
         },
         trigger: null,
       });
@@ -274,7 +274,7 @@ export default function PostUploadingScreen() {
             </Animated.Text>
           </View>
           <Text style={[styles.title, { color: theme.foreground }]}>
-            Sharing with your crew…
+            Sharing with your crew...
           </Text>
           <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
             Hang tight while your post goes up ✨
@@ -286,7 +286,7 @@ export default function PostUploadingScreen() {
         <View style={styles.center}>
           <Text style={styles.bgEmoji}>⏳</Text>
           <Text style={[styles.title, { color: theme.foreground }]}>
-            Taking a bit longer…
+            Taking a bit longer...
           </Text>
           <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
             We'll let you know when your post is live.
