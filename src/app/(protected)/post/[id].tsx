@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
-  ActivityIndicator,
   Animated,
   KeyboardAvoidingView,
   Pressable,
@@ -12,7 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -25,6 +24,7 @@ import { ChatMessage } from '@/components/ChatMessage';
 import { ReactionDisplay } from '@/components/ReactionDisplay';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { UserProfileModal } from '@/components/UserProfileModal';
+import { MediaViewerModal } from '@/components/MediaViewerModal';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { useTheme } from '@/hooks/useTheme';
@@ -44,7 +44,7 @@ import {
   joinConversation,
 } from '@/store/actions/postActions';
 import { generateId } from '@/utils/generateId';
-import type { Reaction, Comment as CommentType } from '@/models/types';
+import type { Reaction, Comment as CommentType, MediaItem } from '@/models/types';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -69,60 +69,9 @@ export default function PostDetailScreen() {
   const [showCommentPrompt, setShowCommentPrompt] = useState(false);
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
   const popoverOpacity = useRef(new Animated.Value(0)).current;
   const popoverScale = useRef(new Animated.Value(0.8)).current;
-
-  const firstMediaItem = post?.media?.[0];
-  const hasVideo = firstMediaItem?.type === 'video' && post?.media?.length === 1;
-  
-  // Note: Hook must be called unconditionally per React rules.
-  // When hasVideo is false, we pass an empty string which creates a minimal player instance.
-  const videoPlayer = useVideoPlayer(
-    hasVideo ? firstMediaItem.url : '',
-    (player) => {
-      if (hasVideo) {
-        player.loop = true;
-        player.muted = false;
-        // Don't auto-play - let user control via native controls
-      }
-    }
-  );
-
-  // Create video players for carousel items - hooks must be called unconditionally
-  const carouselVideoUrls = useMemo(() => {
-    if (!post?.media || post.media.length <= 1) return [];
-    return post.media.map(item => item.type === 'video' ? item.url : '');
-  }, [post?.media]);
-
-  const detailPlayer0 = useVideoPlayer(carouselVideoUrls[0] || '', (p) => {
-    if (carouselVideoUrls[0]) { p.loop = true; p.muted = false; }
-  });
-  const detailPlayer1 = useVideoPlayer(carouselVideoUrls[1] || '', (p) => {
-    if (carouselVideoUrls[1]) { p.loop = true; p.muted = false; }
-  });
-  const detailPlayer2 = useVideoPlayer(carouselVideoUrls[2] || '', (p) => {
-    if (carouselVideoUrls[2]) { p.loop = true; p.muted = false; }
-  });
-  const detailPlayer3 = useVideoPlayer(carouselVideoUrls[3] || '', (p) => {
-    if (carouselVideoUrls[3]) { p.loop = true; p.muted = false; }
-  });
-
-  const detailCarouselPlayers = [detailPlayer0, detailPlayer1, detailPlayer2, detailPlayer3];
-
-  // Play/pause carousel videos based on active index
-  useEffect(() => {
-    if (post?.media && post.media.length > 1) {
-      carouselVideoUrls.forEach((url, i) => {
-        if (url) {
-          if (i === activeCarouselIndex) {
-            detailCarouselPlayers[i]?.play();
-          } else {
-            detailCarouselPlayers[i]?.pause();
-          }
-        }
-      });
-    }
-  }, [activeCarouselIndex, carouselVideoUrls, detailCarouselPlayers, post?.media]);
 
   const handleCarouselIndexChange = (index: number) => {
     setActiveCarouselIndex(index);
@@ -341,45 +290,21 @@ export default function PostDetailScreen() {
       {/* Media */}
       {post.media && post.media.length > 0 ? (
         post.media.length === 1 ? (
-          post.media[0].type === 'video' ? (
-            <View style={[styles.singleMedia, styles.videoContainer]}>
-              <ActivityIndicator style={StyleSheet.absoluteFill} size="large" color="#666" />
-              <VideoView
-                player={videoPlayer}
-                style={StyleSheet.absoluteFill}
-                contentFit="cover"
-                nativeControls={true}
-              />
-            </View>
-          ) : (
-            <Image
-              source={{ uri: post.media[0].url }}
-              style={styles.singleMedia}
-              contentFit="cover"
-            />
-          )
+          <MediaCard
+            item={post.media[0]}
+            style={styles.singleMedia}
+            onOpen={() => setMediaViewer({ url: post.media![0].url, type: post.media![0].type })}
+          />
         ) : (
           <Carousel style={{ borderRadius: 12 }} onIndexChange={handleCarouselIndexChange}>
-            {post.media.map((item, index) =>
-              item.type === 'video' ? (
-                <View key={`media-${index}`} style={[styles.carouselMedia, styles.videoContainer]}>
-                  <ActivityIndicator style={StyleSheet.absoluteFill} size="large" color="#666" />
-                  <VideoView
-                    player={detailCarouselPlayers[index]}
-                    style={StyleSheet.absoluteFill}
-                    contentFit="cover"
-                    nativeControls={true}
-                  />
-                </View>
-              ) : (
-                <Image
-                  key={`media-${index}`}
-                  source={{ uri: item.url }}
-                  style={styles.carouselMedia}
-                  contentFit="cover"
-                />
-              )
-            )}
+            {post.media.map((item, index) => (
+              <MediaCard
+                key={`media-${index}`}
+                item={item}
+                style={styles.carouselMedia}
+                onOpen={() => setMediaViewer({ url: item.url, type: item.type })}
+              />
+            ))}
           </Carousel>
         )
       ) : null}
@@ -564,6 +489,16 @@ export default function PostDetailScreen() {
           backgroundColor: theme.background,
         }} />
       )}
+
+      {/* Full-screen media viewer */}
+      {mediaViewer && (
+        <MediaViewerModal
+          uri={mediaViewer.url}
+          mediaType={mediaViewer.type}
+          visible
+          onClose={() => setMediaViewer(null)}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -620,6 +555,19 @@ const styles = StyleSheet.create({
   },
   videoContainer: {
     backgroundColor: '#1a1a1a',
+  },
+  videoPlaceholder: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    gap: 6,
+  },
+  watchVideoText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   emojiButton: {
     width: 44,
@@ -718,3 +666,36 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 });
+
+// ── MediaCard ────────────────────────────────────────────────────────────────
+
+function MediaCard({
+  item,
+  style,
+  onOpen,
+}: {
+  item: MediaItem;
+  style: object;
+  onOpen: () => void;
+}) {
+  if (item.type === 'video') {
+    return (
+      <Pressable style={[style, styles.videoContainer]} onPress={onOpen}>
+        <View style={styles.videoPlaceholder}>
+          <Feather name="play-circle" size={48} color="#FFF" />
+          <Text style={styles.watchVideoText}>Watch Video</Text>
+        </View>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Pressable onPress={onOpen}>
+      <Image
+        source={{ uri: item.url }}
+        style={style}
+        contentFit="cover"
+      />
+    </Pressable>
+  );
+}

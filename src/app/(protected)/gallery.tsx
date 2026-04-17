@@ -15,6 +15,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { MAX_FILES, MAX_FILE_SIZE_MB } from '@/models/constants';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
+import { compressImage } from '@/utils/compressImage';
 
 export default function GalleryScreen() {
   const router = useRouter();
@@ -63,7 +64,7 @@ export default function GalleryScreen() {
     }
 
     const rejected: string[] = [];
-    const files: MediaFile[] = result.assets
+    const rawFiles: MediaFile[] = result.assets
       .filter((asset) => {
         if (
           asset.fileSize &&
@@ -80,6 +81,14 @@ export default function GalleryScreen() {
         type: asset.mimeType || 'image/jpeg',
         size: asset.fileSize,
       }));
+
+    // Compress images (videos are skipped by compressImage)
+    const files: MediaFile[] = await Promise.all(
+      rawFiles.map(async (f) => ({
+        ...f,
+        uri: await compressImage(f.uri, f.type),
+      }))
+    );
 
     if (rejected.length > 0) {
       addToast({
