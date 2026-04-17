@@ -195,18 +195,14 @@ export default function HomeScreen() {
             Sign In with Email
           </Button>
 
-          <Pressable onPress={handleTryDemo} style={[styles.demoButton, { backgroundColor: theme.secondary }]}>
-            <Text style={styles.demoEmoji}>🎭</Text>
-            <View style={styles.demoTextContainer}>
-              <Text style={[styles.demoTitle, { color: theme.secondaryForeground }]}>
-                Try Demo Mode
-              </Text>
-              <Text style={[styles.demoDesc, { color: theme.secondaryForeground }]}>
-                Explore the app with sample data — no sign up needed
-              </Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={theme.secondaryForeground} />
-          </Pressable>
+          <Button
+            variant="outline"
+            onPress={handleTryDemo}
+            size="lg"
+            style={styles.actionButton}
+          >
+            🎭 Try Demo Mode
+          </Button>
 
           <Pressable onPress={() => router.push('/about')} style={styles.learnMoreButton}>
             <Feather name="info" size={16} color={theme.primary} />
@@ -264,28 +260,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   joinChannelDesc: {
-    fontSize: 12,
-    opacity: 0.8,
-    marginTop: 2,
-  },
-  demoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    gap: 12,
-  },
-  demoEmoji: {
-    fontSize: 28,
-  },
-  demoTextContainer: {
-    flex: 1,
-  },
-  demoTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  demoDesc: {
     fontSize: 12,
     opacity: 0.8,
     marginTop: 2,
