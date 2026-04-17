@@ -1,5 +1,14 @@
 import React, { createContext, useCallback, useEffect, useState } from 'react';
-import auth, { type FirebaseAuthTypes } from '@react-native-firebase/auth';
+import {
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithCredential,
+  signOut as firebaseSignOut,
+  GoogleAuthProvider,
+  type FirebaseAuthTypes,
+} from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppDispatch } from '@/store/hooks';
@@ -56,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Native Firebase auth state is automatically persisted
   useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged(async (user) => {
+    const unsubscribe = onAuthStateChanged(getAuth(), async (user) => {
       if (user) {
         try {
           const profile = await dispatch(fetchUserProfile(user.uid)).unwrap();
@@ -86,12 +95,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [dispatch]);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const result = await auth().signInWithEmailAndPassword(email, password);
+    const result = await signInWithEmailAndPassword(getAuth(), email, password);
     return result.user;
   }, []);
 
   const signUp = useCallback(async (email: string, password: string) => {
-    const result = await auth().createUserWithEmailAndPassword(email, password);
+    const result = await createUserWithEmailAndPassword(getAuth(), email, password);
     return result.user;
   }, []);
 
@@ -103,19 +112,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const signInResult = await GoogleSignin.signIn();
     const idToken = signInResult.data?.idToken;
     if (!idToken) throw new Error('Google sign-in failed — no ID token');
-    const googleCredential = auth.GoogleAuthProvider.credential(idToken);
-    const result = await auth().signInWithCredential(googleCredential);
+    const googleCredential = GoogleAuthProvider.credential(idToken);
+    const result = await signInWithCredential(getAuth(), googleCredential);
     return result.user;
   }, []);
 
   const handleSignOut = useCallback(async () => {
-    await auth().signOut();
+    await firebaseSignOut(getAuth());
     await AsyncStorage.removeItem(DEMO_MODE_KEY);
     setIsDemoMode(false);
   }, []);
 
   const handleSendVerificationEmail = useCallback(async () => {
-    await auth().currentUser?.sendEmailVerification();
+    await getAuth().currentUser?.sendEmailVerification();
   }, []);
 
   const enterDemo = useCallback(async () => {

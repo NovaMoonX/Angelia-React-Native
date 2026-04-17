@@ -3,6 +3,8 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider as ReduxProvider } from 'react-redux';
+import { router } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import { store } from '@/store';
 import { ThemeProvider } from '@/providers/ThemeProvider';
 import { ToastProvider } from '@/providers/ToastProvider';
@@ -10,6 +12,34 @@ import { ActionModalProvider } from '@/providers/ActionModalProvider';
 import { AuthProvider } from '@/providers/AuthProvider';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useTheme } from '@/hooks/useTheme';
+import { NOTIFICATION_ID, getFollowUpForPrompt } from '@/services/notifications';
+
+// Configure how notifications are presented when the app is in the foreground.
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+// Register a global response handler so that notification taps from
+// background / quit states navigate to the post creation screen.
+Notifications.addNotificationResponseReceivedListener((response) => {
+  const notification = response.notification;
+  if (notification.request.identifier === NOTIFICATION_ID) {
+    const promptIndex = parseInt(
+      (notification.request.content.data?.promptIndex as string) ?? '0',
+      10,
+    );
+    const followUp = getFollowUpForPrompt(promptIndex);
+    router.push({
+      pathname: '/(protected)/post/new',
+      params: { existingText: followUp },
+    });
+  }
+});
 
 function NavigationLayout() {
   const { resolvedTheme, theme } = useTheme();

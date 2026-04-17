@@ -78,6 +78,17 @@ export default function ProtectedLayout() {
           />
           <Stack.Screen name="notifications" options={{ headerShown: false }} />
           <Stack.Screen
+            name="notification-settings"
+            options={{
+              headerShown: true,
+              title: 'Notification Settings',
+              headerStyle: { backgroundColor: theme.background },
+              headerTintColor: theme.foreground,
+              headerTitleStyle: { fontWeight: '600' },
+            }}
+          />
+          <Stack.Screen name="daily-reminder-settings" options={{ headerShown: false }} />
+          <Stack.Screen
             name="invite/[channelId]/[inviteCode]"
             options={{ headerShown: false }}
           />

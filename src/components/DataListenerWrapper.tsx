@@ -1,15 +1,18 @@
 import { useEffect, useRef } from 'react';
+import { router } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { setPosts } from '@/store/slices/postsSlice';
 import { setChannels } from '@/store/slices/channelsSlice';
-import { setCurrentUser, setUsers } from '@/store/slices/usersSlice';
+import { setCurrentUser, setUsers, setCurrentUserNotificationSettings } from '@/store/slices/usersSlice';
 import {
   setIncomingRequests,
   setOutgoingRequests,
 } from '@/store/slices/invitesSlice';
 import { processPendingInvite } from '@/store/actions/inviteActions';
+import { initNotifications } from '@/store/actions/notificationActions';
 import {
   subscribeToCurrentUser,
   subscribeToChannels,
@@ -17,11 +20,28 @@ import {
   subscribeToIncomingJoinRequests,
   subscribeToOutgoingJoinRequests,
   subscribeToChannelUsers,
+  subscribeToNotificationSettings,
 } from '@/services/firebase/firestore';
-import type { Channel, ChannelJoinRequest, Post, User } from '@/models/types';
+import {
+  requestNotificationPermission,
+  NOTIFICATION_ID,
+  getFollowUpForPrompt,
+} from '@/services/notifications';
+import type { Channel, ChannelJoinRequest, NotificationSettings, Post, User } from '@/models/types';
 
 interface DataListenerWrapperProps {
   children: React.ReactNode;
+}
+
+/**
+ * Module-level set that tracks notification response keys we've already acted
+ * on.  Using module scope (instead of a React ref) prevents re-processing the
+ * same notification after a logout/login cycle that remounts this component.
+ */
+const handledNotificationKeys = new Set<string>();
+
+function getNotificationKey(response: Notifications.NotificationResponse): string {
+  return `${response.notification.request.identifier}_${response.notification.date}`;
 }
 
 export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
@@ -36,6 +56,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const unsubsRef = useRef<Array<() => void>>([]);
   const postsUnsubRef = useRef<(() => void) | null>(null);
   const usersUnsubRef = useRef<(() => void) | null>(null);
+  const notifSettingsUnsubRef = useRef<(() => void) | null>(null);
   const pendingInviteProcessed = useRef(false);
 
   // Effect 1: Auth state — subscribe to user, channels, join requests
@@ -152,6 +173,95 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
         addToast({ type: 'error', title: 'Failed to send join request' });
       });
   }, [pendingInviteChannel, currentUser, dispatch, addToast]);
+
+  // Effect 5: Initialise notifications once user profile is ready.
+  // Permission is requested in parallel but never blocks settings init so the
+  // UI always loads even on simulators or devices where FCM is unavailable.
+  useEffect(() => {
+    if (isDemo || !firebaseUser || !currentUser) return;
+
+    requestNotificationPermission().catch(() => {}); // fire-and-forget
+    dispatch(initNotifications());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firebaseUser?.uid, !!currentUser, isDemo]);
+
+  // Effect 6: Subscribe to notification settings changes in Firestore
+  useEffect(() => {
+    if (isDemo || !firebaseUser) return;
+
+    const uid = firebaseUser.uid;
+
+    if (notifSettingsUnsubRef.current) {
+      notifSettingsUnsubRef.current();
+    }
+
+    notifSettingsUnsubRef.current = subscribeToNotificationSettings(
+      uid,
+      (settings: NotificationSettings | null) => {
+        dispatch(setCurrentUserNotificationSettings(settings));
+      },
+    );
+
+    return () => {
+      if (notifSettingsUnsubRef.current) {
+        notifSettingsUnsubRef.current();
+        notifSettingsUnsubRef.current = null;
+      }
+    };
+  }, [firebaseUser, isDemo, dispatch]);
+
+  // Effect 7: Handle notification press while app is in foreground
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const notification = response.notification;
+        if (notification.request.identifier !== NOTIFICATION_ID) return;
+        const key = getNotificationKey(response);
+        if (handledNotificationKeys.has(key)) return;
+        handledNotificationKeys.add(key);
+        const promptIndex = parseInt(
+          (notification.request.content.data?.promptIndex as string) ?? '0',
+          10,
+        );
+        const followUp = getFollowUpForPrompt(promptIndex);
+        router.push({
+          pathname: '/(protected)/post/new',
+          params: { notificationPrompt: followUp },
+        });
+      },
+    );
+    return () => subscription.remove();
+  }, []);
+
+  // Effect 8: Handle notification that launched the app from a quit/killed state
+  useEffect(() => {
+    if (!currentUser) return;
+    Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (
+          response &&
+          response.notification.request.identifier === NOTIFICATION_ID
+        ) {
+          const key = getNotificationKey(response);
+          if (handledNotificationKeys.has(key)) return;
+          handledNotificationKeys.add(key);
+          const promptIndex = parseInt(
+            (response.notification.request.content.data?.promptIndex as string) ?? '0',
+            10,
+          );
+          const followUp = getFollowUpForPrompt(promptIndex);
+          router.push({
+            pathname: '/(protected)/post/new',
+            params: { notificationPrompt: followUp },
+          });
+        }
+      })
+      .catch(() => {
+        // Notification initial-launch check is best-effort; ignore errors
+      });
+  // Run once when the user profile first becomes available after app start
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id]);
 
   return <>{children}</>;
 }

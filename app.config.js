@@ -45,7 +45,9 @@ export default {
 			favicon: './assets/images/favicon.png',
 		},
 		plugins: [
+			'./plugins/withFirebaseMessagingColor',
 			'expo-router',
+			'@react-native-community/datetimepicker',
 			[
 				'expo-splash-screen',
 				{
@@ -56,7 +58,15 @@ export default {
 			],
 			'@react-native-firebase/app',
 			'@react-native-firebase/auth',
+			'@react-native-firebase/messaging',
 			'@react-native-google-signin/google-signin',
+			[
+				'expo-notifications',
+				{
+					icon: './assets/images/icon.png',
+					color: '#D97706',
+				},
+			],
 			[
 				'expo-build-properties',
 				{

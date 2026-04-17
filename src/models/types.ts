@@ -28,6 +28,23 @@ export interface User {
 }
 
 export type NewUser = Omit<User, 'joinedAt' | 'accountProgress' | 'customChannelCount' | 'status'>;
+
+export interface NotificationSettings {
+  fcmTokens: string[];
+  dailyPromptEnabled: boolean;
+  /** Hour of day (0–23) in the user's chosen timezone. Default: 12 (noon). */
+  dailyPromptHour: number;
+  /** Minute (0–59) within the hour. Default: 0. */
+  dailyPromptMinute: number;
+  /** IANA timezone string, e.g. "America/New_York". Default: device timezone. */
+  timeZone: string;
+  /**
+   * When true, the reminder always fires in the device's current timezone.
+   * The stored `timeZone` is kept in sync automatically on each sign-in.
+   * Default: true.
+   */
+  autoDetectTimeZone: boolean;
+}
 export type UpdateUserProfileData = Pick<User, 'firstName' | 'lastName' | 'funFact' | 'avatar'>;
 
 export interface Channel {
