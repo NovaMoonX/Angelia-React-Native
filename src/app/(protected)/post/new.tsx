@@ -239,7 +239,6 @@ export default function PostCreateScreen() {
         {/* Notification prompt banner — shown when arriving from a daily reminder tap */}
         {!!params.notificationPrompt && (
           <View style={[styles.notifBanner, { backgroundColor: theme.secondary }]}>
-            <Text style={styles.notifBannerEmoji}>🔔</Text>
             <Text style={[styles.notifBannerText, { color: theme.secondaryForeground }]}>
               {params.notificationPrompt}
             </Text>
@@ -590,15 +589,10 @@ const styles = StyleSheet.create({
   notifBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 12,
-  },
-  notifBannerEmoji: {
-    fontSize: 16,
-    lineHeight: 22,
   },
   notifBannerText: {
     flex: 1,
