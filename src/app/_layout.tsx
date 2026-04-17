@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider as ReduxProvider } from 'react-redux';
 import { router } from 'expo-router';
-import notifee, { EventType } from '@notifee/react-native';
+import * as Notifications from 'expo-notifications';
 import { store } from '@/store';
 import { ThemeProvider } from '@/providers/ThemeProvider';
 import { ToastProvider } from '@/providers/ToastProvider';
@@ -14,14 +14,23 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useTheme } from '@/hooks/useTheme';
 import { NOTIFICATION_ID, getFollowUpForPrompt } from '@/services/notifications';
 
-// Register the Notifee background event handler at module level.
-// This fires when the user taps a notification while the app is suspended in the
-// background. The imperative `router` from expo-router is available at this point
-// because the JS engine (and therefore expo-router) is already running.
-notifee.onBackgroundEvent(async ({ type, detail }) => {
-  if (type === EventType.PRESS && detail.notification?.id === NOTIFICATION_ID) {
+// Configure how notifications are presented when the app is in the foreground.
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+// Register a global response handler so that notification taps from
+// background / quit states navigate to the post creation screen.
+Notifications.addNotificationResponseReceivedListener((response) => {
+  const notification = response.notification;
+  if (notification.request.identifier === NOTIFICATION_ID) {
     const promptIndex = parseInt(
-      (detail.notification.data?.promptIndex as string) ?? '0',
+      (notification.request.content.data?.promptIndex as string) ?? '0',
       10,
     );
     const followUp = getFollowUpForPrompt(promptIndex);

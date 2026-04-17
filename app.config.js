@@ -59,6 +59,13 @@ export default {
 			'@react-native-firebase/messaging',
 			'@react-native-google-signin/google-signin',
 			[
+				'expo-notifications',
+				{
+					icon: './assets/images/icon.png',
+					color: '#D97706',
+				},
+			],
+			[
 				'expo-build-properties',
 				{
 					ios: {

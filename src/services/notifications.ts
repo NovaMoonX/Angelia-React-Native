@@ -1,10 +1,6 @@
-import notifee, {
-  AndroidImportance,
-  RepeatFrequency,
-  TriggerType,
-  type TimestampTrigger,
-} from '@notifee/react-native';
+import * as Notifications from 'expo-notifications';
 import messaging from '@react-native-firebase/messaging';
+import { Platform } from 'react-native';
 import type { NotificationSettings } from '@/models/types';
 
 // ---- Constants ----
@@ -140,7 +136,7 @@ function getLocalHour(utcMs: number, timeZone: string): number {
 // ---- Permissions ----
 
 /**
- * Requests both FCM (remote) and Notifee (local) notification permissions.
+ * Requests both FCM (remote) and expo-notifications (local) permissions.
  * Returns true when the user grants permission.
  */
 export async function requestNotificationPermission(): Promise<boolean> {
@@ -149,11 +145,13 @@ export async function requestNotificationPermission(): Promise<boolean> {
     authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
     authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
-  const notifeeStatus = await notifee.requestPermission();
-  const notifeeGranted =
-    notifeeStatus.authorizationStatus >= 1; // 1 = AUTHORIZED, 2 = PROVISIONAL
+  const permResponse = await Notifications.requestPermissionsAsync();
+  // expo-modules-core PermissionResponse has { status, granted } but the
+  // type may not resolve cleanly due to node_modules hoisting, so we cast.
+  const localGranted =
+    (permResponse as unknown as { granted: boolean }).granted ?? false;
 
-  return fcmGranted && notifeeGranted;
+  return fcmGranted && localGranted;
 }
 
 // ---- FCM token ----
@@ -200,10 +198,10 @@ export async function deleteLocalFcmToken(): Promise<void> {
 // ---- Local notification scheduling ----
 
 async function ensureAndroidChannel(): Promise<void> {
-  await notifee.createChannel({
-    id: CHANNEL_ID,
+  if (Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
     name: 'Daily Prompts',
-    importance: AndroidImportance.HIGH,
+    importance: Notifications.AndroidImportance.HIGH,
     sound: 'default',
   });
 }
@@ -213,6 +211,9 @@ async function ensureAndroidChannel(): Promise<void> {
  * Safe to call multiple times — it cancels any existing daily prompt first.
  * Stores the chosen promptIndex in the notification data so the press handler
  * can look up the appropriate follow-up messages.
+ *
+ * Uses a DailyTriggerInput so the notification fires every day at the
+ * specified hour in the device's local timezone.
  */
 export async function scheduleDailyPrompt(settings: NotificationSettings): Promise<void> {
   await cancelDailyPrompt();
@@ -221,36 +222,29 @@ export async function scheduleDailyPrompt(settings: NotificationSettings): Promi
 
   await ensureAndroidChannel();
 
-  const triggerMs = getNextDailyTriggerMs(settings.dailyPromptHour, settings.timeZone);
   const promptIndex = Math.floor(Math.random() * DAILY_PROMPTS.length);
   const body = DAILY_PROMPTS[promptIndex].body;
 
-  const trigger: TimestampTrigger = {
-    type: TriggerType.TIMESTAMP,
-    timestamp: triggerMs,
-    repeatFrequency: RepeatFrequency.DAILY,
-    alarmManager: { allowWhileIdle: true },
-  };
-
-  await notifee.createTriggerNotification(
-    {
-      id: NOTIFICATION_ID,
+  await Notifications.scheduleNotificationAsync({
+    identifier: NOTIFICATION_ID,
+    content: {
       title: 'Angelia',
       body,
       data: { promptIndex: String(promptIndex) },
-      android: {
-        channelId: CHANNEL_ID,
-        smallIcon: 'ic_notification',
-        pressAction: { id: 'default' },
-      },
+      sound: 'default',
     },
-    trigger,
-  );
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour: settings.dailyPromptHour,
+      minute: 0,
+      ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
+    },
+  });
 }
 
 /**
  * Cancels the daily prompt notification if one is scheduled.
  */
 export async function cancelDailyPrompt(): Promise<void> {
-  await notifee.cancelNotification(NOTIFICATION_ID);
+  await Notifications.cancelScheduledNotificationAsync(NOTIFICATION_ID);
 }

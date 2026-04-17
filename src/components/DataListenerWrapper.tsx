@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { router } from 'expo-router';
-import notifee, { EventType } from '@notifee/react-native';
+import * as Notifications from 'expo-notifications';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -200,40 +200,48 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
 
   // Effect 7: Handle notification press while app is in foreground
   useEffect(() => {
-    const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
-      if (type === EventType.PRESS && detail.notification?.id === NOTIFICATION_ID) {
-        const promptIndex = parseInt(
-          (detail.notification.data?.promptIndex as string) ?? '0',
-          10,
-        );
-        const followUp = getFollowUpForPrompt(promptIndex);
-        router.push({
-          pathname: '/(protected)/post/new',
-          params: { existingText: followUp },
-        });
-      }
-    });
-    return () => unsubscribe();
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const notification = response.notification;
+        if (notification.request.identifier === NOTIFICATION_ID) {
+          const promptIndex = parseInt(
+            (notification.request.content.data?.promptIndex as string) ?? '0',
+            10,
+          );
+          const followUp = getFollowUpForPrompt(promptIndex);
+          router.push({
+            pathname: '/(protected)/post/new',
+            params: { existingText: followUp },
+          });
+        }
+      },
+    );
+    return () => subscription.remove();
   }, []);
 
   // Effect 8: Handle notification that launched the app from a quit/killed state
   useEffect(() => {
     if (!currentUser) return;
-    notifee.getInitialNotification().then((initial) => {
-      if (initial?.notification?.id === NOTIFICATION_ID) {
-        const promptIndex = parseInt(
-          (initial.notification.data?.promptIndex as string) ?? '0',
-          10,
-        );
-        const followUp = getFollowUpForPrompt(promptIndex);
-        router.push({
-          pathname: '/(protected)/post/new',
-          params: { existingText: followUp },
-        });
-      }
-    }).catch(() => {
-      // Notification initial-launch check is best-effort; ignore errors
-    });
+    Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (
+          response &&
+          response.notification.request.identifier === NOTIFICATION_ID
+        ) {
+          const promptIndex = parseInt(
+            (response.notification.request.content.data?.promptIndex as string) ?? '0',
+            10,
+          );
+          const followUp = getFollowUpForPrompt(promptIndex);
+          router.push({
+            pathname: '/(protected)/post/new',
+            params: { existingText: followUp },
+          });
+        }
+      })
+      .catch(() => {
+        // Notification initial-launch check is best-effort; ignore errors
+      });
   // Run once when the user profile first becomes available after app start
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]);
