@@ -387,6 +387,14 @@ export default function AccountScreen() {
 
         {/* ===== SUBSCRIBED TAB ===== */}
         <TabsContent value="subscribed">
+          <Button
+            variant="outline"
+            onPress={() => router.push('/join-channel')}
+            style={{ marginBottom: 16 }}
+          >
+            {`🤝 Join a Channel`}
+          </Button>
+
           {subscribedChannels.map((ch) => (
             <ChannelCard
               key={ch.id}

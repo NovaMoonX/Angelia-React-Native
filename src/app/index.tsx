@@ -13,10 +13,8 @@ import { AngeliaLogo } from '@/components/AngeliaLogo';
 import { Button } from '@/components/ui/Button';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/useToast';
 import { useAppDispatch } from '@/store/hooks';
 import { enterDemoMode } from '@/store/actions/demoActions';
-import { getUserProfile } from '@/services/firebase/firestore';
 
 const SPLASH_TO_ACTIONS_DELAY = 600;
 
@@ -24,11 +22,9 @@ export default function HomeScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
-  const { firebaseUser, loading: authLoading, isDemoMode, enterDemo, signInWithGoogle } = useAuth();
-  const { addToast } = useToast();
+  const { firebaseUser, loading: authLoading, isDemoMode, enterDemo } = useAuth();
   const insets = useSafeAreaInsets();
   const [showActions, setShowActions] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const didRedirect = useRef(false);
 
   // Auto-redirect when auth state or demo mode was persisted
@@ -115,26 +111,6 @@ export default function HomeScreen() {
     router.replace('/(protected)/feed');
   };
 
-  const handleGoogleContinue = async () => {
-    setIsGoogleLoading(true);
-    try {
-      const user = await signInWithGoogle();
-      const profile = await getUserProfile(user.uid);
-      if (profile) {
-        router.replace('/(protected)/feed');
-      } else {
-        router.replace('/complete-profile');
-      }
-    } catch (err) {
-      addToast({
-        type: 'error',
-        title: err instanceof Error ? err.message : 'Google sign-in failed',
-      });
-    } finally {
-      setIsGoogleLoading(false);
-    }
-  };
-
   // While auth state is resolving, render a plain background so that
   // authenticated users never see the welcome screen flash before the
   // redirect to the feed fires.
@@ -194,25 +170,29 @@ export default function HomeScreen() {
             },
           ]}
         >
-          <Button
-            variant="outline"
-            onPress={handleGoogleContinue}
-            loading={isGoogleLoading}
-            disabled={isGoogleLoading}
-            size="lg"
-            style={styles.actionButton}
+          <Pressable
+            onPress={() => router.push('/join-channel')}
+            style={[styles.joinChannelButton, { backgroundColor: theme.secondary }]}
           >
-            Continue with Google
-          </Button>
+            <Feather name="users" size={24} color={theme.secondaryForeground} />
+            <View style={styles.joinChannelTextContainer}>
+              <Text style={[styles.joinChannelTitle, { color: theme.secondaryForeground }]}>
+                Join a Channel
+              </Text>
+              <Text style={[styles.joinChannelDesc, { color: theme.secondaryForeground }]}>
+                Got an invite code? Hop in and start connecting!
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={20} color={theme.secondaryForeground} />
+          </Pressable>
 
           <Button
             variant="outline"
             onPress={() => router.push('/auth')}
-            disabled={isGoogleLoading}
             size="lg"
             style={styles.actionButton}
           >
-            Continue with Email
+            Sign In with Email
           </Button>
 
           <Pressable onPress={handleTryDemo} style={[styles.demoButton, { backgroundColor: theme.secondary }]}>
@@ -268,6 +248,25 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     width: '100%',
+  },
+  joinChannelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+  },
+  joinChannelTextContainer: {
+    flex: 1,
+  },
+  joinChannelTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  joinChannelDesc: {
+    fontSize: 12,
+    opacity: 0.8,
+    marginTop: 2,
   },
   demoButton: {
     flexDirection: 'row',

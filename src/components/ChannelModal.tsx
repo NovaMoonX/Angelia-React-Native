@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { Modal } from '@/components/ui/Modal';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -95,6 +96,34 @@ export function ChannelModal({
               No invite link available
             </Text>
           )}
+
+          {channel.inviteCode && (
+            <View style={styles.qrSection}>
+              <View style={styles.qrContainer}>
+                <QRCode
+                  value={inviteUrl || channel.inviteCode}
+                  size={160}
+                  backgroundColor="#FFFFFF"
+                  color="#111827"
+                />
+              </View>
+              <View style={styles.inviteCodeRow}>
+                <Text style={[styles.inviteCodeLabel, { color: theme.mutedForeground }]}>
+                  Invite code:
+                </Text>
+                <Text style={[styles.inviteCodeValue, { color: theme.foreground }]}>
+                  {channel.inviteCode}
+                </Text>
+              </View>
+              <CopyButton
+                textToCopy={channel.inviteCode}
+                variant="outline"
+                size="sm"
+              >
+                Copy Code
+              </CopyButton>
+            </View>
+          )}
         </View>
 
         <Separator />
@@ -164,6 +193,31 @@ const styles = StyleSheet.create({
   noInvite: {
     fontSize: 13,
     fontStyle: 'italic',
+  },
+  qrSection: {
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  qrContainer: {
+    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inviteCodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  inviteCodeLabel: {
+    fontSize: 13,
+  },
+  inviteCodeValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 2,
   },
   emptyText: {
     fontSize: 13,

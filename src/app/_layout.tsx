@@ -38,6 +38,10 @@ function NavigationLayout() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="join-channel"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="(protected)"
           options={{ headerShown: false }}
         />

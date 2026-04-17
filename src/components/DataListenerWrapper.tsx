@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/useToast';
 import { setPosts } from '@/store/slices/postsSlice';
 import { setChannels } from '@/store/slices/channelsSlice';
 import { setCurrentUser, setUsers } from '@/store/slices/usersSlice';
@@ -8,6 +9,7 @@ import {
   setIncomingRequests,
   setOutgoingRequests,
 } from '@/store/slices/invitesSlice';
+import { processPendingInvite } from '@/store/actions/inviteActions';
 import {
   subscribeToCurrentUser,
   subscribeToChannels,
@@ -25,12 +27,16 @@ interface DataListenerWrapperProps {
 export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const dispatch = useAppDispatch();
   const { firebaseUser } = useAuth();
+  const { addToast } = useToast();
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const channels = useAppSelector((state) => state.channels.items);
+  const currentUser = useAppSelector((state) => state.users.currentUser);
+  const pendingInviteChannel = useAppSelector((state) => state.pendingInvite.channel);
 
   const unsubsRef = useRef<Array<() => void>>([]);
   const postsUnsubRef = useRef<(() => void) | null>(null);
   const usersUnsubRef = useRef<(() => void) | null>(null);
+  const pendingInviteProcessed = useRef(false);
 
   // Effect 1: Auth state — subscribe to user, channels, join requests
   useEffect(() => {
@@ -128,6 +134,23 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       }
     };
   }, [firebaseUser, isDemo, channels, dispatch]);
+
+  // Effect 4: Process pending invite once user is authenticated
+  useEffect(() => {
+    if (!pendingInviteChannel || !currentUser || pendingInviteProcessed.current) return;
+    pendingInviteProcessed.current = true;
+
+    dispatch(processPendingInvite())
+      .unwrap()
+      .then((result) => {
+        if (result) {
+          addToast({ type: 'success', title: 'Join request sent!' });
+        }
+      })
+      .catch(() => {
+        addToast({ type: 'error', title: 'Failed to send join request' });
+      });
+  }, [pendingInviteChannel, currentUser, dispatch, addToast]);
 
   return <>{children}</>;
 }
