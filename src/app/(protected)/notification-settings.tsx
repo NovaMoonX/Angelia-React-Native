@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { useAppSelector } from '@/store/hooks';
@@ -16,74 +16,60 @@ export default function NotificationSettingsScreen() {
   const dailyEnabled = notificationSettings?.dailyPromptEnabled ?? true;
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          title: 'Notification Settings',
-          headerStyle: { backgroundColor: theme.background },
-          headerTintColor: theme.foreground,
-          headerTitleStyle: { fontWeight: '600' },
-        }}
-      />
-      <ScrollView
-        style={{ flex: 1, backgroundColor: theme.background }}
-        contentContainerStyle={styles.container}
-      >
-        {/* Hero */}
-        <View style={styles.hero}>
-          <Text style={styles.heroEmoji}>⚙️</Text>
-          <Text style={[styles.heroSubtitle, { color: theme.mutedForeground }]}>
-            Choose which notifications you'd like to receive.
-          </Text>
-        </View>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: theme.background }}
+      contentContainerStyle={styles.container}
+    >
+      {/* Hero */}
+      <View style={styles.hero}>
+        <Text style={styles.heroEmoji}>⚙️</Text>
+        <Text style={[styles.heroSubtitle, { color: theme.mutedForeground }]}>
+          Choose which notifications you'd like to receive.
+        </Text>
+      </View>
 
-        {/* Settings list */}
-        <View
-          style={[
-            styles.group,
-            { backgroundColor: theme.card, borderColor: theme.border },
+      {/* Settings list */}
+      <View
+        style={[
+          styles.group,
+          { backgroundColor: theme.card, borderColor: theme.border },
+        ]}
+      >
+        {/* Daily Reminders */}
+        <Pressable
+          onPress={() =>
+            router.push('/(protected)/daily-reminder-settings')
+          }
+          style={({ pressed }) => [
+            styles.row,
+            { opacity: pressed ? 0.7 : 1 },
           ]}
         >
-          {/* Daily Reminders */}
-          <Pressable
-            onPress={() =>
-              router.push('/(protected)/daily-reminder-settings')
-            }
-            style={({ pressed }) => [
-              styles.row,
-              { opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            <View style={styles.rowLeft}>
-              <Text style={styles.rowEmoji}>🔔</Text>
-              <View style={styles.rowText}>
-                <Text
-                  style={[styles.rowLabel, { color: theme.foreground }]}
-                >
-                  Daily Reminders
-                </Text>
-                <Text
-                  style={[styles.rowSub, { color: theme.mutedForeground }]}
-                >
-                  {dailyEnabled
-                    ? 'On — a friendly nudge each day 💛'
-                    : 'Off'}
-                </Text>
-              </View>
+          <View style={styles.rowLeft}>
+            <Text style={styles.rowEmoji}>🔔</Text>
+            <View style={styles.rowText}>
+              <Text style={[styles.rowLabel, { color: theme.foreground }]}>
+                Daily Reminders
+              </Text>
+              <Text style={[styles.rowSub, { color: theme.mutedForeground }]}>
+                {dailyEnabled
+                  ? 'On — a friendly nudge each day 💛'
+                  : 'Off'}
+              </Text>
             </View>
-            <Feather
-              name="chevron-right"
-              size={18}
-              color={theme.mutedForeground}
-            />
-          </Pressable>
-        </View>
+          </View>
+          <Feather
+            name="chevron-right"
+            size={18}
+            color={theme.mutedForeground}
+          />
+        </Pressable>
+      </View>
 
-        <Text style={[styles.footer, { color: theme.mutedForeground }]}>
-          More notification types coming soon — stay tuned! 🚀
-        </Text>
-      </ScrollView>
-    </>
+      <Text style={[styles.footer, { color: theme.mutedForeground }]}>
+        More notification types coming soon — stay tuned! 🚀
+      </Text>
+    </ScrollView>
   );
 }
 

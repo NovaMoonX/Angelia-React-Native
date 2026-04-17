@@ -7,8 +7,9 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Stack } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Select } from '@/components/ui/Select';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
@@ -21,9 +22,11 @@ import {
 } from '@/constants/notifications.constants';
 
 export default function DailyReminderSettingsScreen() {
+  const router = useRouter();
   const dispatch = useAppDispatch();
   const { addToast } = useToast();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const notificationSettings = useAppSelector(
     (state) => state.users.currentUserNotificationSettings,
@@ -73,17 +76,9 @@ export default function DailyReminderSettingsScreen() {
     NOTIFICATION_TIMEZONES.find((o) => o.value === notifTZ)?.text ?? notifTZ;
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          title: 'Daily Reminders',
-          headerStyle: { backgroundColor: theme.background },
-          headerTintColor: theme.foreground,
-          headerTitleStyle: { fontWeight: '600' },
-        }}
-      />
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
       <ScrollView
-        style={{ flex: 1, backgroundColor: theme.background }}
+        style={{ flex: 1 }}
         contentContainerStyle={styles.container}
       >
         {/* Hero section */}
@@ -182,7 +177,31 @@ export default function DailyReminderSettingsScreen() {
           </Text>
         ) : null}
       </ScrollView>
-    </>
+
+      {/* Back button */}
+      <View
+        style={[
+          styles.backBar,
+          {
+            borderTopColor: theme.border,
+            paddingBottom: insets.bottom > 0 ? insets.bottom : 16,
+          },
+        ]}
+      >
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [
+            styles.backButton,
+            { backgroundColor: theme.secondary, opacity: pressed ? 0.75 : 1 },
+          ]}
+        >
+          <Feather name="arrow-left" size={16} color={theme.secondaryForeground} />
+          <Text style={[styles.backButtonText, { color: theme.secondaryForeground }]}>
+            Back
+          </Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -271,5 +290,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 20,
     marginHorizontal: 32,
+  },
+  backBar: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 12,
+    paddingVertical: 13,
+  },
+  backButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
