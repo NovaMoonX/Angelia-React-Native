@@ -52,8 +52,8 @@ export default function JoinChannelScreen() {
 
   const isAuthenticated = !!firebaseUser || isDemo;
 
-  const handleLookup = useCallback(async (overrideCode?: string) => {
-    const trimmed = (overrideCode ?? code).trim().toUpperCase();
+  const handleLookup = useCallback(async (lookupCode?: string) => {
+    const trimmed = (lookupCode ?? code).trim().toUpperCase();
     if (trimmed.length < 8) {
       setLookupError('Please enter the full 8-character code.');
       return;
@@ -76,12 +76,25 @@ export default function JoinChannelScreen() {
     }
   }, [code]);
 
-  // Auto-lookup when returning from QR scanner with a code
+  // Auto-lookup when returning from QR scanner with a pre-filled code.
+  // Uses the params value directly (not code state) to avoid stale closure.
   useEffect(() => {
-    if (params.autoLookup === '1' && params.code && params.code.length === 8) {
-      handleLookup(params.code.toUpperCase());
-    }
-    // Only run once on mount
+    const initialCode = params.code?.toUpperCase() ?? '';
+    if (params.autoLookup !== '1' || initialCode.length !== 8) return;
+
+    setLookupLoading(true);
+    getChannelByInviteCode(initialCode)
+      .then((found) => {
+        if (!found) {
+          setLookupError('No channel found with this code. Double-check and try again!');
+          return;
+        }
+        setChannel(found);
+        setStep('confirm-channel');
+      })
+      .catch(() => setLookupError('Something went wrong. Please try again.'))
+      .finally(() => setLookupLoading(false));
+    // params values captured at mount; this effect is intentionally mount-only
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
