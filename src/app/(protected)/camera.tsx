@@ -18,6 +18,7 @@ import {
 import type { CameraPosition, PhotoFile, VideoFile } from 'react-native-vision-camera';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 import { generateId } from '@/utils/generateId';
+import { compressImage } from '@/utils/compressImage';
 import { useToast } from '@/hooks/useToast';
 import { MAX_FILES } from '@/models/constants';
 
@@ -108,8 +109,9 @@ export default function CameraScreen() {
     if (!camera.current || atMax) return;
     try {
       const photo: PhotoFile = await camera.current.takePhoto({ flash });
-      const uri = `file://${photo.path}`;
-      const file: MediaFile = { uri, name: `photo-${generateId()}.jpg`, type: 'image/jpeg' };
+      const rawUri = `file://${photo.path}`;
+      const compressedUri = await compressImage(rawUri, 'image/jpeg');
+      const file: MediaFile = { uri: compressedUri, name: `photo-${generateId()}.jpg`, type: 'image/jpeg' };
       const newCount = totalCount + 1;
       if (newCount >= MAX_FILES) {
         // Immediately confirm once we hit the limit

@@ -1,9 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   FlatList,
-  Image,
   KeyboardAvoidingView,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,20 +12,21 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import { Image } from 'expo-image';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { NowStatusModal } from '@/components/NowStatusModal';
 import { isStatusActive } from '@/components/NowStatusBadge';
-import { useAppSelector, useAppDispatch } from '@/store/hooks';
+import { MediaViewerModal } from '@/components/MediaViewerModal';
+import { useAppSelector } from '@/store/hooks';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { selectUserChannels } from '@/store/slices/channelsSlice';
-import { uploadPost } from '@/store/actions/postActions';
-import { saveStatus } from '@/store/actions/userActions';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { MAX_FILES, POST_TIERS } from '@/models/constants';
+import { generateVideoThumbnail } from '@/utils/generateVideoThumbnail';
+import type { VideoThumbnail } from 'expo-video';
 import type { UserStatus, PostTier } from '@/models/types';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 
@@ -40,7 +39,6 @@ export default function PostCreateScreen() {
     existingChannel?: string;
     notificationPrompt?: string;
   }>();
-  const dispatch = useAppDispatch();
   const { addToast } = useToast();
   const { theme } = useTheme();
   const isDemo = useAppSelector((state) => state.demo.isActive);
@@ -64,8 +62,11 @@ export default function PostCreateScreen() {
   const [text, setText] = useState(params.existingText || '');
   const [selectedTier, setSelectedTier] = useState<PostTier>('everyday');
   const [media, setMedia] = useState<MediaFile[]>(initialMedia);
-  const [loading, setLoading] = useState(false);
-  const [previewItem, setPreviewItem] = useState<MediaFile | null>(null);
+  const [previewItem, setPreviewItem] = useState<{ uri: string; type: 'image' | 'video' } | null>(null);
+
+  // Video thumbnails keyed by media index
+  const [videoThumbnails, setVideoThumbnails] = useState<Record<number, VideoThumbnail | null>>({});
+  const thumbnailsRef = useRef<Record<number, boolean>>({});
 
   // Status prompt state — only shown when user has no active status
   const [pendingStatus, setPendingStatus] = useState<UserStatus | null>(null);
@@ -73,6 +74,18 @@ export default function PostCreateScreen() {
   const hasActiveStatus = isStatusActive(currentUser?.status);
 
   const atMaxFiles = media.length >= MAX_FILES;
+
+  // Generate thumbnails for video items whenever media changes
+  useEffect(() => {
+    media.forEach((item, index) => {
+      if (item.type.startsWith('video/') && !thumbnailsRef.current[index]) {
+        thumbnailsRef.current[index] = true;
+        generateVideoThumbnail(item.uri).then((thumb) => {
+          setVideoThumbnails((prev) => ({ ...prev, [index]: thumb }));
+        });
+      }
+    });
+  }, [media]);
 
   const placeholderByTier: Record<PostTier, string> = {
     'everyday': "Hey! What's going on? 👋",
@@ -84,9 +97,16 @@ export default function PostCreateScreen() {
 
   const removeMedia = (index: number) => {
     setMedia((prev) => prev.filter((_, i) => i !== index));
+    setVideoThumbnails((prev) => reindexAfterRemoval(prev, index));
+    thumbnailsRef.current = reindexAfterRemoval(
+      Object.fromEntries(
+        Object.entries(thumbnailsRef.current).filter(([k]) => parseInt(k, 10) !== index)
+      ) as Record<number, boolean>,
+      index,
+    );
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!selectedChannel) {
       addToast({ type: 'warning', title: 'Please select a channel' });
       return;
@@ -100,32 +120,16 @@ export default function PostCreateScreen() {
     }
     if (!currentUser) return;
 
-    setLoading(true);
-    try {
-      await dispatch(
-        uploadPost({ channelId: selectedChannel, text, media, tier: selectedTier })
-      ).unwrap();
-
-      // Save the pending status only after the post is created successfully
-      if (pendingStatus) {
-        try {
-          await dispatch(saveStatus(pendingStatus)).unwrap();
-        } catch {
-          // Status save failure shouldn't block the post success flow
-        }
-      }
-
-      addToast({ type: 'success', title: 'Post created!' });
-      router.back();
-    } catch (err) {
-      addToast({
-        type: 'error',
-        title:
-          err instanceof Error ? err.message : 'Failed to create post',
-      });
-    } finally {
-      setLoading(false);
-    }
+    router.replace({
+      pathname: '/(protected)/post/uploading',
+      params: {
+        channelId: selectedChannel,
+        text,
+        mediaJson: JSON.stringify(media),
+        tier: selectedTier,
+        pendingStatusJson: pendingStatus ? JSON.stringify(pendingStatus) : '',
+      },
+    });
   };
 
   return (
@@ -141,12 +145,11 @@ export default function PostCreateScreen() {
         </Pressable>
         <Pressable
           onPress={handleSubmit}
-          disabled={!canPublish || loading}
+          disabled={!canPublish}
           style={[
             styles.postButton,
             {
               backgroundColor: canPublish ? theme.primary : theme.muted,
-              opacity: loading ? 0.6 : 1,
             },
           ]}
         >
@@ -156,7 +159,7 @@ export default function PostCreateScreen() {
               { color: canPublish ? theme.primaryForeground : theme.mutedForeground },
             ]}
           >
-            {loading ? 'Posting...' : 'Post'}
+            Post
           </Text>
         </Pressable>
       </View>
@@ -317,26 +320,34 @@ export default function PostCreateScreen() {
             showsHorizontalScrollIndicator={false}
             keyExtractor={(_, i) => `media-${i}`}
             contentContainerStyle={styles.mediaStrip}
-            renderItem={({ item, index }) => (
-              <Pressable
-                style={[styles.mediaThumb, { borderColor: theme.border }]}
-                onPress={() => setPreviewItem(item)}
-              >
-                <Image source={{ uri: item.uri }} style={styles.mediaImage} />
-                {item.type.startsWith('video/') && (
-                  <View style={styles.videoOverlay}>
-                    <Feather name="play" size={18} color="#FFF" />
-                  </View>
-                )}
+            renderItem={({ item, index }) => {
+              const isVideo = item.type.startsWith('video/');
+              const thumb = isVideo ? videoThumbnails[index] : null;
+              return (
                 <Pressable
-                  style={styles.mediaRemove}
-                  onPress={() => removeMedia(index)}
-                  hitSlop={8}
+                  style={[styles.mediaThumb, { borderColor: theme.border }]}
+                  onPress={() => setPreviewItem({ uri: item.uri, type: isVideo ? 'video' : 'image' })}
                 >
-                  <Feather name="x" size={12} color="#FFF" />
+                  <Image
+                    source={thumb ?? { uri: item.uri }}
+                    style={styles.mediaImage}
+                    contentFit="cover"
+                  />
+                  {isVideo && (
+                    <View style={styles.videoOverlay}>
+                      <Feather name="play" size={18} color="#FFF" />
+                    </View>
+                  )}
+                  <Pressable
+                    style={styles.mediaRemove}
+                    onPress={() => removeMedia(index)}
+                    hitSlop={8}
+                  >
+                    <Feather name="x" size={12} color="#FFF" />
+                  </Pressable>
                 </Pressable>
-              </Pressable>
-            )}
+              );
+            }}
           />
         )}
       </ScrollView>
@@ -397,7 +408,12 @@ export default function PostCreateScreen() {
 
       {/* Media preview modal */}
       {previewItem && (
-        <MediaPreviewModal item={previewItem} onClose={() => setPreviewItem(null)} />
+        <MediaViewerModal
+          uri={previewItem.uri}
+          mediaType={previewItem.type}
+          visible
+          onClose={() => setPreviewItem(null)}
+        />
       )}
 
       {/* Status modal — status is stored locally until post succeeds */}
@@ -602,77 +618,21 @@ const styles = StyleSheet.create({
   },
 });
 
-// ── Media preview modal ────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────────────
 
-function VideoPreview({ uri }: { uri: string }) {
-  const player = useVideoPlayer(uri, (p) => {
-    p.loop = true;
-    p.play();
+/**
+ * Re-indexes a numeric-keyed record after an item at `removedIndex` is removed.
+ * Keys less than `removedIndex` are kept as-is; keys greater are decremented by 1.
+ */
+function reindexAfterRemoval<T>(
+  record: Record<number, T>,
+  removedIndex: number,
+): Record<number, T> {
+  const next: Record<number, T> = {};
+  Object.entries(record).forEach(([k, v]) => {
+    const ki = parseInt(k, 10);
+    if (ki < removedIndex) next[ki] = v;
+    else if (ki > removedIndex) next[ki - 1] = v;
   });
-  return (
-    <VideoView
-      player={player}
-      style={previewStyles.videoView}
-      contentFit="contain"
-      nativeControls
-    />
-  );
+  return next;
 }
-
-function MediaPreviewModal({
-  item,
-  onClose,
-}: {
-  item: MediaFile;
-  onClose: () => void;
-}) {
-  const insets = useSafeAreaInsets();
-  const isVideo = item.type.startsWith('video/');
-  return (
-    <Modal visible animationType="fade" transparent statusBarTranslucent>
-      <View style={[previewStyles.overlay, { paddingBottom: insets.bottom }]}>
-        <Pressable style={previewStyles.closeButton} onPress={onClose} hitSlop={12}>
-          <Feather name="x" size={26} color="#FFF" />
-        </Pressable>
-        {isVideo ? (
-          <VideoPreview uri={item.uri} />
-        ) : (
-          <Image
-            source={{ uri: item.uri}}
-            style={previewStyles.image}
-            resizeMode="contain"
-          />
-        )}
-      </View>
-    </Modal>
-  );
-}
-
-const previewStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 56,
-    right: 20,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  videoView: {
-    width: '100%',
-    height: '100%',
-  },
-});
