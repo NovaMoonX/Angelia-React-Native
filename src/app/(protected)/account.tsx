@@ -7,7 +7,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -45,6 +44,7 @@ import {
 import { AVATAR_PRESETS, CUSTOM_CHANNEL_LIMIT } from '@/models/constants';
 import type { AvatarPreset, Channel, UserStatus } from '@/models/types';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
+import { formatExactExpiry } from '@/lib/timeUtils';
 
 export default function AccountScreen() {
   const router = useRouter();
@@ -53,7 +53,6 @@ export default function AccountScreen() {
   const { confirm } = useActionModal();
   const { addToast } = useToast();
   const { theme } = useTheme();
-  const insets = useSafeAreaInsets();
 
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const currentUser = useAppSelector((state) => state.users.currentUser);
@@ -250,7 +249,7 @@ export default function AccountScreen() {
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: isDemo ? 12 : insets.top + 8 }
+          { paddingTop: 8 }
         ]}
         keyboardShouldPersistTaps="handled"
       >
@@ -300,6 +299,11 @@ export default function AccountScreen() {
                   : 'Set a status'}
               </Text>
             </Pressable>
+            {currentUser.status && Date.now() < currentUser.status.expiresAt ? (
+              <Text style={[styles.statusExpiry, { color: theme.mutedForeground }]}>
+                {formatExactExpiry(currentUser.status.expiresAt)}
+              </Text>
+            ) : null}
 
             {editingProfile ? (
               <View style={styles.editForm}>
@@ -580,6 +584,11 @@ const styles = StyleSheet.create({
   statusButtonText: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  statusExpiry: {
+    fontSize: 11,
+    marginTop: 4,
+    textAlign: 'center',
   },
   editForm: {
     width: '100%',

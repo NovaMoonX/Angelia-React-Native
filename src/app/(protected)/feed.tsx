@@ -19,6 +19,7 @@ import { PostCard } from '@/components/PostCard';
 import { SkeletonPostCard } from '@/components/SkeletonPostCard';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { NowStatusModal } from '@/components/NowStatusModal';
+import { formatTimeRemaining } from '@/lib/timeUtils';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { saveStatus, clearStatus } from '@/store/actions/userActions';
 import { useTheme } from '@/hooks/useTheme';
@@ -296,18 +297,49 @@ export default function FeedScreen() {
       {fabExpanded && (
         <View style={[styles.fabMenu, { bottom: insets.bottom + 92 }]}>
           {/* Set Status */}
-          <Pressable
-            style={[styles.fabMenuItem, { backgroundColor: theme.secondary }]}
-            onPress={() => {
-              setFabExpanded(false);
-              setStatusModalOpen(true);
-            }}
-          >
-            <Feather name="smile" size={18} color={theme.secondaryForeground} />
-            <Text style={[styles.fabMenuLabel, { color: theme.secondaryForeground }]}>
-              Status
-            </Text>
-          </Pressable>
+          {(() => {
+            const statusActive = isStatusActive(currentUser?.status);
+            return (
+              <Pressable
+                style={[
+                  styles.fabMenuItem,
+                  statusActive
+                    ? {
+                        backgroundColor: theme.background,
+                        borderWidth: 1.5,
+                        borderColor: theme.primary,
+                      }
+                    : { backgroundColor: theme.secondary },
+                ]}
+                onPress={() => {
+                  setFabExpanded(false);
+                  setStatusModalOpen(true);
+                }}
+              >
+                {statusActive ? (
+                  <Text style={styles.fabStatusEmoji}>
+                    {currentUser?.status?.emoji}
+                  </Text>
+                ) : (
+                  <Feather name="smile" size={18} color={theme.secondaryForeground} />
+                )}
+                <Text
+                  style={[
+                    styles.fabMenuLabel,
+                    {
+                      color: statusActive
+                        ? theme.foreground
+                        : theme.secondaryForeground,
+                    },
+                  ]}
+                >
+                  {statusActive
+                    ? formatTimeRemaining(currentUser!.status!.expiresAt)
+                    : 'Status'}
+                </Text>
+              </Pressable>
+            );
+          })()}
 
           {/* Media (camera / gallery) */}
           <Pressable
@@ -478,6 +510,10 @@ const styles = StyleSheet.create({
   fabMenuLabel: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  fabStatusEmoji: {
+    fontSize: 18,
+    lineHeight: 22,
   },
   fabMenuItemPrimary: {
     flexDirection: 'row',

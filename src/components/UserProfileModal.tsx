@@ -11,30 +11,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/Avatar';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { useTheme } from '@/hooks/useTheme';
-import { getRelativeTime } from '@/lib/timeUtils';
+import { getRelativeTime, formatTimeRemaining } from '@/lib/timeUtils';
 import type { User } from '@/models/types';
 
 interface UserProfileModalProps {
   visible: boolean;
   onClose: () => void;
   user: User | null | undefined;
-}
-
-/**
- * Formats milliseconds remaining into a human-friendly string like "3h left" or "25m left".
- */
-function formatTimeRemaining(expiresAt: number): string {
-  const remaining = expiresAt - Date.now();
-  if (remaining <= 0) return 'Expired';
-
-  const minutes = Math.floor(remaining / 60000);
-  if (minutes < 60) return `${Math.max(1, minutes)}m left`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h left`;
-
-  const days = Math.floor(hours / 24);
-  return `${days}d left`;
 }
 
 export function UserProfileModal({ visible, onClose, user }: UserProfileModalProps) {

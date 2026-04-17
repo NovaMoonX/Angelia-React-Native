@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Modal,
   Pressable,
@@ -70,6 +70,22 @@ export function NowStatusModal({
 
   const hasExistingStatus =
     currentStatus != null && Date.now() < (currentStatus.expiresAt ?? 0);
+
+  // Sync form with currentStatus every time the modal opens so it always
+  // reflects the latest active status instead of the stale initial state.
+  useEffect(() => {
+    if (!visible) return;
+    const active =
+      currentStatus && Date.now() < (currentStatus.expiresAt ?? 0)
+        ? currentStatus
+        : null;
+    setEmoji(active?.emoji ?? '😊');
+    setText(active?.text ?? '');
+    setSelectedDuration(2);
+    setShowEmojiPicker(false);
+    setCustomHours('');
+    setCustomMinutes('');
+  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resetForm = useCallback(() => {
     setEmoji('😊');
