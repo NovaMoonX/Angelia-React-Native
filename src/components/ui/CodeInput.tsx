@@ -40,7 +40,14 @@ export const CodeInput = React.forwardRef<CodeInputHandle, CodeInputProps>(
     const keyboardVisibleRef = useRef(false);
 
     useImperativeHandle(ref, () => ({
-      focus: () => inputRef.current?.focus(),
+      focus: () => {
+        if (!keyboardVisibleRef.current) {
+          inputRef.current?.blur();
+          setTimeout(() => inputRef.current?.focus(), 50);
+        } else {
+          inputRef.current?.focus();
+        }
+      },
     }));
 
     // Reset completeFired when value drops below full length
