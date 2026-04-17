@@ -74,7 +74,7 @@ export default function NotificationsScreen() {
       >
         {/* Settings entry point */}
         <Pressable
-          onPress={() => router.push('/(protected)/notification-settings')}
+          onPress={() => router.push('/(protected)/daily-reminder-settings')}
           style={({ pressed }) => [
             styles.settingsRow,
             { backgroundColor: theme.secondary, opacity: pressed ? 0.8 : 1 },

@@ -51,21 +51,24 @@ export const initNotifications = createAsyncThunk(
 
       dispatch(setCurrentUserNotificationSettings(settings));
 
-      // Regenerate the FCM token on every login so we always have a fresh,
-      // device-specific token registered.  Wrap in retryWithBackoff because
-      // token issuance can fail transiently on first network availability.
-      const token = await retryWithBackoff(() => refreshFcmToken());
-      if (token) {
-        await firestoreAddFcmToken(user.id, token);
-        // Reflect the latest server-side token array in Redux
-        const updated = await getNotificationSettings(user.id);
-        if (updated) {
-          dispatch(setCurrentUserNotificationSettings(updated));
-        }
-      }
-
-      // Schedule (or cancel) the daily local notification
+      // Schedule (or cancel) the daily local notification immediately so the
+      // UI is fully functional even if FCM token operations stall below.
       await scheduleDailyPrompt(settings);
+
+      // Regenerate the FCM token on every login so we always have a fresh,
+      // device-specific token registered.  This runs after settings are loaded
+      // and scheduled so a hanging FCM call (e.g. on a simulator) never blocks
+      // the settings UI.  Wrap in retryWithBackoff for transient network
+      // failures, and catch all errors so the thunk always fulfils.
+      try {
+        const token = await retryWithBackoff(() => refreshFcmToken());
+        if (token) {
+          await firestoreAddFcmToken(user.id, token);
+        }
+      } catch {
+        // FCM token registration is best-effort; failure should not block the
+        // settings UI or notification scheduling.
+      }
 
       return settings;
     } catch (err) {
