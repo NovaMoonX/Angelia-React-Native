@@ -235,7 +235,7 @@ export async function scheduleDailyPrompt(settings: NotificationSettings): Promi
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour: settings.dailyPromptHour,
-      minute: 0,
+      minute: settings.dailyPromptMinute ?? 0,
       ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
     },
   });

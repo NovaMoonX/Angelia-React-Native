@@ -1,16 +1,3 @@
-/** Selector options for the time-of-day notification time picker (15-minute increments). */
-export const NOTIFICATION_TIME_OPTIONS = Array.from({ length: 96 }, (_, i) => {
-  const hour = Math.floor(i / 4);
-  const minute = (i % 4) * 15;
-  const suffix = hour < 12 ? 'AM' : 'PM';
-  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-  const minuteStr = minute === 0 ? '00' : String(minute);
-  return {
-    value: `${hour}:${minute}`,
-    text: `${displayHour}:${minuteStr} ${suffix}`,
-  };
-});
-
 /** Common IANA timezone options shown in the notification settings picker. */
 export const NOTIFICATION_TIMEZONES = [
   { value: 'Pacific/Honolulu',    text: 'Honolulu (UTC−10)' },

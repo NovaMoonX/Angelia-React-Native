@@ -49,6 +49,14 @@ export const initNotifications = createAsyncThunk(
         settings = await initNotificationSettings(user.id, deviceTZ);
       }
 
+      // If the user has auto-detect enabled (or the field is absent on legacy
+      // docs), silently sync the stored timezone to the current device timezone.
+      const autoDetect = settings.autoDetectTimeZone !== false; // default true
+      if (autoDetect && settings.timeZone !== deviceTZ) {
+        settings = { ...settings, timeZone: deviceTZ };
+        firestoreUpdateNotificationSettings(user.id, { timeZone: deviceTZ }).catch(() => {});
+      }
+
       dispatch(setCurrentUserNotificationSettings(settings));
 
       // Schedule (or cancel) the daily local notification immediately so the

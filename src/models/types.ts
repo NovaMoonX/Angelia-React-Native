@@ -34,7 +34,7 @@ export interface NotificationSettings {
   dailyPromptEnabled: boolean;
   /** Hour of day (0–23) in the user's chosen timezone. Default: 12 (noon). */
   dailyPromptHour: number;
-  /** Minute (0, 15, 30, or 45) within the hour. Default: 0. */
+  /** Minute (0–59) within the hour. Default: 0. */
   dailyPromptMinute: number;
   /** IANA timezone string, e.g. "America/New_York". Default: device timezone. */
   timeZone: string;

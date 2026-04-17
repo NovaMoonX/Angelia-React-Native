@@ -47,6 +47,7 @@ export default {
 		plugins: [
 			'./plugins/withFirebaseMessagingColor',
 			'expo-router',
+			'@react-native-community/datetimepicker',
 			[
 				'expo-splash-screen',
 				{
