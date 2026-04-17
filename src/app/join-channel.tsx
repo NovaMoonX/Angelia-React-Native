@@ -1,6 +1,5 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
@@ -37,7 +36,7 @@ export default function JoinChannelScreen() {
   const { firebaseUser } = useAuth();
   const { addToast } = useToast();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ code?: string }>();
+  const params = useLocalSearchParams<{ code?: string; autoLookup?: string }>();
 
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const isDemo = useAppSelector((state) => state.demo.isActive);
@@ -53,8 +52,8 @@ export default function JoinChannelScreen() {
 
   const isAuthenticated = !!firebaseUser || isDemo;
 
-  const handleLookup = useCallback(async () => {
-    const trimmed = code.trim().toUpperCase();
+  const handleLookup = useCallback(async (overrideCode?: string) => {
+    const trimmed = (overrideCode ?? code).trim().toUpperCase();
     if (trimmed.length < 8) {
       setLookupError('Please enter the full 8-character code.');
       return;
@@ -76,6 +75,15 @@ export default function JoinChannelScreen() {
       setLookupLoading(false);
     }
   }, [code]);
+
+  // Auto-lookup when returning from QR scanner with a code
+  useEffect(() => {
+    if (params.autoLookup === '1' && params.code && params.code.length === 8) {
+      handleLookup(params.code.toUpperCase());
+    }
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleJoinRequest = useCallback(async () => {
     if (!channel) return;
@@ -165,8 +173,25 @@ export default function JoinChannelScreen() {
               Join a Channel
             </Text>
             <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
-              Enter the 8-character invite code shared with you to find the channel.
+              Enter the 8-character invite code shared with you, or scan the channel's QR code.
             </Text>
+
+            {/* QR scan button */}
+            <Pressable
+              style={[styles.scanQrButton, { borderColor: theme.border, backgroundColor: theme.secondary }]}
+              onPress={() => router.push('/scan-qr')}
+            >
+              <Feather name="maximize" size={22} color={theme.secondaryForeground} />
+              <Text style={[styles.scanQrText, { color: theme.secondaryForeground }]}>
+                Scan QR Code
+              </Text>
+            </Pressable>
+
+            <View style={styles.dividerRow}>
+              <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+              <Text style={[styles.dividerLabel, { color: theme.mutedForeground }]}>or enter code</Text>
+              <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+            </View>
 
             <View style={styles.codeSection}>
               <CodeInput
@@ -184,7 +209,7 @@ export default function JoinChannelScreen() {
             </View>
 
             <Button
-              onPress={handleLookup}
+              onPress={() => handleLookup()}
               loading={lookupLoading}
               disabled={lookupLoading || code.length < 8}
               size="lg"
@@ -192,6 +217,19 @@ export default function JoinChannelScreen() {
             >
               Find Channel
             </Button>
+
+            {code.length > 0 && (
+              <Button
+                variant="tertiary"
+                size="sm"
+                onPress={() => {
+                  setCode('');
+                  setLookupError('');
+                }}
+              >
+                Clear
+              </Button>
+            )}
           </View>
         )}
 
@@ -346,11 +384,39 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     paddingHorizontal: 12,
   },
+  scanQrButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  scanQrText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    gap: 8,
+    marginVertical: 2,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerLabel: {
+    fontSize: 12,
+  },
   codeSection: {
     width: '100%',
     alignItems: 'center',
     gap: 8,
-    marginTop: 16,
   },
   errorText: {
     color: '#DC2626',
@@ -359,7 +425,6 @@ const styles = StyleSheet.create({
   },
   findButton: {
     width: '100%',
-    marginTop: 12,
   },
   confirmContainer: {
     gap: 16,

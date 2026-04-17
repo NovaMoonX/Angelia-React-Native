@@ -38,22 +38,31 @@ export function CodeInput({
   );
 
   const handleKeyPress = useCallback(
-    (e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
-      if (e.nativeEvent.key === 'Backspace' && value.length > 0) {
-        // Default TextInput behavior handles this
-      }
+    (_e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
+      // Default TextInput behavior handles backspace
     },
-    [value],
+    [],
   );
 
   const handlePress = useCallback(() => {
     inputRef.current?.focus();
   }, []);
 
+  const allFilled = value.length === length;
+
   const cells = Array.from({ length }, (_, i) => {
     const char = value[i] || '';
-    const isCursor = focused && i === value.length;
     const isFilled = i < value.length;
+    // Show cursor on the next empty cell, or highlight the last cell when all filled
+    const isCursorCell = focused && i === value.length && !allFilled;
+    const isActiveLastCell = focused && allFilled && i === length - 1;
+
+    let borderColor = theme.border;
+    if (isCursorCell || isActiveLastCell) {
+      borderColor = theme.primary;
+    } else if (isFilled) {
+      borderColor = theme.accent ?? theme.border;
+    }
 
     return (
       <View
@@ -61,11 +70,7 @@ export function CodeInput({
         style={[
           styles.cell,
           {
-            borderColor: isCursor
-              ? theme.primary
-              : isFilled
-                ? theme.accent
-                : theme.border,
+            borderColor,
             backgroundColor: isFilled ? theme.secondary : theme.background,
           },
         ]}
@@ -78,7 +83,7 @@ export function CodeInput({
             },
           ]}
         >
-          {char || (isCursor ? '|' : '')}
+          {char || (isCursorCell ? '|' : '')}
         </Text>
       </View>
     );
@@ -89,6 +94,7 @@ export function CodeInput({
       <Pressable style={styles.cellRow} onPress={handlePress}>
         {cells}
       </Pressable>
+      {/* Off-screen but non-zero-size so iOS/Android re-open the keyboard on focus() */}
       <TextInput
         ref={inputRef}
         value={value}
@@ -127,10 +133,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
   },
+  // Position off-screen with a non-zero size so the OS treats it as focusable
+  // and re-opens the keyboard when focus() is called after keyboard dismiss.
   hiddenInput: {
     position: 'absolute',
+    width: 1,
+    height: 1,
     opacity: 0,
-    height: 0,
-    width: 0,
+    top: -9999,
+    left: -9999,
   },
 });

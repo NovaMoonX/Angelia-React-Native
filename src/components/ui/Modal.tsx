@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   body: {
-    maxHeight: 500,
+    flexShrink: 1,
   },
   bodyContent: {
     padding: 16,
