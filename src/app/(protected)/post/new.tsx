@@ -27,15 +27,9 @@ import { selectUserChannels } from '@/store/slices/channelsSlice';
 import { uploadPost } from '@/store/actions/postActions';
 import { saveStatus } from '@/store/actions/userActions';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
-import { MAX_FILES } from '@/models/constants';
+import { MAX_FILES, POST_TIERS } from '@/models/constants';
 import type { UserStatus, PostTier } from '@/models/types';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
-
-const TIER_OPTIONS = [
-  { value: 'everyday' as const, label: 'Everyday Update', emoji: '📅' },
-  { value: 'worth-knowing' as const, label: 'Worth Knowing', emoji: '⭐' },
-  { value: 'big-news' as const, label: 'Big News', emoji: '🔔' },
-];
 
 export default function PostCreateScreen() {
   const router = useRouter();
@@ -204,7 +198,7 @@ export default function PostCreateScreen() {
 
         {/* Tier selector */}
         <View style={styles.tierRow}>
-          {TIER_OPTIONS.map((opt) => {
+          {POST_TIERS.map((opt) => {
             const isSelected = selectedTier === opt.value;
             return (
               <Pressable

@@ -41,7 +41,7 @@ import {
   refreshChannelInviteCode,
   removeChannelSubscriber,
 } from '@/store/actions/channelActions';
-import { AVATAR_PRESETS, CUSTOM_CHANNEL_LIMIT } from '@/models/constants';
+import { AVATAR_PRESETS, CUSTOM_CHANNEL_LIMIT, POST_TIERS, ALL_POST_TIERS } from '@/models/constants';
 import type { AvatarPreset, Channel, UserStatus, PostTier } from '@/models/types';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { formatExactExpiry } from '@/lib/timeUtils';
@@ -227,7 +227,7 @@ export default function AccountScreen() {
     }
   };
 
-  const ALL_TIERS: PostTier[] = ['everyday', 'worth-knowing', 'big-news'];
+  const ALL_TIERS = ALL_POST_TIERS;
 
   const handleToggleTier = async (channelId: string, tier: PostTier) => {
     if (!currentUser) return;
@@ -469,12 +469,12 @@ export default function AccountScreen() {
                 <Text style={[styles.tierPrefsLabel, { color: theme.mutedForeground }]}>
                   Show tiers:
                 </Text>
-                {ALL_TIERS.map((tier) => {
+                {POST_TIERS.map((tierOption) => {
+                  const tier = tierOption.value;
                   const saved = currentUser.channelTierPrefs?.[ch.id];
                   const activeTiers =
                     !saved || saved.length === 0 ? ALL_TIERS : saved;
                   const isActive = activeTiers.includes(tier);
-                  const tierMeta = { everyday: { emoji: '📅', label: 'Everyday' }, 'worth-knowing': { emoji: '⭐', label: 'Worth Knowing' }, 'big-news': { emoji: '🔔', label: 'Big News' } }[tier];
                   return (
                     <Pressable
                       key={tier}
@@ -487,14 +487,14 @@ export default function AccountScreen() {
                         },
                       ]}
                     >
-                      <Text style={styles.tierToggleEmoji}>{tierMeta.emoji}</Text>
+                      <Text style={styles.tierToggleEmoji}>{tierOption.emoji}</Text>
                       <Text
                         style={[
                           styles.tierToggleLabel,
                           { color: isActive ? theme.primaryForeground : theme.mutedForeground },
                         ]}
                       >
-                        {tierMeta.label}
+                        {tierOption.label}
                       </Text>
                     </Pressable>
                   );

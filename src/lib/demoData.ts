@@ -1,4 +1,4 @@
-import type { User, Channel, Post, ChannelJoinRequest, PostTier } from '@/models/types';
+import type { User, Channel, Post, ChannelJoinRequest } from '@/models/types';
 
 const DEMO_USER: User = {
   id: 'demo-user-1',
@@ -140,7 +140,7 @@ const DEMO_POSTS: Post[] = [
     conversationEnrollees: ['demo-user-1', 'demo-user-2'],
     markedForDeletionAt: null,
     status: 'ready',
-    tier: 'everyday' as PostTier,
+    tier: 'everyday',
   },
   {
     id: 'demo-post-2',
@@ -167,7 +167,7 @@ const DEMO_POSTS: Post[] = [
     conversationEnrollees: [],
     markedForDeletionAt: null,
     status: 'ready',
-    tier: 'worth-knowing' as PostTier,
+    tier: 'worth-knowing',
   },
   {
     id: 'demo-post-3',
@@ -201,7 +201,7 @@ const DEMO_POSTS: Post[] = [
     conversationEnrollees: ['demo-user-1', 'demo-user-2'],
     markedForDeletionAt: null,
     status: 'ready',
-    tier: 'big-news' as PostTier,
+    tier: 'big-news',
   },
   {
     id: 'demo-post-4',
@@ -223,7 +223,7 @@ const DEMO_POSTS: Post[] = [
     conversationEnrollees: [],
     markedForDeletionAt: null,
     status: 'ready',
-    tier: 'everyday' as PostTier,
+    tier: 'everyday',
   },
   {
     id: 'demo-post-5',
@@ -247,7 +247,7 @@ const DEMO_POSTS: Post[] = [
     conversationEnrollees: [],
     markedForDeletionAt: null,
     status: 'ready',
-    tier: 'worth-knowing' as PostTier,
+    tier: 'worth-knowing',
   },
   {
     id: 'demo-post-6',
@@ -289,7 +289,7 @@ const DEMO_POSTS: Post[] = [
     conversationEnrollees: ['demo-user-1', 'demo-user-2'],
     markedForDeletionAt: null,
     status: 'ready',
-    tier: 'everyday' as PostTier,
+    tier: 'everyday',
   },
   {
     id: 'demo-post-7',
@@ -308,7 +308,7 @@ const DEMO_POSTS: Post[] = [
     conversationEnrollees: [],
     markedForDeletionAt: null,
     status: 'ready',
-    tier: 'big-news' as PostTier,
+    tier: 'big-news',
   },
 ];
 
