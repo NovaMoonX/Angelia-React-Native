@@ -82,14 +82,26 @@ export async function updateNotificationSettings(
 }
 
 export async function addFcmToken(uid: string, token: string): Promise<void> {
-  await db.collection('userNotificationSettings').doc(uid).update({
-    fcmTokens: firestore.FieldValue.arrayUnion(token),
+  const ref = db.collection('userNotificationSettings').doc(uid);
+  await db.runTransaction(async (transaction) => {
+    const snap = await transaction.get(ref);
+    if (!snap.exists) return;
+    const current = snap.data() as NotificationSettings;
+    const existing = current.fcmTokens ?? [];
+    if (!existing.includes(token)) {
+      transaction.update(ref, { fcmTokens: [...existing, token] });
+    }
   });
 }
 
 export async function removeFcmToken(uid: string, token: string): Promise<void> {
-  await db.collection('userNotificationSettings').doc(uid).update({
-    fcmTokens: firestore.FieldValue.arrayRemove(token),
+  const ref = db.collection('userNotificationSettings').doc(uid);
+  await db.runTransaction(async (transaction) => {
+    const snap = await transaction.get(ref);
+    if (!snap.exists) return;
+    const current = snap.data() as NotificationSettings;
+    const updated = (current.fcmTokens ?? []).filter((t) => t !== token);
+    transaction.update(ref, { fcmTokens: updated });
   });
 }
 

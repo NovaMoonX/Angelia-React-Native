@@ -170,6 +170,33 @@ export async function getFcmToken(): Promise<string | null> {
   }
 }
 
+/**
+ * Invalidates the existing FCM registration token for this device and requests
+ * a fresh one.  Call this on every sign-in so each session uses a known-good
+ * token.  Returns the new token, or null if the operation fails.
+ */
+export async function refreshFcmToken(): Promise<string | null> {
+  try {
+    await messaging().deleteToken();
+    const token = await messaging().getToken();
+    return token || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Deletes the local FCM registration token so a fresh one is issued on the
+ * next sign-in.  Call this on sign-out.
+ */
+export async function deleteLocalFcmToken(): Promise<void> {
+  try {
+    await messaging().deleteToken();
+  } catch {
+    // Best-effort — failure here should not block sign-out
+  }
+}
+
 // ---- Local notification scheduling ----
 
 async function ensureAndroidChannel(): Promise<void> {
