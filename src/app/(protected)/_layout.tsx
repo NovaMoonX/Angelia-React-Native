@@ -59,6 +59,10 @@ export default function ProtectedLayout() {
             options={{ headerShown: false }}
           />
           <Stack.Screen
+            name="post/uploading"
+            options={{ headerShown: false, animation: 'fade', gestureEnabled: false }}
+          />
+          <Stack.Screen
             name="post/[id]"
             options={{ 
               headerShown: true, 

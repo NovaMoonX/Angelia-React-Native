@@ -1,13 +1,14 @@
-import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { Carousel } from '@/components/ui/Carousel';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { UserProfileModal } from '@/components/UserProfileModal';
+import { MediaViewerModal } from '@/components/MediaViewerModal';
 import { useAppSelector } from '@/store/hooks';
 import {
   selectPostAuthor,
@@ -17,7 +18,7 @@ import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName } from '@/lib/post/post.utils';
 import { POST_TIERS } from '@/models/constants';
-import type { Post } from '@/models/types';
+import type { Post, MediaItem } from '@/models/types';
 import { useTheme } from '@/hooks/useTheme';
 
 interface PostCardProps {
@@ -35,46 +36,6 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const { theme } = useTheme();
 
-  const firstMediaItem = post.media?.[0];
-  const hasVideo = firstMediaItem?.type === 'video' && post.media?.length === 1;
-  
-  // Note: Hook must be called unconditionally per React rules.
-  // When hasVideo is false, we pass an empty string which creates a minimal player instance.
-  const videoPlayer = useVideoPlayer(
-    hasVideo ? firstMediaItem.url : '',
-    (player) => {
-      if (hasVideo) {
-        player.loop = true;
-        player.muted = true;
-        player.play();
-      }
-    }
-  );
-
-  // Create video players for carousel items - hooks must be called unconditionally
-  const carouselVideoPlayers = useMemo(() => {
-    if (!post.media || post.media.length <= 1) return [];
-    return post.media.map(item => 
-      item.type === 'video' ? item.url : ''
-    );
-  }, [post.media]);
-
-  // Create players for all carousel video URLs
-  const player0 = useVideoPlayer(carouselVideoPlayers[0] || '', (p) => {
-    if (carouselVideoPlayers[0]) { p.loop = true; p.muted = true; p.play(); }
-  });
-  const player1 = useVideoPlayer(carouselVideoPlayers[1] || '', (p) => {
-    if (carouselVideoPlayers[1]) { p.loop = true; p.muted = true; p.play(); }
-  });
-  const player2 = useVideoPlayer(carouselVideoPlayers[2] || '', (p) => {
-    if (carouselVideoPlayers[2]) { p.loop = true; p.muted = true; p.play(); }
-  });
-  const player3 = useVideoPlayer(carouselVideoPlayers[3] || '', (p) => {
-    if (carouselVideoPlayers[3]) { p.loop = true; p.muted = true; p.play(); }
-  });
-
-  const carouselPlayers = [player0, player1, player2, player3];
-
   const colors = channel
     ? getColorPair(channel)
     : { backgroundColor: '#6366F1', textColor: '#FFF' };
@@ -82,6 +43,7 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
   const hasMultipleMedia = post.media && post.media.length > 1;
   const isOtherUser = author && currentUser && author.id !== currentUser.id;
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
 
   const hasTierBadge = post.tier === 'worth-knowing' || post.tier === 'big-news';
   const tierBadgeConfig = post.tier ? POST_TIERS.find((t) => t.value === post.tier) ?? null : null;
@@ -147,46 +109,20 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
         hasMultipleMedia ? (
           <Carousel>
             {post.media.map((item, index) => (
-              item.type === 'video' ? (
-                <View key={`media-${index}`} style={[styles.carouselImage, styles.videoContainer]}>
-                  <ActivityIndicator style={StyleSheet.absoluteFill} size="large" color="#666" />
-                  <VideoView
-                    player={carouselPlayers[index]}
-                    style={StyleSheet.absoluteFill}
-                    contentFit="cover"
-                    nativeControls={true}
-                  />
-                </View>
-              ) : (
-                <Image
-                  key={`media-${index}`}
-                  source={{ uri: item.url }}
-                  style={styles.carouselImage}
-                  contentFit="cover"
-                />
-              )
+              <CardMediaItem
+                key={`media-${index}`}
+                item={item}
+                style={styles.carouselImage}
+                onOpen={() => setMediaViewer({ url: item.url, type: item.type })}
+              />
             ))}
           </Carousel>
         ) : (
-          <Pressable onPress={onNavigate}>
-            {post.media[0].type === 'video' ? (
-              <View style={[styles.singleImage, styles.videoContainer]}>
-                <ActivityIndicator style={StyleSheet.absoluteFill} size="large" color="#666" />
-                <VideoView
-                  player={videoPlayer}
-                  style={StyleSheet.absoluteFill}
-                  contentFit="cover"
-                  nativeControls={true}
-                />
-              </View>
-            ) : (
-              <Image
-                source={{ uri: post.media[0].url }}
-                style={styles.singleImage}
-                contentFit="cover"
-              />
-            )}
-          </Pressable>
+          <CardMediaItem
+            item={post.media[0]}
+            style={styles.singleImage}
+            onOpen={() => setMediaViewer({ url: post.media![0].url, type: post.media![0].type })}
+          />
         )
       ) : null}
 
@@ -214,8 +150,51 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
         onClose={() => setProfileModalOpen(false)}
         user={author}
       />
+
+      {/* Full-screen media viewer */}
+      {mediaViewer && (
+        <MediaViewerModal
+          uri={mediaViewer.url}
+          mediaType={mediaViewer.type}
+          visible
+          onClose={() => setMediaViewer(null)}
+        />
+      )}
     </Card>
     </View>
+  );
+}
+
+// ── CardMediaItem ────────────────────────────────────────────────────────────
+
+function CardMediaItem({
+  item,
+  style,
+  onOpen,
+}: {
+  item: MediaItem;
+  style: object;
+  onOpen: () => void;
+}) {
+  if (item.type === 'video') {
+    return (
+      <Pressable style={[style, styles.videoContainer]} onPress={onOpen}>
+        <View style={styles.videoPlaceholder}>
+          <Feather name="play-circle" size={40} color="#FFF" />
+          <Text style={styles.watchText}>Watch Video</Text>
+        </View>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Pressable onPress={onOpen}>
+      <Image
+        source={{ uri: item.url }}
+        style={style}
+        contentFit="cover"
+      />
+    </Pressable>
   );
 }
 
@@ -294,6 +273,17 @@ const styles = StyleSheet.create({
   },
   videoContainer: {
     backgroundColor: '#1a1a1a',
+  },
+  videoPlaceholder: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  watchText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   footer: {
     flexDirection: 'row',
