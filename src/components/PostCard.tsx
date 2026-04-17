@@ -104,6 +104,16 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
               <Text style={[styles.time, { color: theme.mutedForeground }]}>
                 {getRelativeTime(post.timestamp)}
               </Text>
+              {post.tier === 'worth-knowing' && (
+                <View style={[styles.tierBadge, { backgroundColor: '#F59E0B22', borderColor: '#F59E0B' }]}>
+                  <Text style={[styles.tierBadgeText, { color: '#B45309' }]}>⭐ Worth Knowing</Text>
+                </View>
+              )}
+              {post.tier === 'big-news' && (
+                <View style={[styles.tierBadge, { backgroundColor: '#F43F5E22', borderColor: '#F43F5E' }]}>
+                  <Text style={[styles.tierBadgeText, { color: '#BE123C' }]}>🔔 Big News</Text>
+                </View>
+              )}
             </View>
           </View>
           {channel && (
@@ -230,6 +240,16 @@ const styles = StyleSheet.create({
   },
   time: {
     fontSize: 12,
+  },
+  tierBadge: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  tierBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   postText: {
     fontSize: 14,

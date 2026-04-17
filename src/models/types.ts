@@ -24,6 +24,7 @@ export interface User {
   };
   customChannelCount: number;
   status: UserStatus | null;
+  channelTierPrefs?: Record<string, PostTier[]>;
 }
 
 export type NewUser = Omit<User, 'joinedAt' | 'accountProgress' | 'customChannelCount' | 'status'>;
@@ -63,6 +64,8 @@ export interface Comment {
 
 export type PostStatus = 'uploading' | 'ready' | 'error';
 
+export type PostTier = 'everyday' | 'worth-knowing' | 'big-news';
+
 export interface Post {
   id: string;
   authorId: string;
@@ -75,6 +78,7 @@ export interface Post {
   conversationEnrollees: string[];
   markedForDeletionAt: number | null;
   status: PostStatus;
+  tier?: PostTier;
 }
 
 export interface ChannelJoinRequest {

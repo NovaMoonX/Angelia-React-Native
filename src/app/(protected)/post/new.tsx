@@ -28,8 +28,14 @@ import { uploadPost } from '@/store/actions/postActions';
 import { saveStatus } from '@/store/actions/userActions';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { MAX_FILES } from '@/models/constants';
-import type { UserStatus } from '@/models/types';
+import type { UserStatus, PostTier } from '@/models/types';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
+
+const TIER_OPTIONS = [
+  { value: 'everyday' as const, label: 'Everyday Update', emoji: '📅' },
+  { value: 'worth-knowing' as const, label: 'Worth Knowing', emoji: '⭐' },
+  { value: 'big-news' as const, label: 'Big News', emoji: '🔔' },
+];
 
 export default function PostCreateScreen() {
   const router = useRouter();
@@ -61,6 +67,7 @@ export default function PostCreateScreen() {
     params.existingChannel || userChannels[0]?.id || ''
   );
   const [text, setText] = useState(params.existingText || '');
+  const [selectedTier, setSelectedTier] = useState<PostTier>('everyday');
   const [media, setMedia] = useState<MediaFile[]>(initialMedia);
   const [loading, setLoading] = useState(false);
   const [previewItem, setPreviewItem] = useState<MediaFile | null>(null);
@@ -95,7 +102,7 @@ export default function PostCreateScreen() {
     setLoading(true);
     try {
       await dispatch(
-        uploadPost({ channelId: selectedChannel, text, media })
+        uploadPost({ channelId: selectedChannel, text, media, tier: selectedTier })
       ).unwrap();
 
       // Save the pending status only after the post is created successfully
@@ -194,6 +201,36 @@ export default function PostCreateScreen() {
             );
           })}
         </ScrollView>
+
+        {/* Tier selector */}
+        <View style={styles.tierRow}>
+          {TIER_OPTIONS.map((opt) => {
+            const isSelected = selectedTier === opt.value;
+            return (
+              <Pressable
+                key={opt.value}
+                onPress={() => setSelectedTier(opt.value)}
+                style={[
+                  styles.tierPill,
+                  {
+                    backgroundColor: isSelected ? theme.primary : theme.muted,
+                    borderColor: isSelected ? theme.primary : theme.border,
+                  },
+                ]}
+              >
+                <Text style={styles.tierPillEmoji}>{opt.emoji}</Text>
+                <Text
+                  style={[
+                    styles.tierPillLabel,
+                    { color: isSelected ? theme.primaryForeground : theme.mutedForeground },
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
         {/* Compose area: avatar + text */}
         <View style={styles.composeRow}>
@@ -398,6 +435,28 @@ const styles = StyleSheet.create({
   channelRow: {
     gap: 8,
     paddingBottom: 12,
+  },
+  tierRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingBottom: 12,
+    flexWrap: 'wrap',
+  },
+  tierPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
+  },
+  tierPillEmoji: {
+    fontSize: 13,
+  },
+  tierPillLabel: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   composeRow: {
     flexDirection: 'row',

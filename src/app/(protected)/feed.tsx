@@ -82,6 +82,16 @@ export default function FeedScreen() {
       result = result.filter((p) => p.channelId === channelFilter);
     }
 
+    // Apply per-channel tier preferences
+    const tierPrefs = currentUser?.channelTierPrefs;
+    if (tierPrefs) {
+      result = result.filter((p) => {
+        const prefs = tierPrefs[p.channelId];
+        if (!prefs || prefs.length === 0) return true;
+        return prefs.includes(p.tier ?? 'everyday');
+      });
+    }
+
     result.sort((a, b) =>
       sortOrder === 'newest'
         ? b.timestamp - a.timestamp
@@ -89,26 +99,34 @@ export default function FeedScreen() {
     );
 
     return result.slice(0, displayCount);
-  }, [posts, channelFilter, sortOrder, displayCount]);
+  }, [posts, channelFilter, sortOrder, displayCount, currentUser?.channelTierPrefs]);
 
   const hasMore = useMemo(() => {
+    const tierPrefs = currentUser?.channelTierPrefs;
+    const matchesTier = (p: (typeof posts)[0]) => {
+      if (!tierPrefs) return true;
+      const prefs = tierPrefs[p.channelId];
+      if (!prefs || prefs.length === 0) return true;
+      return prefs.includes(p.tier ?? 'everyday');
+    };
+
     let total: number;
     if (channelFilter === 'all') {
-      total = posts.filter((p) => p.status === 'ready').length;
+      total = posts.filter((p) => p.status === 'ready' && matchesTier(p)).length;
     } else if (channelFilter === 'daily') {
       const dailyChannelIds = channels
         .filter((ch) => ch.isDaily)
         .map((ch) => ch.id);
       total = posts.filter(
-        (p) => p.status === 'ready' && dailyChannelIds.includes(p.channelId)
+        (p) => p.status === 'ready' && dailyChannelIds.includes(p.channelId) && matchesTier(p)
       ).length;
     } else {
       total = posts.filter(
-        (p) => p.channelId === channelFilter && p.status === 'ready'
+        (p) => p.channelId === channelFilter && p.status === 'ready' && matchesTier(p)
       ).length;
     }
     return displayCount < total;
-  }, [posts, channels, channelFilter, displayCount]);
+  }, [posts, channels, channelFilter, displayCount, currentUser?.channelTierPrefs]);
 
   const loadMore = useCallback(() => {
     if (hasMore) {
