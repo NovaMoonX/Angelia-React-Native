@@ -27,10 +27,10 @@ export const CHANNEL_COLORS: ChannelColorOption[] = [
   { name: 'VIOLET', value: '#7C3AED', textColor: '#FFFFFF' },
 ];
 
-export const POST_TIERS: Array<{ value: PostTier; label: string; emoji: string }> = [
-  { value: 'everyday', label: 'Everyday Update', emoji: '📅' },
-  { value: 'worth-knowing', label: 'Worth Knowing', emoji: '⭐' },
-  { value: 'big-news', label: 'Big News', emoji: '🔔' },
+export const POST_TIERS: Array<{ value: PostTier; label: string; emoji: string; badgeBg: string; badgeText: string }> = [
+  { value: 'everyday',     label: 'Everyday Update', emoji: '📅', badgeBg: 'transparent', badgeText: 'transparent' },
+  { value: 'worth-knowing', label: 'Worth Knowing',  emoji: '⭐', badgeBg: '#D97706',     badgeText: '#FFFFFF' },
+  { value: 'big-news',     label: 'Big News',        emoji: '🔔', badgeBg: '#E11D48',     badgeText: '#FFFFFF' },
 ];
 
 export const ALL_POST_TIERS: PostTier[] = POST_TIERS.map((t) => t.value);

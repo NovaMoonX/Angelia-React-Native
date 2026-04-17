@@ -16,6 +16,7 @@ import {
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName } from '@/lib/post/post.utils';
+import { POST_TIERS } from '@/models/constants';
 import type { Post } from '@/models/types';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -82,52 +83,54 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
   const isOtherUser = author && currentUser && author.id !== currentUser.id;
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
+  const hasTierBadge = post.tier === 'worth-knowing' || post.tier === 'big-news';
+  const tierBadgeConfig = post.tier ? POST_TIERS.find((t) => t.value === post.tier) ?? null : null;
+
   return (
-    <Card style={styles.card}>
-      {/* Tappable header + text area */}
-      <Pressable onPress={onNavigate}>
-        <View style={styles.header}>
-          <Pressable
-            onPress={isOtherUser ? () => setProfileModalOpen(true) : undefined}
-          >
-            <Avatar
-              preset={author?.avatar || 'moon'}
-              size="sm"
-              statusEmoji={isStatusActive(author?.status) ? author?.status?.emoji : undefined}
-            />
-          </Pressable>
-          <View style={styles.headerText}>
-            <Text style={[styles.authorName, { color: theme.foreground }]}>
-              {authorName}
-            </Text>
-            <View style={styles.headerMeta}>
-              <Text style={[styles.time, { color: theme.mutedForeground }]}>
-                {getRelativeTime(post.timestamp)}
-              </Text>
-              {post.tier === 'worth-knowing' && (
-                <View style={[styles.tierBadge, { backgroundColor: '#F59E0B22', borderColor: '#F59E0B' }]}>
-                  <Text style={[styles.tierBadgeText, { color: '#B45309' }]}>⭐ Worth Knowing</Text>
-                </View>
-              )}
-              {post.tier === 'big-news' && (
-                <View style={[styles.tierBadge, { backgroundColor: '#F43F5E22', borderColor: '#F43F5E' }]}>
-                  <Text style={[styles.tierBadgeText, { color: '#BE123C' }]}>🔔 Big News</Text>
-                </View>
-              )}
-            </View>
-          </View>
-          {channel && (
-            <Badge
-              style={{
-                backgroundColor: colors.backgroundColor,
-                borderColor: colors.backgroundColor,
-              }}
-              textStyle={{ color: colors.textColor, fontSize: 11 }}
-            >
-              {channel.name}
-            </Badge>
-          )}
+    <View style={[styles.cardWrapper, hasTierBadge && styles.cardWrapperBadged]}>
+      {hasTierBadge && tierBadgeConfig && (
+        <View style={[styles.cornerBadge, { backgroundColor: tierBadgeConfig.badgeBg }]}>
+          <Text style={styles.cornerBadgeEmoji}>{tierBadgeConfig.emoji}</Text>
+          <Text style={[styles.cornerBadgeText, { color: tierBadgeConfig.badgeText }]}>
+            {tierBadgeConfig.label}
+          </Text>
         </View>
+      )}
+      <Card style={styles.card}>
+        {/* Tappable header + text area */}
+        <Pressable onPress={onNavigate}>
+          <View style={styles.header}>
+            <Pressable
+              onPress={isOtherUser ? () => setProfileModalOpen(true) : undefined}
+            >
+              <Avatar
+                preset={author?.avatar || 'moon'}
+                size="sm"
+                statusEmoji={isStatusActive(author?.status) ? author?.status?.emoji : undefined}
+              />
+            </Pressable>
+            <View style={styles.headerText}>
+              <Text style={[styles.authorName, { color: theme.foreground }]}>
+                {authorName}
+              </Text>
+              <View style={styles.headerMeta}>
+                <Text style={[styles.time, { color: theme.mutedForeground }]}>
+                  {getRelativeTime(post.timestamp)}
+                </Text>
+              </View>
+            </View>
+            {channel && (
+              <Badge
+                style={{
+                  backgroundColor: colors.backgroundColor,
+                  borderColor: colors.backgroundColor,
+                }}
+                textStyle={{ color: colors.textColor, fontSize: 11 }}
+              >
+                {channel.name}
+              </Badge>
+            )}
+          </View>
 
         {post.text ? (
           <Text
@@ -212,12 +215,43 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
         user={author}
       />
     </Card>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  cardWrapper: {
     marginBottom: 12,
+  },
+  cardWrapperBadged: {
+    marginTop: 14,
+  },
+  card: {
+    // no marginBottom — wrapper handles spacing
+  },
+  cornerBadge: {
+    position: 'absolute',
+    top: -12,
+    left: 10,
+    zIndex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  cornerBadgeEmoji: {
+    fontSize: 12,
+  },
+  cornerBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   header: {
     flexDirection: 'row',
@@ -240,16 +274,6 @@ const styles = StyleSheet.create({
   },
   time: {
     fontSize: 12,
-  },
-  tierBadge: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  tierBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
   },
   postText: {
     fontSize: 14,

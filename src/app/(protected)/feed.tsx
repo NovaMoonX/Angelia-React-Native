@@ -24,7 +24,8 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { saveStatus, clearStatus } from '@/store/actions/userActions';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
-import type { Post, UserStatus } from '@/models/types';
+import { POST_TIERS, ALL_POST_TIERS } from '@/models/constants';
+import type { Post, PostTier, UserStatus } from '@/models/types';
 
 const INITIAL_PAGE = 10;
 const LOAD_MORE = 3;
@@ -45,6 +46,7 @@ export default function FeedScreen() {
   );
 
   const [channelFilter, setChannelFilter] = useState<string>('all');
+  const [priorityFilter, setPriorityFilter] = useState<PostTier[]>(ALL_POST_TIERS);
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [displayCount, setDisplayCount] = useState(INITIAL_PAGE);
   const [fabExpanded, setFabExpanded] = useState(false);
@@ -70,6 +72,24 @@ export default function FeedScreen() {
     [channels]
   );
 
+  const togglePriorityFilter = useCallback((tier: PostTier) => {
+    setPriorityFilter((prev) => {
+      if (prev.includes(tier)) {
+        if (prev.length === 1) return prev; // keep at least one active
+        return prev.filter((t) => t !== tier);
+      }
+      return [...prev, tier];
+    });
+  }, []);
+
+  const matchesPriorityFilter = useCallback(
+    (p: Post) => {
+      if (priorityFilter.length >= ALL_POST_TIERS.length) return true;
+      return priorityFilter.includes(p.tier ?? 'everyday');
+    },
+    [priorityFilter],
+  );
+
   const filteredPosts = useMemo(() => {
     let result = [...posts].filter((p) => p.status === 'ready');
 
@@ -92,6 +112,9 @@ export default function FeedScreen() {
       });
     }
 
+    // Apply feed-level priority filter
+    result = result.filter(matchesPriorityFilter);
+
     result.sort((a, b) =>
       sortOrder === 'newest'
         ? b.timestamp - a.timestamp
@@ -99,7 +122,7 @@ export default function FeedScreen() {
     );
 
     return result.slice(0, displayCount);
-  }, [posts, channelFilter, sortOrder, displayCount, currentUser?.channelTierPrefs]);
+  }, [posts, channelFilter, sortOrder, displayCount, currentUser?.channelTierPrefs, priorityFilter, matchesPriorityFilter]);
 
   const hasMore = useMemo(() => {
     const tierPrefs = currentUser?.channelTierPrefs;
@@ -112,21 +135,21 @@ export default function FeedScreen() {
 
     let total: number;
     if (channelFilter === 'all') {
-      total = posts.filter((p) => p.status === 'ready' && matchesTier(p)).length;
+      total = posts.filter((p) => p.status === 'ready' && matchesTier(p) && matchesPriorityFilter(p)).length;
     } else if (channelFilter === 'daily') {
       const dailyChannelIds = channels
         .filter((ch) => ch.isDaily)
         .map((ch) => ch.id);
       total = posts.filter(
-        (p) => p.status === 'ready' && dailyChannelIds.includes(p.channelId) && matchesTier(p)
+        (p) => p.status === 'ready' && dailyChannelIds.includes(p.channelId) && matchesTier(p) && matchesPriorityFilter(p)
       ).length;
     } else {
       total = posts.filter(
-        (p) => p.channelId === channelFilter && p.status === 'ready' && matchesTier(p)
+        (p) => p.channelId === channelFilter && p.status === 'ready' && matchesTier(p) && matchesPriorityFilter(p)
       ).length;
     }
     return displayCount < total;
-  }, [posts, channels, channelFilter, displayCount, currentUser?.channelTierPrefs]);
+  }, [posts, channels, channelFilter, displayCount, currentUser?.channelTierPrefs, priorityFilter, matchesPriorityFilter]);
 
   const loadMore = useCallback(() => {
     if (hasMore) {
@@ -300,6 +323,41 @@ export default function FeedScreen() {
               color={theme.foreground}
             />
           </Pressable>
+        </View>
+
+        {/* Priority filter */}
+        <View style={styles.priorityFilterRow}>
+          <Text style={[styles.priorityFilterLabel, { color: theme.mutedForeground }]}>
+            Priority
+          </Text>
+          <View style={styles.priorityFilterPills}>
+            {POST_TIERS.map((opt) => {
+              const isActive = priorityFilter.includes(opt.value);
+              return (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => togglePriorityFilter(opt.value)}
+                  style={[
+                    styles.priorityFilterPill,
+                    {
+                      backgroundColor: isActive ? theme.primary : theme.muted,
+                      borderColor: isActive ? theme.primary : theme.border,
+                    },
+                  ]}
+                >
+                  <Text style={styles.priorityFilterEmoji}>{opt.emoji}</Text>
+                  <Text
+                    style={[
+                      styles.priorityFilterPillText,
+                      { color: isActive ? theme.primaryForeground : theme.mutedForeground },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       </Animated.View>
 
@@ -484,6 +542,40 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  priorityFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    gap: 8,
+  },
+  priorityFilterLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  priorityFilterPills: {
+    flexDirection: 'row',
+    gap: 6,
+    flex: 1,
+  },
+  priorityFilterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 3,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  priorityFilterEmoji: {
+    fontSize: 11,
+  },
+  priorityFilterPillText: {
+    fontSize: 11,
+    fontWeight: '500',
   },
   listContent: {
     paddingHorizontal: 16,

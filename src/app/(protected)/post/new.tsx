@@ -160,6 +160,7 @@ export default function PostCreateScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {/* Channel selector */}
+        <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>Channel</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -196,7 +197,9 @@ export default function PostCreateScreen() {
           })}
         </ScrollView>
 
-        {/* Tier selector */}
+        {/* Priority selector */}
+        <View style={[styles.sectionDivider, { backgroundColor: theme.border }]} />
+        <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>Priority</Text>
         <View style={styles.tierRow}>
           {POST_TIERS.map((opt) => {
             const isSelected = selectedTier === opt.value;
@@ -428,7 +431,19 @@ const styles = StyleSheet.create({
   },
   channelRow: {
     gap: 8,
-    paddingBottom: 12,
+    paddingBottom: 10,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  sectionDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginBottom: 14,
+    marginTop: 2,
   },
   tierRow: {
     flexDirection: 'row',
