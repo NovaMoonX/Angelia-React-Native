@@ -197,7 +197,7 @@ export default function DailyReminderSettingsScreen() {
         >
           <Feather name="arrow-left" size={16} color={theme.secondaryForeground} />
           <Text style={[styles.backButtonText, { color: theme.secondaryForeground }]}>
-            Back
+            Go Back
           </Text>
         </Pressable>
       </View>
