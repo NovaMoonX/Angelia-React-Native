@@ -28,6 +28,15 @@ export interface User {
 }
 
 export type NewUser = Omit<User, 'joinedAt' | 'accountProgress' | 'customChannelCount' | 'status'>;
+
+export interface NotificationSettings {
+  fcmTokens: string[];
+  dailyPromptEnabled: boolean;
+  /** Hour of day (0–23) in the user's chosen timezone. Default: 12 (noon). */
+  dailyPromptHour: number;
+  /** IANA timezone string, e.g. "America/New_York". Default: device timezone. */
+  timeZone: string;
+}
 export type UpdateUserProfileData = Pick<User, 'firstName' | 'lastName' | 'funFact' | 'avatar'>;
 
 export interface Channel {

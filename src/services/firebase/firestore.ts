@@ -1,5 +1,5 @@
 import firestore from '@react-native-firebase/firestore';
-import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier } from '@/models/types';
+import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, NotificationSettings } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
@@ -46,6 +46,60 @@ export async function updateUserStatus(uid: string, status: UserStatus | null): 
 
 export async function updateChannelTierPrefs(uid: string, prefs: Record<string, PostTier[]>): Promise<void> {
   await db.collection('users').doc(uid).update({ channelTierPrefs: prefs });
+}
+
+// ---- Notification Settings Operations ----
+
+const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
+  fcmTokens: [],
+  dailyPromptEnabled: true,
+  dailyPromptHour: 12,
+  timeZone: 'UTC',
+};
+
+export async function getNotificationSettings(uid: string): Promise<NotificationSettings | null> {
+  const snap = await db.collection('userNotificationSettings').doc(uid).get();
+  return snap.exists ? (snap.data() as NotificationSettings) : null;
+}
+
+export async function initNotificationSettings(
+  uid: string,
+  deviceTimeZone: string,
+): Promise<NotificationSettings> {
+  const settings: NotificationSettings = {
+    ...DEFAULT_NOTIFICATION_SETTINGS,
+    timeZone: deviceTimeZone,
+  };
+  await db.collection('userNotificationSettings').doc(uid).set(settings);
+  return settings;
+}
+
+export async function updateNotificationSettings(
+  uid: string,
+  data: Partial<Omit<NotificationSettings, 'fcmTokens'>>,
+): Promise<void> {
+  await db.collection('userNotificationSettings').doc(uid).update(data);
+}
+
+export async function addFcmToken(uid: string, token: string): Promise<void> {
+  await db.collection('userNotificationSettings').doc(uid).update({
+    fcmTokens: firestore.FieldValue.arrayUnion(token),
+  });
+}
+
+export async function removeFcmToken(uid: string, token: string): Promise<void> {
+  await db.collection('userNotificationSettings').doc(uid).update({
+    fcmTokens: firestore.FieldValue.arrayRemove(token),
+  });
+}
+
+export function subscribeToNotificationSettings(
+  uid: string,
+  callback: (settings: NotificationSettings | null) => void,
+): () => void {
+  return db.collection('userNotificationSettings').doc(uid).onSnapshot((snap) => {
+    callback(snap.exists ? (snap.data() as NotificationSettings) : null);
+  });
 }
 
 // ---- Channel Operations ----

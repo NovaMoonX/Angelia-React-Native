@@ -13,9 +13,11 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
+import { Select } from '@/components/ui/Select';
 import { Separator } from '@/components/ui/Separator';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { Textarea } from '@/components/ui/Textarea';
+import { Toggle } from '@/components/ui/Toggle';
 import { ChannelCard } from '@/components/ChannelCard';
 import { ChannelFormModal } from '@/components/ChannelFormModal';
 import { ChannelModal } from '@/components/ChannelModal';
@@ -33,6 +35,7 @@ import {
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { exitDemoMode } from '@/store/actions/demoActions';
 import { saveProfile, saveStatus, clearStatus, saveTierPrefs } from '@/store/actions/userActions';
+import { saveNotificationSettings } from '@/store/actions/notificationActions';
 import {
   createCustomChannel,
   editCustomChannel,
@@ -45,6 +48,41 @@ import { AVATAR_PRESETS, CUSTOM_CHANNEL_LIMIT, POST_TIERS, ALL_POST_TIERS } from
 import type { AvatarPreset, Channel, UserStatus, PostTier } from '@/models/types';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { formatExactExpiry } from '@/lib/timeUtils';
+import { getDeviceTimeZone } from '@/services/notifications';
+
+// ---- Notification helpers ----
+
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => {
+  const suffix = i < 12 ? 'AM' : 'PM';
+  const display = i === 0 ? 12 : i > 12 ? i - 12 : i;
+  return { value: String(i), text: `${display}:00 ${suffix}` };
+});
+
+const COMMON_TIMEZONES = [
+  { value: 'Pacific/Honolulu',    text: 'Hawaii (UTC−10)' },
+  { value: 'America/Anchorage',   text: 'Alaska (UTC−9)' },
+  { value: 'America/Los_Angeles', text: 'Pacific (UTC−8/−7)' },
+  { value: 'America/Denver',      text: 'Mountain (UTC−7/−6)' },
+  { value: 'America/Chicago',     text: 'Central (UTC−6/−5)' },
+  { value: 'America/New_York',    text: 'Eastern (UTC−5/−4)' },
+  { value: 'America/Halifax',     text: 'Atlantic (UTC−4/−3)' },
+  { value: 'America/Sao_Paulo',   text: 'Brasilia (UTC−3)' },
+  { value: 'Atlantic/Azores',     text: 'Azores (UTC−1/0)' },
+  { value: 'Europe/London',       text: 'London (UTC+0/+1)' },
+  { value: 'Europe/Paris',        text: 'Central Europe (UTC+1/+2)' },
+  { value: 'Europe/Helsinki',     text: 'Eastern Europe (UTC+2/+3)' },
+  { value: 'Europe/Moscow',       text: 'Moscow (UTC+3)' },
+  { value: 'Asia/Dubai',          text: 'Gulf (UTC+4)' },
+  { value: 'Asia/Karachi',        text: 'Pakistan (UTC+5)' },
+  { value: 'Asia/Kolkata',        text: 'India (UTC+5:30)' },
+  { value: 'Asia/Dhaka',          text: 'Bangladesh (UTC+6)' },
+  { value: 'Asia/Bangkok',        text: 'Indochina (UTC+7)' },
+  { value: 'Asia/Singapore',      text: 'Singapore (UTC+8)' },
+  { value: 'Asia/Tokyo',          text: 'Japan (UTC+9)' },
+  { value: 'Australia/Sydney',    text: 'Sydney (UTC+10/+11)' },
+  { value: 'Pacific/Auckland',    text: 'New Zealand (UTC+12/+13)' },
+  { value: 'UTC',                 text: 'UTC' },
+];
 
 export default function AccountScreen() {
   const router = useRouter();
@@ -56,6 +94,9 @@ export default function AccountScreen() {
 
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const currentUser = useAppSelector((state) => state.users.currentUser);
+  const notificationSettings = useAppSelector(
+    (state) => state.users.currentUserNotificationSettings,
+  );
   const channels = useAppSelector((state) => state.channels.items);
   const usersMap = useAppSelector(selectAllUsersMapById);
   const outgoingRequests = useAppSelector((state) => state.invites.outgoing);
@@ -112,6 +153,45 @@ export default function AccountScreen() {
 
   // Status modal state
   const [statusModalOpen, setStatusModalOpen] = useState(false);
+
+  // Notification settings state
+  const notifEnabled = notificationSettings?.dailyPromptEnabled ?? true;
+  const notifHour = String(notificationSettings?.dailyPromptHour ?? 12);
+  const notifTZ = notificationSettings?.timeZone ?? getDeviceTimeZone();
+
+  const handleToggleDailyPrompt = useCallback(async () => {
+    try {
+      await dispatch(
+        saveNotificationSettings({ dailyPromptEnabled: !notifEnabled }),
+      ).unwrap();
+    } catch {
+      addToast({ type: 'error', title: 'Failed to update notification settings' });
+    }
+  }, [dispatch, notifEnabled, addToast]);
+
+  const handleChangeNotifHour = useCallback(
+    async (value: string) => {
+      try {
+        await dispatch(
+          saveNotificationSettings({ dailyPromptHour: parseInt(value, 10) }),
+        ).unwrap();
+      } catch {
+        addToast({ type: 'error', title: 'Failed to update notification time' });
+      }
+    },
+    [dispatch, addToast],
+  );
+
+  const handleChangeTimeZone = useCallback(
+    async (value: string) => {
+      try {
+        await dispatch(saveNotificationSettings({ timeZone: value })).unwrap();
+      } catch {
+        addToast({ type: 'error', title: 'Failed to update time zone' });
+      }
+    },
+    [dispatch, addToast],
+  );
 
   const handleSaveProfile = async () => {
     if (!currentUser) return;
@@ -290,6 +370,7 @@ export default function AccountScreen() {
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="my-channels">My Channels</TabsTrigger>
           <TabsTrigger value="subscribed">Subscribed</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
         </TabsList>
 
         {/* ===== ACCOUNT TAB ===== */}
@@ -523,6 +604,68 @@ export default function AccountScreen() {
             </Text>
           )}
         </TabsContent>
+
+        {/* ===== NOTIFICATIONS TAB ===== */}
+        <TabsContent value="notifications">
+          <Card style={styles.notifCard}>
+            <Text style={[styles.notifHeading, { color: theme.foreground }]}>
+              Daily Prompt
+            </Text>
+            <Text style={[styles.notifSubtext, { color: theme.mutedForeground }]}>
+              We'll send you a gentle nudge to share what's going on — no pressure,
+              just a friendly reminder that people want to hear from you. 💛
+            </Text>
+
+            {/* Enable / disable toggle */}
+            <View style={styles.notifRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.notifRowLabel, { color: theme.foreground }]}>
+                  Get reminders
+                </Text>
+                <Text style={[styles.notifRowSub, { color: theme.mutedForeground }]}>
+                  {notifEnabled ? "On — we'll remind you 💛" : 'Off'}
+                </Text>
+              </View>
+              {notificationSettings ? (
+                <Toggle checked={notifEnabled} onToggle={handleToggleDailyPrompt} />
+              ) : (
+                <Text style={{ color: theme.mutedForeground, fontSize: 13 }}>Loading…</Text>
+              )}
+            </View>
+
+            {notifEnabled && notificationSettings ? (
+              <>
+                <Separator style={{ marginVertical: 12 }} />
+
+                {/* Time picker */}
+                <View style={styles.notifField}>
+                  <Label>Notification time</Label>
+                  <Select
+                    options={HOUR_OPTIONS}
+                    value={notifHour}
+                    onChange={handleChangeNotifHour}
+                    placeholder="Pick a time"
+                  />
+                </View>
+
+                {/* Timezone picker */}
+                <View style={[styles.notifField, { marginTop: 12 }]}>
+                  <Label>Time zone</Label>
+                  <Select
+                    options={COMMON_TIMEZONES}
+                    value={notifTZ}
+                    onChange={handleChangeTimeZone}
+                    placeholder="Select your time zone"
+                  />
+                  <Text style={[styles.notifTZHint, { color: theme.mutedForeground }]}>
+                    Auto-detected from your device on first sign-in. Change it here
+                    if you prefer a different zone.
+                  </Text>
+                </View>
+              </>
+            ) : null}
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Modals */}
@@ -725,5 +868,40 @@ const styles = StyleSheet.create({
   tierToggleLabel: {
     fontSize: 11,
     fontWeight: '500',
+  },
+  notifCard: {
+    padding: 20,
+    marginBottom: 16,
+  },
+  notifHeading: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  notifSubtext: {
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 16,
+  },
+  notifRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  notifRowLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  notifRowSub: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  notifField: {
+    gap: 6,
+  },
+  notifTZHint: {
+    fontSize: 11,
+    marginTop: 4,
+    lineHeight: 16,
   },
 });

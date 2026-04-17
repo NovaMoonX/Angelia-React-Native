@@ -1,16 +1,18 @@
 import { createSlice, createSelector, type PayloadAction } from '@reduxjs/toolkit';
-import type { User, UserStatus, PostTier } from '@/models/types';
+import type { User, UserStatus, PostTier, NotificationSettings } from '@/models/types';
 import type { RootState } from '../index';
 import { resetAllState } from '../actions/globalActions';
 
 interface UsersState {
   currentUser: User | null;
   users: User[];
+  currentUserNotificationSettings: NotificationSettings | null;
 }
 
 const initialState: UsersState = {
   currentUser: null,
   users: [],
+  currentUserNotificationSettings: null,
 };
 
 const usersSlice = createSlice({
@@ -44,6 +46,20 @@ const usersSlice = createSlice({
         state.currentUser.channelTierPrefs = action.payload;
       }
     },
+    setCurrentUserNotificationSettings(
+      state,
+      action: PayloadAction<NotificationSettings | null>,
+    ) {
+      state.currentUserNotificationSettings = action.payload;
+    },
+    updateCurrentUserNotificationSettings(
+      state,
+      action: PayloadAction<Partial<NotificationSettings>>,
+    ) {
+      if (state.currentUserNotificationSettings) {
+        Object.assign(state.currentUserNotificationSettings, action.payload);
+      }
+    },
     clearUsers(state) {
       state.currentUser = null;
       state.users = [];
@@ -64,6 +80,8 @@ export const {
   updateCurrentUser,
   updateCurrentUserStatus,
   updateCurrentUserTierPrefs,
+  setCurrentUserNotificationSettings,
+  updateCurrentUserNotificationSettings,
   clearUsers,
   loadDemoUsers,
 } = usersSlice.actions;

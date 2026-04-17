@@ -4,12 +4,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { setPosts } from '@/store/slices/postsSlice';
 import { setChannels } from '@/store/slices/channelsSlice';
-import { setCurrentUser, setUsers } from '@/store/slices/usersSlice';
+import { setCurrentUser, setUsers, setCurrentUserNotificationSettings } from '@/store/slices/usersSlice';
 import {
   setIncomingRequests,
   setOutgoingRequests,
 } from '@/store/slices/invitesSlice';
 import { processPendingInvite } from '@/store/actions/inviteActions';
+import { initNotifications } from '@/store/actions/notificationActions';
 import {
   subscribeToCurrentUser,
   subscribeToChannels,
@@ -17,8 +18,10 @@ import {
   subscribeToIncomingJoinRequests,
   subscribeToOutgoingJoinRequests,
   subscribeToChannelUsers,
+  subscribeToNotificationSettings,
 } from '@/services/firebase/firestore';
-import type { Channel, ChannelJoinRequest, Post, User } from '@/models/types';
+import { requestNotificationPermission } from '@/services/notifications';
+import type { Channel, ChannelJoinRequest, NotificationSettings, Post, User } from '@/models/types';
 
 interface DataListenerWrapperProps {
   children: React.ReactNode;
@@ -36,6 +39,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const unsubsRef = useRef<Array<() => void>>([]);
   const postsUnsubRef = useRef<(() => void) | null>(null);
   const usersUnsubRef = useRef<(() => void) | null>(null);
+  const notifSettingsUnsubRef = useRef<(() => void) | null>(null);
   const pendingInviteProcessed = useRef(false);
 
   // Effect 1: Auth state — subscribe to user, channels, join requests
@@ -152,6 +156,41 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
         addToast({ type: 'error', title: 'Failed to send join request' });
       });
   }, [pendingInviteChannel, currentUser, dispatch, addToast]);
+
+  // Effect 5: Initialise notifications once user profile is ready
+  useEffect(() => {
+    if (isDemo || !firebaseUser || !currentUser) return;
+
+    requestNotificationPermission().then(() => {
+      dispatch(initNotifications());
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firebaseUser?.uid, !!currentUser, isDemo]);
+
+  // Effect 6: Subscribe to notification settings changes in Firestore
+  useEffect(() => {
+    if (isDemo || !firebaseUser) return;
+
+    const uid = firebaseUser.uid;
+
+    if (notifSettingsUnsubRef.current) {
+      notifSettingsUnsubRef.current();
+    }
+
+    notifSettingsUnsubRef.current = subscribeToNotificationSettings(
+      uid,
+      (settings: NotificationSettings | null) => {
+        dispatch(setCurrentUserNotificationSettings(settings));
+      },
+    );
+
+    return () => {
+      if (notifSettingsUnsubRef.current) {
+        notifSettingsUnsubRef.current();
+        notifSettingsUnsubRef.current = null;
+      }
+    };
+  }, [firebaseUser, isDemo, dispatch]);
 
   return <>{children}</>;
 }

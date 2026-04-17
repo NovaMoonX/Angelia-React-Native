@@ -23,7 +23,10 @@
     "ts:check": "tsc --noEmit",
     "prebuild": "expo prebuild",
     "postinstall": "npx patch-package",
-    "env:pull": "eas env:pull --environment development --output .env.development"
+    "env:pull": "eas env:pull --environment development --output .env.development",
+    "deploy:rules:firestore": "firebase deploy --only firestore:rules",
+    "deploy:rules:storage": "firebase deploy --only storage:rules",
+    "deploy:rules": "firebase deploy --only firestore:rules,storage:rules"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
