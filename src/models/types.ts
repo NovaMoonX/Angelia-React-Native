@@ -29,13 +29,24 @@ export interface User {
 
 export type NewUser = Omit<User, 'joinedAt' | 'accountProgress' | 'customChannelCount' | 'status'>;
 
+export interface FcmTokenEntry {
+  /** Stable per-device ID stored locally in AsyncStorage. */
+  deviceId: string;
+  /** FCM registration token. */
+  token: string;
+  /** Human-friendly device name from expo-device (e.g. "iPhone 15 Pro"). */
+  deviceName?: string;
+}
+
 export interface NotificationSettings {
-  fcmTokens: string[];
-  dailyPromptEnabled: boolean;
-  /** Hour of day (0–23) in the user's chosen timezone. Default: 12 (noon). */
-  dailyPromptHour: number;
-  /** Minute (0–59) within the hour. Default: 0. */
-  dailyPromptMinute: number;
+  fcmTokens: FcmTokenEntry[];
+  dailyPrompt: {
+    enabled: boolean;
+    /** Hour of day (0–23) in the user's chosen timezone. Default: 12 (noon). */
+    hour: number;
+    /** Minute (0–59) within the hour. Default: 0. */
+    minute: number;
+  };
   /** IANA timezone string, e.g. "America/New_York". Default: device timezone. */
   timeZone: string;
   /**
@@ -46,6 +57,16 @@ export interface NotificationSettings {
   autoDetectTimeZone: boolean;
 }
 export type UpdateUserProfileData = Pick<User, 'firstName' | 'lastName' | 'funFact' | 'avatar'>;
+
+/**
+ * Partial update shape for notification settings.  The `dailyPrompt` sub-object
+ * is itself partial so callers can update individual fields (e.g. just `enabled`)
+ * without supplying all three fields every time.
+ */
+export type NotificationSettingsUpdate =
+  Partial<Omit<NotificationSettings, 'fcmTokens' | 'dailyPrompt'>> & {
+    dailyPrompt?: Partial<NotificationSettings['dailyPrompt']>;
+  };
 
 export interface Channel {
   id: string;

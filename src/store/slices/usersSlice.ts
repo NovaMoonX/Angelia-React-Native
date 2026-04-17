@@ -1,5 +1,5 @@
 import { createSlice, createSelector, type PayloadAction } from '@reduxjs/toolkit';
-import type { User, UserStatus, PostTier, NotificationSettings } from '@/models/types';
+import type { User, UserStatus, PostTier, NotificationSettings, NotificationSettingsUpdate } from '@/models/types';
 import type { RootState } from '../index';
 import { resetAllState } from '../actions/globalActions';
 
@@ -54,10 +54,17 @@ const usersSlice = createSlice({
     },
     updateCurrentUserNotificationSettings(
       state,
-      action: PayloadAction<Partial<NotificationSettings>>,
+      action: PayloadAction<NotificationSettingsUpdate>,
     ) {
       if (state.currentUserNotificationSettings) {
-        Object.assign(state.currentUserNotificationSettings, action.payload);
+        const { dailyPrompt, ...rest } = action.payload;
+        Object.assign(state.currentUserNotificationSettings, rest);
+        if (dailyPrompt) {
+          state.currentUserNotificationSettings.dailyPrompt = {
+            ...state.currentUserNotificationSettings.dailyPrompt,
+            ...dailyPrompt,
+          };
+        }
       }
     },
     clearUsers(state) {

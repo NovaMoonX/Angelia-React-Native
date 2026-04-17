@@ -1,12 +1,17 @@
 import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMessaging, requestPermission, getToken, deleteToken, AuthorizationStatus } from '@react-native-firebase/messaging';
 import { Platform } from 'react-native';
-import type { NotificationSettings } from '@/models/types';
+import type { FcmTokenEntry, NotificationSettings } from '@/models/types';
+import { generateId } from '@/utils/generateId';
 
 // ---- Constants ----
 
 const CHANNEL_ID = 'daily-prompt';
 export const NOTIFICATION_ID = 'daily-prompt';
+
+const DEVICE_ID_KEY = '@angelia/device_id';
 
 // Each prompt has a notification body and a set of follow-up messages shown
 // when the user taps the notification to open the post creation screen.
@@ -80,6 +85,35 @@ export function getDeviceTimeZone(): string {
   } catch {
     return 'UTC';
   }
+}
+
+// ---- Device identity ----
+
+/**
+ * Returns a stable per-device ID, creating and persisting one via AsyncStorage
+ * on first call.  This ID is used to uniquely identify the device's FCM token
+ * entry in Firestore so updates replace rather than accumulate.
+ */
+export async function getOrCreateDeviceId(): Promise<string> {
+  try {
+    const existing = await AsyncStorage.getItem(DEVICE_ID_KEY);
+    if (existing) return existing;
+    const id = generateId('nano');
+    await AsyncStorage.setItem(DEVICE_ID_KEY, id);
+    return id;
+  } catch {
+    // If AsyncStorage is unavailable return a session-only ID — the token will
+    // be treated as a new device on every login which is better than failing.
+    return generateId('nano');
+  }
+}
+
+/**
+ * Returns a human-friendly device name using expo-device (e.g. "iPhone 15 Pro").
+ * Falls back to the model name or a generic string if unavailable.
+ */
+export function getDeviceName(): string {
+  return Device.deviceName ?? Device.modelName ?? 'Unknown Device';
 }
 
 /**
@@ -156,7 +190,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
 // ---- FCM token ----
 
 /**
- * Returns the current FCM registration token, or null if unavailable.
+ * Returns the current FCM registration token string, or null if unavailable.
  */
 export async function getFcmToken(): Promise<string | null> {
   try {
@@ -169,14 +203,18 @@ export async function getFcmToken(): Promise<string | null> {
 
 /**
  * Invalidates the existing FCM registration token for this device and requests
- * a fresh one.  Call this on every sign-in so each session uses a known-good
- * token.  Returns the new token, or null if the operation fails.
+ * a fresh one.  Attaches the stable device ID and a human-friendly device name
+ * so the Firestore entry can be keyed by device rather than by token value.
+ * Returns the full FcmTokenEntry, or null if the operation fails.
  */
-export async function refreshFcmToken(): Promise<string | null> {
+export async function refreshFcmToken(): Promise<FcmTokenEntry | null> {
   try {
     await deleteToken(getMessaging());
     const token = await getToken(getMessaging());
-    return token || null;
+    if (!token) return null;
+    const deviceId = await getOrCreateDeviceId();
+    const deviceName = getDeviceName();
+    return { deviceId, token, deviceName };
   } catch {
     return null;
   }
@@ -216,7 +254,7 @@ async function ensureAndroidChannel(): Promise<void> {
 export async function scheduleDailyPrompt(settings: NotificationSettings): Promise<void> {
   await cancelDailyPrompt();
 
-  if (!settings.dailyPromptEnabled) return;
+  if (!settings.dailyPrompt.enabled) return;
 
   await ensureAndroidChannel();
 
@@ -234,8 +272,8 @@ export async function scheduleDailyPrompt(settings: NotificationSettings): Promi
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour: settings.dailyPromptHour,
-      minute: settings.dailyPromptMinute ?? 0,
+      hour: settings.dailyPrompt.hour,
+      minute: settings.dailyPrompt.minute ?? 0,
       ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
     },
   });

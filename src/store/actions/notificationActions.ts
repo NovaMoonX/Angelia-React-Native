@@ -3,12 +3,12 @@ import {
   getNotificationSettings,
   initNotificationSettings,
   updateNotificationSettings as firestoreUpdateNotificationSettings,
-  addFcmToken as firestoreAddFcmToken,
+  upsertFcmToken,
   removeFcmToken as firestoreRemoveFcmToken,
 } from '@/services/firebase/firestore';
 import {
   refreshFcmToken,
-  getFcmToken,
+  getOrCreateDeviceId,
   deleteLocalFcmToken,
   getDeviceTimeZone,
   scheduleDailyPrompt,
@@ -19,17 +19,22 @@ import {
   updateCurrentUserNotificationSettings,
 } from '@/store/slices/usersSlice';
 import { retryWithBackoff } from '@/utils/retryWithBackoff';
-import type { NotificationSettings } from '@/models/types';
+import type { NotificationSettings, NotificationSettingsUpdate } from '@/models/types';
 import type { RootState } from '@/store';
 import { isDemoActive } from './globalActions';
 
 /**
  * Loads the user's notification settings from Firestore (creating defaults on
  * first run), regenerates the device FCM token, and schedules the daily local
- * notification.  Call this once after the user signs in.
+ * notification.  Call this on every sign-in or app launch.
  *
- * FCM token registration uses retryWithBackoff so transient network failures
- * during login do not silently drop the device from the token list.
+ * - Always reschedules local notifications so they survive app reinstalls or
+ *   OS clearing.
+ * - Creates notification settings with default values if they are missing.
+ * - Updates only the token entry for this specific device (keyed by deviceId)
+ *   to prevent token accumulation across repeated logins.
+ * - FCM token registration uses retryWithBackoff for transient network failures
+ *   and is fire-and-forget so it never blocks the settings UI.
  */
 export const initNotifications = createAsyncThunk(
   'notifications/init',
@@ -59,19 +64,21 @@ export const initNotifications = createAsyncThunk(
 
       dispatch(setCurrentUserNotificationSettings(settings));
 
-      // Schedule (or cancel) the daily local notification immediately so the
-      // UI is fully functional even if FCM token operations stall below.
+      // Always (re-)schedule the daily local notification on every login/launch
+      // so notifications survive app reinstalls or OS-level clearing.  The
+      // notification identifier is stable so calling this multiple times is safe.
       await scheduleDailyPrompt(settings);
 
       // Regenerate the FCM token on every login so we always have a fresh,
-      // device-specific token registered.  This runs after settings are loaded
-      // and scheduled so a hanging FCM call (e.g. on a simulator) never blocks
-      // the settings UI.  Wrap in retryWithBackoff for transient network
-      // failures, and catch all errors so the thunk always fulfils.
+      // device-specific token registered.  Keying by deviceId means this call
+      // updates the existing entry for this device rather than appending a new
+      // token each time, which was causing unbounded token growth.
+      // Wrapped in retryWithBackoff for transient network failures, and caught
+      // so the thunk always fulfils even when FCM is unavailable (e.g. simulators).
       try {
-        const token = await retryWithBackoff(() => refreshFcmToken());
-        if (token) {
-          await firestoreAddFcmToken(user.id, token);
+        const entry = await retryWithBackoff(() => refreshFcmToken());
+        if (entry) {
+          await upsertFcmToken(user.id, entry);
         }
       } catch {
         // FCM token registration is best-effort; failure should not block the
@@ -92,7 +99,7 @@ export const initNotifications = createAsyncThunk(
 export const saveNotificationSettings = createAsyncThunk(
   'notifications/saveSettings',
   async (
-    data: Partial<Omit<NotificationSettings, 'fcmTokens'>>,
+    data: NotificationSettingsUpdate,
     { getState, dispatch, rejectWithValue },
   ) => {
     const state = getState() as RootState;
@@ -105,7 +112,16 @@ export const saveNotificationSettings = createAsyncThunk(
     // Optimistically update Redux first so the UI reflects the change immediately
     dispatch(updateCurrentUserNotificationSettings(data));
 
-    const updated: NotificationSettings = { ...current, ...data };
+    // Deep-merge dailyPrompt so a partial { dailyPrompt: { enabled } } update
+    // doesn't lose the stored hour/minute values.
+    const mergedDailyPrompt: NotificationSettings['dailyPrompt'] = data.dailyPrompt
+      ? { ...current.dailyPrompt, ...data.dailyPrompt }
+      : current.dailyPrompt;
+    const updated: NotificationSettings = {
+      ...current,
+      ...data,
+      dailyPrompt: mergedDailyPrompt,
+    };
 
     if (isDemoActive(getState)) {
       await scheduleDailyPrompt(updated);
@@ -117,15 +133,15 @@ export const saveNotificationSettings = createAsyncThunk(
       await scheduleDailyPrompt(updated);
       return updated;
     } catch (err) {
-      // Roll back the optimistic update on failure
-      dispatch(updateCurrentUserNotificationSettings(current));
+      // Roll back the optimistic update on failure by restoring the full settings
+      dispatch(setCurrentUserNotificationSettings(current));
       return rejectWithValue(err instanceof Error ? err.message : err);
     }
   },
 );
 
 /**
- * Removes the current device's FCM token from Firestore, invalidates it
+ * Removes the current device's FCM token entry from Firestore, invalidates it
  * locally, and cancels the daily local notification.  Call this on sign-out.
  */
 export const cleanUpNotifications = createAsyncThunk(
@@ -138,11 +154,9 @@ export const cleanUpNotifications = createAsyncThunk(
     if (!user) return null;
 
     try {
-      const token = await getFcmToken();
-      if (token) {
-        // Remove from Firestore first so the token is no longer reachable
-        await firestoreRemoveFcmToken(user.id, token);
-      }
+      const deviceId = await getOrCreateDeviceId();
+      // Remove this device's entry from Firestore so the backend can skip it
+      await firestoreRemoveFcmToken(user.id, deviceId);
       // Invalidate the local token so a fresh one is issued on next sign-in
       await deleteLocalFcmToken();
       await cancelDailyPrompt();
