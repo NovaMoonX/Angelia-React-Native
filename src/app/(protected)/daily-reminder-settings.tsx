@@ -48,6 +48,8 @@ export default function DailyReminderSettingsScreen() {
 
   const handleChangeNotifHour = useCallback(
     async (value: string) => {
+      if (value === notifHour) return; // No change
+
       try {
         await dispatch(
           saveNotificationSettings({ dailyPromptHour: parseInt(value, 10) }),
@@ -56,18 +58,20 @@ export default function DailyReminderSettingsScreen() {
         addToast({ type: 'error', title: 'Failed to update reminder time' });
       }
     },
-    [dispatch, addToast],
+    [dispatch, addToast, notifHour],
   );
 
   const handleChangeTimeZone = useCallback(
     async (value: string) => {
+      if (value === notifTZ) return; // No change
+
       try {
         await dispatch(saveNotificationSettings({ timeZone: value })).unwrap();
       } catch {
         addToast({ type: 'error', title: 'Failed to update time zone' });
       }
     },
-    [dispatch, addToast],
+    [dispatch, addToast, notifTZ],
   );
 
   const selectedHourText =
