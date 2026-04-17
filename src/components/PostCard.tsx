@@ -6,7 +6,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { Carousel } from '@/components/ui/Carousel';
-import { NowStatusBadge } from '@/components/NowStatusBadge';
+import { isStatusActive } from '@/components/NowStatusBadge';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { useAppSelector } from '@/store/hooks';
 import {
@@ -90,7 +90,11 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
           <Pressable
             onPress={isOtherUser ? () => setProfileModalOpen(true) : undefined}
           >
-            <Avatar preset={author?.avatar || 'moon'} size="sm" />
+            <Avatar
+              preset={author?.avatar || 'moon'}
+              size="sm"
+              statusEmoji={isStatusActive(author?.status) ? author?.status?.emoji : undefined}
+            />
           </Pressable>
           <View style={styles.headerText}>
             <Text style={[styles.authorName, { color: theme.foreground }]}>
@@ -100,7 +104,6 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
               <Text style={[styles.time, { color: theme.mutedForeground }]}>
                 {getRelativeTime(post.timestamp)}
               </Text>
-              <NowStatusBadge status={author?.status} />
             </View>
           </View>
           {channel && (

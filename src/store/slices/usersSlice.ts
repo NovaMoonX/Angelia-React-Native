@@ -31,6 +31,12 @@ const usersSlice = createSlice({
     updateCurrentUserStatus(state, action: PayloadAction<UserStatus | null>) {
       if (state.currentUser) {
         state.currentUser.status = action.payload;
+        // Also update the matching entry in the users array so selectors
+        // like selectPostAuthor see the new status.
+        const idx = state.users.findIndex((u) => u.id === state.currentUser!.id);
+        if (idx !== -1) {
+          state.users[idx].status = action.payload;
+        }
       }
     },
     clearUsers(state) {

@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from 'react';
 import {
-  KeyboardAvoidingView,
   Modal,
   Pressable,
   ScrollView,
@@ -13,7 +12,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { EmojiPicker } from '@/components/EmojiPicker';
-import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import type { UserStatus } from '@/models/types';
 
 interface NowStatusModalProps {
@@ -140,7 +138,6 @@ export function NowStatusModal({
         animationType="slide"
         onRequestClose={handleClose}
       >
-        <KeyboardAvoidingView style={styles.flex} behavior={KEYBOARD_BEHAVIOR}>
           <Pressable style={styles.backdrop} onPress={handleClose}>
             <View
               style={[
@@ -383,7 +380,6 @@ export function NowStatusModal({
               </ScrollView>
             </View>
           </Pressable>
-        </KeyboardAvoidingView>
       </Modal>
 
       {/* Emoji picker overlay */}
@@ -397,7 +393,6 @@ export function NowStatusModal({
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

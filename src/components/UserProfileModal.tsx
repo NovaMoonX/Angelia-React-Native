@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/Avatar';
-import { NowStatusBadge, isStatusActive } from '@/components/NowStatusBadge';
+import { isStatusActive } from '@/components/NowStatusBadge';
 import { useTheme } from '@/hooks/useTheme';
 import { getRelativeTime } from '@/lib/timeUtils';
 import type { User } from '@/models/types';
@@ -88,12 +88,12 @@ export function UserProfileModal({ visible, onClose, user }: UserProfileModalPro
             {/* Status — prominent section */}
             {hasActiveStatus && (
               <View
-                style={[styles.statusCard, { backgroundColor: theme.secondary }]}
+                style={[styles.statusCard, { borderColor: theme.border }]}
               >
                 <Text style={styles.statusEmoji}>{user.status?.emoji}</Text>
                 <View style={styles.statusContent}>
                   <Text
-                    style={[styles.statusText, { color: theme.secondaryForeground }]}
+                    style={[styles.statusText, { color: theme.foreground }]}
                   >
                     {user.status?.text}
                   </Text>
@@ -182,6 +182,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     width: '100%',
     borderRadius: 14,
+    borderWidth: 1,
     padding: 14,
     gap: 12,
   },

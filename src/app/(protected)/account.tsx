@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -21,7 +20,6 @@ import { Textarea } from '@/components/ui/Textarea';
 import { ChannelCard } from '@/components/ChannelCard';
 import { ChannelFormModal } from '@/components/ChannelFormModal';
 import { ChannelModal } from '@/components/ChannelModal';
-import { NowStatusBadge } from '@/components/NowStatusBadge';
 import { NowStatusModal } from '@/components/NowStatusModal';
 
 import { useAuth } from '@/hooks/useAuth';
@@ -289,10 +287,6 @@ export default function AccountScreen() {
                   💡 {currentUser.funFact}
                 </Text>
               ) : null}
-              <NowStatusBadge
-                status={currentUser.status}
-                style={{ marginTop: 6 }}
-              />
             </View>
 
             {/* Set / Edit Status */}
@@ -300,7 +294,6 @@ export default function AccountScreen() {
               onPress={() => setStatusModalOpen(true)}
               style={[styles.statusButton, { borderColor: theme.border }]}
             >
-              <Feather name="smile" size={15} color={theme.mutedForeground} />
               <Text style={[styles.statusButtonText, { color: theme.foreground }]}>
                 {currentUser.status && Date.now() < currentUser.status.expiresAt
                   ? `${currentUser.status.emoji} ${currentUser.status.text}`
@@ -577,7 +570,6 @@ const styles = StyleSheet.create({
   statusButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,

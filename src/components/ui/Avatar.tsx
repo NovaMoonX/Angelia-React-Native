@@ -7,6 +7,8 @@ interface AvatarProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   shape?: 'circle' | 'square';
   style?: ViewStyle;
+  /** When provided, renders a small emoji badge at the bottom-right of the avatar. */
+  statusEmoji?: string;
 }
 
 const SIZE_MAP = {
@@ -15,6 +17,8 @@ const SIZE_MAP = {
   lg: 64,
   xl: 96,
 };
+
+const BADGE_SCALE = 0.45;
 
 const PRESET_EMOJIS: Record<AvatarPreset, string> = {
   astronaut: '🧑‍🚀',
@@ -46,31 +50,58 @@ const PRESET_COLORS: Record<AvatarPreset, string> = {
   twilight: '#F43F5E',
 };
 
-export function Avatar({ preset, size = 'md', shape = 'circle', style }: AvatarProps) {
+export function Avatar({ preset, size = 'md', shape = 'circle', style, statusEmoji }: AvatarProps) {
   const dimension = SIZE_MAP[size];
   const borderRadius = shape === 'circle' ? dimension / 2 : 8;
   const fontSize = dimension * 0.5;
+  const badgeSize = Math.round(dimension * BADGE_SCALE);
+  const badgeFontSize = Math.round(badgeSize * 0.7);
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          width: dimension,
-          height: dimension,
-          borderRadius,
-          backgroundColor: PRESET_COLORS[preset] || '#6366F1',
-        },
-        style,
-      ]}
-    >
-      <Text style={{ fontSize }}>{PRESET_EMOJIS[preset] || '🌙'}</Text>
+    <View style={[{ width: dimension, height: dimension }, style]}>
+      <View
+        style={[
+          styles.container,
+          {
+            width: dimension,
+            height: dimension,
+            borderRadius,
+            backgroundColor: PRESET_COLORS[preset] || '#6366F1',
+          },
+        ]}
+      >
+        <Text style={{ fontSize }}>{PRESET_EMOJIS[preset] || '🌙'}</Text>
+      </View>
+      {statusEmoji ? (
+        <View
+          style={[
+            styles.badge,
+            {
+              width: badgeSize,
+              height: badgeSize,
+              borderRadius: badgeSize / 2,
+            },
+          ]}
+        >
+          <Text style={{ fontSize: badgeFontSize, lineHeight: badgeSize }}>{statusEmoji}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#e5e7eb',
     alignItems: 'center',
     justifyContent: 'center',
   },

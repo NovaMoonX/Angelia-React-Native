@@ -17,7 +17,7 @@ import { Select } from '@/components/ui/Select';
 import { BellIcon } from '@/components/BellIcon';
 import { PostCard } from '@/components/PostCard';
 import { SkeletonPostCard } from '@/components/SkeletonPostCard';
-import { NowStatusBadge } from '@/components/NowStatusBadge';
+import { isStatusActive } from '@/components/NowStatusBadge';
 import { NowStatusModal } from '@/components/NowStatusModal';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { saveStatus, clearStatus } from '@/store/actions/userActions';
@@ -242,6 +242,7 @@ export default function FeedScreen() {
               <Avatar
                 preset={currentUser?.avatar || 'moon'}
                 size="sm"
+                statusEmoji={isStatusActive(currentUser?.status) ? currentUser?.status?.emoji : undefined}
               />
             </Pressable>
           </View>
@@ -249,7 +250,6 @@ export default function FeedScreen() {
             <Text style={[styles.headerTitle, { color: theme.foreground }]}>
               Angelia
             </Text>
-            <NowStatusBadge status={currentUser?.status} />
           </View>
           <View style={[styles.headerSide, styles.headerSideRight]}>
             <Pressable onPress={() => router.push('/(protected)/notifications')}>

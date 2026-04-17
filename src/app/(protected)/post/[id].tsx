@@ -23,7 +23,7 @@ import { Input } from '@/components/ui/Input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { ChatMessage } from '@/components/ChatMessage';
 import { ReactionDisplay } from '@/components/ReactionDisplay';
-import { NowStatusBadge } from '@/components/NowStatusBadge';
+import { isStatusActive } from '@/components/NowStatusBadge';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
@@ -302,7 +302,11 @@ export default function PostDetailScreen() {
               : undefined
           }
         >
-          <Avatar preset={author?.avatar || 'moon'} size="md" />
+          <Avatar
+            preset={author?.avatar || 'moon'}
+            size="md"
+            statusEmoji={isStatusActive(author?.status) ? author?.status?.emoji : undefined}
+          />
         </Pressable>
         <View style={styles.headerText}>
           <Text style={[styles.authorName, { color: theme.foreground }]}>
@@ -312,7 +316,6 @@ export default function PostDetailScreen() {
             <Text style={[styles.timestamp, { color: theme.mutedForeground }]}>
               {getRelativeTime(post.timestamp)}
             </Text>
-            <NowStatusBadge status={author?.status} />
           </View>
         </View>
         {channel && (
