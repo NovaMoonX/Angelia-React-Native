@@ -4,6 +4,7 @@ import {
   createJoinRequest as firestoreCreateJoinRequest,
 } from '@/services/firebase/firestore';
 import { updateJoinRequest } from '@/store/slices/invitesSlice';
+import { clearPendingInvite } from '@/store/slices/pendingInviteSlice';
 import type { RootState } from '@/store';
 import type { ChannelJoinRequest } from '@/models/types';
 import { isDemoActive } from './globalActions';
@@ -72,6 +73,35 @@ export const sendJoinRequest = createAsyncThunk(
         message.trim(),
       );
       return { channelId, message: message.trim() };
+    } catch (err) {
+      return rejectWithValue(err instanceof Error ? err.message : err);
+    }
+  },
+);
+
+// ── Process a pending invite stored before auth ────────────────────────────
+
+export const processPendingInvite = createAsyncThunk(
+  'invites/processPending',
+  async (_, { getState, dispatch, rejectWithValue }) => {
+    const state = getState() as RootState;
+    const channel = state.pendingInvite.channel;
+    const user = state.users.currentUser;
+
+    if (!channel || !user) return null;
+
+    try {
+      const result = await dispatch(
+        sendJoinRequest({
+          channelId: channel.id,
+          inviteCode: channel.inviteCode || '',
+          channelOwnerId: channel.ownerId,
+          message: '',
+        }),
+      ).unwrap();
+
+      dispatch(clearPendingInvite());
+      return result;
     } catch (err) {
       return rejectWithValue(err instanceof Error ? err.message : err);
     }

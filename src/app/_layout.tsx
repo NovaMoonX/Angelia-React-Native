@@ -38,6 +38,14 @@ function NavigationLayout() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="join-channel"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="scan-qr"
+          options={{ headerShown: false, animation: 'slide_from_bottom' }}
+        />
+        <Stack.Screen
           name="(protected)"
           options={{ headerShown: false }}
         />
