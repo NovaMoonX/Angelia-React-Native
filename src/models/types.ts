@@ -65,6 +65,8 @@ export type NewChannel = Omit<Channel, 'id' | 'isDaily' | 'inviteCode' | 'create
 export interface MediaItem {
   type: 'image' | 'video';
   url: string;
+  /** For videos: Firebase Storage download URL of the thumbnail image. */
+  thumbnailUrl?: string;
 }
 
 export interface Reaction {

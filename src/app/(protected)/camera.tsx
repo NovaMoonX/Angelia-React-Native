@@ -1,6 +1,7 @@
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
   StyleSheet,
   Text,
@@ -19,6 +20,7 @@ import type { CameraPosition, PhotoFile, VideoFile } from 'react-native-vision-c
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 import { generateId } from '@/utils/generateId';
 import { compressImage } from '@/utils/compressImage';
+import { generateVideoThumbnailFileUri } from '@/utils/generateVideoThumbnail';
 import { useToast } from '@/hooks/useToast';
 import { MAX_FILES } from '@/models/constants';
 
@@ -48,6 +50,9 @@ export default function CameraScreen() {
   const [capturedPhotos, setCapturedPhotos] = useState<MediaFile[]>([]);
   const camera = useRef<Camera>(null);
   const { addToast } = useToast();
+
+  // Shutter flash overlay animation
+  const shutterFlash = useRef(new Animated.Value(0)).current;
 
   const { hasPermission: hasCameraPermission, requestPermission: requestCamera } =
     useCameraPermission();
@@ -110,6 +115,13 @@ export default function CameraScreen() {
     try {
       const photo: PhotoFile = await camera.current.takePhoto({ flash });
       const rawUri = `file://${photo.path}`;
+
+      // Shutter flash feedback
+      Animated.sequence([
+        Animated.timing(shutterFlash, { toValue: 1, duration: 60, useNativeDriver: true }),
+        Animated.timing(shutterFlash, { toValue: 0, duration: 160, useNativeDriver: true }),
+      ]).start();
+
       const compressedUri = await compressImage(rawUri, 'image/jpeg');
       const file: MediaFile = { uri: compressedUri, name: `photo-${generateId()}.jpg`, type: 'image/jpeg' };
       const newCount = totalCount + 1;
@@ -131,20 +143,22 @@ export default function CameraScreen() {
     setRecording(true);
     camera.current.startRecording({
       flash: flash === 'on' ? 'on' : 'off',
-      onRecordingFinished: (video: VideoFile) => {
+      onRecordingFinished: async (video: VideoFile) => {
         setRecording(false);
-        setVideoMode(false);
         const uri = `file://${video.path}`;
-        const file: MediaFile = { uri, name: `video-${generateId()}.mp4`, type: 'video/mp4' };
-        const allMedia = [...existingMedia, file].slice(0, MAX_FILES);
-        router.replace({
-          pathname: '/(protected)/post/new',
-          params: {
-            capturedMedia: JSON.stringify(allMedia),
-            existingText: params.existingText,
-            existingChannel: params.existingChannel,
-          },
-        });
+        const thumbnailUri = (await generateVideoThumbnailFileUri(uri)) ?? undefined;
+        const file: MediaFile = {
+          uri,
+          name: `video-${generateId()}.mp4`,
+          type: 'video/mp4',
+          thumbnailUri,
+        };
+        const newCount = totalCount + 1;
+        if (newCount >= MAX_FILES) {
+          confirmCaptures(file);
+        } else {
+          setCapturedPhotos((prev) => [...prev, file]);
+        }
       },
       onRecordingError: () => {
         setRecording(false);
@@ -306,8 +320,14 @@ export default function CameraScreen() {
         </View>
       )}
 
-      {/* Captured photos bar (photo mode) */}
-      {!videoMode && capturedPhotos.length > 0 && (
+      {/* Shutter flash overlay */}
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.shutterFlashOverlay, { opacity: shutterFlash }]}
+      />
+
+      {/* Captured media bar — visible in photo and video mode when there are captures */}
+      {capturedPhotos.length > 0 && !recording && (
         <View style={[styles.captureBar, { bottom: insets.bottom + 150 }]}>
           <Text style={styles.captureCount}>
             {totalCount}/{MAX_FILES} captured
@@ -487,6 +507,11 @@ const styles = StyleSheet.create({
   },
   shutterDisabled: {
     opacity: 0.35,
+  },
+  shutterFlashOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#FFF',
+    zIndex: 20,
   },
   captureBar: {
     position: 'absolute',

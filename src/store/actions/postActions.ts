@@ -105,11 +105,32 @@ export const uploadPost = createAsyncThunk(
         throw new Error('Failed to upload all media files');
       }
 
-      // 3. Update post with media and status 'ready'
-      const readyMedia: MediaItem[] = uploadedUrls.map((url, i) => ({
-        url,
-        type: media[i].type.startsWith('image') ? ('image' as const) : ('video' as const),
-      }));
+      // 3. Upload video thumbnails (best-effort, non-blocking if failed)
+      const thumbnailUrls: (string | null)[] = await Promise.all(
+        media.map(async (file, i) => {
+          if (file.type.startsWith('video/') && file.thumbnailUri) {
+            try {
+              const thumbName = `${file.name}_thumb.jpg`;
+              return await uploadPostMedia(postId, file.thumbnailUri, thumbName, 'image/jpeg');
+            } catch {
+              return null;
+            }
+          }
+          return null;
+        })
+      );
+
+      // 4. Update post with media and status 'ready'
+      const readyMedia: MediaItem[] = uploadedUrls.map((url, i) => {
+        const item: MediaItem = {
+          url,
+          type: media[i].type.startsWith('image') ? ('image' as const) : ('video' as const),
+        };
+        if (thumbnailUrls[i]) {
+          item.thumbnailUrl = thumbnailUrls[i]!;
+        }
+        return item;
+      });
 
       await updatePost(postId, {
         media: readyMedia,

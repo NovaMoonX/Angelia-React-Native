@@ -1,9 +1,16 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Feather } from '@expo/vector-icons';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  clamp,
+} from 'react-native-reanimated';
 
 interface MediaViewerModalProps {
   /** URI or URL of the media to display */
@@ -29,8 +36,98 @@ function VideoPlayer({ uri }: { uri: string }) {
   );
 }
 
+const MIN_SCALE = 1;
+const MAX_SCALE = 5;
+
+function ZoomableImage({ uri, visible }: { uri: string; visible: boolean }) {
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const savedTranslateX = useSharedValue(0);
+  const savedTranslateY = useSharedValue(0);
+
+  // Reset zoom when modal opens or closes
+  useEffect(() => {
+    if (!visible) {
+      scale.value = 1;
+      savedScale.value = 1;
+      translateX.value = 0;
+      translateY.value = 0;
+      savedTranslateX.value = 0;
+      savedTranslateY.value = 0;
+    }
+  }, [visible, scale, savedScale, translateX, translateY, savedTranslateX, savedTranslateY]);
+
+  const pinchGesture = Gesture.Pinch()
+    .onUpdate((e) => {
+      'worklet';
+      scale.value = clamp(savedScale.value * e.scale, MIN_SCALE, MAX_SCALE);
+    })
+    .onEnd(() => {
+      'worklet';
+      savedScale.value = scale.value;
+      if (scale.value <= MIN_SCALE) {
+        scale.value = withSpring(MIN_SCALE);
+        savedScale.value = MIN_SCALE;
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+      }
+    });
+
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      'worklet';
+      if (scale.value > 1) {
+        translateX.value = savedTranslateX.value + e.translationX;
+        translateY.value = savedTranslateY.value + e.translationY;
+      }
+    })
+    .onEnd(() => {
+      'worklet';
+      if (scale.value > 1) {
+        savedTranslateX.value = translateX.value;
+        savedTranslateY.value = translateY.value;
+      }
+    });
+
+  const doubleTapGesture = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd(() => {
+      'worklet';
+      scale.value = withSpring(MIN_SCALE);
+      savedScale.value = MIN_SCALE;
+      translateX.value = withSpring(0);
+      translateY.value = withSpring(0);
+      savedTranslateX.value = 0;
+      savedTranslateY.value = 0;
+    });
+
+  const composed = Gesture.Simultaneous(pinchGesture, panGesture);
+  const gesture = Gesture.Race(doubleTapGesture, composed);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: scale.value },
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+    ],
+  }));
+
+  return (
+    <GestureDetector gesture={gesture}>
+      <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]}>
+        <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="contain" />
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
 /**
  * Full-screen modal viewer for images and videos.
+ * Images support pinch-to-zoom and double-tap to reset.
  * For videos, native playback controls are shown.
  */
 export function MediaViewerModal({
@@ -61,11 +158,7 @@ export function MediaViewerModal({
         {mediaType === 'video' ? (
           visible ? <VideoPlayer uri={uri} /> : null
         ) : (
-          <Image
-            source={{ uri }}
-            style={styles.image}
-            contentFit="contain"
-          />
+          <ZoomableImage uri={uri} visible={visible} />
         )}
       </View>
     </Modal>
@@ -89,9 +182,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
-  },
-  image: {
-    width: '100%',
-    height: '100%',
   },
 });

@@ -25,6 +25,8 @@ const REVEAL_DELAY_MS = 600;
 const MAX_UPLOAD_DISPLAY_MS = 6000;
 // How long to show the background message before navigating to feed
 const BACKGROUND_MESSAGE_DURATION_MS = 1500;
+// Minimum time to show the success screen so users always see the confirmation
+const MIN_SUCCESS_DISPLAY_MS = 1200;
 
 type UploadPhase =
   | 'pending'   // < REVEAL_DELAY_MS – nothing visible
@@ -140,6 +142,8 @@ export default function PostUploadingScreen() {
     if (uploadStartedRef.current) return;
     uploadStartedRef.current = true;
 
+    const uploadStartTime = Date.now();
+
     const media: MediaFile[] = params.mediaJson ? (() => {
       try { return JSON.parse(params.mediaJson) as MediaFile[]; } catch { return []; }
     })() : [];
@@ -195,16 +199,21 @@ export default function PostUploadingScreen() {
           return;
         }
 
-        // Still on uploading screen
+        // Calculate remaining time needed to meet minimum display
+        const elapsed = Date.now() - uploadStartTime;
+        const remaining = Math.max(0, MIN_SUCCESS_DISPLAY_MS - elapsed);
+
         if (phaseRef.current === 'pending') {
-          // Completed before reveal threshold — skip the screen entirely
+          // Upload completed before the reveal threshold — still show the
+          // success screen so users always get confirmation of their post.
           clearTimeout(revealTimer);
-          navigateToFeed();
+          runReveal();
+          runSuccessAnimation(Math.max(remaining, 900), () => navigateToFeed());
           return;
         }
 
         // Show success, then navigate
-        runSuccessAnimation(900, () => navigateToFeed());
+        runSuccessAnimation(Math.max(remaining, 900), () => navigateToFeed());
       })
       .catch((err: unknown) => {
         clearTimeout(revealTimer);

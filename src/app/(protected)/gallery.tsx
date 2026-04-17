@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   FlatList,
-  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -10,12 +9,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { MAX_FILES, MAX_FILE_SIZE_MB } from '@/models/constants';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 import { compressImage } from '@/utils/compressImage';
+import { generateVideoThumbnailFileUri } from '@/utils/generateVideoThumbnail';
 
 export default function GalleryScreen() {
   const router = useRouter();
@@ -82,12 +83,17 @@ export default function GalleryScreen() {
         size: asset.fileSize,
       }));
 
-    // Compress images (videos are skipped by compressImage)
+    // Compress images and generate thumbnails for videos
     const files: MediaFile[] = await Promise.all(
-      rawFiles.map(async (f) => ({
-        ...f,
-        uri: await compressImage(f.uri, f.type),
-      }))
+      rawFiles.map(async (f) => {
+        if (f.type.startsWith('video/')) {
+          return {
+            ...f,
+            thumbnailUri: (await generateVideoThumbnailFileUri(f.uri)) ?? undefined,
+          };
+        }
+        return { ...f, uri: await compressImage(f.uri, f.type) };
+      })
     );
 
     if (rejected.length > 0) {
@@ -167,7 +173,18 @@ export default function GalleryScreen() {
           contentContainerStyle={styles.grid}
           renderItem={({ item, index }) => (
             <View style={styles.gridItem}>
-              <Image source={{ uri: item.uri }} style={styles.gridImage} />
+              {item.type.startsWith('video/') ? (
+                <View style={[styles.gridImage, styles.videoGridItem]}>
+                  {item.thumbnailUri ? (
+                    <Image source={{ uri: item.thumbnailUri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+                  ) : null}
+                  <View style={styles.videoGridOverlay}>
+                    <Feather name="play-circle" size={24} color="#FFF" />
+                  </View>
+                </View>
+              ) : (
+                <Image source={{ uri: item.uri }} style={styles.gridImage} contentFit="cover" />
+              )}
               <Pressable
                 style={styles.removeButton}
                 onPress={() => removeFile(index)}
@@ -251,6 +268,16 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 6,
+  },
+  videoGridItem: {
+    backgroundColor: '#1a1a1a',
+    overflow: 'hidden',
+  },
+  videoGridOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
   removeButton: {
     position: 'absolute',
