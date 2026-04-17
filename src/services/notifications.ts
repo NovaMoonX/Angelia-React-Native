@@ -1,5 +1,5 @@
 import * as Notifications from 'expo-notifications';
-import messaging from '@react-native-firebase/messaging';
+import { getMessaging, requestPermission, getToken, deleteToken, AuthorizationStatus } from '@react-native-firebase/messaging';
 import { Platform } from 'react-native';
 import type { NotificationSettings } from '@/models/types';
 
@@ -140,10 +140,10 @@ function getLocalHour(utcMs: number, timeZone: string): number {
  * Returns true when the user grants permission.
  */
 export async function requestNotificationPermission(): Promise<boolean> {
-  const authStatus = await messaging().requestPermission();
+  const authStatus = await requestPermission(getMessaging());
   const fcmGranted =
-    authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-    authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+    authStatus === AuthorizationStatus.AUTHORIZED ||
+    authStatus === AuthorizationStatus.PROVISIONAL;
 
   const permResponse = await Notifications.requestPermissionsAsync();
   const localGranted =
@@ -160,7 +160,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
  */
 export async function getFcmToken(): Promise<string | null> {
   try {
-    const token = await messaging().getToken();
+    const token = await getToken(getMessaging());
     return token || null;
   } catch {
     return null;
@@ -174,8 +174,8 @@ export async function getFcmToken(): Promise<string | null> {
  */
 export async function refreshFcmToken(): Promise<string | null> {
   try {
-    await messaging().deleteToken();
-    const token = await messaging().getToken();
+    await deleteToken(getMessaging());
+    const token = await getToken(getMessaging());
     return token || null;
   } catch {
     return null;
@@ -188,7 +188,7 @@ export async function refreshFcmToken(): Promise<string | null> {
  */
 export async function deleteLocalFcmToken(): Promise<void> {
   try {
-    await messaging().deleteToken();
+    await deleteToken(getMessaging());
   } catch {
     // Best-effort — failure here should not block sign-out
   }

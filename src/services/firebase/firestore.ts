@@ -1,19 +1,34 @@
-import firestore from '@react-native-firebase/firestore';
+import {
+  getFirestore,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  updateDoc,
+  runTransaction,
+  onSnapshot,
+  query,
+  where,
+  limit,
+  arrayUnion,
+  arrayRemove,
+} from '@react-native-firebase/firestore';
 import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, NotificationSettings } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
-const db = firestore();
+const db = getFirestore();
 
 // ---- User Operations ----
 
 export async function getUserProfile(uid: string): Promise<User | null> {
-  const snap = await db.collection('users').doc(uid).get();
+  const snap = await getDoc(doc(db, 'users', uid));
   return snap.exists ? (snap.data() as User) : null;
 }
 
 export async function createUserProfile(userData: NewUser): Promise<void> {
-  await db.collection('users').doc(userData.id).set({
+  await setDoc(doc(db, 'users', userData.id), {
     ...userData,
     joinedAt: Date.now(),
     accountProgress: {
@@ -27,7 +42,7 @@ export async function createUserProfile(userData: NewUser): Promise<void> {
 }
 
 export async function updateUserProfile(uid: string, data: UpdateUserProfileData): Promise<void> {
-  await db.collection('users').doc(uid).update({ ...data });
+  await updateDoc(doc(db, 'users', uid), { ...data });
 }
 
 export async function updateAccountProgress(
@@ -35,17 +50,17 @@ export async function updateAccountProgress(
   field: string,
   value: boolean
 ): Promise<void> {
-  await db.collection('users').doc(uid).update({
+  await updateDoc(doc(db, 'users', uid), {
     [`accountProgress.${field}`]: value,
   });
 }
 
 export async function updateUserStatus(uid: string, status: UserStatus | null): Promise<void> {
-  await db.collection('users').doc(uid).update({ status });
+  await updateDoc(doc(db, 'users', uid), { status });
 }
 
 export async function updateChannelTierPrefs(uid: string, prefs: Record<string, PostTier[]>): Promise<void> {
-  await db.collection('users').doc(uid).update({ channelTierPrefs: prefs });
+  await updateDoc(doc(db, 'users', uid), { channelTierPrefs: prefs });
 }
 
 // ---- Notification Settings Operations ----
@@ -58,19 +73,21 @@ const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
 };
 
 export async function getNotificationSettings(uid: string): Promise<NotificationSettings | null> {
-  const snap = await db.collection('userNotificationSettings').doc(uid).get();
-  return snap.exists ? (snap.data() as NotificationSettings) : null;
+  console.log('GETTING'); // REMOVE
+  const snap = await getDoc(doc(db, 'userNotificationSettings', uid));
+  return snap?.exists ? (snap.data() as NotificationSettings) : null;
 }
 
 export async function initNotificationSettings(
   uid: string,
   deviceTimeZone: string,
 ): Promise<NotificationSettings> {
+  console.log('INIT'); // REMOVE
   const settings: NotificationSettings = {
     ...DEFAULT_NOTIFICATION_SETTINGS,
     timeZone: deviceTimeZone,
   };
-  await db.collection('userNotificationSettings').doc(uid).set(settings);
+  await setDoc(doc(db, 'userNotificationSettings', uid), settings);
   return settings;
 }
 
@@ -78,30 +95,20 @@ export async function updateNotificationSettings(
   uid: string,
   data: Partial<Omit<NotificationSettings, 'fcmTokens'>>,
 ): Promise<void> {
-  await db.collection('userNotificationSettings').doc(uid).update(data);
+  console.log('UPDATING'); // REMOVE
+  await updateDoc(doc(db, 'userNotificationSettings', uid), data);
 }
 
 export async function addFcmToken(uid: string, token: string): Promise<void> {
-  const ref = db.collection('userNotificationSettings').doc(uid);
-  await db.runTransaction(async (transaction) => {
-    const snap = await transaction.get(ref);
-    if (!snap.exists) return;
-    const current = snap.data() as NotificationSettings;
-    const existing = current.fcmTokens ?? [];
-    if (!existing.includes(token)) {
-      transaction.update(ref, { fcmTokens: [...existing, token] });
-    }
+  console.log('ADDING'); // REMOVE
+  await updateDoc(doc(db, 'userNotificationSettings', uid), {
+    fcmTokens: arrayUnion(token),
   });
 }
 
 export async function removeFcmToken(uid: string, token: string): Promise<void> {
-  const ref = db.collection('userNotificationSettings').doc(uid);
-  await db.runTransaction(async (transaction) => {
-    const snap = await transaction.get(ref);
-    if (!snap.exists) return;
-    const current = snap.data() as NotificationSettings;
-    const updated = (current.fcmTokens ?? []).filter((t) => t !== token);
-    transaction.update(ref, { fcmTokens: updated });
+  await updateDoc(doc(db, 'userNotificationSettings', uid), {
+    fcmTokens: arrayRemove(token),
   });
 }
 
@@ -109,7 +116,7 @@ export function subscribeToNotificationSettings(
   uid: string,
   callback: (settings: NotificationSettings | null) => void,
 ): () => void {
-  return db.collection('userNotificationSettings').doc(uid).onSnapshot((snap) => {
+  return onSnapshot(doc(db, 'userNotificationSettings', uid), (snap) => {
     if (!snap) return;
     callback(snap.exists ? (snap.data() as NotificationSettings) : null);
   });
@@ -118,17 +125,19 @@ export function subscribeToNotificationSettings(
 // ---- Channel Operations ----
 
 export async function getChannel(channelId: string): Promise<Channel | null> {
-  const snap = await db.collection('channels').doc(channelId).get();
+  const snap = await getDoc(doc(db, 'channels', channelId));
   return snap.exists ? (snap.data() as Channel) : null;
 }
 
 export async function getChannelByInviteCode(inviteCode: string): Promise<Channel | null> {
-  const snap = await db
-    .collection('channels')
-    .where('inviteCode', '==', inviteCode)
-    .where('markedForDeletionAt', '==', null)
-    .limit(1)
-    .get();
+  const snap = await getDocs(
+    query(
+      collection(db, 'channels'),
+      where('inviteCode', '==', inviteCode),
+      where('markedForDeletionAt', '==', null),
+      limit(1),
+    ),
+  );
   if (snap.empty) return null;
   return snap.docs[0].data() as Channel;
 }
@@ -147,7 +156,7 @@ export async function createDailyChannel(userId: string): Promise<Channel> {
     createdAt: Date.now(),
     markedForDeletionAt: null,
   };
-  await db.collection('channels').doc(channelId).set(channel);
+  await setDoc(doc(db, 'channels', channelId), channel);
   return channel;
 }
 
@@ -163,8 +172,8 @@ export async function createCustomChannel(channelData: NewChannel): Promise<Chan
     markedForDeletionAt: null,
   };
 
-  await db.runTransaction(async (transaction) => {
-    const userRef = db.collection('users').doc(channelData.ownerId);
+  await runTransaction(db, async (transaction) => {
+    const userRef = doc(db, 'users', channelData.ownerId);
     const userSnap = await transaction.get(userRef);
     if (!userSnap.exists) throw new Error('User not found');
 
@@ -173,7 +182,7 @@ export async function createCustomChannel(channelData: NewChannel): Promise<Chan
       throw new Error('Maximum custom channels reached');
     }
 
-    transaction.set(db.collection('channels').doc(channelId), channel);
+    transaction.set(doc(db, 'channels', channelId), channel);
     transaction.update(userRef, {
       customChannelCount: userData.customChannelCount + 1,
     });
@@ -187,17 +196,17 @@ export async function updateCustomChannel(channel: Channel): Promise<void> {
   void ownerId;
   void isDaily;
   void createdAt;
-  await db.collection('channels').doc(id).update(updateData);
+  await updateDoc(doc(db, 'channels', id), updateData);
 }
 
 export async function deleteCustomChannel(channelId: string, ownerId: string): Promise<void> {
-  await db.runTransaction(async (transaction) => {
-    const userRef = db.collection('users').doc(ownerId);
+  await runTransaction(db, async (transaction) => {
+    const userRef = doc(db, 'users', ownerId);
     const userSnap = await transaction.get(userRef);
     if (!userSnap.exists) throw new Error('User not found');
 
     const userData = userSnap.data() as User;
-    transaction.update(db.collection('channels').doc(channelId), {
+    transaction.update(doc(db, 'channels', channelId), {
       markedForDeletionAt: Date.now(),
     });
     transaction.update(userRef, {
@@ -208,8 +217,8 @@ export async function deleteCustomChannel(channelId: string, ownerId: string): P
 
 export async function refreshChannelInviteCode(channelId: string): Promise<string> {
   const newCode = generateId('nano').substring(0, 8).toUpperCase();
-  await db.runTransaction(async (transaction) => {
-    const channelRef = db.collection('channels').doc(channelId);
+  await runTransaction(db, async (transaction) => {
+    const channelRef = doc(db, 'channels', channelId);
     const channelSnap = await transaction.get(channelRef);
     if (!channelSnap.exists) throw new Error('Channel not found');
     transaction.update(channelRef, { inviteCode: newCode });
@@ -218,11 +227,8 @@ export async function refreshChannelInviteCode(channelId: string): Promise<strin
 }
 
 export async function unsubscribeFromChannel(channelId: string, userId: string): Promise<void> {
-  await db.runTransaction(async (transaction) => {
-    const channelRef = db.collection('channels').doc(channelId);
-    transaction.update(channelRef, {
-      subscribers: firestore.FieldValue.arrayRemove(userId),
-    });
+  await updateDoc(doc(db, 'channels', channelId), {
+    subscribers: arrayRemove(userId),
   });
 }
 
@@ -230,8 +236,8 @@ export async function removeSubscriberFromChannel(
   channelId: string,
   subscriberId: string
 ): Promise<void> {
-  await db.collection('channels').doc(channelId).update({
-    subscribers: firestore.FieldValue.arrayRemove(subscriberId),
+  await updateDoc(doc(db, 'channels', channelId), {
+    subscribers: arrayRemove(subscriberId),
   });
 }
 
@@ -255,7 +261,7 @@ export async function createJoinRequest(
     createdAt: Date.now(),
     respondedAt: null,
   };
-  await db.collection('channelJoinRequests').doc(id).set(request);
+  await setDoc(doc(db, 'channelJoinRequests', id), request);
   return request;
 }
 
@@ -263,8 +269,8 @@ export async function respondToJoinRequest(
   requestId: string,
   accept: boolean
 ): Promise<void> {
-  await db.runTransaction(async (transaction) => {
-    const requestRef = db.collection('channelJoinRequests').doc(requestId);
+  await runTransaction(db, async (transaction) => {
+    const requestRef = doc(db, 'channelJoinRequests', requestId);
     const requestSnap = await transaction.get(requestRef);
     if (!requestSnap.exists) throw new Error('Request not found');
 
@@ -277,8 +283,8 @@ export async function respondToJoinRequest(
     });
 
     if (accept) {
-      transaction.update(db.collection('channels').doc(request.channelId), {
-        subscribers: firestore.FieldValue.arrayUnion(request.requesterId),
+      transaction.update(doc(db, 'channels', request.channelId), {
+        subscribers: arrayUnion(request.requesterId),
       });
     }
   });
@@ -287,48 +293,48 @@ export async function respondToJoinRequest(
 // ---- Post Operations ----
 
 export async function createPost(post: Post): Promise<void> {
-  await db.collection('posts').doc(post.id).set(post);
+  await setDoc(doc(db, 'posts', post.id), post);
 }
 
 export async function updatePost(postId: string, data: Partial<Post>): Promise<void> {
-  await db.collection('posts').doc(postId).update(data);
+  await updateDoc(doc(db, 'posts', postId), data);
 }
 
 export async function deletePost(postId: string): Promise<void> {
-  await db.collection('posts').doc(postId).update({
+  await updateDoc(doc(db, 'posts', postId), {
     markedForDeletionAt: Date.now(),
   });
 }
 
 export async function joinConversation(postId: string, userId: string): Promise<void> {
-  await db.collection('posts').doc(postId).update({
-    conversationEnrollees: firestore.FieldValue.arrayUnion(userId),
+  await updateDoc(doc(db, 'posts', postId), {
+    conversationEnrollees: arrayUnion(userId),
   });
 }
 
 export async function updatePostReactions(postId: string, reactions: unknown[]): Promise<void> {
-  await db.collection('posts').doc(postId).update({ reactions });
+  await updateDoc(doc(db, 'posts', postId), { reactions });
 }
 
 export async function addReactionToPost(postId: string, reaction: { emoji: string; userId: string }): Promise<void> {
-  await db.collection('posts').doc(postId).update({
-    reactions: firestore.FieldValue.arrayUnion(reaction),
+  await updateDoc(doc(db, 'posts', postId), {
+    reactions: arrayUnion(reaction),
   });
 }
 
 export async function removeReactionFromPost(postId: string, reaction: { emoji: string; userId: string }): Promise<void> {
-  await db.collection('posts').doc(postId).update({
-    reactions: firestore.FieldValue.arrayRemove(reaction),
+  await updateDoc(doc(db, 'posts', postId), {
+    reactions: arrayRemove(reaction),
   });
 }
 
 export async function updatePostComments(postId: string, comments: unknown[]): Promise<void> {
-  await db.collection('posts').doc(postId).update({ comments });
+  await updateDoc(doc(db, 'posts', postId), { comments });
 }
 
 export async function addCommentToPost(postId: string, comment: { id: string; authorId: string; text: string; timestamp: number }): Promise<void> {
-  await db.collection('posts').doc(postId).update({
-    comments: firestore.FieldValue.arrayUnion(comment),
+  await updateDoc(doc(db, 'posts', postId), {
+    comments: arrayUnion(comment),
   });
 }
 
@@ -338,7 +344,7 @@ export function subscribeToCurrentUser(
   uid: string,
   callback: (user: User | null) => void
 ): () => void {
-  return db.collection('users').doc(uid).onSnapshot((snap) => {
+  return onSnapshot(doc(db, 'users', uid), (snap) => {
     callback(snap.exists ? (snap.data() as User) : null);
   });
 }
@@ -347,15 +353,15 @@ export function subscribeToChannels(
   uid: string,
   callback: (channels: Channel[]) => void
 ): () => void {
-  return db
-    .collection('channels')
-    .where('markedForDeletionAt', '==', null)
-    .onSnapshot((snap) => {
+  return onSnapshot(
+    query(collection(db, 'channels'), where('markedForDeletionAt', '==', null)),
+    (snap) => {
       const channels = snap.docs
         .map((d) => d.data() as Channel)
         .filter((ch) => ch.ownerId === uid || ch.subscribers.includes(uid));
       callback(channels);
-    });
+    },
+  );
 }
 
 export function subscribeToPosts(
@@ -378,16 +384,19 @@ export function subscribeToPosts(
   const unsubscribes: Array<() => void> = [];
 
   for (const batch of batches) {
-    const unsub = db
-      .collection('posts')
-      .where('channelId', 'in', batch)
-      .where('markedForDeletionAt', '==', null)
-      .onSnapshot((snap) => {
+    const unsub = onSnapshot(
+      query(
+        collection(db, 'posts'),
+        where('channelId', 'in', batch),
+        where('markedForDeletionAt', '==', null),
+      ),
+      (snap) => {
         for (const d of snap.docs) {
           allPosts.set(d.id, d.data() as Post);
         }
         callback(Array.from(allPosts.values()));
-      });
+      },
+    );
     unsubscribes.push(unsub);
   }
 
@@ -398,24 +407,24 @@ export function subscribeToIncomingJoinRequests(
   uid: string,
   callback: (requests: ChannelJoinRequest[]) => void
 ): () => void {
-  return db
-    .collection('channelJoinRequests')
-    .where('channelOwnerId', '==', uid)
-    .onSnapshot((snap) => {
+  return onSnapshot(
+    query(collection(db, 'channelJoinRequests'), where('channelOwnerId', '==', uid)),
+    (snap) => {
       callback(snap.docs.map((d) => d.data() as ChannelJoinRequest));
-    });
+    },
+  );
 }
 
 export function subscribeToOutgoingJoinRequests(
   uid: string,
   callback: (requests: ChannelJoinRequest[]) => void
 ): () => void {
-  return db
-    .collection('channelJoinRequests')
-    .where('requesterId', '==', uid)
-    .onSnapshot((snap) => {
+  return onSnapshot(
+    query(collection(db, 'channelJoinRequests'), where('requesterId', '==', uid)),
+    (snap) => {
       callback(snap.docs.map((d) => d.data() as ChannelJoinRequest));
-    });
+    },
+  );
 }
 
 export function subscribeToChannelUsers(
@@ -436,15 +445,15 @@ export function subscribeToChannelUsers(
   const unsubscribes: Array<() => void> = [];
 
   for (const batch of batches) {
-    const unsub = db
-      .collection('users')
-      .where('__name__', 'in', batch)
-      .onSnapshot((snap) => {
+    const unsub = onSnapshot(
+      query(collection(db, 'users'), where('__name__', 'in', batch)),
+      (snap) => {
         for (const d of snap.docs) {
           allUsers.set(d.id, d.data() as User);
         }
         callback(Array.from(allUsers.values()));
-      });
+      },
+    );
     unsubscribes.push(unsub);
   }
 
