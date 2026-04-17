@@ -24,7 +24,7 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { saveStatus, clearStatus } from '@/store/actions/userActions';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
-import { POST_TIERS, ALL_POST_TIERS } from '@/models/constants';
+import { POST_TIERS } from '@/models/constants';
 import type { Post, PostTier, UserStatus } from '@/models/types';
 
 const INITIAL_PAGE = 10;
@@ -46,7 +46,7 @@ export default function FeedScreen() {
   );
 
   const [channelFilter, setChannelFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<PostTier[]>(ALL_POST_TIERS);
+  const [priorityFilter, setPriorityFilter] = useState<PostTier[]>([]);
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [displayCount, setDisplayCount] = useState(INITIAL_PAGE);
   const [fabExpanded, setFabExpanded] = useState(false);
@@ -75,7 +75,6 @@ export default function FeedScreen() {
   const togglePriorityFilter = useCallback((tier: PostTier) => {
     setPriorityFilter((prev) => {
       if (prev.includes(tier)) {
-        if (prev.length === 1) return prev; // keep at least one active
         return prev.filter((t) => t !== tier);
       }
       return [...prev, tier];
@@ -84,7 +83,7 @@ export default function FeedScreen() {
 
   const matchesPriorityFilter = useCallback(
     (p: Post) => {
-      if (priorityFilter.length >= ALL_POST_TIERS.length) return true;
+      if (priorityFilter.length === 0) return true;
       return priorityFilter.includes(p.tier ?? 'everyday');
     },
     [priorityFilter],
@@ -327,9 +326,6 @@ export default function FeedScreen() {
 
         {/* Priority filter */}
         <View style={styles.priorityFilterRow}>
-          <Text style={[styles.priorityFilterLabel, { color: theme.mutedForeground }]}>
-            Priority
-          </Text>
           <View style={styles.priorityFilterPills}>
             {POST_TIERS.map((opt) => {
               const isActive = priorityFilter.includes(opt.value);
@@ -340,8 +336,12 @@ export default function FeedScreen() {
                   style={[
                     styles.priorityFilterPill,
                     {
-                      backgroundColor: isActive ? theme.primary : theme.muted,
-                      borderColor: isActive ? theme.primary : theme.border,
+                      backgroundColor: isActive
+                        ? (opt.badgeBg === 'transparent' ? theme.primary : opt.badgeBg)
+                        : theme.muted,
+                      borderColor: isActive
+                        ? (opt.badgeBg === 'transparent' ? theme.primary : opt.badgeBg)
+                        : theme.border,
                     },
                   ]}
                 >
@@ -349,7 +349,11 @@ export default function FeedScreen() {
                   <Text
                     style={[
                       styles.priorityFilterPillText,
-                      { color: isActive ? theme.primaryForeground : theme.mutedForeground },
+                      {
+                        color: isActive
+                          ? (opt.badgeText === 'transparent' ? theme.primaryForeground : opt.badgeText)
+                          : theme.mutedForeground,
+                      },
                     ]}
                   >
                     {opt.label}
@@ -548,11 +552,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 10,
-    gap: 8,
-  },
-  priorityFilterLabel: {
-    fontSize: 12,
-    fontWeight: '600',
   },
   priorityFilterPills: {
     flexDirection: 'row',

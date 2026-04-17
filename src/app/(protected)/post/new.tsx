@@ -73,6 +73,12 @@ export default function PostCreateScreen() {
 
   const atMaxFiles = media.length >= MAX_FILES;
 
+  const placeholderByTier: Record<PostTier, string> = {
+    'everyday': "Hey! What's going on? 👋",
+    'worth-knowing': "Got something the crew should know? 👀",
+    'big-news': "Heads up! What's happening? 🚨",
+  };
+
   const canPublish = (text.trim().length > 0 || media.length > 0) && !!selectedChannel;
 
   const removeMedia = (index: number) => {
@@ -239,7 +245,7 @@ export default function PostCreateScreen() {
           <TextInput
             value={text}
             onChangeText={setText}
-            placeholder="What's happening?"
+            placeholder={placeholderByTier[selectedTier]}
             placeholderTextColor={theme.mutedForeground}
             multiline
             maxLength={2000}
