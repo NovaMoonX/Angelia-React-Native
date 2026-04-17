@@ -27,8 +27,8 @@ import { selectUserChannels } from '@/store/slices/channelsSlice';
 import { uploadPost } from '@/store/actions/postActions';
 import { saveStatus } from '@/store/actions/userActions';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
-import { MAX_FILES } from '@/models/constants';
-import type { UserStatus } from '@/models/types';
+import { MAX_FILES, POST_TIERS } from '@/models/constants';
+import type { UserStatus, PostTier } from '@/models/types';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 
 export default function PostCreateScreen() {
@@ -61,6 +61,7 @@ export default function PostCreateScreen() {
     params.existingChannel || userChannels[0]?.id || ''
   );
   const [text, setText] = useState(params.existingText || '');
+  const [selectedTier, setSelectedTier] = useState<PostTier>('everyday');
   const [media, setMedia] = useState<MediaFile[]>(initialMedia);
   const [loading, setLoading] = useState(false);
   const [previewItem, setPreviewItem] = useState<MediaFile | null>(null);
@@ -71,6 +72,12 @@ export default function PostCreateScreen() {
   const hasActiveStatus = isStatusActive(currentUser?.status);
 
   const atMaxFiles = media.length >= MAX_FILES;
+
+  const placeholderByTier: Record<PostTier, string> = {
+    'everyday': "Hey! What's going on? 👋",
+    'worth-knowing': "Got something the crew should know? 👀",
+    'big-news': "Heads up! What's happening? 🚨",
+  };
 
   const canPublish = (text.trim().length > 0 || media.length > 0) && !!selectedChannel;
 
@@ -95,7 +102,7 @@ export default function PostCreateScreen() {
     setLoading(true);
     try {
       await dispatch(
-        uploadPost({ channelId: selectedChannel, text, media })
+        uploadPost({ channelId: selectedChannel, text, media, tier: selectedTier })
       ).unwrap();
 
       // Save the pending status only after the post is created successfully
@@ -159,6 +166,7 @@ export default function PostCreateScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {/* Channel selector */}
+        <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>Channel</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -195,6 +203,38 @@ export default function PostCreateScreen() {
           })}
         </ScrollView>
 
+        {/* Priority selector */}
+        <View style={[styles.sectionDivider, { backgroundColor: theme.border }]} />
+        <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>Priority</Text>
+        <View style={styles.tierRow}>
+          {POST_TIERS.map((opt) => {
+            const isSelected = selectedTier === opt.value;
+            return (
+              <Pressable
+                key={opt.value}
+                onPress={() => setSelectedTier(opt.value)}
+                style={[
+                  styles.tierPill,
+                  {
+                    backgroundColor: isSelected ? theme.primary : theme.muted,
+                    borderColor: isSelected ? theme.primary : theme.border,
+                  },
+                ]}
+              >
+                <Text style={styles.tierPillEmoji}>{opt.emoji}</Text>
+                <Text
+                  style={[
+                    styles.tierPillLabel,
+                    { color: isSelected ? theme.primaryForeground : theme.mutedForeground },
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
         {/* Compose area: avatar + text */}
         <View style={styles.composeRow}>
           <Avatar
@@ -205,7 +245,7 @@ export default function PostCreateScreen() {
           <TextInput
             value={text}
             onChangeText={setText}
-            placeholder="What's happening?"
+            placeholder={placeholderByTier[selectedTier]}
             placeholderTextColor={theme.mutedForeground}
             multiline
             maxLength={2000}
@@ -397,7 +437,41 @@ const styles = StyleSheet.create({
   },
   channelRow: {
     gap: 8,
+    paddingBottom: 10,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  sectionDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginBottom: 14,
+    marginTop: 2,
+  },
+  tierRow: {
+    flexDirection: 'row',
+    gap: 8,
     paddingBottom: 12,
+    flexWrap: 'wrap',
+  },
+  tierPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
+  },
+  tierPillEmoji: {
+    fontSize: 13,
+  },
+  tierPillLabel: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   composeRow: {
     flexDirection: 'row',

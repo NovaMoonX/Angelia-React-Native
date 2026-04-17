@@ -1,4 +1,4 @@
-import type { AvatarPreset, ChannelColorOption } from './types';
+import type { AvatarPreset, ChannelColorOption, PostTier } from './types';
 
 export const CUSTOM_CHANNEL_LIMIT = 3;
 export const DAILY_CHANNEL_SUFFIX = '-daily';
@@ -26,3 +26,11 @@ export const CHANNEL_COLORS: ChannelColorOption[] = [
   { name: 'BLUE', value: '#3B82F6', textColor: '#FFFFFF' },
   { name: 'VIOLET', value: '#7C3AED', textColor: '#FFFFFF' },
 ];
+
+export const POST_TIERS: Array<{ value: PostTier; label: string; emoji: string; badgeBg: string; badgeText: string }> = [
+  { value: 'everyday',     label: 'Everyday Update', emoji: '📅', badgeBg: 'transparent', badgeText: 'transparent' },
+  { value: 'worth-knowing', label: 'Worth Knowing',  emoji: '⭐', badgeBg: '#D97706',     badgeText: '#FFFFFF' },
+  { value: 'big-news',     label: 'Big News',        emoji: '🔔', badgeBg: '#E11D48',     badgeText: '#FFFFFF' },
+];
+
+export const ALL_POST_TIERS: PostTier[] = POST_TIERS.map((t) => t.value);

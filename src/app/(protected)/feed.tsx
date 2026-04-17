@@ -24,7 +24,8 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { saveStatus, clearStatus } from '@/store/actions/userActions';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
-import type { Post, UserStatus } from '@/models/types';
+import { POST_TIERS } from '@/models/constants';
+import type { Post, PostTier, UserStatus } from '@/models/types';
 
 const INITIAL_PAGE = 10;
 const LOAD_MORE = 3;
@@ -45,6 +46,7 @@ export default function FeedScreen() {
   );
 
   const [channelFilter, setChannelFilter] = useState<string>('all');
+  const [priorityFilter, setPriorityFilter] = useState<PostTier[]>([]);
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [displayCount, setDisplayCount] = useState(INITIAL_PAGE);
   const [fabExpanded, setFabExpanded] = useState(false);
@@ -70,6 +72,23 @@ export default function FeedScreen() {
     [channels]
   );
 
+  const togglePriorityFilter = useCallback((tier: PostTier) => {
+    setPriorityFilter((prev) => {
+      if (prev.includes(tier)) {
+        return prev.filter((t) => t !== tier);
+      }
+      return [...prev, tier];
+    });
+  }, []);
+
+  const matchesPriorityFilter = useCallback(
+    (p: Post) => {
+      if (priorityFilter.length === 0) return true;
+      return priorityFilter.includes(p.tier ?? 'everyday');
+    },
+    [priorityFilter],
+  );
+
   const filteredPosts = useMemo(() => {
     let result = [...posts].filter((p) => p.status === 'ready');
 
@@ -82,6 +101,19 @@ export default function FeedScreen() {
       result = result.filter((p) => p.channelId === channelFilter);
     }
 
+    // Apply per-channel tier preferences
+    const tierPrefs = currentUser?.channelTierPrefs;
+    if (tierPrefs) {
+      result = result.filter((p) => {
+        const prefs = tierPrefs[p.channelId];
+        if (!prefs || prefs.length === 0) return true;
+        return prefs.includes(p.tier ?? 'everyday');
+      });
+    }
+
+    // Apply feed-level priority filter
+    result = result.filter(matchesPriorityFilter);
+
     result.sort((a, b) =>
       sortOrder === 'newest'
         ? b.timestamp - a.timestamp
@@ -89,26 +121,34 @@ export default function FeedScreen() {
     );
 
     return result.slice(0, displayCount);
-  }, [posts, channelFilter, sortOrder, displayCount]);
+  }, [posts, channelFilter, sortOrder, displayCount, currentUser?.channelTierPrefs, priorityFilter, matchesPriorityFilter]);
 
   const hasMore = useMemo(() => {
+    const tierPrefs = currentUser?.channelTierPrefs;
+    const matchesTier = (p: (typeof posts)[0]) => {
+      if (!tierPrefs) return true;
+      const prefs = tierPrefs[p.channelId];
+      if (!prefs || prefs.length === 0) return true;
+      return prefs.includes(p.tier ?? 'everyday');
+    };
+
     let total: number;
     if (channelFilter === 'all') {
-      total = posts.filter((p) => p.status === 'ready').length;
+      total = posts.filter((p) => p.status === 'ready' && matchesTier(p) && matchesPriorityFilter(p)).length;
     } else if (channelFilter === 'daily') {
       const dailyChannelIds = channels
         .filter((ch) => ch.isDaily)
         .map((ch) => ch.id);
       total = posts.filter(
-        (p) => p.status === 'ready' && dailyChannelIds.includes(p.channelId)
+        (p) => p.status === 'ready' && dailyChannelIds.includes(p.channelId) && matchesTier(p) && matchesPriorityFilter(p)
       ).length;
     } else {
       total = posts.filter(
-        (p) => p.channelId === channelFilter && p.status === 'ready'
+        (p) => p.channelId === channelFilter && p.status === 'ready' && matchesTier(p) && matchesPriorityFilter(p)
       ).length;
     }
     return displayCount < total;
-  }, [posts, channels, channelFilter, displayCount]);
+  }, [posts, channels, channelFilter, displayCount, currentUser?.channelTierPrefs, priorityFilter, matchesPriorityFilter]);
 
   const loadMore = useCallback(() => {
     if (hasMore) {
@@ -282,6 +322,46 @@ export default function FeedScreen() {
               color={theme.foreground}
             />
           </Pressable>
+        </View>
+
+        {/* Priority filter */}
+        <View style={styles.priorityFilterRow}>
+          <View style={styles.priorityFilterPills}>
+            {POST_TIERS.map((opt) => {
+              const isActive = priorityFilter.includes(opt.value);
+              return (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => togglePriorityFilter(opt.value)}
+                  style={[
+                    styles.priorityFilterPill,
+                    {
+                      backgroundColor: isActive
+                        ? (opt.badgeBg === 'transparent' ? theme.primary : opt.badgeBg)
+                        : theme.muted,
+                      borderColor: isActive
+                        ? (opt.badgeBg === 'transparent' ? theme.primary : opt.badgeBg)
+                        : theme.border,
+                    },
+                  ]}
+                >
+                  <Text style={styles.priorityFilterEmoji}>{opt.emoji}</Text>
+                  <Text
+                    style={[
+                      styles.priorityFilterPillText,
+                      {
+                        color: isActive
+                          ? (opt.badgeText === 'transparent' ? theme.primaryForeground : opt.badgeText)
+                          : theme.mutedForeground,
+                      },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       </Animated.View>
 
@@ -466,6 +546,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  priorityFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+  },
+  priorityFilterPills: {
+    flexDirection: 'row',
+    gap: 6,
+    flex: 1,
+  },
+  priorityFilterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 3,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  priorityFilterEmoji: {
+    fontSize: 11,
+  },
+  priorityFilterPillText: {
+    fontSize: 11,
+    fontWeight: '500',
   },
   listContent: {
     paddingHorizontal: 16,

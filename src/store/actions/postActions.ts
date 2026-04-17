@@ -1,6 +1,6 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import type { RootState } from '@/store';
-import type { Post, Reaction, Comment, MediaItem } from '@/models/types';
+import type { Post, Reaction, Comment, MediaItem, PostTier } from '@/models/types';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 import {
   createPost,
@@ -31,6 +31,7 @@ function buildPost(params: {
   channelId: string;
   text: string;
   status: Post['status'];
+  tier: PostTier;
 }): Post {
   return {
     id: params.id,
@@ -44,13 +45,14 @@ function buildPost(params: {
     conversationEnrollees: [],
     markedForDeletionAt: null,
     status: params.status,
+    tier: params.tier,
   };
 }
 
 export const uploadPost = createAsyncThunk(
   'posts/uploadPost',
   async (
-    { channelId, text, media }: { channelId: string; text: string; media: MediaFile[] },
+    { channelId, text, media, tier = 'everyday' }: { channelId: string; text: string; media: MediaFile[]; tier?: PostTier },
     { rejectWithValue, getState, dispatch },
   ) => {
     const state = getState() as RootState;
@@ -65,7 +67,7 @@ export const uploadPost = createAsyncThunk(
 
     // In demo mode, just add the post to local state
     if (isDemoActive(getState)) {
-      const demoPost = buildPost({ id: postId, authorId: user.id, channelId, text, status: 'ready' });
+      const demoPost = buildPost({ id: postId, authorId: user.id, channelId, text, status: 'ready', tier });
       dispatch(addPost(demoPost));
       return demoPost;
     }
@@ -80,6 +82,7 @@ export const uploadPost = createAsyncThunk(
         channelId,
         text,
         status: hasMedia ? 'uploading' : 'ready',
+        tier,
       });
 
       // Optimistically add the post to the store
