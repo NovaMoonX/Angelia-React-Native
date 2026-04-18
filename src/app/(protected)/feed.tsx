@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   Animated,
-  FlatList,
   NativeSyntheticEvent,
   NativeScrollEvent,
   Pressable,
@@ -9,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -51,7 +51,7 @@ export default function FeedScreen() {
   const [displayCount, setDisplayCount] = useState(INITIAL_PAGE);
   const [fabExpanded, setFabExpanded] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<FlashListRef<Post>>(null);
 
   // Animated header (slides up on scroll-down, back on scroll-up)
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -236,7 +236,7 @@ export default function FeedScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Post List — fills the full container; paddingTop reserves space for the absolute header */}
-      <FlatList
+      <FlashList
         ref={flatListRef}
         data={filteredPosts}
         keyExtractor={(item) => item.id}
@@ -265,7 +265,7 @@ export default function FeedScreen() {
         }
       />
 
-      {/* Animated header — absolute so it slides up without affecting FlatList layout */}
+      {/* Animated header — absolute so it slides up without affecting FlashList layout */}
       <Animated.View
         style={[
           styles.headerContainer,

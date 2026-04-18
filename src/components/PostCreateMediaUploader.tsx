@@ -1,12 +1,12 @@
 import React from 'react';
 import {
   Alert,
-  FlatList,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
@@ -86,7 +86,7 @@ export function PostCreateMediaUploader({
   return (
     <View style={styles.container}>
       {value.length > 0 && (
-        <FlatList
+        <FlashList
           data={value}
           horizontal
           showsHorizontalScrollIndicator={false}

@@ -132,8 +132,40 @@ service cloud.firestore {
       allow update: if isAuthor()
         && request.resource.data.authorId == resource.data.authorId;
 
+      // Channel members who have reacted may join the conversation
+      // (append themselves to conversationEnrollees) without being the post author.
+      // Only the conversationEnrollees field may change; everything else must stay the same.
+      allow update: if isSignedIn()
+        && isChannelMember(resource.data.channelId)
+        && request.resource.data.authorId == resource.data.authorId
+        && request.resource.data.channelId == resource.data.channelId
+        && request.resource.data.text == resource.data.text
+        && request.resource.data.timestamp == resource.data.timestamp
+        && request.resource.data.reactions == resource.data.reactions
+        && request.resource.data.comments == resource.data.comments
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.markedForDeletionAt == resource.data.markedForDeletionAt
+        && request.resource.data.conversationEnrollees is list
+        && request.resource.data.conversationEnrollees.size() == resource.data.conversationEnrollees.size() + 1
+        && request.resource.data.conversationEnrollees.toSet().hasAll(resource.data.conversationEnrollees.toSet())
+        && request.resource.data.conversationEnrollees.hasAny([request.auth.uid]);
+
       // Only the author can delete their post
       allow delete: if isAuthor();
+
+      // Messages subcollection under posts
+      match /messages/{messageId} {
+        // Any authenticated channel member may read messages
+        allow read: if isSignedIn()
+          && isChannelMember(get(/databases/$(database)/documents/posts/$(postId)).data.channelId);
+
+        // Any authenticated user who has reacted to the post may create a message
+        allow create: if isSignedIn()
+          && request.auth.uid == request.resource.data.authorId;
+
+        // Messages cannot be updated or deleted
+        allow update, delete: if false;
+      }
     }
 
     // Channel join requests

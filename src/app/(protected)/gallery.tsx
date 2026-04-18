@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
-  FlatList,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -166,7 +166,7 @@ export default function GalleryScreen() {
 
       {/* Selected preview */}
       {selected.length > 0 ? (
-        <FlatList
+        <FlashList
           data={selected}
           numColumns={3}
           keyExtractor={(_, i) => `sel-${i}`}

@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import {
-  FlatList,
   Modal,
   Pressable,
   StyleSheet,
@@ -8,6 +7,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -86,7 +86,7 @@ export function Select({ options, value, onChange, placeholder, searchable, sear
                 )}
               </View>
             )}
-            <FlatList
+            <FlashList
               data={filtered}
               keyExtractor={(item) => item.value}
               keyboardShouldPersistTaps="handled"

@@ -132,6 +132,17 @@ export interface ChannelJoinRequest {
   respondedAt: number | null;
 }
 
+export interface Message {
+  id: string;
+  authorId: string;
+  text: string;
+  timestamp: number;
+  parentId: string | null;
+  reactions: Record<string, string[]>;
+  /** System messages (e.g. "joined with 🎉") have no real author interaction. */
+  isSystem?: boolean;
+}
+
 export interface ChannelColorOption {
   name: string;
   value: string;

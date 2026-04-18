@@ -19,6 +19,8 @@ import {
   revertReactionsOptimistic,
   updateCommentsOptimistic,
   revertCommentsOptimistic,
+  addConversationEnrollee,
+  removeConversationEnrollee,
 } from '@/store/slices/postsSlice';
 import { isDemoActive } from './globalActions';
 
@@ -182,8 +184,11 @@ export const joinConversation = createAsyncThunk(
   'posts/joinConversation',
   async (
     { postId, userId }: { postId: string; userId: string },
-    { getState, rejectWithValue },
+    { getState, dispatch, rejectWithValue },
   ) => {
+    // Optimistically add user to conversation enrollees
+    dispatch(addConversationEnrollee({ postId, userId }));
+
     if (isDemoActive(getState)) {
       return { postId, userId };
     }
@@ -191,6 +196,8 @@ export const joinConversation = createAsyncThunk(
       await firestoreJoinConversation(postId, userId);
       return { postId, userId };
     } catch (err) {
+      // Revert optimistic update on failure
+      dispatch(removeConversationEnrollee({ postId, userId }));
       return rejectWithValue(err instanceof Error ? err.message : err);
     }
   },

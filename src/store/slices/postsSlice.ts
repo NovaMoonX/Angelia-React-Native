@@ -79,6 +79,26 @@ const postsSlice = createSlice({
         delete state.previousComments[postId];
       }
     },
+    addConversationEnrollee(
+      state,
+      action: PayloadAction<{ postId: string; userId: string }>,
+    ) {
+      const post = state.items.find((p) => p.id === action.payload.postId);
+      if (post && !post.conversationEnrollees.includes(action.payload.userId)) {
+        post.conversationEnrollees.push(action.payload.userId);
+      }
+    },
+    removeConversationEnrollee(
+      state,
+      action: PayloadAction<{ postId: string; userId: string }>,
+    ) {
+      const post = state.items.find((p) => p.id === action.payload.postId);
+      if (post) {
+        post.conversationEnrollees = post.conversationEnrollees.filter(
+          (id) => id !== action.payload.userId,
+        );
+      }
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(resetAllState, () => initialState);
@@ -95,6 +115,8 @@ export const {
   revertReactionsOptimistic,
   updateCommentsOptimistic,
   revertCommentsOptimistic,
+  addConversationEnrollee,
+  removeConversationEnrollee,
 } = postsSlice.actions;
 
 // Selectors
