@@ -321,7 +321,7 @@ export default function FeedScreen() {
           scrollEventThrottle={16}
           contentContainerStyle={[
             styles.listContent,
-            { paddingTop: headerHeight, paddingBottom: insets.bottom + 150 },
+            { paddingTop: headerHeight + 12, paddingBottom: insets.bottom + 150 },
           ]}
           showsVerticalScrollIndicator={false}
           onEndReached={loadMore}
@@ -354,7 +354,7 @@ export default function FeedScreen() {
 
       {/* Animated filtering dots — just below the sticky header */}
       <Animated.View
-        style={[styles.filteringBanner, { top: headerHeight, opacity: filteringOpacity }]}
+        style={[styles.filteringBanner, { top: headerHeight - 2, opacity: filteringOpacity }]}
         pointerEvents="none"
       >
         <Animated.View style={[styles.filteringDot, { backgroundColor: theme.primary, transform: [{ scale: dot1Scale }] }]} />
