@@ -5,6 +5,8 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Separator } from '@/components/ui/Separator';
 import { useTheme } from '@/hooks/useTheme';
+import { useAppSelector } from '@/store/hooks';
+import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import type { Channel } from '@/models/types';
 
 export type ChannelFilterMode = 'all' | 'others' | 'specific';
@@ -32,6 +34,7 @@ export function FeedChannelFilterModal({
   currentUserId,
 }: FeedChannelFilterModalProps) {
   const { theme } = useTheme();
+  const usersById = useAppSelector(selectAllUsersMapById);
 
   const [localFilter, setLocalFilter] = useState<ChannelFilterState>(value);
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,8 +62,12 @@ export function FeedChannelFilterModal({
   const filteredDaily = useMemo(() => {
     if (!searchQuery.trim()) return dailyChannels;
     const q = searchQuery.toLowerCase();
-    return dailyChannels.filter((ch) => ch.name.toLowerCase().includes(q));
-  }, [dailyChannels, searchQuery]);
+    return dailyChannels.filter((ch) => {
+      const owner = usersById[ch.ownerId];
+      const name = owner ? `${owner.firstName} ${owner.lastName[0]}.` : ch.name;
+      return name.toLowerCase().includes(q);
+    });
+  }, [dailyChannels, searchQuery, usersById]);
 
   const filteredRegular = useMemo(() => {
     if (!searchQuery.trim()) return regularChannels;
@@ -223,6 +230,13 @@ interface ChannelRowProps {
 
 function ChannelRow({ channel, isSelected, isOwn, onToggle }: ChannelRowProps) {
   const { theme } = useTheme();
+  const usersById = useAppSelector(selectAllUsersMapById);
+  const displayName = useMemo(() => {
+    if (!channel.isDaily) return channel.name;
+    const owner = usersById[channel.ownerId];
+    return owner ? `${owner.firstName} ${owner.lastName}` : channel.name;
+  }, [channel, usersById]);
+
   return (
     <Pressable onPress={() => onToggle(channel.id)} style={styles.channelRow}>
       <View
@@ -240,7 +254,7 @@ function ChannelRow({ channel, isSelected, isOwn, onToggle }: ChannelRowProps) {
         style={[styles.channelName, { color: theme.foreground }]}
         numberOfLines={1}
       >
-        {channel.name}
+        {displayName}
       </Text>
       {isOwn && (
         <View style={[styles.ownBadge, { backgroundColor: theme.secondary }]}>
