@@ -6,6 +6,55 @@ import { Input } from './Input';
 import { Label } from './Label';
 import { useTheme } from '@/hooks/useTheme';
 
+const PASSWORD_CRITERIA = [
+  { label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
+  { label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
+  { label: 'One number', test: (p: string) => /[0-9]/.test(p) },
+  { label: 'One symbol (e.g. !@#$%)', test: (p: string) => /[^A-Za-z0-9]/.test(p) },
+];
+
+function PasswordCriteriaChecklist({ password }: { password: string }) {
+  const { theme } = useTheme();
+  return (
+    <View style={criteriaStyles.container}>
+      {PASSWORD_CRITERIA.map((c) => {
+        const met = c.test(password);
+        return (
+          <View key={c.label} style={criteriaStyles.row}>
+            <Text style={[criteriaStyles.indicator, { color: met ? '#16A34A' : theme.mutedForeground }]}>
+              {met ? '✓' : '○'}
+            </Text>
+            <Text style={[criteriaStyles.label, { color: met ? '#16A34A' : theme.mutedForeground }]}>
+              {c.label}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const criteriaStyles = StyleSheet.create({
+  container: {
+    gap: 4,
+    paddingTop: 6,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  indicator: {
+    fontSize: 12,
+    fontWeight: '700',
+    width: 14,
+    textAlign: 'center',
+  },
+  label: {
+    fontSize: 12,
+  },
+});
+
 export type AuthFormOnEmailSubmit = (params: {
   data: { email: string; password: string };
   action: 'login' | 'signup';
@@ -193,6 +242,9 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
               />
             </Pressable>
           </View>
+          {mode === 'signup' && password.length > 0 && (
+            <PasswordCriteriaChecklist password={password} />
+          )}
         </View>
 
         {mode === 'signup' && (
