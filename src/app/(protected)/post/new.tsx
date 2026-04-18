@@ -169,8 +169,8 @@ export default function PostCreateScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Channel selector */}
-        <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>Channel</Text>
+        {/* Circle selector */}
+        <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>Circle</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}

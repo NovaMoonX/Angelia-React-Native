@@ -33,7 +33,7 @@ Angelia is a warm, playful, and encouraging app. All user-facing copy — placeh
 
 `PRODUCT_SUMMARY.md` is the canonical product overview. Keep it current when:
 
-- A **new core feature** is added or an existing one is significantly changed (e.g. new channel type, new post tier, new notification type).
+- A **new core feature** is added or an existing one is significantly changed (e.g. new circle type, new post tier, new notification type).
 - The **tech stack** changes (new major dependency, Firebase service, or platform support).
 - A **key differentiator** no longer applies or a new one emerges.
 
