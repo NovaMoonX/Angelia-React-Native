@@ -88,13 +88,9 @@ export default function DailyReminderSettingsScreen() {
     }
   }, [dispatch, windDownEnabled, addToast]);
 
-  /** Android: time picker calls this directly with the new date. */
-  const handleAndroidTimeChange = useCallback(
-    async (_event: DateTimePickerEvent, date?: Date) => {
-      setShowAndroidPicker(false);
-      if (!date) return;
-      const h = date.getHours();
-      const m = date.getMinutes();
+  /** Shared logic for saving a time change and showing feedback. */
+  const saveTimeChange = useCallback(
+    async (h: number, m: number) => {
       const currentH = activeTarget === 'midday' ? midDayHour : windDownHour;
       const currentM = activeTarget === 'midday' ? midDayMinute : windDownMinute;
       if (h === currentH && m === currentM) return;
@@ -111,24 +107,21 @@ export default function DailyReminderSettingsScreen() {
     [dispatch, addToast, activeTarget, midDayHour, midDayMinute, windDownHour, windDownMinute],
   );
 
+  /** Android: time picker calls this directly with the new date. */
+  const handleAndroidTimeChange = useCallback(
+    async (_event: DateTimePickerEvent, date?: Date) => {
+      setShowAndroidPicker(false);
+      if (!date) return;
+      await saveTimeChange(date.getHours(), date.getMinutes());
+    },
+    [saveTimeChange],
+  );
+
   /** iOS: "Done" pressed in the time picker modal. */
   const handleIosTimeDone = useCallback(async () => {
     setShowIosTimePicker(false);
-    const h = iosPickerDate.getHours();
-    const m = iosPickerDate.getMinutes();
-    const currentH = activeTarget === 'midday' ? midDayHour : windDownHour;
-    const currentM = activeTarget === 'midday' ? midDayMinute : windDownMinute;
-    if (h === currentH && m === currentM) return;
-    try {
-      const key = activeTarget === 'midday' ? 'dailyPrompt' : 'windDownPrompt';
-      await dispatch(
-        saveNotificationSettings({ [key]: { hour: h, minute: m } }),
-      ).unwrap();
-      addToast({ type: 'success', title: activeTarget === 'midday' ? 'Mid-day time updated' : 'Wind-down time updated' });
-    } catch {
-      addToast({ type: 'error', title: 'Failed to update reminder time' });
-    }
-  }, [dispatch, addToast, iosPickerDate, activeTarget, midDayHour, midDayMinute, windDownHour, windDownMinute]);
+    await saveTimeChange(iosPickerDate.getHours(), iosPickerDate.getMinutes());
+  }, [saveTimeChange, iosPickerDate]);
 
   const handleOpenTimePicker = useCallback((target: PickerTarget) => {
     setActiveTarget(target);
