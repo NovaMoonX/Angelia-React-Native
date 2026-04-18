@@ -105,7 +105,7 @@ export const uploadPost = createAsyncThunk(
         throw new Error('Failed to upload all media files');
       }
 
-      // 3. Update post with media and status 'ready'
+      // 3. Update post with media and status 'ready' (without waiting for thumbnails)
       const readyMedia: MediaItem[] = uploadedUrls.map((url, i) => ({
         url,
         type: media[i].type.startsWith('image') ? ('image' as const) : ('video' as const),
@@ -121,6 +121,45 @@ export const uploadPost = createAsyncThunk(
         media: readyMedia,
         status: 'ready',
       };
+
+      // 4. Upload video thumbnails in the background (fire-and-forget).
+      //    Once uploaded, the Firestore real-time listener will propagate the
+      //    thumbnailUrl to all connected clients automatically.
+      const hasVideoWithThumbnail = media.some(
+        (f) => f.type.startsWith('video/') && f.thumbnailUri,
+      );
+      if (hasVideoWithThumbnail) {
+        void (async () => {
+          try {
+            const withThumbs = [...readyMedia];
+            let hadUpdate = false;
+            await Promise.all(
+              media.map(async (file, i) => {
+                if (file.type.startsWith('video/') && file.thumbnailUri) {
+                  try {
+                    const thumbName = `${file.name.replace(/\.[^.]+$/, '')}_thumb.jpg`;
+                    const thumbUrl = await uploadPostMedia(
+                      postId,
+                      file.thumbnailUri,
+                      thumbName,
+                      'image/jpeg',
+                    );
+                    withThumbs[i] = { ...withThumbs[i], thumbnailUrl: thumbUrl };
+                    hadUpdate = true;
+                  } catch {
+                    // Thumbnail upload failure is non-fatal; the post is already live
+                  }
+                }
+              }),
+            );
+            if (hadUpdate) {
+              await updatePost(postId, { media: withThumbs });
+            }
+          } catch {
+            // Silently ignore background thumbnail upload failures
+          }
+        })();
+      }
 
       return newPost;
     } catch (err) {
