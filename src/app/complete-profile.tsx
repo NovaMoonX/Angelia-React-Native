@@ -180,7 +180,7 @@ export default function CompleteProfileScreen() {
       return {
         name: style?.label ?? 'Family Circle',
         description: style?.desc ?? '',
-        color: CHANNEL_COLORS[3].value, // PINK
+        color: CHANNEL_COLORS[3].name, // PINK
       };
     }
     if (categories.includes('hobbies')) {
@@ -189,7 +189,7 @@ export default function CompleteProfileScreen() {
         return {
           name: `The ${hobby} Journal`,
           description: `A Circle for everything ${hobby.toLowerCase()}.`,
-          color: CHANNEL_COLORS[0].value, // INDIGO
+          color: CHANNEL_COLORS[0].name, // INDIGO
         };
       }
     }
@@ -199,7 +199,7 @@ export default function CompleteProfileScreen() {
         return {
           name: option,
           description: `My ${option.toLowerCase()} Circle.`,
-          color: CHANNEL_COLORS[4].value, // LIME
+          color: CHANNEL_COLORS[4].name, // LIME
         };
       }
     }
