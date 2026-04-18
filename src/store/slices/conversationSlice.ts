@@ -1,4 +1,4 @@
-import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createSelector, type PayloadAction } from '@reduxjs/toolkit';
 import type { Message } from '@/models/types';
 import type { RootState } from '../index';
 import { resetAllState } from '../actions/globalActions';
@@ -54,7 +54,11 @@ export const { setMessages, addMessageOptimistic, clearConversation, loadDemoMes
   conversationSlice.actions;
 
 // Selectors
-export const selectMessages = (state: RootState, postId: string) =>
-  state.conversation.messagesByPost[postId] ?? [];
+const EMPTY_MESSAGES: Message[] = [];
+
+export const selectMessages = createSelector(
+  [(state: RootState) => state.conversation.messagesByPost, (_state: RootState, postId: string) => postId],
+  (messagesByPost, postId) => messagesByPost[postId] ?? EMPTY_MESSAGES,
+);
 
 export default conversationSlice.reducer;
