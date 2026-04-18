@@ -23,7 +23,6 @@ import { compressImage } from '@/utils/compressImage';
 import { generateVideoThumbnailFileUri } from '@/utils/generateVideoThumbnail';
 import { useToast } from '@/hooks/useToast';
 import { MAX_FILES } from '@/models/constants';
-
 export default function CameraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -51,8 +50,11 @@ export default function CameraScreen() {
   const camera = useRef<Camera>(null);
   const { addToast } = useToast();
 
-  // Shutter flash overlay animation
-  const shutterFlash = useRef(new Animated.Value(0)).current;
+  // Capture feedback animations:
+  // shutterScale: button press-in (0.82) → spring back (1.0)
+  // edgeGlow: brief amber ring at the camera frame edges
+  const shutterScale = useRef(new Animated.Value(1)).current;
+  const edgeGlow = useRef(new Animated.Value(0)).current;
 
   const { hasPermission: hasCameraPermission, requestPermission: requestCamera } =
     useCameraPermission();
@@ -116,10 +118,16 @@ export default function CameraScreen() {
       const photo: PhotoFile = await camera.current.takePhoto({ flash });
       const rawUri = `file://${photo.path}`;
 
-      // Shutter flash feedback
+      // ── Capture feedback ──────────────────────────────────────────────────
+      // 1. Shutter button press-in effect (scale down → spring back)
       Animated.sequence([
-        Animated.timing(shutterFlash, { toValue: 1, duration: 60, useNativeDriver: true }),
-        Animated.timing(shutterFlash, { toValue: 0, duration: 160, useNativeDriver: true }),
+        Animated.timing(shutterScale, { toValue: 0.82, duration: 70, useNativeDriver: true }),
+        Animated.spring(shutterScale, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }),
+      ]).start();
+      // 2. Edge glow ring: flashes amber at the camera frame border
+      Animated.sequence([
+        Animated.timing(edgeGlow, { toValue: 1, duration: 80, useNativeDriver: true }),
+        Animated.timing(edgeGlow, { toValue: 0, duration: 300, useNativeDriver: true }),
       ]).start();
 
       const compressedUri = await compressImage(rawUri, 'image/jpeg');
@@ -272,13 +280,15 @@ export default function CameraScreen() {
         )}
 
         {/* Shutter */}
-        <Pressable
-          style={[styles.shutter, recording && styles.shutterRecording, atMax && !recording && styles.shutterDisabled]}
-          onPress={recording ? stopRecording : videoMode ? startRecording : takePhoto}
-          disabled={atMax && !recording && !videoMode}
-        >
-          {recording && <View style={styles.recordingDot} />}
-        </Pressable>
+        <Animated.View style={{ transform: [{ scale: shutterScale }] }}>
+          <Pressable
+            style={[styles.shutter, recording && styles.shutterRecording, atMax && !recording && styles.shutterDisabled]}
+            onPress={recording ? stopRecording : videoMode ? startRecording : takePhoto}
+            disabled={atMax && !recording && !videoMode}
+          >
+            {recording && <View style={styles.recordingDot} />}
+          </Pressable>
+        </Animated.View>
 
         {/* Flip camera — hidden while recording */}
         {recording ? (
@@ -320,10 +330,11 @@ export default function CameraScreen() {
         </View>
       )}
 
-      {/* Shutter flash overlay */}
+      {/* Edge glow — amber ring that briefly pulses at the camera frame border
+           to confirm a capture has been taken */}
       <Animated.View
         pointerEvents="none"
-        style={[styles.shutterFlashOverlay, { opacity: shutterFlash }]}
+        style={[styles.edgeGlow, { opacity: edgeGlow }]}
       />
 
       {/* Captured media bar — visible in photo and video mode when there are captures */}
@@ -508,9 +519,11 @@ const styles = StyleSheet.create({
   shutterDisabled: {
     opacity: 0.35,
   },
-  shutterFlashOverlay: {
+  edgeGlow: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#FFF',
+    borderWidth: 5,
+    borderColor: '#F59E0B',
+    borderRadius: 0,
     zIndex: 20,
   },
   captureBar: {
