@@ -320,7 +320,7 @@ export default function PostDetailScreen() {
           ]}
         >
           <Text style={[styles.commentPromptText, { color: theme.primaryForeground }]}>
-            Say something in the chat! 💬
+            Start the conversation! 💬
           </Text>
         </Animated.View>
       )}
