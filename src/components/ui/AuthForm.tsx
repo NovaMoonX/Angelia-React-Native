@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Button } from './Button';
 import { Input } from './Input';
@@ -15,12 +15,15 @@ const PASSWORD_CRITERIA = [
 
 function PasswordCriteriaChecklist({ password }: { password: string }) {
   const { theme } = useTheme();
+  const { width } = useWindowDimensions();
+  const cellWidth = width < 360 ? '100%' : '50%';
+
   return (
-    <View style={criteriaStyles.container}>
+    <View style={criteriaStyles.grid}>
       {PASSWORD_CRITERIA.map((c) => {
         const met = c.test(password);
         return (
-          <View key={c.label} style={criteriaStyles.row}>
+          <View key={c.label} style={[criteriaStyles.cell, { width: cellWidth }]}>
             <Text style={[criteriaStyles.indicator, { color: met ? '#16A34A' : theme.mutedForeground }]}>
               {met ? '✓' : '○'}
             </Text>
@@ -35,11 +38,13 @@ function PasswordCriteriaChecklist({ password }: { password: string }) {
 }
 
 const criteriaStyles = StyleSheet.create({
-  container: {
-    gap: 4,
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingTop: 6,
+    rowGap: 6,
   },
-  row: {
+  cell: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
