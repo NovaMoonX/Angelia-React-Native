@@ -16,7 +16,7 @@ import {
   arrayRemove,
 } from '@react-native-firebase/firestore';
 import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message } from '@/models/types';
-import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
+import { DAILY_CHANNEL_SUFFIX, DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
 const db = getFirestore();
@@ -73,11 +73,7 @@ const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
     hour: 12,
     minute: 0,
   },
-  windDownPrompt: {
-    enabled: true,
-    hour: 17,
-    minute: 30,
-  },
+  windDownPrompt: { ...DEFAULT_WIND_DOWN_PROMPT },
   timeZone: 'UTC',
   autoDetectTimeZone: true,
 };

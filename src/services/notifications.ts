@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMessaging, requestPermission, getToken, deleteToken, AuthorizationStatus } from '@react-native-firebase/messaging';
 import { Platform } from 'react-native';
 import type { FcmTokenEntry, NotificationSettings } from '@/models/types';
+import { DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
 // ---- Constants ----
@@ -322,7 +323,7 @@ export async function scheduleDailyPrompt(settings: NotificationSettings): Promi
   }
 
   // Schedule wind-down prompt
-  const windDown = settings.windDownPrompt ?? { enabled: false, hour: 17, minute: 30 };
+  const windDown = settings.windDownPrompt ?? { ...DEFAULT_WIND_DOWN_PROMPT, enabled: false };
   if (windDown.enabled) {
     const wdIndex = Math.floor(Math.random() * WIND_DOWN_PROMPTS.length);
     const wdBody = WIND_DOWN_PROMPTS[wdIndex].body;

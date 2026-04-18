@@ -1,5 +1,6 @@
 import { createSlice, createSelector, type PayloadAction } from '@reduxjs/toolkit';
 import type { User, UserStatus, PostTier, NotificationSettings, NotificationSettingsUpdate } from '@/models/types';
+import { DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
 import type { RootState } from '../index';
 import { resetAllState } from '../actions/globalActions';
 
@@ -67,7 +68,7 @@ const usersSlice = createSlice({
         }
         if (windDownPrompt) {
           state.currentUserNotificationSettings.windDownPrompt = {
-            ...(state.currentUserNotificationSettings.windDownPrompt ?? { enabled: true, hour: 17, minute: 30 }),
+            ...(state.currentUserNotificationSettings.windDownPrompt ?? DEFAULT_WIND_DOWN_PROMPT),
             ...windDownPrompt,
           };
         }

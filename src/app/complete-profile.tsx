@@ -158,11 +158,11 @@ export default function CompleteProfileScreen() {
   );
 
   const goNext = useCallback(() => {
-    if (step < TOTAL_STEPS) animateTransition(() => setStep((s: number) => s + 1));
+    if (step < TOTAL_STEPS) animateTransition(() => setStep((s) => s + 1));
   }, [step, animateTransition]);
 
   const goBack = useCallback(() => {
-    if (step > 1) animateTransition(() => setStep((s: number) => s - 1));
+    if (step > 1) animateTransition(() => setStep((s) => s - 1));
   }, [step, animateTransition]);
 
   // ── Derived values for Step 4 ───────────────────────────────────────────
@@ -268,8 +268,8 @@ export default function CompleteProfileScreen() {
   // ── Toggle helpers for Step 3 ───────────────────────────────────────────
 
   const toggleCategory = (cat: Category) => {
-    setCategories((prev: Category[]) => {
-      if (prev.includes(cat)) return prev.filter((c: Category) => c !== cat);
+    setCategories((prev) => {
+      if (prev.includes(cat)) return prev.filter((c) => c !== cat);
       if (prev.length >= 2) return prev;
       return [...prev, cat];
     });
