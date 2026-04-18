@@ -88,6 +88,17 @@ const postsSlice = createSlice({
         post.conversationEnrollees.push(action.payload.userId);
       }
     },
+    removeConversationEnrollee(
+      state,
+      action: PayloadAction<{ postId: string; userId: string }>,
+    ) {
+      const post = state.items.find((p) => p.id === action.payload.postId);
+      if (post) {
+        post.conversationEnrollees = post.conversationEnrollees.filter(
+          (id) => id !== action.payload.userId,
+        );
+      }
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(resetAllState, () => initialState);
@@ -105,6 +116,7 @@ export const {
   updateCommentsOptimistic,
   revertCommentsOptimistic,
   addConversationEnrollee,
+  removeConversationEnrollee,
 } = postsSlice.actions;
 
 // Selectors

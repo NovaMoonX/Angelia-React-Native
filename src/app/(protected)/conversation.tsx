@@ -58,6 +58,10 @@ export default function ConversationScreen() {
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const messages = useAppSelector((state) => selectMessages(state, postId ?? ''));
 
+  // Keep a ref to latest post so async callbacks always see current reactions
+  const postRef = useRef(post);
+  postRef.current = post;
+
   const [messageText, setMessageText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [hasPlayedEntry, setHasPlayedEntry] = useState(false);
@@ -66,9 +70,10 @@ export default function ConversationScreen() {
   const tierTheme = getTierTheme(post?.tier);
   const tierConfig = post?.tier ? POST_TIERS.find((t) => t.value === post.tier) ?? null : null;
 
-  // Entry animation for Big News
+  // Entry animation for Big News and Worth Knowing
   const entryScale = useSharedValue(1);
   const confettiOpacity = useSharedValue(0);
+  const glowOpacity = useSharedValue(0);
 
   const entryAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: entryScale.value }],
@@ -76,6 +81,10 @@ export default function ConversationScreen() {
 
   const confettiAnimatedStyle = useAnimatedStyle(() => ({
     opacity: confettiOpacity.value,
+  }));
+
+  const glowAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
   }));
 
   // Access control
@@ -91,25 +100,34 @@ export default function ConversationScreen() {
     return unsub;
   }, [postId, dispatch, isDemo]);
 
-  // Entry pop animation for Big News tier
+  // Entry animation for Big News and Worth Knowing tiers
   useEffect(() => {
-    if (
-      post?.tier === 'big-news' &&
-      hasReacted &&
-      isInConversation &&
-      !hasPlayedEntry
-    ) {
+    if (!hasReacted || !isInConversation || hasPlayedEntry) return;
+
+    if (post?.tier === 'big-news') {
       setHasPlayedEntry(true);
       entryScale.value = withSequence(
         withTiming(1.08, { duration: 300 }),
         withSpring(1, { damping: 8, stiffness: 150 }),
       );
       confettiOpacity.value = withSequence(
-        withTiming(1, { duration: 200 }),
-        withTiming(0, { duration: 1500 }),
+        withTiming(1, { duration: 300 }),
+        withTiming(1, { duration: 2000 }),
+        withTiming(0, { duration: 800 }),
+      );
+    } else if (post?.tier === 'worth-knowing') {
+      setHasPlayedEntry(true);
+      entryScale.value = withSequence(
+        withTiming(1.04, { duration: 250 }),
+        withSpring(1, { damping: 10, stiffness: 120 }),
+      );
+      glowOpacity.value = withSequence(
+        withTiming(1, { duration: 300 }),
+        withTiming(1, { duration: 1500 }),
+        withTiming(0, { duration: 600 }),
       );
     }
-  }, [post?.tier, hasReacted, isInConversation, hasPlayedEntry, entryScale, confettiOpacity]);
+  }, [post?.tier, hasReacted, isInConversation, hasPlayedEntry, entryScale, confettiOpacity, glowOpacity]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -138,28 +156,29 @@ export default function ConversationScreen() {
   }, [messageText, postId, replyingTo, dispatch, addToast]);
 
   const handleJoinConversation = useCallback(async () => {
-    if (!post || !currentUser) return;
+    if (!postId || !currentUser) return;
 
     try {
       await dispatch(
-        joinConversation({ postId: post.id, userId: currentUser.id }),
+        joinConversation({ postId, userId: currentUser.id }),
       ).unwrap();
 
-      // Find the most recent emoji the user reacted with (last in array)
-      const userReactions = post.reactions.filter(
+      // Read the latest post from the ref for fresh reactions
+      const latestPost = postRef.current;
+      const userReactions = (latestPost?.reactions ?? []).filter(
         (r) => r.userId === currentUser.id,
       );
-      const userReaction = userReactions.length > 0
-        ? userReactions[userReactions.length - 1]
-        : undefined;
+      const emoji = userReactions.length > 0
+        ? userReactions[userReactions.length - 1].emoji
+        : '✨';
 
       await dispatch(
-        sendJoinMessage({ postId: post.id, emoji: userReaction?.emoji ?? '✨' }),
+        sendJoinMessage({ postId, emoji: emoji || '✨' }),
       ).unwrap();
     } catch {
       addToast({ type: 'error', title: 'Failed to join conversation' });
     }
-  }, [post, currentUser, dispatch, addToast]);
+  }, [postId, currentUser, dispatch, addToast]);
 
   const handleReply = useCallback((message: Message) => {
     setReplyingTo(message);
@@ -258,7 +277,17 @@ export default function ConversationScreen() {
           style={[styles.confettiOverlay, confettiAnimatedStyle]}
           pointerEvents="none"
         >
-          <Text style={styles.confettiText}>🎉🎊✨🥳🎉🎊✨🥳</Text>
+          <Text style={styles.confettiText}>🎉 ✨ 🥳 ✨ 🎉</Text>
+        </Animated.View>
+      )}
+
+      {/* Amber glow overlay for Worth Knowing entry */}
+      {post.tier === 'worth-knowing' && (
+        <Animated.View
+          style={[styles.glowOverlay, glowAnimatedStyle]}
+          pointerEvents="none"
+        >
+          <Text style={styles.glowText}>✨ 🌟 ✨</Text>
         </Animated.View>
       )}
 
@@ -294,7 +323,7 @@ export default function ConversationScreen() {
             {
               borderTopColor: theme.border,
               backgroundColor: theme.background,
-              paddingBottom: Math.max(insets.bottom, 8),
+              paddingBottom: Math.max(insets.bottom, 12),
               borderColor: tierTheme.inputBorderColor !== 'transparent'
                 ? tierTheme.inputBorderColor
                 : theme.border,
@@ -382,7 +411,20 @@ const styles = StyleSheet.create({
     pointerEvents: 'none',
   },
   confettiText: {
-    fontSize: 36,
+    fontSize: 32,
+    letterSpacing: 6,
+  },
+  glowOverlay: {
+    position: 'absolute',
+    top: 60,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 20,
+    pointerEvents: 'none',
+  },
+  glowText: {
+    fontSize: 28,
     letterSpacing: 8,
   },
   listContainer: {
@@ -397,6 +439,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     paddingTop: 8,
     paddingHorizontal: 12,
+    paddingBottom: 8,
   },
   replyBanner: {
     flexDirection: 'row',

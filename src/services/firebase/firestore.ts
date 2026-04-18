@@ -511,8 +511,12 @@ export function subscribeToMessages(
       orderBy('timestamp', 'asc'),
     ),
     (snap) => {
-      const messages = snap.docs.map((d) => d.data() as Message);
+      const messages = snap?.docs?.map((d) => d.data() as Message) ?? [];
       callback(messages);
+    },
+    (_error) => {
+      // Firestore subscription error — return empty to avoid crash
+      callback([]);
     },
   );
 }
