@@ -210,7 +210,7 @@ export default function ConversationScreen() {
       keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
     >
       {/* Header */}
-      <Animated.View style={[styles.header, { backgroundColor: headerBg, borderBottomColor: theme.border }, entryAnimatedStyle]}>
+      <Animated.View style={[styles.header, { backgroundColor: headerBg, borderBottomColor: theme.border, paddingTop: insets.top + 10 }, entryAnimatedStyle]}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Feather name="arrow-left" size={22} color={theme.foreground} />
         </Pressable>
@@ -263,7 +263,7 @@ export default function ConversationScreen() {
 
       {/* Message list area */}
       <View style={styles.listContainer}>
-        {messages.length === 0 && hasReacted && isInConversation ? (
+        {messages.length === 0 ? (
           <ConversationEmptyState />
         ) : (
           <FlashList
@@ -278,7 +278,7 @@ export default function ConversationScreen() {
 
       {/* Join CTA for users who reacted but haven't joined */}
       {hasReacted && !isInConversation && (
-        <View style={[styles.joinBar, { borderTopColor: theme.border, backgroundColor: theme.background }]}>
+        <View style={[styles.joinBar, { borderTopColor: theme.border, backgroundColor: theme.background, paddingBottom: Math.max(insets.bottom, 16) }]}>
           <Button onPress={handleJoinConversation}>
             Join Conversation
           </Button>
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     gap: 8,
   },

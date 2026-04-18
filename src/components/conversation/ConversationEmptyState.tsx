@@ -7,9 +7,16 @@ export function ConversationEmptyState() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.icon}>🌙</Text>
-      <Text style={[styles.text, { color: theme.mutedForeground }]}>
-        The room is quiet… say something sweet to start the chat.
+      <View style={styles.illustration}>
+        <Text style={styles.bubbleLeft}>💬</Text>
+        <Text style={styles.star}>✨</Text>
+        <Text style={styles.bubbleRight}>🌙</Text>
+      </View>
+      <Text style={[styles.heading, { color: theme.foreground }]}>
+        No messages yet!
+      </Text>
+      <Text style={[styles.body, { color: theme.mutedForeground }]}>
+        Be the first to say something — every great conversation starts with one message. ✨
       </Text>
     </View>
   );
@@ -20,16 +27,34 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 40,
     paddingVertical: 64,
+    gap: 12,
   },
-  icon: {
-    fontSize: 48,
-    marginBottom: 16,
+  illustration: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 4,
+    marginBottom: 8,
   },
-  text: {
-    fontSize: 16,
+  bubbleLeft: {
+    fontSize: 52,
+  },
+  star: {
+    fontSize: 28,
+    marginBottom: 12,
+  },
+  bubbleRight: {
+    fontSize: 40,
+  },
+  heading: {
+    fontSize: 20,
+    fontWeight: '700',
     textAlign: 'center',
-    lineHeight: 24,
+  },
+  body: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });

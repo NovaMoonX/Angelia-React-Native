@@ -38,13 +38,19 @@ const conversationSlice = createSlice({
     clearConversation(state, action: PayloadAction<string>) {
       delete state.messagesByPost[action.payload];
     },
+    loadDemoMessages(
+      state,
+      action: PayloadAction<Record<string, Message[]>>,
+    ) {
+      state.messagesByPost = { ...state.messagesByPost, ...action.payload };
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(resetAllState, () => initialState);
   },
 });
 
-export const { setMessages, addMessageOptimistic, clearConversation } =
+export const { setMessages, addMessageOptimistic, clearConversation, loadDemoMessages } =
   conversationSlice.actions;
 
 // Selectors

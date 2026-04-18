@@ -1,4 +1,4 @@
-import type { User, Channel, Post, ChannelJoinRequest } from '@/models/types';
+import type { User, Channel, Post, ChannelJoinRequest, Message } from '@/models/types';
 
 const DEMO_USER: User = {
   id: 'demo-user-1',
@@ -331,6 +331,97 @@ const DEMO_INVITES: {
   outgoing: [],
 };
 
+/**
+ * Pre-seeded messages for demo conversations. Mirrors the comments on demo
+ * posts so the conversation screen shows real content in demo mode.
+ */
+const DEMO_MESSAGES: Record<string, Message[]> = {
+  'demo-post-1': [
+    {
+      id: 'demo-msg-1-sys',
+      authorId: 'demo-user-1',
+      text: 'joined the conversation with ☀️',
+      timestamp: Date.now() - 2 * 60 * 60 * 1000 + 1000,
+      parentId: null,
+      reactions: {},
+      isSystem: true,
+    },
+    {
+      id: 'demo-msg-1-sys-2',
+      authorId: 'demo-user-2',
+      text: 'joined the conversation with ❤️',
+      timestamp: Date.now() - 1 * 60 * 60 * 1000 - 5000,
+      parentId: null,
+      reactions: {},
+      isSystem: true,
+    },
+    {
+      id: 'demo-msg-1',
+      authorId: 'demo-user-2',
+      text: 'Gorgeous! Wish I could see it!',
+      timestamp: Date.now() - 1 * 60 * 60 * 1000,
+      parentId: null,
+      reactions: {},
+    },
+  ],
+  'demo-post-3': [
+    {
+      id: 'demo-msg-3-sys',
+      authorId: 'demo-user-1',
+      text: 'joined the conversation with 🎉',
+      timestamp: Date.now() - 24 * 60 * 60 * 1000 + 1000,
+      parentId: null,
+      reactions: {},
+      isSystem: true,
+    },
+    {
+      id: 'demo-msg-3-sys-2',
+      authorId: 'demo-user-2',
+      text: 'joined the conversation with 🎉',
+      timestamp: Date.now() - 23 * 60 * 60 * 1000 - 5000,
+      parentId: null,
+      reactions: {},
+      isSystem: true,
+    },
+    {
+      id: 'demo-msg-3',
+      authorId: 'demo-user-2',
+      text: 'So jealous! Take lots of photos!',
+      timestamp: Date.now() - 23 * 60 * 60 * 1000,
+      parentId: null,
+      reactions: {},
+    },
+  ],
+  'demo-post-6': [
+    {
+      id: 'demo-msg-6-sys',
+      authorId: 'demo-user-1',
+      text: 'joined the conversation with 🌍',
+      timestamp: Date.now() - 4 * 24 * 60 * 60 * 1000 + 1000,
+      parentId: null,
+      reactions: {},
+      isSystem: true,
+    },
+    {
+      id: 'demo-msg-6-sys-2',
+      authorId: 'demo-user-2',
+      text: 'joined the conversation with 🌍',
+      timestamp: Date.now() - 4 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000 - 5000,
+      parentId: null,
+      reactions: {},
+      isSystem: true,
+    },
+    {
+      id: 'demo-msg-6',
+      authorId: 'demo-user-2',
+      text: 'The mountain scenery looks amazing!',
+      timestamp: Date.now() - 4 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
+      parentId: null,
+      reactions: {},
+    },
+  ],
+};
+
 export const DEMO_DATA = {
   users: {
     currentUser: DEMO_USER,
@@ -339,4 +430,5 @@ export const DEMO_DATA = {
   channels: DEMO_CHANNELS,
   posts: DEMO_POSTS,
   invites: DEMO_INVITES,
+  messages: DEMO_MESSAGES,
 };

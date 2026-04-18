@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Animated,
   KeyboardAvoidingView,
@@ -57,8 +57,11 @@ export default function PostDetailScreen() {
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
+  const [unlockEmoji, setUnlockEmoji] = useState<string | null>(null);
   const popoverOpacity = useRef(new Animated.Value(0)).current;
   const popoverScale = useRef(new Animated.Value(0.8)).current;
+  const chatTabScale = useRef(new Animated.Value(1)).current;
+  const chatTabUnlockOpacity = useRef(new Animated.Value(0)).current;
 
   const handleCarouselIndexChange = (index: number) => {
     setActiveCarouselIndex(index);
