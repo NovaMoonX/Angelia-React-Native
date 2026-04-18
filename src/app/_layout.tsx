@@ -40,9 +40,16 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 			pathname: '/(protected)/post/new',
 			params: { existingText: followUp },
 		});
-	} else if (type === 'join_channel_request' || type === 'join_channel_accepted') {
-		// Channel join notifications — navigate to the notifications screen
-		router.push('/(protected)/notifications');
+	} else if (type === 'join_channel_request') {
+		const joinRequestId = data?.joinRequestId;
+		if (joinRequestId) {
+			router.push({ pathname: '/(protected)/join-request/[id]', params: { id: joinRequestId } });
+		} else {
+			router.push('/(protected)/notifications');
+		}
+	} else if (type === 'join_channel_accepted') {
+		const channelName = data?.channelName ?? '';
+		router.push({ pathname: '/(protected)/channel-accepted', params: { channelName } });
 	}
 });
 

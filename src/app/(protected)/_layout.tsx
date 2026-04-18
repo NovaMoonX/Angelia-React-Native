@@ -103,6 +103,8 @@ export default function ProtectedLayout() {
             name="invite/[channelId]/[inviteCode]"
             options={{ headerShown: false }}
           />
+          <Stack.Screen name="join-request/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="channel-accepted" options={{ headerShown: false }} />
           <Stack.Screen
             name="error-fallback"
             options={{ title: 'Error', headerBackVisible: false }}

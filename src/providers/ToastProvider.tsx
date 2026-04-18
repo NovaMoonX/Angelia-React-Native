@@ -11,6 +11,8 @@ interface ToastOptions {
   title: string;
   description?: string;
   type: 'success' | 'error' | 'warning' | 'info';
+  /** Optional callback invoked when the user taps the toast body. The toast is auto-dismissed on tap. */
+  onPress?: () => void;
 }
 
 interface ToastItem extends ToastOptions {
@@ -60,26 +62,35 @@ function Toast({ item, onDismiss }: { item: ToastItem; onDismiss: (id: string) =
     return () => clearTimeout(timer);
   }, [item.id, onDismiss, opacity, translateY]);
 
+  const handleBodyPress = item.onPress
+    ? () => {
+        item.onPress!();
+        onDismiss(item.id);
+      }
+    : undefined;
+
   return (
-    <Animated.View
-      style={[
-        styles.toast,
-        { backgroundColor: colors.bg, borderLeftColor: colors.border, opacity, transform: [{ translateY }] },
-      ]}
-    >
-      <View style={styles.toastContent}>
-        <Text style={styles.toastIcon}>{TOAST_ICONS[item.type]}</Text>
-        <View style={styles.toastTextContainer}>
-          <Text style={[styles.toastTitle, { color: colors.text }]}>{item.title}</Text>
-          {item.description && (
-            <Text style={[styles.toastDescription, { color: colors.text }]}>{item.description}</Text>
-          )}
+    <Pressable onPress={handleBodyPress} disabled={!item.onPress}>
+      <Animated.View
+        style={[
+          styles.toast,
+          { backgroundColor: colors.bg, borderLeftColor: colors.border, opacity, transform: [{ translateY }] },
+        ]}
+      >
+        <View style={styles.toastContent}>
+          <Text style={styles.toastIcon}>{TOAST_ICONS[item.type]}</Text>
+          <View style={styles.toastTextContainer}>
+            <Text style={[styles.toastTitle, { color: colors.text }]}>{item.title}</Text>
+            {item.description && (
+              <Text style={[styles.toastDescription, { color: colors.text }]}>{item.description}</Text>
+            )}
+          </View>
+          <Pressable onPress={() => onDismiss(item.id)} hitSlop={8}>
+            <Text style={[styles.toastClose, { color: colors.text }]}>✕</Text>
+          </Pressable>
         </View>
-        <Pressable onPress={() => onDismiss(item.id)} hitSlop={8}>
-          <Text style={[styles.toastClose, { color: colors.text }]}>✕</Text>
-        </Pressable>
-      </View>
-    </Animated.View>
+      </Animated.View>
+    </Pressable>
   );
 }
 

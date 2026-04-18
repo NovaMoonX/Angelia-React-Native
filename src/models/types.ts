@@ -151,13 +151,31 @@ export interface ChannelColorOption {
 
 // ── App Notifications (Firestore-triggered FCM) ────────────────────────────
 
-export type AppNotificationType = 'join_channel_request' | 'join_channel_accepted';
+export type AppNotificationType =
+  | 'join_channel_request'
+  | 'join_channel_accepted'
+  | 'new_post'        // For post tier subscriptions (future)
+  | 'comment_reply';  // For conversation enrollment (future)
+
+/**
+ * Describes where a notification should be delivered.
+ *
+ * - `user`         — a single specific user (e.g. a join request to the channel owner)
+ * - `channel_tier` — all subscribers of a post tier in a channel (e.g. a new post)
+ * - `thread`       — all participants of a conversation thread (e.g. a reply)
+ */
+export type NotificationTarget =
+  | { type: 'user'; userId: string }
+  | { type: 'channel_tier'; channelId: string; tier: PostTier }
+  | { type: 'thread'; threadId: string };
 
 interface BaseAppNotification {
   id: string;
   type: AppNotificationType;
-  /** UID of the user who should receive the push notification. */
-  targetUserId: string;
+  /** The user who triggered the notification (e.g. the requester or the owner). */
+  actorId: string;
+  /** Where the notification should be delivered. */
+  target: NotificationTarget;
   createdAt: number;
 }
 

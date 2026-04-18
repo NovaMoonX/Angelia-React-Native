@@ -36,18 +36,22 @@ export const respondToJoinRequest = createAsyncThunk(
 
       if (accept) {
         const state = getState() as RootState;
-        const channel = state.channels.items.find((c) => c.id === request.channelId);
-        const notification: JoinChannelAcceptedNotification = {
-          id: generateId('nano'),
-          type: 'join_channel_accepted',
-          targetUserId: request.requesterId,
-          channelId: request.channelId,
-          channelName: channel?.name ?? 'channel',
-          joinRequestId: request.id,
-          createdAt: Date.now(),
-        };
-        // Fire-and-forget — delivery failure must not block the accept action
-        createAppNotification(notification).catch(() => {});
+        const currentUser = state.users.currentUser;
+        if (currentUser) {
+          const channel = state.channels.items.find((c) => c.id === request.channelId);
+          const notification: JoinChannelAcceptedNotification = {
+            id: generateId('nano'),
+            type: 'join_channel_accepted',
+            actorId: currentUser.id,
+            target: { type: 'user', userId: request.requesterId },
+            channelId: request.channelId,
+            channelName: channel?.name ?? 'channel',
+            joinRequestId: request.id,
+            createdAt: Date.now(),
+          };
+          // Fire-and-forget — delivery failure must not block the accept action
+          createAppNotification(notification).catch(() => {});
+        }
       }
 
       return updatedRequest;
@@ -96,7 +100,8 @@ export const sendJoinRequest = createAsyncThunk(
       const notification: JoinChannelRequestNotification = {
         id: generateId('nano'),
         type: 'join_channel_request',
-        targetUserId: channelOwnerId,
+        actorId: user.id,
+        target: { type: 'user', userId: channelOwnerId },
         requesterId: user.id,
         requesterFirstName: user.firstName,
         requesterLastName: user.lastName,

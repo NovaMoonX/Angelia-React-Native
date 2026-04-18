@@ -293,17 +293,23 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
 
       if (type === 'join_channel_request') {
         const channelName = data?.channelName ?? 'your channel';
+        const firstName = data?.requesterFirstName ?? 'Someone';
+        const joinRequestId = data?.joinRequestId;
         addToast({
           type: 'info',
-          title: '📬 New join request!',
-          description: `Someone wants to join ${channelName}`,
+          title: `📬 ${firstName} wants to join!`,
+          description: `Tap to review their request for ${channelName}`,
+          onPress: joinRequestId
+            ? () => router.push({ pathname: '/(protected)/join-request/[id]', params: { id: joinRequestId } })
+            : undefined,
         });
       } else if (type === 'join_channel_accepted') {
         const channelName = data?.channelName ?? 'the channel';
         addToast({
           type: 'success',
           title: '🎉 You\'ve been accepted!',
-          description: `You're now a member of ${channelName}`,
+          description: `Tap to check out ${channelName} and celebrate!`,
+          onPress: () => router.push({ pathname: '/(protected)/channel-accepted', params: { channelName } }),
         });
       }
     });

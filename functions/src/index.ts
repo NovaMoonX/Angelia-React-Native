@@ -7,13 +7,26 @@ const db = admin.firestore();
 const messaging = admin.messaging();
 
 // ── Types (mirrors src/models/types.ts in the app) ─────────────────────────
+// IMPORTANT: Keep these types in sync with src/models/types.ts in the app.
 
-type AppNotificationType = 'join_channel_request' | 'join_channel_accepted';
+type AppNotificationType =
+  | 'join_channel_request'
+  | 'join_channel_accepted'
+  | 'new_post'
+  | 'comment_reply';
+
+type PostTier = 'everyday' | 'worth-knowing' | 'big-news';
+
+type NotificationTarget =
+  | { type: 'user'; userId: string }
+  | { type: 'channel_tier'; channelId: string; tier: PostTier }
+  | { type: 'thread'; threadId: string };
 
 interface BaseAppNotification {
   id: string;
   type: AppNotificationType;
-  targetUserId: string;
+  actorId: string;
+  target: NotificationTarget;
   createdAt: number;
 }
 
@@ -99,10 +112,19 @@ export const sendAppNotification = onDocumentCreated(
 
     const notification = snap.data() as AppNotification;
 
+    // Only handle user-targeted notifications for now.
+    // channel_tier and thread targets will be supported in future Cloud Functions.
+    if (notification.target.type !== 'user') {
+      await snap.ref.delete();
+      return;
+    }
+
+    const targetUserId = notification.target.userId;
+
     // Fetch the target user's notification settings (contains FCM tokens)
     const settingsSnap = await db
       .collection('userNotificationSettings')
-      .doc(notification.targetUserId)
+      .doc(targetUserId)
       .get();
 
     if (!settingsSnap.exists) {
