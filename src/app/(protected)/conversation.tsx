@@ -145,16 +145,17 @@ export default function ConversationScreen() {
         joinConversation({ postId: post.id, userId: currentUser.id }),
       ).unwrap();
 
-      // Find the emoji the user reacted with
-      const userReaction = post.reactions.find(
+      // Find the most recent emoji the user reacted with (last in array)
+      const userReactions = post.reactions.filter(
         (r) => r.userId === currentUser.id,
       );
+      const userReaction = userReactions.length > 0
+        ? userReactions[userReactions.length - 1]
+        : undefined;
 
-      if (userReaction) {
-        await dispatch(
-          sendJoinMessage({ postId: post.id, emoji: userReaction.emoji }),
-        ).unwrap();
-      }
+      await dispatch(
+        sendJoinMessage({ postId: post.id, emoji: userReaction?.emoji ?? '✨' }),
+      ).unwrap();
     } catch {
       addToast({ type: 'error', title: 'Failed to join conversation' });
     }

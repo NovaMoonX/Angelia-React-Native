@@ -19,6 +19,7 @@ import {
   revertReactionsOptimistic,
   updateCommentsOptimistic,
   revertCommentsOptimistic,
+  addConversationEnrollee,
 } from '@/store/slices/postsSlice';
 import { isDemoActive } from './globalActions';
 
@@ -182,8 +183,11 @@ export const joinConversation = createAsyncThunk(
   'posts/joinConversation',
   async (
     { postId, userId }: { postId: string; userId: string },
-    { getState, rejectWithValue },
+    { getState, dispatch, rejectWithValue },
   ) => {
+    // Optimistically add user to conversation enrollees
+    dispatch(addConversationEnrollee({ postId, userId }));
+
     if (isDemoActive(getState)) {
       return { postId, userId };
     }

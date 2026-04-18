@@ -21,6 +21,7 @@ import { UserProfileModal } from '@/components/UserProfileModal';
 import { MediaViewerModal } from '@/components/MediaViewerModal';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
+import { selectMessages } from '@/store/slices/conversationSlice';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { getRelativeTime } from '@/lib/timeUtils';
@@ -51,6 +52,7 @@ export default function PostDetailScreen() {
     selectPostChannel(state, post?.channelId || '')
   );
   const currentUser = useAppSelector((state) => state.users.currentUser);
+  const conversationMessages = useAppSelector((state) => selectMessages(state, id || ''));
 
   const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
@@ -80,6 +82,9 @@ export default function PostDetailScreen() {
   const hasReacted = post.reactions.some(
     (r) => r.userId === currentUser.id
   );
+
+  // Use conversation messages count, falling back to legacy post.comments
+  const messageCount = conversationMessages.length || post.comments.length;
 
   // Group reactions by emoji
   const reactionGroups = useMemo(() => {
@@ -336,8 +341,8 @@ export default function PostDetailScreen() {
                 <Text
                   style={[styles.chatTabText, { color: theme.primary }]}
                 >
-                  {post.comments.length > 0
-                    ? `${post.comments.length} message${post.comments.length !== 1 ? 's' : ''}`
+                  {messageCount > 0
+                    ? `${messageCount} message${messageCount !== 1 ? 's' : ''}`
                     : 'Start the conversation 💬'}
                 </Text>
                 <Feather

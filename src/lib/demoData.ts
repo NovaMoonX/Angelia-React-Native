@@ -137,7 +137,7 @@ const DEMO_POSTS: Post[] = [
         timestamp: Date.now() - 1 * 60 * 60 * 1000,
       },
     ],
-    conversationEnrollees: ['demo-user-1', 'demo-user-2'],
+    conversationEnrollees: ['demo-user-2'],
     markedForDeletionAt: null,
     status: 'ready',
     tier: 'everyday',
@@ -198,7 +198,7 @@ const DEMO_POSTS: Post[] = [
         timestamp: Date.now() - 23 * 60 * 60 * 1000,
       },
     ],
-    conversationEnrollees: ['demo-user-1', 'demo-user-2'],
+    conversationEnrollees: ['demo-user-2'],
     markedForDeletionAt: null,
     status: 'ready',
     tier: 'big-news',
@@ -286,7 +286,7 @@ const DEMO_POSTS: Post[] = [
         timestamp: Date.now() - 4 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
       },
     ],
-    conversationEnrollees: ['demo-user-1', 'demo-user-2'],
+    conversationEnrollees: ['demo-user-2'],
     markedForDeletionAt: null,
     status: 'ready',
     tier: 'everyday',
@@ -338,15 +338,6 @@ const DEMO_INVITES: {
 const DEMO_MESSAGES: Record<string, Message[]> = {
   'demo-post-1': [
     {
-      id: 'demo-msg-1-sys',
-      authorId: 'demo-user-1',
-      text: 'joined the conversation with ☀️',
-      timestamp: Date.now() - 2 * 60 * 60 * 1000 + 1000,
-      parentId: null,
-      reactions: {},
-      isSystem: true,
-    },
-    {
       id: 'demo-msg-1-sys-2',
       authorId: 'demo-user-2',
       text: 'joined the conversation with ❤️',
@@ -366,15 +357,6 @@ const DEMO_MESSAGES: Record<string, Message[]> = {
   ],
   'demo-post-3': [
     {
-      id: 'demo-msg-3-sys',
-      authorId: 'demo-user-1',
-      text: 'joined the conversation with 🎉',
-      timestamp: Date.now() - 24 * 60 * 60 * 1000 + 1000,
-      parentId: null,
-      reactions: {},
-      isSystem: true,
-    },
-    {
       id: 'demo-msg-3-sys-2',
       authorId: 'demo-user-2',
       text: 'joined the conversation with 🎉',
@@ -393,15 +375,6 @@ const DEMO_MESSAGES: Record<string, Message[]> = {
     },
   ],
   'demo-post-6': [
-    {
-      id: 'demo-msg-6-sys',
-      authorId: 'demo-user-1',
-      text: 'joined the conversation with 🌍',
-      timestamp: Date.now() - 4 * 24 * 60 * 60 * 1000 + 1000,
-      parentId: null,
-      reactions: {},
-      isSystem: true,
-    },
     {
       id: 'demo-msg-6-sys-2',
       authorId: 'demo-user-2',
