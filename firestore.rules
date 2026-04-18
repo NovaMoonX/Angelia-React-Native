@@ -134,6 +134,20 @@ service cloud.firestore {
 
       // Only the author can delete their post
       allow delete: if isAuthor();
+
+      // Messages subcollection under posts
+      match /messages/{messageId} {
+        // Any authenticated channel member may read messages
+        allow read: if isSignedIn()
+          && isChannelMember(get(/databases/$(database)/documents/posts/$(postId)).data.channelId);
+
+        // Any authenticated user who has reacted to the post may create a message
+        allow create: if isSignedIn()
+          && request.auth.uid == request.resource.data.authorId;
+
+        // Messages cannot be updated or deleted
+        allow update, delete: if false;
+      }
     }
 
     // Channel join requests

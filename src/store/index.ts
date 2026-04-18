@@ -5,6 +5,7 @@ import channelsReducer from './slices/channelsSlice';
 import usersReducer from './slices/usersSlice';
 import invitesReducer from './slices/invitesSlice';
 import pendingInviteReducer from './slices/pendingInviteSlice';
+import conversationReducer from './slices/conversationSlice';
 
 export const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ export const store = configureStore({
     users: usersReducer,
     invites: invitesReducer,
     pendingInvite: pendingInviteReducer,
+    conversation: conversationReducer,
   },
 });
 

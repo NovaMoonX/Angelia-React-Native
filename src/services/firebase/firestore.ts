@@ -11,10 +11,11 @@ import {
   query,
   where,
   limit,
+  orderBy,
   arrayUnion,
   arrayRemove,
 } from '@react-native-firebase/firestore';
-import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate } from '@/models/types';
+import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
@@ -489,4 +490,29 @@ export function subscribeToChannelUsers(
   }
 
   return () => unsubscribes.forEach((u) => u());
+}
+
+// ---- Message Operations (subcollection under posts) ----
+
+export async function addMessage(postId: string, message: Message): Promise<void> {
+  await setDoc(
+    doc(db, 'posts', postId, 'messages', message.id),
+    message,
+  );
+}
+
+export function subscribeToMessages(
+  postId: string,
+  callback: (messages: Message[]) => void,
+): () => void {
+  return onSnapshot(
+    query(
+      collection(db, 'posts', postId, 'messages'),
+      orderBy('timestamp', 'asc'),
+    ),
+    (snap) => {
+      const messages = snap.docs.map((d) => d.data() as Message);
+      callback(messages);
+    },
+  );
 }

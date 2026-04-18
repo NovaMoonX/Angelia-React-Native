@@ -1,0 +1,54 @@
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import type { Message } from '@/models/types';
+import type { RootState } from '../index';
+import { resetAllState } from '../actions/globalActions';
+
+interface ConversationState {
+  /** Messages keyed by postId. */
+  messagesByPost: Record<string, Message[]>;
+}
+
+const initialState: ConversationState = {
+  messagesByPost: {},
+};
+
+const conversationSlice = createSlice({
+  name: 'conversation',
+  initialState,
+  reducers: {
+    setMessages(
+      state,
+      action: PayloadAction<{ postId: string; messages: Message[] }>,
+    ) {
+      state.messagesByPost[action.payload.postId] = action.payload.messages;
+    },
+    addMessageOptimistic(
+      state,
+      action: PayloadAction<{ postId: string; message: Message }>,
+    ) {
+      const { postId, message } = action.payload;
+      if (!state.messagesByPost[postId]) {
+        state.messagesByPost[postId] = [];
+      }
+      // Avoid duplicates (in case subscription beats optimistic update)
+      if (!state.messagesByPost[postId].some((m) => m.id === message.id)) {
+        state.messagesByPost[postId].push(message);
+      }
+    },
+    clearConversation(state, action: PayloadAction<string>) {
+      delete state.messagesByPost[action.payload];
+    },
+  },
+  extraReducers: (builder) => {
+    builder.addCase(resetAllState, () => initialState);
+  },
+});
+
+export const { setMessages, addMessageOptimistic, clearConversation } =
+  conversationSlice.actions;
+
+// Selectors
+export const selectMessages = (state: RootState, postId: string) =>
+  state.conversation.messagesByPost[postId] ?? [];
+
+export default conversationSlice.reducer;

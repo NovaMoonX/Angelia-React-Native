@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   Animated,
   KeyboardAvoidingView,
@@ -9,18 +9,15 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
 import { Callout } from '@/components/ui/Callout';
 import { Card } from '@/components/ui/Card';
 import { Carousel } from '@/components/ui/Carousel';
-import { Input } from '@/components/ui/Input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
-import { ChatMessage } from '@/components/ChatMessage';
 import { ReactionDisplay } from '@/components/ReactionDisplay';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { UserProfileModal } from '@/components/UserProfileModal';
@@ -32,7 +29,6 @@ import { useToast } from '@/hooks/useToast';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName } from '@/lib/post/post.utils';
-import { getRandomPhrase, getRandomFirstCommentPhrase } from '@/lib/post/post.constants';
 import { COMMON_EMOJIS } from '@/models/constants';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { AddReactionIcon } from '@/components/AddReactionIcon';
@@ -40,15 +36,13 @@ import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout'
 import {
   updatePostReactions,
   removePostReaction,
-  updatePostComments,
-  joinConversation,
 } from '@/store/actions/postActions';
-import { generateId } from '@/utils/generateId';
-import type { Reaction, Comment as CommentType, MediaItem } from '@/models/types';
+import type { Reaction, MediaItem } from '@/models/types';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const { theme } = useTheme();
   const { addToast } = useToast();
   const insets = useSafeAreaInsets();
@@ -62,7 +56,6 @@ export default function PostDetailScreen() {
   const currentUser = useAppSelector((state) => state.users.currentUser);
 
   const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
-  const [commentText, setCommentText] = useState('');
   const [activeTab, setActiveTab] = useState<'reactions' | 'conversation'>(
     'reactions'
   );
@@ -91,13 +84,6 @@ export default function PostDetailScreen() {
   const authorName = getPostAuthorName(author, currentUser);
   const hasReacted = post.reactions.some(
     (r) => r.userId === currentUser.id
-  );
-  const hasCommented = post.comments.some(
-    (c) => c.authorId === currentUser.id
-  );
-  const hasInteracted = hasReacted || hasCommented;
-  const isInConversation = post.conversationEnrollees.includes(
-    currentUser.id
   );
 
   // Group reactions by emoji
@@ -188,42 +174,6 @@ export default function PostDetailScreen() {
     }
   };
 
-
-  const handleJoinConversation = async () => {
-    try {
-      await dispatch(
-        joinConversation({ postId: post.id, userId: currentUser.id })
-      ).unwrap();
-    } catch {
-      addToast({ type: 'error', title: 'Failed to join conversation' });
-      return;
-    }
-    // Show comment prompt when user has already reacted but no comments exist yet
-    if (hasReacted && post.comments.length === 0) {
-      triggerCommentPrompt();
-    }
-  };
-
-  const handleSendComment = async () => {
-    if (!commentText.trim()) return;
-
-    const comment: CommentType = {
-      id: generateId('nano'),
-      authorId: currentUser.id,
-      text: commentText.trim(),
-      timestamp: Date.now(),
-    };
-
-    setCommentText('');
-
-    try {
-      await dispatch(
-        updatePostComments({ postId: post.id, newComment: comment })
-      ).unwrap();
-    } catch {
-      addToast({ type: 'error', title: 'Failed to send comment' });
-    }
-  };
 
   return (
     <KeyboardAvoidingView
@@ -383,58 +333,20 @@ export default function PostDetailScreen() {
                 style={styles.calloutNoBorder}
               />
             </Card>
-          ) : !isInConversation ? (
-            <Card style={styles.joinCard}>
-              <Text
-                style={[
-                  styles.joinText,
-                  { color: theme.mutedForeground },
-                ]}
-              >
-                Join the conversation to see and post comments.
-              </Text>
-              <Button onPress={handleJoinConversation}>
-                Join Conversation
-              </Button>
-            </Card>
           ) : (
-            <View style={styles.conversationArea}>
-              {post.comments.length === 0 ? (
-                <View style={styles.emptyCommentsContainer}>
-                  <Text style={[styles.emptyCommentsText, { color: theme.mutedForeground }]}>
-                    {getRandomFirstCommentPhrase()}
-                  </Text>
-                </View>
-              ) : (
-                post.comments.map((comment) => (
-                  <ChatMessage
-                    key={comment.id}
-                    authorId={comment.authorId}
-                    text={comment.text}
-                    timestamp={comment.timestamp}
-                    isCurrentUser={
-                      comment.authorId === currentUser.id
-                    }
-                  />
-                ))
-              )}
-
-              <View style={styles.commentInput}>
-                <Input
-                  value={commentText}
-                  onChangeText={setCommentText}
-                  placeholder={getRandomPhrase()}
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  onPress={handleSendComment}
-                  size="sm"
-                  disabled={!commentText.trim()}
-                >
-                  Send
-                </Button>
-              </View>
-            </View>
+            <Pressable
+              onPress={() => router.push({ pathname: '/(protected)/conversation', params: { postId: post.id } })}
+              style={[styles.openChatCard, { backgroundColor: theme.card, borderColor: theme.border }]}
+            >
+              <Feather name="message-circle" size={20} color={theme.primary} />
+              <Text style={[styles.openChatText, { color: theme.foreground }]}>
+                Open Chat
+              </Text>
+              <Text style={[styles.openChatMeta, { color: theme.mutedForeground }]}>
+                {post.comments.length} message{post.comments.length !== 1 ? 's' : ''}
+              </Text>
+              <Feather name="chevron-right" size={18} color={theme.mutedForeground} />
+            </Pressable>
           )}
         </TabsContent>
       </Tabs>
@@ -614,25 +526,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
-  conversationArea: {
-    marginTop: 12,
-    gap: 4,
-  },
-  emptyCommentsContainer: {
-    paddingVertical: 32,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-  },
-  emptyCommentsText: {
-    fontSize: 15,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  commentInput: {
+  openChatCard: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
     alignItems: 'center',
+    gap: 10,
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  openChatText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  openChatMeta: {
+    fontSize: 12,
   },
   commentPromptPopover: {
     position: 'absolute',
