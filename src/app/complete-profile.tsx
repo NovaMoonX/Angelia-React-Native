@@ -34,11 +34,11 @@ type Category = 'family' | 'hobbies' | 'lifelog';
 
 type FamilyStyle = 'new-parent' | 'grandparent' | 'long-distance' | 'inner-circle';
 
-const FAMILY_STYLES: { id: FamilyStyle; title: string; desc: string }[] = [
-  { id: 'new-parent', title: '👶 New Parent', desc: 'I want to share milestones and tiny moments of my children.' },
-  { id: 'grandparent', title: '🧡 Grandparent', desc: 'I want to stay in the loop and share my daily vibe.' },
-  { id: 'long-distance', title: '🌍 Long Distance', desc: 'Staying close with people who are far away.' },
-  { id: 'inner-circle', title: '🤝 Inner Circle', desc: 'Just for my tight-knit group of friends.' },
+const FAMILY_STYLES: { id: FamilyStyle; title: string; label: string; desc: string }[] = [
+  { id: 'new-parent', title: '👶 New Parent', label: 'New Parent', desc: 'I want to share milestones and tiny moments of my children.' },
+  { id: 'grandparent', title: '🧡 Grandparent', label: 'Grandparent', desc: 'I want to stay in the loop and share my daily vibe.' },
+  { id: 'long-distance', title: '🌍 Long Distance', label: 'Long Distance', desc: 'Staying close with people who are far away.' },
+  { id: 'inner-circle', title: '🤝 Inner Circle', label: 'Inner Circle', desc: 'Just for my tight-knit group of friends.' },
 ];
 
 const HOBBIES = [
@@ -78,7 +78,9 @@ function midpoint(startH: number, startM: number, endH: number, endM: number) {
   let endTotal = endH * 60 + endM;
   if (endTotal <= startTotal) endTotal += 24 * 60;
   const mid = Math.round((startTotal + endTotal) / 2);
-  return { hour: Math.floor(mid / 60) % 24, minute: Math.round(mid % 60 / 15) * 15 };
+  const roundedMinute = Math.round((mid % 60) / 15) * 15;
+  const extraHour = roundedMinute >= 60 ? 1 : 0;
+  return { hour: (Math.floor(mid / 60) + extraHour) % 24, minute: roundedMinute % 60 };
 }
 
 function addMinutes(h: number, m: number, add: number) {
@@ -176,7 +178,7 @@ export default function CompleteProfileScreen() {
     if (categories.includes('family') && familyStyle) {
       const style = FAMILY_STYLES.find((s) => s.id === familyStyle);
       return {
-        name: style?.title.replace(/^[^\w]*/, '').trim() ?? 'Family Circle',
+        name: style?.label ?? 'Family Circle',
         description: style?.desc ?? '',
         color: CHANNEL_COLORS[3].value, // PINK
       };
