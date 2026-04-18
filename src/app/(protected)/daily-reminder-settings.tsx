@@ -250,7 +250,7 @@ export default function DailyReminderSettingsScreen() {
           styles.backBar,
           {
             borderTopColor: theme.border,
-            paddingBottom: insets.bottom > 0 ? insets.bottom : 16,
+            paddingBottom: insets.bottom + 16,
           },
         ]}
       >

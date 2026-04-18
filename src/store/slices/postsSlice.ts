@@ -5,12 +5,14 @@ import { resetAllState } from '../actions/globalActions';
 
 interface PostsState {
   items: Post[];
+  loaded: boolean;
   previousReactions: Record<string, Reaction[]>;
   previousComments: Record<string, Comment[]>;
 }
 
 const initialState: PostsState = {
   items: [],
+  loaded: false,
   previousReactions: {},
   previousComments: {},
 };
@@ -21,15 +23,18 @@ const postsSlice = createSlice({
   reducers: {
     setPosts(state, action: PayloadAction<Post[]>) {
       state.items = action.payload;
+      state.loaded = true;
     },
     addPost(state, action: PayloadAction<Post>) {
       state.items.unshift(action.payload);
     },
     clearPosts(state) {
       state.items = [];
+      state.loaded = false;
     },
     loadDemoPosts(state, action: PayloadAction<Post[]>) {
       state.items = action.payload;
+      state.loaded = true;
     },
     updateReactionsOptimistic(
       state,

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   Animated,
   NativeSyntheticEvent,
@@ -13,12 +13,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
-import { Select } from '@/components/ui/Select';
+import { Button } from '@/components/ui/Button';
 import { BellIcon } from '@/components/BellIcon';
 import { PostCard } from '@/components/PostCard';
 import { SkeletonPostCard } from '@/components/SkeletonPostCard';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { NowStatusModal } from '@/components/NowStatusModal';
+import { FeedChannelFilterModal, type ChannelFilterState } from '@/components/FeedChannelFilterModal';
 import { formatTimeRemaining } from '@/lib/timeUtils';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { saveStatus, clearStatus } from '@/store/actions/userActions';
@@ -29,6 +30,7 @@ import type { Post, PostTier, UserStatus } from '@/models/types';
 
 const INITIAL_PAGE = 10;
 const LOAD_MORE = 3;
+const FILTERING_INDICATOR_DURATION = 400;
 
 export default function FeedScreen() {
   const router = useRouter();
@@ -38,6 +40,7 @@ export default function FeedScreen() {
   const { addToast } = useToast();
 
   const posts = useAppSelector((state) => state.posts.items);
+  const postsLoaded = useAppSelector((state) => state.posts.loaded);
   const channels = useAppSelector((state) => state.channels.items);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const isDemo = useAppSelector((state) => state.demo.isActive);
@@ -45,13 +48,23 @@ export default function FeedScreen() {
     (state) => state.invites.incoming.some((r) => r.status === 'pending')
   );
 
-  const [channelFilter, setChannelFilter] = useState<string>('all');
+  const [channelFilter, setChannelFilter] = useState<ChannelFilterState>({ mode: 'all', specificIds: [] });
+  const [channelFilterOpen, setChannelFilterOpen] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState<PostTier[]>([]);
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [displayCount, setDisplayCount] = useState(INITIAL_PAGE);
   const [fabExpanded, setFabExpanded] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [isFiltering, setIsFiltering] = useState(false);
+  const isMountedRef = useRef(false);
   const flatListRef = useRef<FlashListRef<Post>>(null);
+
+  // Animated dots for filtering indicator
+  const filteringOpacity = useRef(new Animated.Value(0)).current;
+  const dot1Scale = useRef(new Animated.Value(1)).current;
+  const dot2Scale = useRef(new Animated.Value(1)).current;
+  const dot3Scale = useRef(new Animated.Value(1)).current;
+  const dotLoopRef = useRef<Animated.CompositeAnimation | null>(null);
 
   // Animated header (slides up on scroll-down, back on scroll-up)
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -61,16 +74,30 @@ export default function FeedScreen() {
   const headerAnimation = useRef<Animated.CompositeAnimation | null>(null);
   const [scrolledPast, setScrolledPast] = useState(false);
 
-  const channelOptions = useMemo(
-    () => [
-      { text: 'All Channels', value: 'all' },
-      { text: 'Daily Channels', value: 'daily' },
-      ...channels
-        .filter((ch) => !ch.isDaily)
-        .map((ch) => ({ text: ch.name, value: ch.id })),
-    ],
-    [channels]
-  );
+  const channelFilterLabel = useMemo(() => {
+    if (channelFilter.mode === 'all') return 'All Channels';
+    if (channelFilter.mode === 'others') return "Others' Channels";
+    const count = channelFilter.specificIds.length;
+    if (count === 0) return 'All Channels';
+    if (count === 1) {
+      const ch = channels.find((c) => c.id === channelFilter.specificIds[0]);
+      return ch?.name ?? '1 Channel';
+    }
+    return `${count} Channels`;
+  }, [channelFilter, channels]);
+
+  // Pre-compute the set of allowed channel IDs based on the filter (null = all)
+  const allowedChannelIds = useMemo((): Set<string> | null => {
+    if (channelFilter.mode === 'all') return null;
+    if (channelFilter.mode === 'others') {
+      return new Set(
+        channels.filter((ch) => ch.ownerId !== currentUser?.id).map((ch) => ch.id),
+      );
+    }
+    // specific mode
+    if (channelFilter.specificIds.length === 0) return null;
+    return new Set(channelFilter.specificIds);
+  }, [channelFilter, channels, currentUser?.id]);
 
   const togglePriorityFilter = useCallback((tier: PostTier) => {
     setPriorityFilter((prev) => {
@@ -92,13 +119,8 @@ export default function FeedScreen() {
   const filteredPosts = useMemo(() => {
     let result = [...posts].filter((p) => p.status === 'ready');
 
-    if (channelFilter === 'daily') {
-      const dailyChannelIds = channels
-        .filter((ch) => ch.isDaily)
-        .map((ch) => ch.id);
-      result = result.filter((p) => dailyChannelIds.includes(p.channelId));
-    } else if (channelFilter !== 'all') {
-      result = result.filter((p) => p.channelId === channelFilter);
+    if (allowedChannelIds !== null) {
+      result = result.filter((p) => allowedChannelIds.has(p.channelId));
     }
 
     // Apply per-channel tier preferences
@@ -121,7 +143,7 @@ export default function FeedScreen() {
     );
 
     return result.slice(0, displayCount);
-  }, [posts, channelFilter, sortOrder, displayCount, currentUser?.channelTierPrefs, priorityFilter, matchesPriorityFilter]);
+  }, [posts, allowedChannelIds, sortOrder, displayCount, currentUser?.channelTierPrefs, priorityFilter, matchesPriorityFilter]);
 
   const hasMore = useMemo(() => {
     const tierPrefs = currentUser?.channelTierPrefs;
@@ -132,29 +154,75 @@ export default function FeedScreen() {
       return prefs.includes(p.tier ?? 'everyday');
     };
 
-    let total: number;
-    if (channelFilter === 'all') {
-      total = posts.filter((p) => p.status === 'ready' && matchesTier(p) && matchesPriorityFilter(p)).length;
-    } else if (channelFilter === 'daily') {
-      const dailyChannelIds = channels
-        .filter((ch) => ch.isDaily)
-        .map((ch) => ch.id);
-      total = posts.filter(
-        (p) => p.status === 'ready' && dailyChannelIds.includes(p.channelId) && matchesTier(p) && matchesPriorityFilter(p)
-      ).length;
-    } else {
-      total = posts.filter(
-        (p) => p.channelId === channelFilter && p.status === 'ready' && matchesTier(p) && matchesPriorityFilter(p)
-      ).length;
-    }
+    const total = posts.filter(
+      (p) =>
+        p.status === 'ready' &&
+        (allowedChannelIds === null || allowedChannelIds.has(p.channelId)) &&
+        matchesTier(p) &&
+        matchesPriorityFilter(p),
+    ).length;
     return displayCount < total;
-  }, [posts, channels, channelFilter, displayCount, currentUser?.channelTierPrefs, priorityFilter, matchesPriorityFilter]);
+  }, [posts, allowedChannelIds, displayCount, currentUser?.channelTierPrefs, priorityFilter, matchesPriorityFilter]);
 
   const loadMore = useCallback(() => {
     if (hasMore) {
       setDisplayCount((prev) => prev + LOAD_MORE);
     }
   }, [hasMore]);
+
+  const isChannelFiltered =
+    channelFilter.mode === 'others' ||
+    (channelFilter.mode === 'specific' && channelFilter.specificIds.length > 0);
+
+  const hasActiveFilters = isChannelFiltered || priorityFilter.length > 0;
+
+  const clearFilters = useCallback(() => {
+    setChannelFilter({ mode: 'all', specificIds: [] });
+    setPriorityFilter([]);
+  }, []);
+
+  // When filters or sort order change: scroll to top, reset page, show filtering indicator
+  useEffect(() => {
+    if (!isMountedRef.current) {
+      isMountedRef.current = true;
+      return;
+    }
+    setDisplayCount(INITIAL_PAGE);
+    setIsFiltering(true);
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    const timer = setTimeout(() => setIsFiltering(false), FILTERING_INDICATOR_DURATION);
+    return () => clearTimeout(timer);
+  }, [channelFilter, priorityFilter, sortOrder]);
+
+  // Animated bouncing dots for filter loading indicator
+  useEffect(() => {
+    if (isFiltering) {
+      // Stop any existing animation before starting a new one
+      dotLoopRef.current?.stop();
+      Animated.timing(filteringOpacity, { toValue: 1, duration: 150, useNativeDriver: true }).start();
+      const bounceDot = (scale: Animated.Value, delay: number): Animated.CompositeAnimation =>
+        Animated.loop(
+          Animated.sequence([
+            Animated.delay(delay),
+            Animated.timing(scale, { toValue: 1.5, duration: 220, useNativeDriver: true }),
+            Animated.timing(scale, { toValue: 1.0, duration: 220, useNativeDriver: true }),
+            Animated.delay(Math.max(0, 560 - delay)),
+          ]),
+        );
+      dotLoopRef.current = Animated.parallel([
+        bounceDot(dot1Scale, 0),
+        bounceDot(dot2Scale, 160),
+        bounceDot(dot3Scale, 320),
+      ]);
+      dotLoopRef.current.start();
+    } else {
+      Animated.timing(filteringOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+      dotLoopRef.current?.stop();
+      dot1Scale.setValue(1);
+      dot2Scale.setValue(1);
+      dot3Scale.setValue(1);
+    }
+  }, [isFiltering]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scrollToTop = () => {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
@@ -235,35 +303,64 @@ export default function FeedScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Post List — fills the full container; paddingTop reserves space for the absolute header */}
-      <FlashList
-        ref={flatListRef}
-        data={filteredPosts}
-        keyExtractor={(item) => item.id}
-        renderItem={renderPost}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-        contentContainerStyle={[
-          styles.listContent,
-          { paddingTop: headerHeight, paddingBottom: insets.bottom + 150 },
-        ]}
-        showsVerticalScrollIndicator={false}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.3}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>📭</Text>
-            <Text
-              style={[styles.emptyText, { color: theme.mutedForeground }]}
-            >
-              No posts yet. Create your first post!
-            </Text>
-          </View>
-        }
-        ListFooterComponent={
-          hasMore ? <SkeletonPostCard /> : null
-        }
-      />
+      {/* Initial loading state — show skeletons while posts haven't arrived yet */}
+      {!postsLoaded ? (
+        <View style={[styles.skeletonList, { paddingTop: headerHeight, paddingBottom: insets.bottom + 150 }]}>
+          <SkeletonPostCard />
+          <SkeletonPostCard />
+          <SkeletonPostCard />
+        </View>
+      ) : (
+        /* Post List — fills the full container; paddingTop reserves space for the absolute header */
+        <FlashList
+          ref={flatListRef}
+          data={filteredPosts}
+          keyExtractor={(item) => item.id}
+          renderItem={renderPost}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingTop: headerHeight + 12, paddingBottom: insets.bottom + 150 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.3}
+          ListEmptyComponent={
+            hasActiveFilters ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyEmoji}>🔍</Text>
+                <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>
+                  No posts match your filters.
+                </Text>
+                <Button variant="tertiary" size="sm" onPress={clearFilters} style={styles.clearFiltersButton}>
+                  Clear Filters
+                </Button>
+              </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyEmoji}>📭</Text>
+                <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>
+                  No posts yet. Create your first post!
+                </Text>
+              </View>
+            )
+          }
+          ListFooterComponent={
+            hasMore ? <SkeletonPostCard /> : null
+          }
+        />
+      )}
+
+      {/* Animated filtering dots — just below the sticky header */}
+      <Animated.View
+        style={[styles.filteringBanner, { top: headerHeight - 2, opacity: filteringOpacity }]}
+        pointerEvents="none"
+      >
+        <Animated.View style={[styles.filteringDot, { backgroundColor: theme.primary, transform: [{ scale: dot1Scale }] }]} />
+        <Animated.View style={[styles.filteringDot, { backgroundColor: theme.primary, transform: [{ scale: dot2Scale }] }]} />
+        <Animated.View style={[styles.filteringDot, { backgroundColor: theme.primary, transform: [{ scale: dot3Scale }] }]} />
+      </Animated.View>
 
       {/* Animated header — absolute so it slides up without affecting FlashList layout */}
       <Animated.View
@@ -301,13 +398,31 @@ export default function FeedScreen() {
 
         {/* Filters */}
         <View style={styles.filterRow}>
-          <View style={{ flex: 1 }}>
-            <Select
-              value={channelFilter}
-              onChange={setChannelFilter}
-              options={channelOptions}
+          <Pressable
+            onPress={() => setChannelFilterOpen(true)}
+            style={[
+              styles.channelFilterButton,
+              {
+                borderColor: isChannelFiltered ? theme.primary : theme.border,
+                backgroundColor: theme.background,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.channelFilterText,
+                { color: isChannelFiltered ? theme.primary : theme.foreground },
+              ]}
+              numberOfLines={1}
+            >
+              {channelFilterLabel}
+            </Text>
+            <Feather
+              name="sliders"
+              size={15}
+              color={isChannelFiltered ? theme.primary : theme.mutedForeground}
             />
-          </View>
+          </Pressable>
           <Pressable
             onPress={() =>
               setSortOrder((prev) =>
@@ -364,6 +479,16 @@ export default function FeedScreen() {
           </View>
         </View>
       </Animated.View>
+
+      {/* Channel filter modal */}
+      <FeedChannelFilterModal
+        isOpen={channelFilterOpen}
+        onClose={() => setChannelFilterOpen(false)}
+        value={channelFilter}
+        onApply={setChannelFilter}
+        channels={channels}
+        currentUserId={currentUser?.id}
+      />
 
       {/* Dim overlay when FAB expanded */}
       {fabExpanded && (
@@ -539,6 +664,21 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     gap: 8,
   },
+  channelFilterButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  channelFilterText: {
+    fontSize: 14,
+    flex: 1,
+  },
   sortButton: {
     width: 40,
     height: 40,
@@ -675,5 +815,27 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+  },
+  skeletonList: {
+    paddingHorizontal: 16,
+  },
+  filteringBanner: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    gap: 8,
+    zIndex: 9,
+  },
+  filteringDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  clearFiltersButton: {
+    marginTop: 4,
   },
 });

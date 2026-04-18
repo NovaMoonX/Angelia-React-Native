@@ -9,6 +9,13 @@ Angelia is a warm, playful, and encouraging app. All user-facing copy — placeh
 - Daily channels already include the word "Daily" in their badge text (the channel name itself contains "Daily").
   **Never** add a separate "Daily" label next to the badge — it is redundant.
 
+## Daily channel display names
+
+- Every user has exactly one daily channel, and its `name` is always `"Daily"` — showing it is meaningless.
+- Wherever a daily channel's name would be displayed to the user (filter lists, pickers, labels, etc.), show the **owner's name** instead, formatted as `"FirstName L."` (first name + last initial + period).
+- To resolve the owner, look up `channel.ownerId` in the users map (e.g. `selectAllUsersMapById` from `usersSlice`).
+- The same rule applies to search/filter logic: match against the owner name, not the literal string `"Daily"`.
+
 ---
 
 ## Keeping docs up to date

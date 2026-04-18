@@ -1,10 +1,64 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Button } from './Button';
 import { Input } from './Input';
 import { Label } from './Label';
 import { useTheme } from '@/hooks/useTheme';
+
+const PASSWORD_CRITERIA = [
+  { label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
+  { label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
+  { label: 'One number', test: (p: string) => /[0-9]/.test(p) },
+  { label: 'One symbol (e.g. !@#$%)', test: (p: string) => /[^A-Za-z0-9]/.test(p) },
+];
+
+function PasswordCriteriaChecklist({ password }: { password: string }) {
+  const { theme } = useTheme();
+  const { width } = useWindowDimensions();
+  const cellWidth = width < 360 ? '100%' : '50%';
+
+  return (
+    <View style={criteriaStyles.grid}>
+      {PASSWORD_CRITERIA.map((c) => {
+        const met = c.test(password);
+        return (
+          <View key={c.label} style={[criteriaStyles.cell, { width: cellWidth }]}>
+            <Text style={[criteriaStyles.indicator, { color: met ? '#16A34A' : theme.mutedForeground }]}>
+              {met ? '✓' : '○'}
+            </Text>
+            <Text style={[criteriaStyles.label, { color: met ? '#16A34A' : theme.mutedForeground }]}>
+              {c.label}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const criteriaStyles = StyleSheet.create({
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingTop: 6,
+    rowGap: 6,
+  },
+  cell: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  indicator: {
+    fontSize: 12,
+    fontWeight: '700',
+    width: 14,
+    textAlign: 'center',
+  },
+  label: {
+    fontSize: 12,
+  },
+});
 
 export type AuthFormOnEmailSubmit = (params: {
   data: { email: string; password: string };
@@ -31,6 +85,7 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { theme } = useTheme();
 
   const handleToggle = () => {
@@ -38,6 +93,7 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
     setMode(newMode);
     setError('');
     setShowPassword(false);
+    setShowConfirmPassword(false);
     onActionChange(newMode === 'login' ? 'login' : 'sign up');
   };
 
@@ -54,7 +110,24 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
       return;
     }
 
-    if (password.length < 6) {
+    if (mode === 'signup') {
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters.');
+        return;
+      }
+      if (!/[A-Z]/.test(password)) {
+        setError('Password must include at least one uppercase letter.');
+        return;
+      }
+      if (!/[0-9]/.test(password)) {
+        setError('Password must include at least one number.');
+        return;
+      }
+      if (!/[^A-Za-z0-9]/.test(password)) {
+        setError('Password must include at least one symbol (e.g. !@#$%).');
+        return;
+      }
+    } else if (password.length < 6) {
       setError('Password must be at least 6 characters.');
       return;
     }
@@ -162,20 +235,21 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
               autoComplete="password"
               style={styles.passwordInput}
             />
-            {mode === 'login' && (
-              <Pressable
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeButton}
-                hitSlop={8}
-              >
-                <Feather
-                  name={showPassword ? 'eye-off' : 'eye'}
-                  size={18}
-                  color={theme.mutedForeground}
-                />
-              </Pressable>
-            )}
+            <Pressable
+              onPress={() => setShowPassword(!showPassword)}
+              style={styles.eyeButton}
+              hitSlop={8}
+            >
+              <Feather
+                name={showPassword ? 'eye-off' : 'eye'}
+                size={18}
+                color={theme.mutedForeground}
+              />
+            </Pressable>
           </View>
+          {mode === 'signup' && password.length > 0 && (
+            <PasswordCriteriaChecklist password={password} />
+          )}
         </View>
 
         {mode === 'signup' && (
@@ -186,16 +260,16 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 placeholder="••••••••"
-                secureTextEntry={!showPassword}
+                secureTextEntry={!showConfirmPassword}
                 style={styles.passwordInput}
               />
               <Pressable
-                onPress={() => setShowPassword(!showPassword)}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                 style={styles.eyeButton}
                 hitSlop={8}
               >
                 <Feather
-                  name={showPassword ? 'eye-off' : 'eye'}
+                  name={showConfirmPassword ? 'eye-off' : 'eye'}
                   size={18}
                   color={theme.mutedForeground}
                 />
