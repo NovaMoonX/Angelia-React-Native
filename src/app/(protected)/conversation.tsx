@@ -210,7 +210,7 @@ export default function ConversationScreen() {
       keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
     >
       {/* Header */}
-      <Animated.View style={[styles.header, { backgroundColor: headerBg, borderBottomColor: theme.border, paddingTop: insets.top + 10 }, entryAnimatedStyle]}>
+      <Animated.View style={[styles.header, { backgroundColor: headerBg, borderBottomColor: theme.border, paddingTop: isDemo ? 10 : insets.top + 10 }, entryAnimatedStyle]}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Feather name="arrow-left" size={22} color={theme.foreground} />
         </Pressable>

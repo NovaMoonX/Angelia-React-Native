@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   Animated,
   KeyboardAvoidingView,
@@ -53,15 +53,13 @@ export default function PostDetailScreen() {
   const currentUser = useAppSelector((state) => state.users.currentUser);
 
   const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
-  const [showCommentPrompt, setShowCommentPrompt] = useState(false);
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
   const [unlockEmoji, setUnlockEmoji] = useState<string | null>(null);
-  const popoverOpacity = useRef(new Animated.Value(0)).current;
-  const popoverScale = useRef(new Animated.Value(0.8)).current;
   const chatTabScale = useRef(new Animated.Value(1)).current;
   const chatTabUnlockOpacity = useRef(new Animated.Value(0)).current;
+  const unlockEmojiY = useRef(new Animated.Value(0)).current;
 
   const handleCarouselIndexChange = (index: number) => {
     setActiveCarouselIndex(index);
@@ -103,38 +101,44 @@ export default function PostDetailScreen() {
     return COMMON_EMOJIS.filter((emoji) => !reactionGroups[emoji]?.isUserReacted);
   }, [reactionGroups]);
 
-  const triggerCommentPrompt = () => {
-    // Reset animation values to initial state
-    popoverOpacity.setValue(0);
-    popoverScale.setValue(0.8);
-    setShowCommentPrompt(true);
+  const triggerTabUnlock = (emoji: string) => {
+    setUnlockEmoji(emoji);
+    unlockEmojiY.setValue(0);
+    chatTabUnlockOpacity.setValue(1);
+    chatTabScale.setValue(1);
+
     Animated.parallel([
-      Animated.timing(popoverOpacity, {
-        toValue: 1,
-        duration: 300,
+      // Float the emoji upward
+      Animated.timing(unlockEmojiY, {
+        toValue: -30,
+        duration: 600,
         useNativeDriver: true,
       }),
-      Animated.spring(popoverScale, {
-        toValue: 1,
-        friction: 8,
-        tension: 40,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(popoverOpacity, {
+      // Bounce the tab
+      Animated.sequence([
+        Animated.spring(chatTabScale, {
+          toValue: 1.06,
+          friction: 8,
+          tension: 60,
+          useNativeDriver: true,
+        }),
+        Animated.spring(chatTabScale, {
+          toValue: 1,
+          friction: 8,
+          tension: 60,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Fade out the floating emoji
+      Animated.sequence([
+        Animated.delay(400),
+        Animated.timing(chatTabUnlockOpacity, {
           toValue: 0,
           duration: 200,
           useNativeDriver: true,
         }),
-        Animated.timing(popoverScale, {
-          toValue: 0.8,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => setShowCommentPrompt(false));
-    }, 4000);
+      ]),
+    ]).start(() => setUnlockEmoji(null));
   };
 
   const handleReaction = async (emoji: string) => {
@@ -155,9 +159,9 @@ export default function PostDetailScreen() {
       addToast({ type: 'error', title: 'Failed to add reaction' });
     }
 
-    // Show comment prompt if this is the first reaction and no comments exist
-    if (wasFirstReaction && post.comments.length === 0) {
-      triggerCommentPrompt();
+    // Unlock the chat tab on first reaction
+    if (wasFirstReaction) {
+      triggerTabUnlock(emoji);
     }
   };
 
@@ -282,76 +286,118 @@ export default function PostDetailScreen() {
           </View>
         )}
       </View>
+      </ScrollView>
 
-      {/* Conversation link */}
-      {hasReacted ? (
-        <Pressable
-          onPress={() => router.push({ pathname: '/(protected)/conversation', params: { postId: post.id } })}
-          style={[styles.chatLink, { backgroundColor: theme.card, borderColor: theme.border }]}
-        >
-          <Feather name="message-circle" size={20} color={theme.primary} />
-          <View style={styles.chatLinkBody}>
-            <Text style={[styles.chatLinkTitle, { color: theme.foreground }]}>
-              Join the conversation
-            </Text>
-            <Text style={[styles.chatLinkMeta, { color: theme.mutedForeground }]}>
-              {post.comments.length > 0
-                ? `${post.comments.length} message${post.comments.length !== 1 ? 's' : ''}`
-                : 'Be the first to say something!'}
-            </Text>
-          </View>
-          <Feather name="chevron-right" size={18} color={theme.mutedForeground} />
-        </Pressable>
-      ) : (
-        <View style={[styles.chatLinkGated, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Text style={[styles.chatGatedText, { color: theme.mutedForeground }]}>
-            👋 React to this post to join the conversation!
-          </Text>
-        </View>
-      )}
-
-      {/* Comment prompt popover */}
-      {showCommentPrompt && (
+      {/* Bottom bar — chat tab + emoji pill */}
+      <View style={styles.bottomBarContainer}>
+        {/* Chat tab — attached to top of pill */}
         <Animated.View
           style={[
-            styles.commentPromptPopover,
+            styles.chatTab,
             {
-              backgroundColor: theme.primary,
-              opacity: popoverOpacity,
-              transform: [{ scale: popoverScale }],
+              backgroundColor: hasReacted ? `${theme.primary}12` : theme.card,
+              borderColor: hasReacted ? theme.primary : theme.border,
+              transform: [{ scale: chatTabScale }],
             },
           ]}
         >
-          <Text style={[styles.commentPromptText, { color: theme.primaryForeground }]}>
-            Start the conversation! 💬
-          </Text>
-        </Animated.View>
-      )}
-      </ScrollView>
-
-      {/* Fixed bottom emoji bar */}
-      <View style={[styles.fixedEmojiBar, { borderColor: theme.border, backgroundColor: theme.background }]}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.fixedEmojiBarContent}
-        >
-          {availableCommonEmojis.map((emoji) => (
-            <Pressable
-              key={emoji}
-              onPress={() => handleReaction(emoji)}
-              style={styles.emojiButton}
-            >
-              <Text style={styles.emojiText}>{emoji}</Text>
-            </Pressable>
-          ))}
           <Pressable
-            onPress={() => setEmojiPickerVisible(true)}
-            style={[styles.emojiButton, { borderColor: theme.border }]}
+            onPress={
+              hasReacted
+                ? () =>
+                    router.push({
+                      pathname: '/(protected)/conversation',
+                      params: { postId: post.id },
+                    })
+                : undefined
+            }
+            disabled={!hasReacted}
+            style={styles.chatTabInner}
           >
-            <AddReactionIcon size={28} color={theme.mutedForeground} />
+            {!hasReacted ? (
+              <>
+                <Text style={styles.chatTabLockIcon}>🔒</Text>
+                <Text
+                  style={[
+                    styles.chatTabText,
+                    { color: theme.mutedForeground },
+                  ]}
+                >
+                  React to unlock
+                </Text>
+              </>
+            ) : (
+              <>
+                <Feather
+                  name="message-circle"
+                  size={16}
+                  color={theme.primary}
+                />
+                <Text
+                  style={[styles.chatTabText, { color: theme.primary }]}
+                >
+                  {post.comments.length > 0
+                    ? `${post.comments.length} message${post.comments.length !== 1 ? 's' : ''}`
+                    : 'Start the conversation ✨'}
+                </Text>
+                <Feather
+                  name="chevron-right"
+                  size={14}
+                  color={theme.primary}
+                />
+              </>
+            )}
           </Pressable>
-        </ScrollView>
+
+          {/* Floating unlock emoji overlay */}
+          {unlockEmoji != null && (
+            <Animated.Text
+              style={[
+                styles.floatingUnlockEmoji,
+                {
+                  transform: [{ translateY: unlockEmojiY }],
+                  opacity: chatTabUnlockOpacity,
+                },
+              ]}
+              pointerEvents="none"
+            >
+              {unlockEmoji}
+            </Animated.Text>
+          )}
+        </Animated.View>
+
+        {/* Emoji pill */}
+        <View
+          style={[
+            styles.fixedEmojiBar,
+            {
+              borderColor: hasReacted ? theme.primary : theme.border,
+              backgroundColor: theme.background,
+            },
+          ]}
+        >
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.fixedEmojiBarContent}
+          >
+            {availableCommonEmojis.map((emoji) => (
+              <Pressable
+                key={emoji}
+                onPress={() => handleReaction(emoji)}
+                style={styles.emojiButton}
+              >
+                <Text style={styles.emojiText}>{emoji}</Text>
+              </Pressable>
+            ))}
+            <Pressable
+              onPress={() => setEmojiPickerVisible(true)}
+              style={[styles.emojiButton, { borderColor: theme.border }]}
+            >
+              <AddReactionIcon size={28} color={theme.mutedForeground} />
+            </Pressable>
+          </ScrollView>
+        </View>
       </View>
 
       <EmojiPicker
@@ -471,9 +517,9 @@ const styles = StyleSheet.create({
   },
   fixedEmojiBar: {
     borderWidth: 1.5,
-    borderRadius: 28,
-    marginHorizontal: 12,
-    marginBottom: 8,
+    borderTopWidth: 0.75,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
@@ -491,53 +537,38 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  chatLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 16,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
+  bottomBarContainer: {
+    marginHorizontal: 12,
+    marginBottom: 8,
   },
-  chatLinkBody: {
-    flex: 1,
-  },
-  chatLinkTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  chatLinkMeta: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  chatLinkGated: {
-    marginTop: 16,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  chatGatedText: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  commentPromptPopover: {
-    alignSelf: 'center',
-    marginTop: 12,
+  chatTab: {
+    borderWidth: 1.5,
+    borderBottomWidth: 0,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 20,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    zIndex: 10,
+    position: 'relative',
+    overflow: 'visible',
   },
-  commentPromptText: {
+  chatTabInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  chatTabText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  chatTabLockIcon: {
+    fontSize: 14,
+  },
+  floatingUnlockEmoji: {
+    position: 'absolute',
+    alignSelf: 'center',
+    bottom: 4,
+    fontSize: 28,
   },
   emptyReactionsContainer: {
     paddingVertical: 32,
