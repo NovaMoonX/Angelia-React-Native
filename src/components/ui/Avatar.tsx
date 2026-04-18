@@ -33,11 +33,17 @@ const PRESET_EMOJIS: Record<AvatarPreset, string> = {
   constellation: '✨',
   comet: '☄️',
   twilight: '🌅',
+  aurora: '🌈',
+  supernova: '💥',
+  'lunar-moth': '🦋',
+  satellite: '🛰️',
+  alien: '👽',
+  'black-hole': '🕳️',
 };
 
 const PRESET_COLORS: Record<AvatarPreset, string> = {
   astronaut: '#6366F1',
-  moon: '#FBBF24',
+  moon: '#1E3A5F',       // deep navy — no conflict with crescent emoji
   star: '#F59E0B',
   galaxy: '#8B5CF6',
   nebula: '#A855F7',
@@ -48,6 +54,12 @@ const PRESET_COLORS: Record<AvatarPreset, string> = {
   constellation: '#10B981',
   comet: '#F97316',
   twilight: '#F43F5E',
+  aurora: '#059669',
+  supernova: '#DC2626',
+  'lunar-moth': '#7C3AED',
+  satellite: '#0EA5E9',
+  alien: '#22C55E',
+  'black-hole': '#18181B',
 };
 
 export function Avatar({ preset, size = 'md', shape = 'circle', style, statusEmoji }: AvatarProps) {

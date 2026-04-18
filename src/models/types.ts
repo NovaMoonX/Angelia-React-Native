@@ -1,6 +1,7 @@
 export type AvatarPreset =
   | 'astronaut' | 'moon' | 'star' | 'galaxy' | 'nebula' | 'planet'
-  | 'cosmic-cat' | 'dream-cloud' | 'rocket' | 'constellation' | 'comet' | 'twilight';
+  | 'cosmic-cat' | 'dream-cloud' | 'rocket' | 'constellation' | 'comet' | 'twilight'
+  | 'aurora' | 'supernova' | 'lunar-moth' | 'satellite' | 'alien' | 'black-hole';
 
 export interface UserStatus {
   emoji: string;

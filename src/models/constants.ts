@@ -10,6 +10,7 @@ export const COMMON_EMOJIS = ['❤️', '👀', '😊', '🎉', '😮', '😢', 
 export const AVATAR_PRESETS: AvatarPreset[] = [
   'astronaut', 'moon', 'star', 'galaxy', 'nebula', 'planet',
   'cosmic-cat', 'dream-cloud', 'rocket', 'constellation', 'comet', 'twilight',
+  'aurora', 'supernova', 'lunar-moth', 'satellite', 'alien', 'black-hole',
 ];
 
 export const CHANNEL_COLORS: ChannelColorOption[] = [
