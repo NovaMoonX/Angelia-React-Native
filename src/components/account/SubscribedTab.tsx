@@ -53,7 +53,7 @@ export function SubscribedTab() {
   const handleUnsubscribe = async (channelId: string) => {
     const ok = await confirm({
       title: 'Unsubscribe',
-      message: 'You will no longer see posts from this channel.',
+      message: 'You will no longer see posts from this circle.',
     });
     if (!ok) return;
     try {
@@ -96,7 +96,7 @@ export function SubscribedTab() {
         onPress={() => router.push('/join-channel')}
         style={{ marginBottom: 16 }}
       >
-        {`🤝 Join a Channel`}
+        {`🤝 Join a Circle`}
       </Button>
 
       {subscribedChannels.map((ch) => (
@@ -149,7 +149,7 @@ export function SubscribedTab() {
 
       {subscribedChannels.length === 0 && (
         <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>
-          You're not subscribed to any channels yet.
+          You're not a member of any circles yet.
         </Text>
       )}
 
@@ -184,9 +184,9 @@ export function SubscribedTab() {
                     await dispatch(
                       removeChannelSubscriber({ channelId: selectedChannel.id, subscriberId })
                     ).unwrap();
-                    addToast({ type: 'success', title: 'Subscriber removed' });
+                    addToast({ type: 'success', title: 'Member removed' });
                   } catch {
-                    addToast({ type: 'error', title: 'Failed to remove subscriber' });
+                    addToast({ type: 'error', title: 'Failed to remove member' });
                   } finally {
                     setRemovingSubscriberId(null);
                   }

@@ -58,7 +58,7 @@ export function ChannelCard({
 
         <View style={styles.meta}>
           <Text style={[styles.metaText, { color: theme.mutedForeground }]}>
-            {channel.subscribers.length} subscriber
+            {channel.subscribers.length} member
             {channel.subscribers.length !== 1 ? 's' : ''}
           </Text>
           {owner && (
@@ -92,7 +92,7 @@ export function ChannelCard({
                 onPress={onUnsubscribe}
                 loading={isLoading}
               >
-                Unsubscribe
+                Leave
               </Button>
             )}
           </View>

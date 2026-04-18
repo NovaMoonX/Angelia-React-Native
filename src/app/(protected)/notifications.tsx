@@ -102,13 +102,13 @@ export default function NotificationsScreen() {
               You're all caught up!
             </Text>
             <Text style={[styles.emptySubtext, { color: theme.mutedForeground }]}>
-              Channel join requests will show up here.
+              Circle join requests will show up here.
             </Text>
           </View>
         ) : (
           <>
             <Text style={[styles.sectionTitle, { color: theme.foreground }]}>
-              Channel Join Requests ({pendingIncoming.length})
+              Circle Join Requests ({pendingIncoming.length})
             </Text>
             {pendingIncoming.map((req) => {
               const requester = usersMap[req.requesterId];
@@ -138,7 +138,7 @@ export default function NotificationsScreen() {
                       >
                         wants to join{' '}
                         <Text style={{ fontWeight: '600' }}>
-                          {ch?.name || 'channel'}
+                          {ch?.name || 'circle'}
                         </Text>
                       </Text>
                     </View>

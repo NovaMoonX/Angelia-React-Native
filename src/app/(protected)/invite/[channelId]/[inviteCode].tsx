@@ -87,7 +87,7 @@ export default function InviteAcceptScreen() {
         }
       ]}>
         <Callout variant="destructive"
-          description="This invite link is invalid or the channel no longer exists."
+          description="This invite link is invalid or the circle no longer exists."
         />
         <Button
           variant="outline"
@@ -170,7 +170,7 @@ export default function InviteAcceptScreen() {
               <Text
                 style={[styles.ownerName, { color: theme.mutedForeground }]}
               >
-                Owned by {owner.firstName} {owner.lastName}
+                Hosted by {owner.firstName} {owner.lastName}
               </Text>
             </View>
           )}
@@ -178,7 +178,7 @@ export default function InviteAcceptScreen() {
 
         {isSubscribed ? (
           <Callout variant="info"
-            description="You're already subscribed to this channel."
+            description="You're already a member of this circle."
           />
         ) : existingRequest ? (
           <Callout
@@ -193,7 +193,7 @@ export default function InviteAcceptScreen() {
               existingRequest.status === 'pending'
                 ? 'Your join request is pending approval.'
                 : existingRequest.status === 'accepted'
-                  ? 'Your request was accepted! You should see posts from this channel in your feed.'
+                  ? 'Your request was accepted! You should see posts from this circle in your feed.'
                   : 'Your join request was declined.'
             }
           />

@@ -130,11 +130,11 @@ export function ChannelModal({
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.foreground }]}>
-            Subscribers ({subscribers.length})
+            Members ({subscribers.length})
           </Text>
           {subscribers.length === 0 ? (
             <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>
-              No subscribers yet
+              No members yet
             </Text>
           ) : (
             subscribers.map((sub) => (

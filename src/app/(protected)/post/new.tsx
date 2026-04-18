@@ -108,7 +108,7 @@ export default function PostCreateScreen() {
 
   const handleSubmit = () => {
     if (!selectedChannel) {
-      addToast({ type: 'warning', title: 'Please select a channel' });
+      addToast({ type: 'warning', title: 'Please select a circle' });
       return;
     }
     if (!text.trim() && media.length === 0) {
