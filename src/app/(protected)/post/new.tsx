@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
-  FlatList,
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
@@ -9,6 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -314,7 +314,7 @@ export default function PostCreateScreen() {
 
         {/* Media preview strip */}
         {media.length > 0 && (
-          <FlatList
+          <FlashList
             data={media}
             horizontal
             showsHorizontalScrollIndicator={false}

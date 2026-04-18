@@ -14,10 +14,7 @@ import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
-import { Callout } from '@/components/ui/Callout';
-import { Card } from '@/components/ui/Card';
 import { Carousel } from '@/components/ui/Carousel';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { ReactionDisplay } from '@/components/ReactionDisplay';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { UserProfileModal } from '@/components/UserProfileModal';
@@ -56,9 +53,6 @@ export default function PostDetailScreen() {
   const currentUser = useAppSelector((state) => state.users.currentUser);
 
   const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
-  const [activeTab, setActiveTab] = useState<'reactions' | 'conversation'>(
-    'reactions'
-  );
   const [showCommentPrompt, setShowCommentPrompt] = useState(false);
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
@@ -259,125 +253,103 @@ export default function PostDetailScreen() {
         )
       ) : null}
 
-      {/* Tabs directly below post content */}
-      <Tabs
-        defaultValue="reactions"
-        onValueChange={(v) =>
-          setActiveTab(v as 'reactions' | 'conversation')
-        }
-        style={{ marginTop: 16 }}
-      >
-        {/* TabsList wrapper for popover positioning */}
-        <View style={styles.tabsListWrapper}>
-          <TabsList>
-            <TabsTrigger value="reactions">
-              Reactions ({post.reactions.length})
-            </TabsTrigger>
-            <TabsTrigger value="conversation">
-              Conversation ({post.comments.length})
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Animated popover for prompting first comment */}
-          {showCommentPrompt && (
-            <Animated.View
-              style={[
-                styles.commentPromptPopover,
-                {
-                  backgroundColor: theme.primary,
-                  opacity: popoverOpacity,
-                  transform: [{ scale: popoverScale }],
-                },
-              ]}
-            >
-              <Text style={[styles.commentPromptText, { color: theme.primaryForeground }]}>
-                Make the first comment! 💬
-              </Text>
-            </Animated.View>
-          )}
-        </View>
-
-        <TabsContent value="reactions">
-          {/* Existing reaction groups or empty state */}
-          {Object.keys(reactionGroups).length > 0 ? (
-            <View style={styles.reactionGroups}>
-              {Object.entries(reactionGroups).map(([emoji, data]) => (
-                <ReactionDisplay
-                  key={emoji}
-                  emoji={emoji}
-                  count={data.count}
-                  isUserReacted={data.isUserReacted}
-                  onClick={() =>
-                    data.isUserReacted
-                      ? handleRemoveReaction(emoji)
-                      : handleReaction(emoji)
-                  }
-                />
-              ))}
-            </View>
-          ) : (
-            <View style={styles.emptyReactionsContainer}>
-              <Text style={[styles.emptyReactionsText, { color: theme.mutedForeground }]}>
-                No reactions yet — be the first to react! 🎉
-              </Text>
-            </View>
-          )}
-        </TabsContent>
-
-        <TabsContent value="conversation">
-          {!hasReacted ? (
-            <Card style={styles.joinCard}>
-              <Callout
-                variant="info"
-                description="👋 React to this post to join the conversation and see comments!"
-                style={styles.calloutNoBorder}
-              />
-            </Card>
-          ) : (
-            <Pressable
-              onPress={() => router.push({ pathname: '/(protected)/conversation', params: { postId: post.id } })}
-              style={[styles.openChatCard, { backgroundColor: theme.card, borderColor: theme.border }]}
-            >
-              <Feather name="message-circle" size={20} color={theme.primary} />
-              <Text style={[styles.openChatText, { color: theme.foreground }]}>
-                Open Chat
-              </Text>
-              <Text style={[styles.openChatMeta, { color: theme.mutedForeground }]}>
-                {post.comments.length} message{post.comments.length !== 1 ? 's' : ''}
-              </Text>
-              <Feather name="chevron-right" size={18} color={theme.mutedForeground} />
-            </Pressable>
-          )}
-        </TabsContent>
-      </Tabs>
-      </ScrollView>
-
-      {/* Fixed bottom emoji bar — always visible in Reactions tab */}
-      {activeTab === 'reactions' && (
-        <View style={[styles.fixedEmojiBar, { borderColor: theme.border, backgroundColor: theme.background }]}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.fixedEmojiBarContent}
-          >
-            {availableCommonEmojis.map((emoji) => (
-              <Pressable
+      {/* Reactions — inline Slack-like layout */}
+      <View style={styles.reactionsSection}>
+        {Object.keys(reactionGroups).length > 0 ? (
+          <View style={styles.reactionGroups}>
+            {Object.entries(reactionGroups).map(([emoji, data]) => (
+              <ReactionDisplay
                 key={emoji}
-                onPress={() => handleReaction(emoji)}
-                style={styles.emojiButton}
-              >
-                <Text style={styles.emojiText}>{emoji}</Text>
-              </Pressable>
+                emoji={emoji}
+                count={data.count}
+                isUserReacted={data.isUserReacted}
+                onClick={() =>
+                  data.isUserReacted
+                    ? handleRemoveReaction(emoji)
+                    : handleReaction(emoji)
+                }
+              />
             ))}
-            <Pressable
-              onPress={() => setEmojiPickerVisible(true)}
-              style={[styles.emojiButton, { borderColor: theme.border }]}
-            >
-              <AddReactionIcon size={28} color={theme.mutedForeground} />
-            </Pressable>
-          </ScrollView>
+          </View>
+        ) : (
+          <View style={styles.emptyReactionsContainer}>
+            <Text style={[styles.emptyReactionsText, { color: theme.mutedForeground }]}>
+              No reactions yet — be the first to react! 🎉
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Conversation link */}
+      {hasReacted ? (
+        <Pressable
+          onPress={() => router.push({ pathname: '/(protected)/conversation', params: { postId: post.id } })}
+          style={[styles.chatLink, { backgroundColor: theme.card, borderColor: theme.border }]}
+        >
+          <Feather name="message-circle" size={20} color={theme.primary} />
+          <View style={styles.chatLinkBody}>
+            <Text style={[styles.chatLinkTitle, { color: theme.foreground }]}>
+              Join the conversation
+            </Text>
+            <Text style={[styles.chatLinkMeta, { color: theme.mutedForeground }]}>
+              {post.comments.length > 0
+                ? `${post.comments.length} message${post.comments.length !== 1 ? 's' : ''}`
+                : 'Be the first to say something!'}
+            </Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={theme.mutedForeground} />
+        </Pressable>
+      ) : (
+        <View style={[styles.chatLinkGated, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={[styles.chatGatedText, { color: theme.mutedForeground }]}>
+            👋 React to this post to join the conversation!
+          </Text>
         </View>
       )}
+
+      {/* Comment prompt popover */}
+      {showCommentPrompt && (
+        <Animated.View
+          style={[
+            styles.commentPromptPopover,
+            {
+              backgroundColor: theme.primary,
+              opacity: popoverOpacity,
+              transform: [{ scale: popoverScale }],
+            },
+          ]}
+        >
+          <Text style={[styles.commentPromptText, { color: theme.primaryForeground }]}>
+            Say something in the chat! 💬
+          </Text>
+        </Animated.View>
+      )}
+      </ScrollView>
+
+      {/* Fixed bottom emoji bar */}
+      <View style={[styles.fixedEmojiBar, { borderColor: theme.border, backgroundColor: theme.background }]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.fixedEmojiBarContent}
+        >
+          {availableCommonEmojis.map((emoji) => (
+            <Pressable
+              key={emoji}
+              onPress={() => handleReaction(emoji)}
+              style={styles.emojiButton}
+            >
+              <Text style={styles.emojiText}>{emoji}</Text>
+            </Pressable>
+          ))}
+          <Pressable
+            onPress={() => setEmojiPickerVisible(true)}
+            style={[styles.emojiButton, { borderColor: theme.border }]}
+          >
+            <AddReactionIcon size={28} color={theme.mutedForeground} />
+          </Pressable>
+        </ScrollView>
+      </View>
 
       <EmojiPicker
         visible={emojiPickerVisible}
@@ -505,48 +477,48 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tabsListWrapper: {
-    position: 'relative',
-    overflow: 'visible',
-    zIndex: 10,
+  reactionsSection: {
+    marginTop: 16,
   },
   reactionGroups: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 12,
   },
-  joinCard: {
-    alignItems: 'center',
-    gap: 12,
-    padding: 20,
-    marginTop: 12,
-  },
-  joinText: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  openChatCard: {
+  chatLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 12,
+    gap: 12,
+    marginTop: 16,
     padding: 14,
     borderRadius: 12,
     borderWidth: 1,
   },
-  openChatText: {
+  chatLinkBody: {
     flex: 1,
+  },
+  chatLinkTitle: {
     fontSize: 15,
     fontWeight: '600',
   },
-  openChatMeta: {
+  chatLinkMeta: {
     fontSize: 12,
+    marginTop: 2,
+  },
+  chatLinkGated: {
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  chatGatedText: {
+    fontSize: 14,
+    textAlign: 'center',
   },
   commentPromptPopover: {
-    position: 'absolute',
-    top: -46,
-    right: 8,
+    alignSelf: 'center',
+    marginTop: 12,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 20,
@@ -560,9 +532,6 @@ const styles = StyleSheet.create({
   commentPromptText: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  calloutNoBorder: {
-    borderWidth: 0,
   },
   emptyReactionsContainer: {
     paddingVertical: 32,

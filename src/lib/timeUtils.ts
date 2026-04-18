@@ -1,18 +1,25 @@
+import { formatDistanceToNowStrict, format, differenceInHours } from 'date-fns';
+
+/**
+ * Returns a human-friendly relative or absolute timestamp.
+ * - Under 1 minute: "Just now"
+ * - Under 24h: relative ("5m ago", "2h ago")
+ * - Over 24h: absolute ("Oct 12, 4:30 PM")
+ */
 export function getRelativeTime(timestamp: number): string {
   const now = Date.now();
   const diff = now - timestamp;
   const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
 
   if (seconds < 60) return 'Just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 30) return `${days}d ago`;
 
-  const date = new Date(timestamp);
-  return date.toLocaleDateString();
+  const hoursDiff = differenceInHours(now, timestamp);
+
+  if (hoursDiff < 24) {
+    return formatDistanceToNowStrict(timestamp, { addSuffix: true });
+  }
+
+  return format(timestamp, 'MMM d, h:mm a');
 }
 
 /**

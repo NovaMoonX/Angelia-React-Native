@@ -24,7 +24,6 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { ConversationMessage } from '@/components/conversation/ConversationMessage';
 import { ConversationEmptyState } from '@/components/conversation/ConversationEmptyState';
-import { ReactionGate } from '@/components/conversation/ReactionGate';
 
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
@@ -264,8 +263,6 @@ export default function ConversationScreen() {
 
       {/* Message list area */}
       <View style={styles.listContainer}>
-        {!hasReacted && <ReactionGate />}
-
         {messages.length === 0 && hasReacted && isInConversation ? (
           <ConversationEmptyState />
         ) : (

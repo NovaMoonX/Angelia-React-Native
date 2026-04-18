@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { useAppSelector } from '@/store/hooks';
-import { formatMessageTimestamp } from '@/lib/conversation/formatTimestamp';
+import { getRelativeTime } from '@/lib/timeUtils';
 import { useTheme } from '@/hooks/useTheme';
 import type { Message } from '@/models/types';
 
@@ -60,7 +60,7 @@ export function ConversationMessage({
             {author?.firstName ?? 'Unknown'}
           </Text>
           <Text style={[styles.timestamp, { color: theme.mutedForeground }]}>
-            {formatMessageTimestamp(message.timestamp)}
+            {getRelativeTime(message.timestamp)}
           </Text>
         </View>
 
