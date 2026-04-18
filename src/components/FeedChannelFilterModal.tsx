@@ -42,6 +42,8 @@ export function FeedChannelFilterModal({
       setLocalFilter(value);
       setSearchQuery('');
     }
+    // Intentionally only sync when the modal opens — we don't want parent
+    // value changes to clobber in-progress edits while the modal is open.
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dailyChannels = useMemo(
@@ -176,7 +178,7 @@ export function FeedChannelFilterModal({
       {/* Regular channels group */}
       {filteredRegular.length > 0 && (
         <>
-          {dailyChannels.length > 0 && (
+          {filteredDaily.length > 0 && (
             <View style={styles.groupHeader}>
               <Text style={styles.groupEmoji}>📢</Text>
               <Text style={[styles.groupLabel, { color: theme.mutedForeground }]}>

@@ -197,6 +197,8 @@ export default function FeedScreen() {
   // Animated bouncing dots for filter loading indicator
   useEffect(() => {
     if (isFiltering) {
+      // Stop any existing animation before starting a new one
+      dotLoopRef.current?.stop();
       Animated.timing(filteringOpacity, { toValue: 1, duration: 150, useNativeDriver: true }).start();
       const bounceDot = (scale: Animated.Value, delay: number): Animated.CompositeAnimation =>
         Animated.loop(
