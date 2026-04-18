@@ -58,10 +58,6 @@ export default function ConversationScreen() {
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const messages = useAppSelector((state) => selectMessages(state, postId ?? ''));
 
-  // Keep a ref to latest post so async callbacks always see current reactions
-  const postRef = useRef(post);
-  postRef.current = post;
-
   const [messageText, setMessageText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [hasPlayedEntry, setHasPlayedEntry] = useState(false);
@@ -163,9 +159,8 @@ export default function ConversationScreen() {
         joinConversation({ postId, userId: currentUser.id }),
       ).unwrap();
 
-      // Read the latest post from the ref for fresh reactions
-      const latestPost = postRef.current;
-      const userReactions = (latestPost?.reactions ?? []).filter(
+      // Read the latest post for fresh reactions
+      const userReactions = (post?.reactions ?? []).filter(
         (r) => r.userId === currentUser.id,
       );
       const emoji = userReactions.length > 0
@@ -178,7 +173,7 @@ export default function ConversationScreen() {
     } catch {
       addToast({ type: 'error', title: 'Failed to join conversation' });
     }
-  }, [postId, currentUser, dispatch, addToast]);
+  }, [postId, currentUser, dispatch, addToast, post]);
 
   const handleReply = useCallback((message: Message) => {
     setReplyingTo(message);

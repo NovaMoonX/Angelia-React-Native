@@ -130,6 +130,6 @@ const styles = StyleSheet.create({
   },
   systemText: {
     fontSize: 13,
-    fontStyle: 'italic',
+    opacity: 0.8,
   },
 });
