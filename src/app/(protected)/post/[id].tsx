@@ -450,6 +450,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
     gap: 6,
   },
+  videoPlaceholderOverlay: {
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
   watchVideoText: {
     color: '#FFF',
     fontSize: 14,
@@ -562,9 +565,16 @@ function MediaCard({
   if (item.type === 'video') {
     return (
       <Pressable style={[style, styles.videoContainer]} onPress={onOpen}>
-        <View style={styles.videoPlaceholder}>
+        {item.thumbnailUrl ? (
+          <Image
+            source={{ uri: item.thumbnailUrl }}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+          />
+        ) : null}
+        <View style={[styles.videoPlaceholder, item.thumbnailUrl && styles.videoPlaceholderOverlay]}>
           <Feather name="play-circle" size={48} color="#FFF" />
-          <Text style={styles.watchVideoText}>Watch Video</Text>
+          {!item.thumbnailUrl && <Text style={styles.watchVideoText}>Watch Video</Text>}
         </View>
       </Pressable>
     );

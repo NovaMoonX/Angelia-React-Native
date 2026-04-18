@@ -1,6 +1,7 @@
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
   StyleSheet,
   Text,
@@ -19,9 +20,9 @@ import type { CameraPosition, PhotoFile, VideoFile } from 'react-native-vision-c
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 import { generateId } from '@/utils/generateId';
 import { compressImage } from '@/utils/compressImage';
+import { generateVideoThumbnailFileUri } from '@/utils/generateVideoThumbnail';
 import { useToast } from '@/hooks/useToast';
 import { MAX_FILES } from '@/models/constants';
-
 export default function CameraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -48,6 +49,12 @@ export default function CameraScreen() {
   const [capturedPhotos, setCapturedPhotos] = useState<MediaFile[]>([]);
   const camera = useRef<Camera>(null);
   const { addToast } = useToast();
+
+  // Capture feedback animations:
+  // shutterScale: button press-in (0.82) → spring back (1.0)
+  // edgeGlow: brief amber ring at the camera frame edges
+  const shutterScale = useRef(new Animated.Value(1)).current;
+  const edgeGlow = useRef(new Animated.Value(0)).current;
 
   const { hasPermission: hasCameraPermission, requestPermission: requestCamera } =
     useCameraPermission();
@@ -110,6 +117,19 @@ export default function CameraScreen() {
     try {
       const photo: PhotoFile = await camera.current.takePhoto({ flash });
       const rawUri = `file://${photo.path}`;
+
+      // ── Capture feedback ──────────────────────────────────────────────────
+      // 1. Shutter button press-in effect (scale down → spring back)
+      Animated.sequence([
+        Animated.timing(shutterScale, { toValue: 0.82, duration: 70, useNativeDriver: true }),
+        Animated.spring(shutterScale, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }),
+      ]).start();
+      // 2. Edge glow ring: flashes amber at the camera frame border
+      Animated.sequence([
+        Animated.timing(edgeGlow, { toValue: 1, duration: 80, useNativeDriver: true }),
+        Animated.timing(edgeGlow, { toValue: 0, duration: 300, useNativeDriver: true }),
+      ]).start();
+
       const compressedUri = await compressImage(rawUri, 'image/jpeg');
       const file: MediaFile = { uri: compressedUri, name: `photo-${generateId()}.jpg`, type: 'image/jpeg' };
       const newCount = totalCount + 1;
@@ -131,20 +151,22 @@ export default function CameraScreen() {
     setRecording(true);
     camera.current.startRecording({
       flash: flash === 'on' ? 'on' : 'off',
-      onRecordingFinished: (video: VideoFile) => {
+      onRecordingFinished: async (video: VideoFile) => {
         setRecording(false);
-        setVideoMode(false);
         const uri = `file://${video.path}`;
-        const file: MediaFile = { uri, name: `video-${generateId()}.mp4`, type: 'video/mp4' };
-        const allMedia = [...existingMedia, file].slice(0, MAX_FILES);
-        router.replace({
-          pathname: '/(protected)/post/new',
-          params: {
-            capturedMedia: JSON.stringify(allMedia),
-            existingText: params.existingText,
-            existingChannel: params.existingChannel,
-          },
-        });
+        const thumbnailUri = await generateVideoThumbnailFileUri(uri);
+        const file: MediaFile = {
+          uri,
+          name: `video-${generateId()}.mp4`,
+          type: 'video/mp4',
+          thumbnailUri,
+        };
+        const newCount = totalCount + 1;
+        if (newCount >= MAX_FILES) {
+          confirmCaptures(file);
+        } else {
+          setCapturedPhotos((prev) => [...prev, file]);
+        }
       },
       onRecordingError: () => {
         setRecording(false);
@@ -258,13 +280,15 @@ export default function CameraScreen() {
         )}
 
         {/* Shutter */}
-        <Pressable
-          style={[styles.shutter, recording && styles.shutterRecording, atMax && !recording && styles.shutterDisabled]}
-          onPress={recording ? stopRecording : videoMode ? startRecording : takePhoto}
-          disabled={atMax && !recording && !videoMode}
-        >
-          {recording && <View style={styles.recordingDot} />}
-        </Pressable>
+        <Animated.View style={{ transform: [{ scale: shutterScale }] }}>
+          <Pressable
+            style={[styles.shutter, recording && styles.shutterRecording, atMax && !recording && styles.shutterDisabled]}
+            onPress={recording ? stopRecording : videoMode ? startRecording : takePhoto}
+            disabled={atMax && !recording && !videoMode}
+          >
+            {recording && <View style={styles.recordingDot} />}
+          </Pressable>
+        </Animated.View>
 
         {/* Flip camera — hidden while recording */}
         {recording ? (
@@ -306,8 +330,15 @@ export default function CameraScreen() {
         </View>
       )}
 
-      {/* Captured photos bar (photo mode) */}
-      {!videoMode && capturedPhotos.length > 0 && (
+      {/* Edge glow — amber ring that briefly pulses at the camera frame border
+           to confirm a capture has been taken */}
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.edgeGlow, { opacity: edgeGlow }]}
+      />
+
+      {/* Captured media bar — visible in photo and video mode when there are captures */}
+      {capturedPhotos.length > 0 && !recording && (
         <View style={[styles.captureBar, { bottom: insets.bottom + 150 }]}>
           <Text style={styles.captureCount}>
             {totalCount}/{MAX_FILES} captured
@@ -487,6 +518,13 @@ const styles = StyleSheet.create({
   },
   shutterDisabled: {
     opacity: 0.35,
+  },
+  edgeGlow: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 5,
+    borderColor: '#F59E0B',
+    borderRadius: 0,
+    zIndex: 20,
   },
   captureBar: {
     position: 'absolute',

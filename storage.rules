@@ -14,6 +14,9 @@ service firebase.storage {
       let post = getPost(postId);
       return post != null && post.data.authorId == request.auth.uid;
     }
+    function isThumbnailFile(mediaFile) {
+      return mediaFile.matches('.*_thumb\\.jpg$');
+    }
     function getChannel(channelId) {
       return firestore.exists(/databases/(default)/documents/channels/$(channelId))
         ? firestore.get(/databases/(default)/documents/channels/$(channelId))
@@ -42,8 +45,13 @@ service firebase.storage {
         (getPost(postId).data.status == 'uploading' && isAuthor(postId)) ||
         (getPost(postId).data.status == 'ready' && (isAuthor(postId) || isChannelMember(postId)))
       );
-      // Only allow writing if post is 'uploading' and user is author
-      allow write: if isSignedIn() && getPost(postId) != null && getPost(postId).data.status == 'uploading' && isAuthor(postId);
+      // Allow the author to upload primary media while the post is still
+      // uploading. After the post is ready, only generated thumbnail files may
+      // be added by the author.
+      allow write: if isSignedIn() && getPost(postId) != null && isAuthor(postId) && (
+        getPost(postId).data.status == 'uploading' ||
+        (getPost(postId).data.status == 'ready' && isThumbnailFile(mediaFile))
+      );
       // Only allow deleting if user is author (regardless of status)
       allow delete: if isSignedIn() && isAuthor(postId);
     }

@@ -22,6 +22,10 @@
  */
 export const DEFAULT_RETRY_DELAYS_MS = [0, 5_000, 10_000, 20_000];
 
+type RetryWithBackoffOptions = {
+  shouldRetry?: (error: unknown, attempt: number) => boolean;
+};
+
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -29,8 +33,10 @@ function wait(ms: number): Promise<void> {
 export async function retryWithBackoff<T>(
   fn: () => Promise<T>,
   retryDelaysMs: number[] = DEFAULT_RETRY_DELAYS_MS,
+  options: RetryWithBackoffOptions = {},
 ): Promise<T> {
   let lastError: unknown;
+  const { shouldRetry } = options;
 
   // attempt 0 = first try (no pre-delay)
   // attempt 1..N = retries (wait retryDelaysMs[attempt-1] first)
@@ -42,6 +48,15 @@ export async function retryWithBackoff<T>(
       return await fn();
     } catch (err) {
       lastError = err;
+
+      const hasRetryRemaining = attempt < retryDelaysMs.length;
+      if (!hasRetryRemaining) {
+        break;
+      }
+
+      if (shouldRetry && !shouldRetry(err, attempt)) {
+        throw err;
+      }
     }
   }
 

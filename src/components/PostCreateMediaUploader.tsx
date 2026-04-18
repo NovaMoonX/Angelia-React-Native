@@ -1,17 +1,18 @@
 import React from 'react';
 import {
   Alert,
-  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
 import { Button } from '@/components/ui/Button';
 import { MAX_FILES, MAX_FILE_SIZE_MB } from '@/models/constants';
+import { generateVideoThumbnailFileUri } from '@/utils/generateVideoThumbnail';
 import { useTheme } from '@/hooks/useTheme';
 
 export interface MediaFile {
@@ -19,6 +20,8 @@ export interface MediaFile {
   name: string;
   type: string;
   size?: number;
+  /** For videos: local `file://` URI of the generated thumbnail image. */
+  thumbnailUri?: string | null;
 }
 
 interface PostCreateMediaUploaderProps {
@@ -46,23 +49,31 @@ export function PostCreateMediaUploader({
     });
 
     if (!result.canceled && result.assets) {
-      const newFiles: MediaFile[] = result.assets
-        .filter((asset) => {
-          if (asset.fileSize && asset.fileSize > MAX_FILE_SIZE_MB * 1024 * 1024) {
-            Alert.alert(
-              'File Too Large',
-              `${asset.fileName || 'File'} exceeds ${MAX_FILE_SIZE_MB}MB limit`
-            );
-            return false;
-          }
-          return true;
-        })
-        .map((asset) => ({
-          uri: asset.uri,
-          name: asset.fileName || `media-${Date.now()}`,
-          type: asset.mimeType || 'image/jpeg',
-          size: asset.fileSize,
-        }));
+    const newFiles: MediaFile[] = await Promise.all(
+        result.assets
+          .filter((asset) => {
+            if (asset.fileSize && asset.fileSize > MAX_FILE_SIZE_MB * 1024 * 1024) {
+              Alert.alert(
+                'File Too Large',
+                `${asset.fileName || 'File'} exceeds ${MAX_FILE_SIZE_MB}MB limit`
+              );
+              return false;
+            }
+            return true;
+          })
+          .map(async (asset) => {
+            const file: MediaFile = {
+              uri: asset.uri,
+              name: asset.fileName || `media-${Date.now()}`,
+              type: asset.mimeType || 'image/jpeg',
+              size: asset.fileSize,
+            };
+            if (asset.mimeType?.startsWith('video/')) {
+              file.thumbnailUri = await generateVideoThumbnailFileUri(asset.uri);
+            }
+            return file;
+          })
+      );
 
       onValueChange([...value, ...newFiles].slice(0, MAX_FILES));
     }
@@ -83,7 +94,18 @@ export function PostCreateMediaUploader({
           contentContainerStyle={styles.previewList}
           renderItem={({ item, index }) => (
             <View style={styles.previewContainer}>
-              <Image source={{ uri: item.uri }} style={styles.preview} />
+              {item.type.startsWith('video/') ? (
+                <View style={[styles.preview, styles.videoPreview]}>
+                  {item.thumbnailUri ? (
+                    <Image source={{ uri: item.thumbnailUri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+                  ) : null}
+                  <View style={styles.videoOverlay}>
+                    <Feather name="play-circle" size={28} color="#FFF" />
+                  </View>
+                </View>
+              ) : (
+                <Image source={{ uri: item.uri }} style={styles.preview} contentFit="cover" />
+              )}
               <Pressable
                 style={styles.removeButton}
                 onPress={() => removeFile(index)}
@@ -124,6 +146,16 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 8,
+  },
+  videoPreview: {
+    backgroundColor: '#1a1a1a',
+    overflow: 'hidden',
+  },
+  videoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
   removeButton: {
     position: 'absolute',
