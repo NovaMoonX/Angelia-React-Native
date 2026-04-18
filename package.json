@@ -26,7 +26,9 @@
     "env:pull": "eas env:pull --environment development --output .env.development",
     "deploy:rules:firestore": "firebase deploy --only firestore:rules",
     "deploy:rules:storage": "firebase deploy --only storage",
-    "deploy:rules": "firebase deploy --only firestore:rules,storage"
+    "deploy:rules": "firebase deploy --only firestore:rules,storage",
+    "deploy:functions": "cd functions && npm run build && firebase deploy --only functions",
+    "deploy:all": "cd functions && npm run build && cd .. && firebase deploy --only firestore:rules,storage,functions"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

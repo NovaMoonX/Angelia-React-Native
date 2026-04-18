@@ -41,6 +41,8 @@ app-example
 # Firebase
 .firebase
 /firebase-debug.log
+functions/firebase-debug.log
+functions/lib
 
 # generated native folders
 /ios
