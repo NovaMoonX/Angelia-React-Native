@@ -97,7 +97,7 @@ function formatTime(h: number, m: number) {
 
 export default function CompleteProfileScreen() {
   const router = useRouter();
-  const { firebaseUser, sendVerificationEmail } = useAuth();
+  const { firebaseUser, sendVerificationEmail, signOut } = useAuth();
   const { addToast } = useToast();
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
@@ -133,8 +133,22 @@ export default function CompleteProfileScreen() {
   const [busyUntilMinute, setBusyUntilMinute] = useState(0);
   const [busyUntilAmPm, setBusyUntilAmPm] = useState<'AM' | 'PM'>('PM');
 
+  // Step 4 — allow skipping with noon/6 PM defaults
+  const [notifSkipped, setNotifSkipped] = useState(false);
+
   // Step 5
   const [firstPost, setFirstPost] = useState('');
+
+  // ── Logout handler ──────────────────────────────────────────────────────
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await signOut();
+      router.replace('/auth');
+    } catch {
+      addToast({ type: 'error', title: 'Could not sign out. Please try again.' });
+    }
+  }, [signOut, router, addToast]);
 
   // ── Navigation helpers ──────────────────────────────────────────────────
 
@@ -240,10 +254,14 @@ export default function CompleteProfileScreen() {
 
       // 4 — Save notification settings
       try {
+        const dailyHour = notifSkipped ? 12 : midCheckIn.hour;
+        const dailyMinute = notifSkipped ? 0 : midCheckIn.minute;
+        const windDownHour = notifSkipped ? 18 : windDown.hour;
+        const windDownMinute = notifSkipped ? 0 : windDown.minute;
         await dispatch(
           saveNotificationSettings({
-            dailyPrompt: { enabled: true, hour: midCheckIn.hour, minute: midCheckIn.minute },
-            windDownPrompt: { enabled: true, hour: windDown.hour, minute: windDown.minute },
+            dailyPrompt: { enabled: true, hour: dailyHour, minute: dailyMinute },
+            windDownPrompt: { enabled: true, hour: windDownHour, minute: windDownMinute },
           }),
         ).unwrap();
       } catch {
@@ -254,7 +272,11 @@ export default function CompleteProfileScreen() {
       await sendVerificationEmail();
 
       addToast({ type: 'success', title: "You're all set! 🎉" });
-      router.replace('/verify-email');
+      if (joinPath === 'join') {
+        router.replace('/join-channel');
+      } else {
+        router.replace('/verify-email');
+      }
     } catch (err) {
       addToast({
         type: 'error',
@@ -277,19 +299,34 @@ export default function CompleteProfileScreen() {
 
   // ── Reusable sub-components ─────────────────────────────────────────────
 
-  const ProgressBar = () => (
-    <View style={styles.progressRow}>
-      {Array.from({ length: TOTAL_STEPS }, (_, i) => (
-        <View
-          key={i}
-          style={[
-            styles.progressDot,
-            {
-              backgroundColor: i < step ? theme.primary : theme.border,
-            },
-          ]}
-        />
-      ))}
+  const TopBar = () => (
+    <View style={styles.topBar}>
+      {/* Back (shown on steps 2+) */}
+      {step > 1 ? (
+        <Pressable onPress={goBack} style={styles.backButton} hitSlop={12}>
+          <Text style={[styles.backText, { color: theme.primary }]}>← Back</Text>
+        </Pressable>
+      ) : (
+        <View style={styles.backButtonPlaceholder} />
+      )}
+
+      {/* Step progress dots */}
+      <View style={styles.progressRow}>
+        {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+          <View
+            key={i}
+            style={[
+              styles.progressDot,
+              { backgroundColor: i < step ? theme.primary : theme.border },
+            ]}
+          />
+        ))}
+      </View>
+
+      {/* Sign Out */}
+      <Pressable onPress={handleLogout} hitSlop={12} style={styles.signOutButton}>
+        <Text style={[styles.signOutText, { color: theme.mutedForeground }]}>Sign Out</Text>
+      </Pressable>
     </View>
   );
 
@@ -301,13 +338,6 @@ export default function CompleteProfileScreen() {
       ) : null}
     </View>
   );
-
-  const BackButton = () =>
-    step > 1 ? (
-      <Pressable onPress={goBack} style={styles.backButton} hitSlop={12}>
-        <Text style={[styles.backText, { color: theme.primary }]}>← Back</Text>
-      </Pressable>
-    ) : null;
 
   // Card used in Step 2 & 3
   const OptionCard = ({
@@ -352,7 +382,7 @@ export default function CompleteProfileScreen() {
     </Pressable>
   );
 
-  // Simple time-picker row (hour, minute, AM/PM)
+  // Simple time-picker row (hour, minute, AM/PM) with selected time display
   const TimePicker = ({
     label,
     hour,
@@ -371,7 +401,12 @@ export default function CompleteProfileScreen() {
     onAmPmChange: (v: 'AM' | 'PM') => void;
   }) => (
     <View style={styles.section}>
-      <Label>{label}</Label>
+      <View style={styles.timePickerHeader}>
+        <Label>{label}</Label>
+        <Text style={[styles.selectedTimeDisplay, { color: theme.primary }]}>
+          {hour}:{String(minute).padStart(2, '0')} {ampm}
+        </Text>
+      </View>
       <View style={styles.timeRow}>
         {/* Hour selector */}
         <View style={styles.timeGroup}>
@@ -560,8 +595,8 @@ export default function CompleteProfileScreen() {
           ]}
         >
           <Text style={[styles.bridgeText, { color: theme.foreground }]}>
-            You can join a Circle anytime from the home screen. For now, let's set up your own
-            space so your friends can see what you're up to, too! 🎈
+            🎈 Let's set up your space first! Once you've finished, we'll take you straight to
+            join your friend's Circle.
           </Text>
         </View>
       )}
@@ -592,9 +627,9 @@ export default function CompleteProfileScreen() {
         <View style={styles.pillRow}>
           {(
             [
-              { id: 'family' as Category, label: '👨‍👩‍👧 Family & Friends' },
+              { id: 'family' as Category, label: '💛 Family & Friends' },
               { id: 'hobbies' as Category, label: '🎯 Hobbies' },
-              { id: 'lifelog' as Category, label: '📓 Life Log' },
+              { id: 'lifelog' as Category, label: '✨ Life Log' },
             ] as const
           ).map(({ id, label }) => {
             const active = categories.includes(id);
@@ -813,8 +848,21 @@ export default function CompleteProfileScreen() {
     <>
       <StepHeader
         title="When are you normally busy? ⏰"
-        subtitle="We'll schedule gentle nudges around your day."
+        subtitle="We'll schedule gentle nudges around your day — one mid-day check-in, one evening wind-down."
       />
+
+      {/* Why we ask */}
+      <View
+        style={[
+          styles.infoCallout,
+          { backgroundColor: theme.secondary, borderColor: theme.border },
+        ]}
+      >
+        <Text style={[styles.infoCalloutText, { color: theme.foreground }]}>
+          💡 <Text style={{ fontWeight: '700' }}>Why do we ask?</Text>
+          {' '}Angelia sends two gentle nudges per day — one around the middle of your active hours and one as you wind down. Knowing your schedule means prompts feel natural, not intrusive.
+        </Text>
+      </View>
 
       <TimePicker
         label="Busy from"
@@ -850,21 +898,52 @@ export default function CompleteProfileScreen() {
         </Text>
       </View>
 
-      <Button onPress={goNext} style={styles.cta}>
-        Looks good!
-      </Button>
+      <View style={styles.ctaRow}>
+        <Button
+          variant="tertiary"
+          onPress={() => {
+            setNotifSkipped(true);
+            goNext();
+          }}
+          style={{ flex: 1 }}
+        >
+          Skip (noon & 6 PM)
+        </Button>
+        <Button
+          onPress={() => {
+            setNotifSkipped(false);
+            goNext();
+          }}
+          style={{ flex: 1 }}
+        >
+          Looks good!
+        </Button>
+      </View>
     </>
   );
 
   const renderStep5 = () => (
     <>
       <StepHeader
-        title="Your Daily Circle is ready. Let's break the ice! 🎉"
-        subtitle="Share a 'Now' status or a quick thought about what's in front of you right now."
+        title="One last thing — let's break the ice! 🎉"
+        subtitle="Your Daily Circle is set up and ready to go."
       />
 
+      {/* Daily Circle explanation */}
+      <View
+        style={[
+          styles.infoCallout,
+          { backgroundColor: theme.secondary, borderColor: theme.border },
+        ]}
+      >
+        <Text style={[styles.infoCalloutText, { color: theme.foreground }]}>
+          ☀️ <Text style={{ fontWeight: '700' }}>What's your Daily Circle?</Text>
+          {' '}It's your default space for everyday updates — the small stuff, the funny moments, the "you had to be there" things. Everyone who follows you will see it here.
+        </Text>
+      </View>
+
       <View style={styles.section}>
-        <Label>Your first post ✍️</Label>
+        <Label>Share your first update ✍️</Label>
         <Textarea
           value={firstPost}
           onChangeText={setFirstPost}
@@ -907,11 +986,10 @@ export default function CompleteProfileScreen() {
       <ScrollView
         ref={scrollRef}
         style={{ flex: 1, backgroundColor: theme.background }}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 12, paddingBottom: Math.max(40, insets.bottom + 24) }]}
         keyboardShouldPersistTaps="handled"
       >
-        <ProgressBar />
-        <BackButton />
+        <TopBar />
         <Animated.View style={{ opacity: fadeAnim }}>
           {STEP_RENDERERS[step]()}
         </Animated.View>
@@ -928,28 +1006,47 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
+  // Top bar (progress + back + sign out)
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+
   // Progress bar
   progressRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
     gap: 8,
-    marginBottom: 8,
   },
   progressDot: {
-    width: 32,
+    width: 28,
     height: 6,
     borderRadius: 3,
   },
 
   // Back
   backButton: {
-    alignSelf: 'flex-start',
-    marginBottom: 4,
     paddingVertical: 4,
+    minWidth: 60,
+  },
+  backButtonPlaceholder: {
+    minWidth: 60,
   },
   backText: {
     fontSize: 15,
     fontWeight: '600',
+  },
+
+  // Sign out
+  signOutButton: {
+    paddingVertical: 4,
+    alignItems: 'flex-end',
+    minWidth: 60,
+  },
+  signOutText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
 
   // Headers
@@ -1100,6 +1197,27 @@ const styles = StyleSheet.create({
   timePillText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  timePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  selectedTimeDisplay: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+
+  // Info callout (Step 4 & 5)
+  infoCallout: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 20,
+  },
+  infoCalloutText: {
+    fontSize: 14,
+    lineHeight: 20,
   },
 
   // CTA
