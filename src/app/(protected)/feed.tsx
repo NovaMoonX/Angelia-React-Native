@@ -31,6 +31,7 @@ import type { Post, PostTier, UserStatus } from '@/models/types';
 
 const INITIAL_PAGE = 10;
 const LOAD_MORE = 3;
+const FILTERING_INDICATOR_DURATION = 400;
 
 export default function FeedScreen() {
   const router = useRouter();
@@ -177,7 +178,7 @@ export default function FeedScreen() {
     setDisplayCount(INITIAL_PAGE);
     setIsFiltering(true);
     flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
-    const timer = setTimeout(() => setIsFiltering(false), 400);
+    const timer = setTimeout(() => setIsFiltering(false), FILTERING_INDICATOR_DURATION);
     return () => clearTimeout(timer);
   }, [channelFilter, priorityFilter, sortOrder]);
 
@@ -261,7 +262,7 @@ export default function FeedScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Initial loading state — show skeletons while posts haven't arrived yet */}
-      {!postsLoaded && !isDemo ? (
+      {!postsLoaded ? (
         <View style={[styles.skeletonList, { paddingTop: headerHeight, paddingBottom: insets.bottom + 150 }]}>
           <SkeletonPostCard />
           <SkeletonPostCard />
