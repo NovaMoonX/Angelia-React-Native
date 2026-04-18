@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Separator } from '@/components/ui/Separator';
+import { CheckboxGroup } from '@/components/ui/CheckboxGroup';
 import { useTheme } from '@/hooks/useTheme';
 import { useAppSelector } from '@/store/hooks';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
@@ -64,29 +65,98 @@ export function FeedChannelFilterModal({
     const q = searchQuery.toLowerCase();
     return dailyChannels.filter((ch) => {
       const owner = usersById[ch.ownerId];
-      const name = owner ? `${owner.firstName} ${owner.lastName[0]}.` : ch.name;
-      return name.toLowerCase().includes(q);
+      const name = owner
+        ? `${owner.firstName} ${owner.lastName}`.toLowerCase()
+        : ch.name.toLowerCase();
+      return name.includes(q);
     });
   }, [dailyChannels, searchQuery, usersById]);
 
   const filteredRegular = useMemo(() => {
     if (!searchQuery.trim()) return regularChannels;
     const q = searchQuery.toLowerCase();
-    return regularChannels.filter((ch) => ch.name.toLowerCase().includes(q));
-  }, [regularChannels, searchQuery]);
+    return regularChannels.filter((ch) => {
+      if (ch.name.toLowerCase().includes(q)) return true;
+      const owner = usersById[ch.ownerId];
+      return owner
+        ? `${owner.firstName} ${owner.lastName}`.toLowerCase().includes(q)
+        : false;
+    });
+  }, [regularChannels, searchQuery, usersById]);
+
+  // Daily items sorted: current user first, then by owner name
+  const filteredDailyItems = useMemo(() => {
+    return [...filteredDaily]
+      .sort((a, b) => {
+        if (a.ownerId === currentUserId) return -1;
+        if (b.ownerId === currentUserId) return 1;
+        const ownerA = usersById[a.ownerId];
+        const ownerB = usersById[b.ownerId];
+        return (ownerA ? `${ownerA.firstName} ${ownerA.lastName}` : '').localeCompare(
+          ownerB ? `${ownerB.firstName} ${ownerB.lastName}` : '',
+        );
+      })
+      .map((ch) => {
+        const owner = usersById[ch.ownerId];
+        const label =
+          ch.ownerId === currentUserId
+            ? 'Yours'
+            : owner
+            ? `${owner.firstName} ${owner.lastName[0]}.`
+            : ch.name;
+        return { id: ch.id, label };
+      });
+  }, [filteredDaily, usersById, currentUserId]);
+
+  // Regular channels grouped by owner: current user's group first, then alphabetical
+  const filteredRegularGroups = useMemo(() => {
+    const groupMap = new Map<string, Channel[]>();
+    for (const ch of filteredRegular) {
+      const existing = groupMap.get(ch.ownerId) ?? [];
+      groupMap.set(ch.ownerId, [...existing, ch]);
+    }
+    return Array.from(groupMap.entries())
+      .map(([ownerId, chs]) => {
+        const owner = usersById[ownerId];
+        const label =
+          ownerId === currentUserId
+            ? 'Yours'
+            : owner
+            ? `${owner.firstName} ${owner.lastName[0]}.`
+            : 'Unknown';
+        return { ownerId, label, items: chs.map((ch) => ({ id: ch.id, label: ch.name })) };
+      })
+      .sort((a, b) => {
+        if (a.ownerId === currentUserId) return -1;
+        if (b.ownerId === currentUserId) return 1;
+        return a.label.localeCompare(b.label);
+      });
+  }, [filteredRegular, usersById, currentUserId]);
+
+  const selectedIds = localFilter.mode === 'specific' ? localFilter.specificIds : [];
 
   const handleRadioSelect = (mode: 'all' | 'others') => {
     setLocalFilter({ mode, specificIds: [] });
   };
 
-  const handleChannelToggle = (channelId: string) => {
+  const handleToggleItem = (channelId: string) => {
     setLocalFilter((prev) => {
       const currentIds = prev.mode === 'specific' ? prev.specificIds : [];
       const isSelected = currentIds.includes(channelId);
       const newIds = isSelected
         ? currentIds.filter((id) => id !== channelId)
         : [...currentIds, channelId];
-      // If all deselected, revert to 'all'
+      if (newIds.length === 0) return { mode: 'all', specificIds: [] };
+      return { mode: 'specific', specificIds: newIds };
+    });
+  };
+
+  const handleToggleGroup = (ids: string[], select: boolean) => {
+    setLocalFilter((prev) => {
+      const currentIds = prev.mode === 'specific' ? prev.specificIds : [];
+      const newIds = select
+        ? [...new Set([...currentIds, ...ids])]
+        : currentIds.filter((id) => !ids.includes(id));
       if (newIds.length === 0) return { mode: 'all', specificIds: [] };
       return { mode: 'specific', specificIds: newIds };
     });
@@ -158,51 +228,44 @@ export function FeedChannelFilterModal({
         </View>
       )}
 
-      {/* Daily channels group */}
-      {filteredDaily.length > 0 && (
+      {/* Daily channels — flat list with a section label */}
+      {filteredDailyItems.length > 0 && (
         <>
-          <View style={styles.groupHeader}>
-            <Text style={styles.groupEmoji}>📅</Text>
-            <Text style={[styles.groupLabel, { color: theme.mutedForeground }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionEmoji}>📅</Text>
+            <Text style={[styles.sectionLabel, { color: theme.mutedForeground, marginBottom: 0 }]}>
               Daily Channels
             </Text>
           </View>
-          {filteredDaily.map((ch) => (
-            <ChannelRow
-              key={ch.id}
-              channel={ch}
-              isSelected={
-                localFilter.mode === 'specific' &&
-                localFilter.specificIds.includes(ch.id)
-              }
-              isOwn={ch.ownerId === currentUserId}
-              onToggle={handleChannelToggle}
-            />
-          ))}
+          <CheckboxGroup
+            label="Daily Channels"
+            items={filteredDailyItems}
+            selectedIds={selectedIds}
+            onToggleItem={handleToggleItem}
+            onToggleGroup={handleToggleGroup}
+            grouped={false}
+          />
         </>
       )}
 
-      {/* Regular channels group */}
-      {filteredRegular.length > 0 && (
+      {/* Regular channels — one group per owner */}
+      {filteredRegularGroups.length > 0 && (
         <>
-          {filteredDaily.length > 0 && (
-            <View style={styles.groupHeader}>
-              <Text style={styles.groupEmoji}>📢</Text>
-              <Text style={[styles.groupLabel, { color: theme.mutedForeground }]}>
-                Channels
-              </Text>
-            </View>
-          )}
-          {filteredRegular.map((ch) => (
-            <ChannelRow
-              key={ch.id}
-              channel={ch}
-              isSelected={
-                localFilter.mode === 'specific' &&
-                localFilter.specificIds.includes(ch.id)
-              }
-              isOwn={ch.ownerId === currentUserId}
-              onToggle={handleChannelToggle}
+          {filteredDailyItems.length > 0 && <Separator style={{ marginVertical: 8 }} />}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionEmoji}>📣</Text>
+            <Text style={[styles.sectionLabel, { color: theme.mutedForeground, marginBottom: 0 }]}>
+              Channels
+            </Text>
+          </View>
+          {filteredRegularGroups.map(({ ownerId, label, items }) => (
+            <CheckboxGroup
+              key={ownerId}
+              label={label}
+              items={items}
+              selectedIds={selectedIds}
+              onToggleItem={handleToggleItem}
+              onToggleGroup={handleToggleGroup}
             />
           ))}
         </>
@@ -221,52 +284,6 @@ export function FeedChannelFilterModal({
   );
 }
 
-interface ChannelRowProps {
-  channel: Channel;
-  isSelected: boolean;
-  isOwn: boolean;
-  onToggle: (id: string) => void;
-}
-
-function ChannelRow({ channel, isSelected, isOwn, onToggle }: ChannelRowProps) {
-  const { theme } = useTheme();
-  const usersById = useAppSelector(selectAllUsersMapById);
-  const displayName = useMemo(() => {
-    if (!channel.isDaily) return channel.name;
-    const owner = usersById[channel.ownerId];
-    return owner ? `${owner.firstName} ${owner.lastName}` : channel.name;
-  }, [channel, usersById]);
-
-  return (
-    <Pressable onPress={() => onToggle(channel.id)} style={styles.channelRow}>
-      <View
-        style={[
-          styles.checkbox,
-          {
-            borderColor: isSelected ? theme.primary : theme.border,
-            backgroundColor: isSelected ? theme.primary : 'transparent',
-          },
-        ]}
-      >
-        {isSelected && <Feather name="check" size={11} color="#FFFFFF" />}
-      </View>
-      <Text
-        style={[styles.channelName, { color: theme.foreground }]}
-        numberOfLines={1}
-      >
-        {displayName}
-      </Text>
-      {isOwn && (
-        <View style={[styles.ownBadge, { backgroundColor: theme.secondary }]}>
-          <Text style={[styles.ownBadgeText, { color: theme.secondaryForeground }]}>
-            yours
-          </Text>
-        </View>
-      )}
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 11,
@@ -274,6 +291,15 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 10,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  sectionEmoji: {
+    fontSize: 14,
   },
   radioRow: {
     flexDirection: 'row',
@@ -313,50 +339,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     padding: 0,
   },
-  groupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  groupEmoji: {
-    fontSize: 14,
-  },
-  groupLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  channelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 10,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 5,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  channelName: {
-    fontSize: 15,
-    flex: 1,
-  },
-  ownBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  ownBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
   emptyText: {
     fontSize: 14,
     textAlign: 'center',
@@ -366,3 +348,4 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
 });
+
