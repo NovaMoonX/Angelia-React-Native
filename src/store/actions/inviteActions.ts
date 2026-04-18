@@ -2,12 +2,14 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 import {
   respondToJoinRequest as firestoreRespondToJoinRequest,
   createJoinRequest as firestoreCreateJoinRequest,
+  createAppNotification,
 } from '@/services/firebase/firestore';
 import { updateJoinRequest } from '@/store/slices/invitesSlice';
 import { clearPendingInvite } from '@/store/slices/pendingInviteSlice';
 import type { RootState } from '@/store';
-import type { ChannelJoinRequest } from '@/models/types';
+import type { ChannelJoinRequest, JoinChannelAcceptedNotification, JoinChannelRequestNotification } from '@/models/types';
 import { isDemoActive } from './globalActions';
+import { generateId } from '@/utils/generateId';
 
 // ── Respond to a channel join request ──────────────────────────────────────
 
@@ -31,6 +33,23 @@ export const respondToJoinRequest = createAsyncThunk(
     try {
       await firestoreRespondToJoinRequest(request.id, accept);
       dispatch(updateJoinRequest(updatedRequest));
+
+      if (accept) {
+        const state = getState() as RootState;
+        const channel = state.channels.items.find((c) => c.id === request.channelId);
+        const notification: JoinChannelAcceptedNotification = {
+          id: generateId('nano'),
+          type: 'join_channel_accepted',
+          targetUserId: request.requesterId,
+          channelId: request.channelId,
+          channelName: channel?.name ?? 'channel',
+          joinRequestId: request.id,
+          createdAt: Date.now(),
+        };
+        // Fire-and-forget — delivery failure must not block the accept action
+        createAppNotification(notification).catch(() => {});
+      }
+
       return updatedRequest;
     } catch (err) {
       return rejectWithValue(err instanceof Error ? err.message : err);
@@ -65,13 +84,30 @@ export const sendJoinRequest = createAsyncThunk(
     }
 
     try {
-      await firestoreCreateJoinRequest(
+      const joinRequest = await firestoreCreateJoinRequest(
         channelId,
         inviteCode,
         user.id,
         channelOwnerId,
         message.trim(),
       );
+
+      const channel = state.channels.items.find((c) => c.id === channelId);
+      const notification: JoinChannelRequestNotification = {
+        id: generateId('nano'),
+        type: 'join_channel_request',
+        targetUserId: channelOwnerId,
+        requesterId: user.id,
+        requesterFirstName: user.firstName,
+        requesterLastName: user.lastName,
+        channelId,
+        channelName: channel?.name ?? 'channel',
+        joinRequestId: joinRequest.id,
+        createdAt: Date.now(),
+      };
+      // Fire-and-forget — delivery failure must not block the join request
+      createAppNotification(notification).catch(() => {});
+
       return { channelId, message: message.trim() };
     } catch (err) {
       return rejectWithValue(err instanceof Error ? err.message : err);

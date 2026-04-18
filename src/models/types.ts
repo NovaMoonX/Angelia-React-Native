@@ -148,3 +148,36 @@ export interface ChannelColorOption {
   value: string;
   textColor: string;
 }
+
+// ── App Notifications (Firestore-triggered FCM) ────────────────────────────
+
+export type AppNotificationType = 'join_channel_request' | 'join_channel_accepted';
+
+interface BaseAppNotification {
+  id: string;
+  type: AppNotificationType;
+  /** UID of the user who should receive the push notification. */
+  targetUserId: string;
+  createdAt: number;
+}
+
+/** Written when a user requests to join a channel — targets the channel owner. */
+export interface JoinChannelRequestNotification extends BaseAppNotification {
+  type: 'join_channel_request';
+  requesterId: string;
+  requesterFirstName: string;
+  requesterLastName: string;
+  channelId: string;
+  channelName: string;
+  joinRequestId: string;
+}
+
+/** Written when the owner accepts a join request — targets the requester. */
+export interface JoinChannelAcceptedNotification extends BaseAppNotification {
+  type: 'join_channel_accepted';
+  channelId: string;
+  channelName: string;
+  joinRequestId: string;
+}
+
+export type AppNotification = JoinChannelRequestNotification | JoinChannelAcceptedNotification;

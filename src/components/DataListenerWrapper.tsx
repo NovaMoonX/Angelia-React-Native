@@ -27,7 +27,7 @@ import {
   NOTIFICATION_ID,
   getFollowUpForPrompt,
 } from '@/services/notifications';
-import type { Channel, ChannelJoinRequest, NotificationSettings, Post, User } from '@/models/types';
+import type { AppNotificationType, Channel, ChannelJoinRequest, NotificationSettings, Post, User } from '@/models/types';
 
 interface DataListenerWrapperProps {
   children: React.ReactNode;
@@ -283,6 +283,32 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   // Run once when the user profile first becomes available after app start
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]);
+
+  // Effect 9: Show in-app toast when a push notification arrives in the foreground.
+  // Handles join_channel_request and join_channel_accepted types.
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener((notification) => {
+      const data = notification.request.content.data as Record<string, string> | undefined;
+      const type = data?.type as AppNotificationType | undefined;
+
+      if (type === 'join_channel_request') {
+        const channelName = data?.channelName ?? 'your channel';
+        addToast({
+          type: 'info',
+          title: '📬 New join request!',
+          description: `Someone wants to join ${channelName}`,
+        });
+      } else if (type === 'join_channel_accepted') {
+        const channelName = data?.channelName ?? 'the channel';
+        addToast({
+          type: 'success',
+          title: '🎉 You\'ve been accepted!',
+          description: `You're now a member of ${channelName}`,
+        });
+      }
+    });
+    return () => subscription.remove();
+  }, [addToast]);
 
   return <>{children}</>;
 }
