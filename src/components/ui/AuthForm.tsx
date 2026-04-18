@@ -31,6 +31,7 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { theme } = useTheme();
 
   const handleToggle = () => {
@@ -38,6 +39,7 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
     setMode(newMode);
     setError('');
     setShowPassword(false);
+    setShowConfirmPassword(false);
     onActionChange(newMode === 'login' ? 'login' : 'sign up');
   };
 
@@ -54,7 +56,24 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
       return;
     }
 
-    if (password.length < 6) {
+    if (mode === 'signup') {
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters.');
+        return;
+      }
+      if (!/[A-Z]/.test(password)) {
+        setError('Password must include at least one uppercase letter.');
+        return;
+      }
+      if (!/[0-9]/.test(password)) {
+        setError('Password must include at least one number.');
+        return;
+      }
+      if (!/[^A-Za-z0-9]/.test(password)) {
+        setError('Password must include at least one symbol (e.g. !@#$%).');
+        return;
+      }
+    } else if (password.length < 6) {
       setError('Password must be at least 6 characters.');
       return;
     }
@@ -162,19 +181,17 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
               autoComplete="password"
               style={styles.passwordInput}
             />
-            {mode === 'login' && (
-              <Pressable
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeButton}
-                hitSlop={8}
-              >
-                <Feather
-                  name={showPassword ? 'eye-off' : 'eye'}
-                  size={18}
-                  color={theme.mutedForeground}
-                />
-              </Pressable>
-            )}
+            <Pressable
+              onPress={() => setShowPassword(!showPassword)}
+              style={styles.eyeButton}
+              hitSlop={8}
+            >
+              <Feather
+                name={showPassword ? 'eye-off' : 'eye'}
+                size={18}
+                color={theme.mutedForeground}
+              />
+            </Pressable>
           </View>
         </View>
 
@@ -186,16 +203,16 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 placeholder="••••••••"
-                secureTextEntry={!showPassword}
+                secureTextEntry={!showConfirmPassword}
                 style={styles.passwordInput}
               />
               <Pressable
-                onPress={() => setShowPassword(!showPassword)}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                 style={styles.eyeButton}
                 hitSlop={8}
               >
                 <Feather
-                  name={showPassword ? 'eye-off' : 'eye'}
+                  name={showConfirmPassword ? 'eye-off' : 'eye'}
                   size={18}
                   color={theme.mutedForeground}
                 />

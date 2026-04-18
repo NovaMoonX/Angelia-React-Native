@@ -1,5 +1,6 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -13,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
+import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { BellIcon } from '@/components/BellIcon';
 import { PostCard } from '@/components/PostCard';
@@ -38,6 +40,7 @@ export default function FeedScreen() {
   const { addToast } = useToast();
 
   const posts = useAppSelector((state) => state.posts.items);
+  const postsLoaded = useAppSelector((state) => state.posts.loaded);
   const channels = useAppSelector((state) => state.channels.items);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const isDemo = useAppSelector((state) => state.demo.isActive);
@@ -51,6 +54,8 @@ export default function FeedScreen() {
   const [displayCount, setDisplayCount] = useState(INITIAL_PAGE);
   const [fabExpanded, setFabExpanded] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [isFiltering, setIsFiltering] = useState(false);
+  const isMountedRef = useRef(false);
   const flatListRef = useRef<FlashListRef<Post>>(null);
 
   // Animated header (slides up on scroll-down, back on scroll-up)
@@ -156,6 +161,26 @@ export default function FeedScreen() {
     }
   }, [hasMore]);
 
+  const hasActiveFilters = channelFilter !== 'all' || priorityFilter.length > 0;
+
+  const clearFilters = useCallback(() => {
+    setChannelFilter('all');
+    setPriorityFilter([]);
+  }, []);
+
+  // When filters or sort order change: scroll to top, reset page, show brief filtering indicator
+  useEffect(() => {
+    if (!isMountedRef.current) {
+      isMountedRef.current = true;
+      return;
+    }
+    setDisplayCount(INITIAL_PAGE);
+    setIsFiltering(true);
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    const timer = setTimeout(() => setIsFiltering(false), 400);
+    return () => clearTimeout(timer);
+  }, [channelFilter, priorityFilter, sortOrder]);
+
   const scrollToTop = () => {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
@@ -235,35 +260,54 @@ export default function FeedScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Post List — fills the full container; paddingTop reserves space for the absolute header */}
-      <FlashList
-        ref={flatListRef}
-        data={filteredPosts}
-        keyExtractor={(item) => item.id}
-        renderItem={renderPost}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-        contentContainerStyle={[
-          styles.listContent,
-          { paddingTop: headerHeight, paddingBottom: insets.bottom + 150 },
-        ]}
-        showsVerticalScrollIndicator={false}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.3}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>📭</Text>
-            <Text
-              style={[styles.emptyText, { color: theme.mutedForeground }]}
-            >
-              No posts yet. Create your first post!
-            </Text>
-          </View>
-        }
-        ListFooterComponent={
-          hasMore ? <SkeletonPostCard /> : null
-        }
-      />
+      {/* Initial loading state — show skeletons while posts haven't arrived yet */}
+      {!postsLoaded && !isDemo ? (
+        <View style={[styles.skeletonList, { paddingTop: headerHeight, paddingBottom: insets.bottom + 150 }]}>
+          <SkeletonPostCard />
+          <SkeletonPostCard />
+          <SkeletonPostCard />
+        </View>
+      ) : (
+        /* Post List — fills the full container; paddingTop reserves space for the absolute header */
+        <FlashList
+          ref={flatListRef}
+          data={filteredPosts}
+          keyExtractor={(item) => item.id}
+          renderItem={renderPost}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingTop: headerHeight, paddingBottom: insets.bottom + 150 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.3}
+          ListEmptyComponent={
+            hasActiveFilters ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyEmoji}>🔍</Text>
+                <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>
+                  No posts match your filters.
+                </Text>
+                <Button variant="tertiary" size="sm" onPress={clearFilters} style={styles.clearFiltersButton}>
+                  Clear Filters
+                </Button>
+              </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyEmoji}>📭</Text>
+                <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>
+                  No posts yet. Create your first post!
+                </Text>
+              </View>
+            )
+          }
+          ListFooterComponent={
+            hasMore ? <SkeletonPostCard /> : null
+          }
+        />
+      )}
 
       {/* Animated header — absolute so it slides up without affecting FlashList layout */}
       <Animated.View
@@ -362,6 +406,13 @@ export default function FeedScreen() {
               );
             })}
           </View>
+          {isFiltering && (
+            <ActivityIndicator
+              size="small"
+              color={theme.primary}
+              style={styles.filteringIndicator}
+            />
+          )}
         </View>
       </Animated.View>
 
@@ -675,5 +726,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+  },
+  skeletonList: {
+    paddingHorizontal: 16,
+  },
+  filteringIndicator: {
+    marginLeft: 8,
+  },
+  clearFiltersButton: {
+    marginTop: 4,
   },
 });

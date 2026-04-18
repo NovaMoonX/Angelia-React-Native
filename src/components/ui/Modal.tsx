@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/useTheme';
 
 interface ModalProps {
@@ -19,7 +19,6 @@ interface ModalProps {
 
 export function Modal({ isOpen, onClose, title, children }: ModalProps) {
   const { theme } = useTheme();
-  const insets = useSafeAreaInsets();
 
   return (
     <RNModal
@@ -39,13 +38,14 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
               <Text style={[styles.closeButton, { color: theme.mutedForeground }]}>✕</Text>
             </Pressable>
           </View>
-          <ScrollView
-            style={styles.body}
-            contentContainerStyle={[styles.bodyContent, { paddingBottom: insets.bottom + 16 }]}
-            showsVerticalScrollIndicator={false}
-          >
-            {children}
-          </ScrollView>
+          <SafeAreaView edges={['bottom']} style={styles.body}>
+            <ScrollView
+              contentContainerStyle={styles.bodyContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {children}
+            </ScrollView>
+          </SafeAreaView>
         </View>
       </Pressable>
     </RNModal>
