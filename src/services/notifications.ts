@@ -10,6 +10,7 @@ import { generateId } from '@/utils/generateId';
 
 const CHANNEL_ID = 'daily-prompt';
 export const NOTIFICATION_ID = 'daily-prompt';
+export const WIND_DOWN_NOTIFICATION_ID = 'wind-down-prompt';
 
 const DEVICE_ID_KEY = '@angelia/device_id';
 
@@ -64,12 +65,55 @@ export const DAILY_PROMPTS: DailyPrompt[] = [
   },
 ];
 
+export const WIND_DOWN_PROMPTS: DailyPrompt[] = [
+  {
+    body: "How was your day? Time to tell your people. 🌙",
+    followUps: [
+      "Time to wind down — how did today go? 🌙",
+      "Your day's wrapping up — share the highlights! ✨",
+      "Evening vibes — what was today like? 💛",
+    ],
+  },
+  {
+    body: "Day's done — share how it went! 🌟",
+    followUps: [
+      "How'd things go today? Even a sentence counts 🌟",
+      "Wrap up your day with a quick update 💫",
+      "Before you unwind — tell your crew how today was 🫶",
+    ],
+  },
+  {
+    body: "Winding down? Tell your people about your day. 💛",
+    followUps: [
+      "Cozy vibes only — how was your day? 💛",
+      "Time to decompress — share a quick thought 🌙",
+      "Your people are curious — what happened today? ✨",
+    ],
+  },
+  {
+    body: "End-of-day check-in — what's the vibe? 🫶",
+    followUps: [
+      "How are you feeling right now? Share with your crew 🫶",
+      "Day in review — anything worth sharing? 🌈",
+      "Last call for today — drop an update! 💬",
+    ],
+  },
+];
+
 /**
  * Returns a random follow-up message for the given prompt index.
  * Used to pre-fill the post creation screen when the notification is tapped.
  */
 export function getFollowUpForPrompt(promptIndex: number): string {
   const prompt = DAILY_PROMPTS[promptIndex % DAILY_PROMPTS.length];
+  return prompt.followUps[Math.floor(Math.random() * prompt.followUps.length)];
+}
+
+/**
+ * Returns a random follow-up message for the given wind-down prompt index.
+ */
+export function getFollowUpForWindDown(promptIndex: number): string {
+  const prompt = WIND_DOWN_PROMPTS[promptIndex % WIND_DOWN_PROMPTS.length];
   return prompt.followUps[Math.floor(Math.random() * prompt.followUps.length)];
 }
 
@@ -243,8 +287,8 @@ async function ensureAndroidChannel(): Promise<void> {
 }
 
 /**
- * Schedules (or reschedules) the daily prompt notification based on current settings.
- * Safe to call multiple times — it cancels any existing daily prompt first.
+ * Schedules (or reschedules) both the mid-day and wind-down prompt notifications.
+ * Safe to call multiple times — it cancels any existing prompts first.
  * Stores the chosen promptIndex in the notification data so the press handler
  * can look up the appropriate follow-up messages.
  *
@@ -254,34 +298,56 @@ async function ensureAndroidChannel(): Promise<void> {
 export async function scheduleDailyPrompt(settings: NotificationSettings): Promise<void> {
   await cancelDailyPrompt();
 
-  if (!settings.dailyPrompt.enabled) return;
-
   await ensureAndroidChannel();
 
-  const promptIndex = Math.floor(Math.random() * DAILY_PROMPTS.length);
-  const body = DAILY_PROMPTS[promptIndex].body;
+  // Schedule mid-day check-in
+  if (settings.dailyPrompt.enabled) {
+    const promptIndex = Math.floor(Math.random() * DAILY_PROMPTS.length);
+    const body = DAILY_PROMPTS[promptIndex].body;
 
-  await Notifications.scheduleNotificationAsync({
-    identifier: NOTIFICATION_ID,
-    content: {
-      title: 'Angelia',
-      body,
-      data: { promptIndex: String(promptIndex) },
-      // sound is applied via the notification channel on Android; this
-      // field ensures the default sound plays on iOS.
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour: settings.dailyPrompt.hour,
-      minute: settings.dailyPrompt.minute ?? 0,
-      ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
-    },
-  });
+    await Notifications.scheduleNotificationAsync({
+      identifier: NOTIFICATION_ID,
+      content: {
+        title: 'Angelia',
+        body,
+        data: { promptIndex: String(promptIndex), type: 'midday' },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour: settings.dailyPrompt.hour,
+        minute: settings.dailyPrompt.minute ?? 0,
+        ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
+      },
+    });
+  }
+
+  // Schedule wind-down prompt
+  const windDown = settings.windDownPrompt ?? { enabled: false, hour: 17, minute: 30 };
+  if (windDown.enabled) {
+    const wdIndex = Math.floor(Math.random() * WIND_DOWN_PROMPTS.length);
+    const wdBody = WIND_DOWN_PROMPTS[wdIndex].body;
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: WIND_DOWN_NOTIFICATION_ID,
+      content: {
+        title: 'Angelia',
+        body: wdBody,
+        data: { promptIndex: String(wdIndex), type: 'winddown' },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour: windDown.hour,
+        minute: windDown.minute ?? 30,
+        ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
+      },
+    });
+  }
 }
 
 /**
- * Cancels the daily prompt notification if one is scheduled.
+ * Cancels both daily prompt notifications if scheduled.
  */
 export async function cancelDailyPrompt(): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(NOTIFICATION_ID);
+  await Notifications.cancelScheduledNotificationAsync(WIND_DOWN_NOTIFICATION_ID);
 }

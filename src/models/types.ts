@@ -48,6 +48,17 @@ export interface NotificationSettings {
     /** Minute (0–59) within the hour. Default: 0. */
     minute: number;
   };
+  /**
+   * Evening wind-down prompt. Fires after the user's busy period ends.
+   * Defaults to 30 minutes after the busyEnd hour (e.g. 17:30 for a 9–17 schedule).
+   */
+  windDownPrompt: {
+    enabled: boolean;
+    /** Hour of day (0–23) in the user's chosen timezone. Default: 17. */
+    hour: number;
+    /** Minute (0–59). Default: 30. */
+    minute: number;
+  };
   /** IANA timezone string, e.g. "America/New_York". Default: device timezone. */
   timeZone: string;
   /**
@@ -65,8 +76,9 @@ export type UpdateUserProfileData = Pick<User, 'firstName' | 'lastName' | 'funFa
  * without supplying all three fields every time.
  */
 export type NotificationSettingsUpdate =
-  Partial<Omit<NotificationSettings, 'fcmTokens' | 'dailyPrompt'>> & {
+  Partial<Omit<NotificationSettings, 'fcmTokens' | 'dailyPrompt' | 'windDownPrompt'>> & {
     dailyPrompt?: Partial<NotificationSettings['dailyPrompt']>;
+    windDownPrompt?: Partial<NotificationSettings['windDownPrompt']>;
   };
 
 export interface Channel {

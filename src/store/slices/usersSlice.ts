@@ -57,12 +57,18 @@ const usersSlice = createSlice({
       action: PayloadAction<NotificationSettingsUpdate>,
     ) {
       if (state.currentUserNotificationSettings) {
-        const { dailyPrompt, ...rest } = action.payload;
+        const { dailyPrompt, windDownPrompt, ...rest } = action.payload;
         Object.assign(state.currentUserNotificationSettings, rest);
         if (dailyPrompt) {
           state.currentUserNotificationSettings.dailyPrompt = {
             ...state.currentUserNotificationSettings.dailyPrompt,
             ...dailyPrompt,
+          };
+        }
+        if (windDownPrompt) {
+          state.currentUserNotificationSettings.windDownPrompt = {
+            ...(state.currentUserNotificationSettings.windDownPrompt ?? { enabled: true, hour: 17, minute: 30 }),
+            ...windDownPrompt,
           };
         }
       }

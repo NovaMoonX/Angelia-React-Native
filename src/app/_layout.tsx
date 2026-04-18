@@ -13,7 +13,7 @@ import { ActionModalProvider } from '@/providers/ActionModalProvider';
 import { AuthProvider } from '@/providers/AuthProvider';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useTheme } from '@/hooks/useTheme';
-import { NOTIFICATION_ID, getFollowUpForPrompt } from '@/services/notifications';
+import { NOTIFICATION_ID, WIND_DOWN_NOTIFICATION_ID, getFollowUpForPrompt, getFollowUpForWindDown } from '@/services/notifications';
 
 // Configure how notifications are presented when the app is in the foreground.
 Notifications.setNotificationHandler({
@@ -29,9 +29,12 @@ Notifications.setNotificationHandler({
 // background / quit states navigate to the post creation screen.
 Notifications.addNotificationResponseReceivedListener((response) => {
 	const notification = response.notification;
-	if (notification.request.identifier === NOTIFICATION_ID) {
+	const identifier = notification.request.identifier;
+	if (identifier === NOTIFICATION_ID || identifier === WIND_DOWN_NOTIFICATION_ID) {
 		const promptIndex = parseInt((notification.request.content.data?.promptIndex as string) ?? '0', 10);
-		const followUp = getFollowUpForPrompt(promptIndex);
+		const followUp = identifier === WIND_DOWN_NOTIFICATION_ID
+			? getFollowUpForWindDown(promptIndex)
+			: getFollowUpForPrompt(promptIndex);
 		router.push({
 			pathname: '/(protected)/post/new',
 			params: { existingText: followUp },

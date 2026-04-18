@@ -117,10 +117,14 @@ export const saveNotificationSettings = createAsyncThunk(
     const mergedDailyPrompt: NotificationSettings['dailyPrompt'] = data.dailyPrompt
       ? { ...current.dailyPrompt, ...data.dailyPrompt }
       : current.dailyPrompt;
+    const mergedWindDownPrompt: NotificationSettings['windDownPrompt'] = data.windDownPrompt
+      ? { ...(current.windDownPrompt ?? { enabled: true, hour: 17, minute: 30 }), ...data.windDownPrompt }
+      : (current.windDownPrompt ?? { enabled: true, hour: 17, minute: 30 });
     const updated: NotificationSettings = {
       ...current,
       ...data,
       dailyPrompt: mergedDailyPrompt,
+      windDownPrompt: mergedWindDownPrompt,
     };
 
     if (isDemoActive(getState)) {

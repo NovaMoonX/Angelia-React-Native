@@ -73,6 +73,11 @@ const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
     hour: 12,
     minute: 0,
   },
+  windDownPrompt: {
+    enabled: true,
+    hour: 17,
+    minute: 30,
+  },
   timeZone: 'UTC',
   autoDetectTimeZone: true,
 };
