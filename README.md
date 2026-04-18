@@ -36,39 +36,72 @@ npm run env:pull     # writes .env.development
 
 ### npm Scripts Reference
 
-| Script | Description |
-|---|---|
-| `npm start` | Start the Expo development server (Metro bundler) |
-| `npm run start:clean` | Start with a cleared Metro cache — use when imports or assets behave unexpectedly |
-| `npm run android` | Build and launch on a connected Android device |
-| `npm run android:clean` | Same as above, but skips the build cache — useful after native dependency changes |
-| `npm run android:devices` | Restart ADB and list connected Android devices |
-| `npm run prebuild:android` | Run `expo prebuild` for Android (generates `android/` folder) |
-| `npm run prebuild:android:clean` | Same as above with `--clean` — wipes the generated folder first |
-| `npm run ios` | Build and launch on a connected iOS device or simulator |
-| `npm run web` | Start the web version via Expo |
-| `npm run lint` | Run the Expo linter |
-| `npm run ts:check` | TypeScript type-check without emitting files |
-| `npm run prebuild` | Run `expo prebuild` for all platforms |
-| `npm run env:android` | Upload `google-services.json` as a sensitive EAS env variable for development builds |
-| `npm run env:pull` | Pull EAS development environment variables into `.env.development` |
-| `npm run build:android` | Trigger an EAS development build for Android (`--profile development`) |
-| `npm run deploy:rules:firestore` | Deploy Firestore security rules to Firebase |
-| `npm run deploy:rules:storage` | Deploy Storage security rules to Firebase |
-| `npm run deploy:rules` | Deploy both Firestore and Storage rules at once |
+#### Android (primary development target)
 
-> **Tip:** Run `npm run ts:check` and `npm run lint` before committing. Both must pass cleanly.
+| Script | When to run |
+|---|---|
+| `npm run android` | **Standard run command.** Builds and launches on a connected physical Android device. Run this after `prebuild:android` to start developing. |
+| `npm run android:clean` | Use when you suspect a stale build cache is causing issues (e.g. native changes aren't reflected, unexplained crash on launch). Slower than `android` but guaranteed fresh. |
+| `npm run android:devices` | Run when ADB can't see your device — restarts the ADB server and lists connected devices. |
+| `npm run prebuild:android` | **Run after any config change** (`app.config.js`, new native plugin, or new native dependency). Regenerates the `android/` folder. Must be run before `npm run android` when changes are made. |
+| `npm run prebuild:android:clean` | Same as above but wipes the existing `android/` folder first. Use when prebuild errors out or when upgrading Expo/SDK versions. |
+| `npm run build:android` | Triggers a cloud EAS development build. Use when you need a shareable `.apk` or when local builds are failing due to machine-specific issues. |
+
+#### iOS
+
+| Script | When to run |
+|---|---|
+| `npm run ios` | Build and launch on a connected iOS device or simulator. |
+
+#### Metro / Dev Server
+
+| Script | When to run |
+|---|---|
+| `npm start` | Start the Metro bundler for JS-only changes (no native rebuild needed). |
+| `npm run start:clean` | Use when Metro is serving stale modules or assets — clears the cache before starting. |
+| `npm run web` | Start the web version via Expo. |
+
+#### Code Quality
+
+| Script | When to run |
+|---|---|
+| `npm run lint` | Run the Expo linter. Run before committing. |
+| `npm run ts:check` | TypeScript type-check without emitting files. Run before committing. |
+
+#### Environment & Config
+
+| Script | When to run |
+|---|---|
+| `npm run env:pull` | Pull EAS development environment variables into `.env.development`. Run after initial clone or when env vars are updated. |
+| `npm run env:android` | Upload `google-services.json` as a sensitive EAS env variable. Run once during project setup or when the file changes. |
+| `npm run prebuild` | Run `expo prebuild` for all platforms (Android + iOS). Prefer platform-specific variants unless targeting both at once. |
+
+#### Firebase Rules
+
+| Script | When to run |
+|---|---|
+| `npm run deploy:rules:firestore` | Deploy Firestore security rules to Firebase. Run after editing `firestore.rules`. |
+| `npm run deploy:rules:storage` | Deploy Storage security rules to Firebase. Run after editing `storage.rules`. |
+| `npm run deploy:rules` | Deploy both Firestore and Storage rules at once. |
+
+> **Before committing:** Run `npm run ts:check` and `npm run lint`. Both must pass cleanly.
 
 ---
 
-### Typical Development Flow
+### Typical Development Flow (Android physical device)
 
-1. `npm install` — install/update dependencies
-2. `npm run env:pull` — sync the latest env variables
-3. `npm start` — start Metro (use `--clear` if you hit caching issues)
-4. For native changes (new native modules, `app.config.js` edits): run `npm run prebuild:android` / `npm run prebuild:android:clean` then `npm run android`
-5. After changing Firestore or Storage rules: `npm run deploy:rules`
-6. Run `npm run ts:check` and `npm run lint` before pushing
+This is the standard day-to-day flow when developing on a physical Android device:
+
+1. **`npm install`** — install/update dependencies (run whenever `package.json` changes)
+2. **`npm run env:pull`** — sync the latest env variables (run after initial clone or when env changes)
+3. **`npm run prebuild:android`** — regenerate the `android/` folder
+   - Run this after: initial clone, changes to `app.config.js`, adding/removing native plugins or native dependencies
+   - Use `prebuild:android:clean` when prebuild errors out or after an SDK upgrade
+4. **`npm run android`** — build and launch on your connected Android device
+   - Use `android:clean` when you suspect a stale build cache
+5. **For JS-only changes after initial setup:** `npm start` is sufficient — no prebuild needed
+6. **After editing Firestore or Storage rules:** `npm run deploy:rules`
+7. **Before pushing:** `npm run ts:check` && `npm run lint`
 
 ---
 
