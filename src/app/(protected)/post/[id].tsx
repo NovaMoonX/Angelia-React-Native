@@ -323,7 +323,7 @@ export default function PostDetailScreen() {
                     { color: theme.mutedForeground },
                   ]}
                 >
-                  React to unlock
+                  React to join! 👋
                 </Text>
               </>
             ) : (
@@ -338,7 +338,7 @@ export default function PostDetailScreen() {
                 >
                   {post.comments.length > 0
                     ? `${post.comments.length} message${post.comments.length !== 1 ? 's' : ''}`
-                    : 'Start the conversation ✨'}
+                    : 'Start the conversation 💬'}
                 </Text>
                 <Feather
                   name="chevron-right"
