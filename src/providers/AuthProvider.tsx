@@ -63,12 +63,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // Native Firebase auth state is automatically persisted
+  // Native Firebase auth state is automatically persisted.
+  // We race the Firestore profile fetch against an 8-second timeout so that a
+  // network stall can never leave the app stuck on a blank loading screen.
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(getAuth(), async (user) => {
       if (user) {
         try {
-          const profile = await dispatch(fetchUserProfile(user.uid)).unwrap();
+          const profileFetch = dispatch(fetchUserProfile(user.uid)).unwrap();
+          const timeout = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('profile_fetch_timeout')), 8000)
+          );
+          const profile = await Promise.race([profileFetch, timeout]);
 
           if (user.emailVerified && profile && !profile.accountProgress.emailVerified) {
             await dispatch(
@@ -83,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             dispatch(ensureDailyChannelExists(user.uid));
           }
         } catch {
-          // Profile not yet created (new sign-up in progress)
+          // Profile not yet created (new sign-up in progress) or fetch timed out
         }
       } else {
         dispatch(resetAllState());
