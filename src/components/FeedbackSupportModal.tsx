@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -137,6 +138,22 @@ export function FeedbackSupportModal({ visible, onClose }: FeedbackSupportModalP
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
+
+  // Track keyboard height on Android (modals are exempt from adjustPan)
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const show = Keyboard.addListener('keyboardDidShow', (e) => {
+      setAndroidKeyboardHeight(e.endCoordinates.height);
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      setAndroidKeyboardHeight(0);
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   // Reset whenever modal opens
   useEffect(() => {
@@ -475,6 +492,31 @@ export function FeedbackSupportModal({ visible, onClose }: FeedbackSupportModalP
     }
   };
 
+  const sheetBottomPadding =
+    Platform.OS === 'android' && androidKeyboardHeight > 0
+      ? androidKeyboardHeight + 16
+      : insets.bottom + 16;
+
+  const sheet = (
+    <Pressable
+      style={styles.backdrop}
+      onPress={text.trim() ? undefined : handleClose}
+    >
+      <View
+        style={[
+          styles.sheet,
+          {
+            backgroundColor: theme.card,
+            paddingBottom: sheetBottomPadding,
+          },
+        ]}
+        onStartShouldSetResponder={() => true}
+      >
+        {renderStep()}
+      </View>
+    </Pressable>
+  );
+
   return (
     <Modal
       visible={visible}
@@ -482,28 +524,11 @@ export function FeedbackSupportModal({ visible, onClose }: FeedbackSupportModalP
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView
-        style={styles.keyboardAvoid}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <Pressable
-          style={styles.backdrop}
-          onPress={text.trim() ? undefined : handleClose}
-        >
-          <View
-            style={[
-              styles.sheet,
-              {
-                backgroundColor: theme.card,
-                paddingBottom: insets.bottom + 16,
-              },
-            ]}
-            onStartShouldSetResponder={() => true}
-          >
-            {renderStep()}
-          </View>
-        </Pressable>
-      </KeyboardAvoidingView>
+      {Platform.OS === 'ios' ? (
+        <KeyboardAvoidingView style={styles.keyboardAvoid} behavior="padding">
+          {sheet}
+        </KeyboardAvoidingView>
+      ) : sheet}
     </Modal>
   );
 }
