@@ -76,13 +76,15 @@ npm run env:pull     # writes .env.development
 | `npm run env:android` | Upload `google-services.json` as a sensitive EAS env variable. Run once during project setup or when the file changes. |
 | `npm run prebuild` | Run `expo prebuild` for all platforms (Android + iOS). Prefer platform-specific variants unless targeting both at once. |
 
-#### Firebase Rules
+#### Firebase Rules & Functions
 
 | Script | When to run |
 |---|---|
 | `npm run deploy:rules:firestore` | Deploy Firestore security rules to Firebase. Run after editing `firestore.rules`. |
 | `npm run deploy:rules:storage` | Deploy Storage security rules to Firebase. Run after editing `storage.rules`. |
 | `npm run deploy:rules` | Deploy both Firestore and Storage rules at once. |
+| `npm run deploy:functions` | Build and deploy Cloud Functions to Firebase. Run after editing anything in `functions/src/`. |
+| `npm run deploy:all` | Build and deploy everything — Firestore rules, Storage rules, and Cloud Functions — in one command. |
 
 > **Before committing:** Run `npm run ts:check` and `npm run lint`. Both must pass cleanly.
 
@@ -101,6 +103,7 @@ This is the standard day-to-day flow when developing on a physical Android devic
    - Use `android:clean` when you suspect a stale build cache
 5. **For JS-only changes after initial setup:** `npm start` is sufficient — no prebuild needed
 6. **After editing Firestore or Storage rules:** `npm run deploy:rules`
+   - After editing Cloud Functions: `npm run deploy:functions`
 7. **Before pushing:** `npm run ts:check` && `npm run lint`
 
 ---
@@ -123,6 +126,12 @@ assets/         # Images, fonts, icons
 plugins/        # Custom Expo config plugins
 scripts/        # Build/CI helper scripts
 ```
+
+---
+
+### Testing Notifications
+
+See [NOTIFICATION_TESTING.md](./NOTIFICATION_TESTING.md) for a step-by-step guide to manually testing push notifications via Firestore, including ready-to-paste JSON payloads and troubleshooting tips.
 
 ---
 

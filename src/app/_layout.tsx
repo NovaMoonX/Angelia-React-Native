@@ -26,12 +26,15 @@ Notifications.setNotificationHandler({
 });
 
 // Register a global response handler so that notification taps from
-// background / quit states navigate to the post creation screen.
+// background / quit states navigate to the appropriate screen.
 Notifications.addNotificationResponseReceivedListener((response) => {
 	const notification = response.notification;
+	const data = notification.request.content.data as Record<string, string> | undefined;
+	const type = data?.type;
 	const identifier = notification.request.identifier;
+
 	if (identifier === NOTIFICATION_ID || identifier === WIND_DOWN_NOTIFICATION_ID) {
-		const promptIndex = parseInt((notification.request.content.data?.promptIndex as string) ?? '0', 10);
+		const promptIndex = parseInt((data?.promptIndex as string) ?? '0', 10);
 		const followUp = identifier === WIND_DOWN_NOTIFICATION_ID
 			? getFollowUpForWindDown(promptIndex)
 			: getFollowUpForPrompt(promptIndex);
@@ -39,6 +42,16 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 			pathname: '/(protected)/post/new',
 			params: { existingText: followUp },
 		});
+	} else if (type === 'join_channel_request') {
+		const joinRequestId = data?.joinRequestId;
+		if (joinRequestId) {
+			router.push({ pathname: '/(protected)/join-request/[id]', params: { id: joinRequestId } });
+		} else {
+			router.push('/(protected)/notifications');
+		}
+	} else if (type === 'join_channel_accepted') {
+		const channelName = data?.channelName ?? '';
+		router.push({ pathname: '/(protected)/channel-accepted', params: { channelName } });
 	}
 });
 

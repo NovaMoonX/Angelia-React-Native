@@ -161,3 +161,54 @@ export interface ChannelColorOption {
   value: string;
   textColor: string;
 }
+
+// ── App Notifications (Firestore-triggered FCM) ────────────────────────────
+
+export type AppNotificationType =
+  | 'join_channel_request'
+  | 'join_channel_accepted'
+  | 'new_post'        // For post tier subscriptions (future)
+  | 'comment_reply';  // For conversation enrollment (future)
+
+/**
+ * Describes where a notification should be delivered.
+ *
+ * - `user`         — a single specific user (e.g. a join request to the channel owner)
+ * - `channel_tier` — all subscribers of a post tier in a channel (e.g. a new post)
+ * - `thread`       — all participants of a conversation thread (e.g. a reply)
+ */
+export type NotificationTarget =
+  | { type: 'user'; userId: string }
+  | { type: 'channel_tier'; channelId: string; tier: PostTier }
+  | { type: 'thread'; threadId: string };
+
+interface BaseAppNotification {
+  id: string;
+  type: AppNotificationType;
+  /** The user who triggered the notification (e.g. the requester or the owner). */
+  actorId: string;
+  /** Where the notification should be delivered. */
+  target: NotificationTarget;
+  createdAt: number;
+}
+
+/** Written when a user requests to join a channel — targets the channel owner. */
+export interface JoinChannelRequestNotification extends BaseAppNotification {
+  type: 'join_channel_request';
+  requesterId: string;
+  requesterFirstName: string;
+  requesterLastName: string;
+  channelId: string;
+  channelName: string;
+  joinRequestId: string;
+}
+
+/** Written when the owner accepts a join request — targets the requester. */
+export interface JoinChannelAcceptedNotification extends BaseAppNotification {
+  type: 'join_channel_accepted';
+  channelId: string;
+  channelName: string;
+  joinRequestId: string;
+}
+
+export type AppNotification = JoinChannelRequestNotification | JoinChannelAcceptedNotification;
