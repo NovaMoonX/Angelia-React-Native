@@ -72,6 +72,12 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const connections = useAppSelector((state) => state.connections.connections);
   const posts = useAppSelector((state) => state.posts.items);
 
+  // Refs used by Effect 10 so the listener isn't re-created on every post change.
+  const currentUserRef = useRef(currentUser);
+  const postsRef = useRef(posts);
+  useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
+  useEffect(() => { postsRef.current = posts; }, [posts]);
+
   const unsubsRef = useRef<Array<() => void>>([]);
   const postsUnsubRef = useRef<(() => void) | null>(null);
   const usersUnsubRef = useRef<(() => void) | null>(null);
@@ -441,12 +447,13 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       } else if (type === 'big_news_post') {
         const firstName = data?.authorFirstName ?? 'Someone';
         const lastName = data?.authorLastName ?? '';
+        const name = lastName ? `${firstName} ${lastName}` : firstName;
         const postId = data?.postId;
         const isDaily = data?.isDaily === 'true';
         const circleLabel = isDaily ? 'Daily Circle' : 'circle';
         addToast({
           type: 'info',
-          title: `🌟 Big news from ${firstName} ${lastName}`.trim() + '!',
+          title: `🌟 Big news from ${name}!`,
           description: `Tap to see their ${circleLabel} update`,
           onPress: postId
             ? () => router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } })
@@ -466,18 +473,22 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   //   2. The current user has NOT already made a post today.
   //   3. We have NOT already shown the in-app notice today (checked via AsyncStorage).
   //
-  // When shown, we store today's date in AsyncStorage so we don't repeat it.
+  // currentUser and posts are read via refs so the listener is not re-created
+  // on every post update — only addToast (stable reference) is a hard dependency.
+  // When shown, today's date is stored in AsyncStorage so it doesn't repeat.
   useEffect(() => {
     const subscription = Notifications.addNotificationReceivedListener((notification) => {
       const identifier = notification.request.identifier;
       if (identifier !== NOTIFICATION_ID && identifier !== WIND_DOWN_NOTIFICATION_ID) return;
-      if (!currentUser) return;
+
+      const user = currentUserRef.current;
+      if (!user) return;
 
       const today = new Date().toDateString();
 
-      // Check if user has already posted today (synchronous Redux check)
-      const hasPostedToday = posts.some(
-        (p) => p.authorId === currentUser.id && new Date(p.timestamp).toDateString() === today,
+      // Synchronous Redux check via ref — no listener churn on post updates
+      const hasPostedToday = postsRef.current.some(
+        (p) => p.authorId === user.id && new Date(p.timestamp).toDateString() === today,
       );
       if (hasPostedToday) return;
 
@@ -507,9 +518,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       })();
     });
     return () => subscription.remove();
-  // Re-create when user or posts change so the hasPostedToday check is fresh.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser?.id, posts, addToast]);
+  }, [addToast]);
 
   return <>{children}</>;
 }

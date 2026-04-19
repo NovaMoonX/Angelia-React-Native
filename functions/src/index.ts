@@ -296,8 +296,10 @@ export const sendAppNotification = onDocumentCreated(
       const tokenArrays = await Promise.all(recipientIds.map(getTokensForUser));
       const allTokens = tokenArrays.flat();
       await sendFcmToTokens(allTokens, payload);
+    } else {
+      // `thread` targets and any future unrecognised target types are not yet
+      // supported.  Fall through to deletion so the document is cleaned up.
     }
-    // `thread` target is not yet supported — delete the document and exit.
 
     // Always delete the notification document after processing
     await snap.ref.delete();
