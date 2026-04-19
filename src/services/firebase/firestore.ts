@@ -15,7 +15,7 @@ import {
   arrayUnion,
   arrayRemove,
 } from '@react-native-firebase/firestore';
-import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest } from '@/models/types';
+import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX, DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
@@ -677,4 +677,14 @@ export function subscribeToConnectionChannels(
   }
 
   return () => unsubscribes.forEach((u) => u());
+}
+
+// ── Feedback & Support Operations ───────────────────────────────────────────
+
+/**
+ * Writes a feedback submission to the top-level `feedback` collection.
+ * Only the submitting user can create the document; no client reads/updates.
+ */
+export async function submitFeedback(submission: FeedbackSubmission): Promise<void> {
+  await setDoc(doc(db, 'feedback', submission.id), submission);
 }

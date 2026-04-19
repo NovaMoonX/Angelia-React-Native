@@ -265,3 +265,24 @@ export type AppNotification =
   | JoinChannelAcceptedNotification
   | ConnectionRequestNotification
   | ConnectionAcceptedNotification;
+
+// ── Feedback & Support ──────────────────────────────────────────────────────
+
+export type FeedbackCategory =
+  | 'bug'
+  | 'feature_request'
+  | 'account'
+  | 'circles'
+  | 'other';
+
+export interface FeedbackSubmission {
+  id: string;
+  userId: string;
+  /** Primary category chosen by the user. */
+  category: FeedbackCategory;
+  /** Optional subcategory string. */
+  subcategory: string | null;
+  /** Free-form description written by the user. */
+  text: string;
+  createdAt: number;
+}
