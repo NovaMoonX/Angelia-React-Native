@@ -114,6 +114,7 @@ export default function ProtectedLayout() {
               headerStyle: { backgroundColor: theme.background },
               headerTintColor: theme.foreground,
               headerTitleStyle: { fontWeight: '600' },
+              ...(isDemo ? { headerStatusBarHeight: 0 } : {}),
             }}
           />
           <Stack.Screen name="channel-accepted" options={{ headerShown: false }} />

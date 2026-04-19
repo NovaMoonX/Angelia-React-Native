@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Modal, Platform, Pressable, Share, StyleSheet, Text, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import { Avatar } from '@/components/ui/Avatar';
@@ -48,21 +48,13 @@ export default function ShareConnectionScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: 'Share Connection Link',
-          headerStyle: { backgroundColor: theme.background },
-          headerTintColor: theme.foreground,
-          headerTitleStyle: { fontWeight: '700' },
-        }}
-      />
-
-      <View
-        style={[
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.background }}
+        contentContainerStyle={[
           styles.container,
-          { backgroundColor: theme.background, paddingBottom: insets.bottom + 24 },
+          { paddingBottom: insets.bottom + 24 },
         ]}
+        keyboardShouldPersistTaps="handled"
       >
         <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
           Share your link or QR code. When someone taps it, they'll send you a connection request — and you approve.
@@ -110,7 +102,7 @@ export default function ShareConnectionScreen() {
         <Pressable onPress={() => router.back()} style={styles.doneRow}>
           <Text style={[styles.doneText, { color: theme.mutedForeground }]}>Done</Text>
         </Pressable>
-      </View>
+      </ScrollView>
 
       {/* QR code overlay modal */}
       <Modal
@@ -155,7 +147,6 @@ export default function ShareConnectionScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     paddingHorizontal: 24,
     paddingTop: 20,
     gap: 20,

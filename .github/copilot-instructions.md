@@ -66,7 +66,31 @@ Current files:
 | File | Exports | Purpose |
 |---|---|---|
 | `activitySelectors.ts` | `selectHasAnyPendingActivity` | `true` when user has any pending circle join request OR connection request — drives the bell badge in the feed header |
-| `myPeopleSelectors.ts` | `selectMyPeopleData` | Derives `directConnections` + `circleOnlyMembers` arrays for the My People screen |
+| `myPeopleSelectors.ts` | `selectMyPeopleData` | Derives a `people` array of `{ user, inCircle }` entries for the My People screen. `inCircle` is `true` when the person also shares a circle with the current user. |
+
+---
+
+## Safe area insets & demo-mode header gap
+
+### Bottom insets
+Always use `useSafeAreaInsets()` to account for home-bar / system-navigation-bar height.
+- For `ScrollView`, apply the inset to `contentContainerStyle`:
+  ```tsx
+  contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+  ```
+- For fixed `View` containers, apply it inline:
+  ```tsx
+  style={{ paddingBottom: insets.bottom + 24 }}
+  ```
+- **Never** use a flat pixel constant for bottom padding — it will clip content on devices with a home bar or soft navigation buttons.
+- Prefer `ScrollView` over a plain `View` for any screen whose content could exceed the viewport, so users can always reach every button/action.
+
+### Demo-mode header gap
+In demo mode the `DemoModeBanner` is rendered **above** the `Stack` navigator in `_layout.tsx`. This means the Stack's header should not add an additional status-bar-height offset. For every screen that has `headerShown: true`, add:
+```tsx
+...(isDemo ? { headerStatusBarHeight: 0 } : {})
+```
+This pattern is already applied to `post/[id]`, `account`, and `share-connection`. Apply it to every new screen that uses a Stack header.
 
 ---
 

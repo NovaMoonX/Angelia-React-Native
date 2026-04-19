@@ -4,21 +4,19 @@ import type { User } from '@/models/types';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 
 /**
- * Derives the two sections displayed on the My People screen:
+ * Derives the people list for the My People screen.
  *
- * - `directConnections` — users who have an accepted connection with the
- *   current user (written by `onConnectionRequestAccepted` Cloud Function).
+ * Every entry is a direct connection (written by `onConnectionRequestAccepted`
+ * or `onJoinRequestAccepted` Cloud Functions). Because joining a circle
+ * automatically creates a mutual connection between the member and the circle
+ * host, it is no longer possible to have circle-only members.
  *
- * - `circleOnlyMembers` — users who share a circle relationship but do NOT
- *   yet have a direct connection:
- *     • subscribers of custom circles the current user owns
- *     • the host (owner) of circles the current user has joined
- *       (co-members are intentionally excluded)
+ * Each entry includes an `inCircle` flag that is `true` when the person also
+ * shares at least one circle with the current user:
+ *   • they are a subscriber of a non-daily circle the current user owns, OR
+ *   • they are the owner of a non-daily circle the current user has joined.
  *
- * Connections take dedup priority — a user who appears in both sets is
- * placed in `directConnections` only.
- *
- * Results are alphabetically sorted by first name within each section.
+ * Results are alphabetically sorted by first name.
  */
 export const selectMyPeopleData = createSelector(
   [
@@ -31,42 +29,35 @@ export const selectMyPeopleData = createSelector(
     // ── Direct connections ────────────────────────────────────────────────
     const directIds = new Set(connections.map((c) => c.userId));
 
-    // ── Circles I own → collect subscribers ──────────────────────────────
-    const ownedCircleMemberIds = new Set<string>();
+    // ── Build the set of users who also share a circle ────────────────────
+    const sharedCircleIds = new Set<string>();
+
+    // Subscribers of non-daily circles I own
     for (const ch of channels) {
       if (ch.ownerId === currentUserId && !ch.isDaily) {
         for (const sub of ch.subscribers) {
-          if (sub !== currentUserId) ownedCircleMemberIds.add(sub);
+          if (sub !== currentUserId) sharedCircleIds.add(sub);
         }
       }
     }
 
-    // ── Circles I'm in → collect only the host (owner), NOT co-subscribers
-    const joinedCircleHostIds = new Set<string>();
+    // Owners of non-daily circles I've joined (NOT co-subscribers)
     for (const ch of channels) {
       if (!ch.isDaily && ch.ownerId !== currentUserId && ch.subscribers.includes(currentUserId)) {
-        joinedCircleHostIds.add(ch.ownerId);
+        sharedCircleIds.add(ch.ownerId);
       }
     }
 
-    // ── Circle-only = union of both circle sets, minus direct connections ─
-    const circleOnlyIds = new Set<string>();
-    for (const id of ownedCircleMemberIds) {
-      if (!directIds.has(id)) circleOnlyIds.add(id);
-    }
-    for (const id of joinedCircleHostIds) {
-      if (!directIds.has(id)) circleOnlyIds.add(id);
-    }
+    // ── Resolve + enrich ─────────────────────────────────────────────────
+    const people = Array.from(directIds)
+      .map((id) => {
+        const user = usersMap[id];
+        if (!user) return null;
+        return { user, inCircle: sharedCircleIds.has(id) };
+      })
+      .filter((p): p is { user: User; inCircle: boolean } => !!p)
+      .sort((a, b) => a.user.firstName.localeCompare(b.user.firstName));
 
-    const resolveUsers = (ids: Set<string>): User[] =>
-      Array.from(ids)
-        .map((id) => usersMap[id])
-        .filter((u): u is User => !!u)
-        .sort((a, b) => a.firstName.localeCompare(b.firstName));
-
-    return {
-      directConnections: resolveUsers(directIds),
-      circleOnlyMembers: resolveUsers(circleOnlyIds),
-    };
+    return { people };
   },
 );

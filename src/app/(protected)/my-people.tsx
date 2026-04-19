@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/Avatar';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { UserProfileModal } from '@/components/UserProfileModal';
 import { useAppSelector } from '@/store/hooks';
 import { useTheme } from '@/hooks/useTheme';
 import { selectMyPeopleData } from '@/store/crossSelectors/myPeopleSelectors';
@@ -14,7 +15,7 @@ import type { User } from '@/models/types';
 interface PersonRowProps {
   user: User;
   tag?: string;
-  onPress?: () => void;
+  onPress: () => void;
 }
 
 function PersonRow({ user, tag, onPress }: PersonRowProps) {
@@ -46,9 +47,6 @@ function PersonRow({ user, tag, onPress }: PersonRowProps) {
           <Text style={[styles.tagText, { color: theme.secondaryForeground }]}>{tag}</Text>
         </View>
       ) : null}
-      {onPress ? (
-        <Feather name="chevron-right" size={16} color={theme.mutedForeground} style={{ marginLeft: 4 }} />
-      ) : null}
     </Pressable>
   );
 }
@@ -58,9 +56,9 @@ export default function MyPeopleScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const { directConnections, circleOnlyMembers } = useAppSelector(selectMyPeopleData);
-
-  const totalCount = directConnections.length + circleOnlyMembers.length;
+  const { people } = useAppSelector(selectMyPeopleData);
+  const isDemo = useAppSelector((state) => state.demo.isActive);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   return (
     <>
@@ -71,6 +69,7 @@ export default function MyPeopleScreen() {
           headerStyle: { backgroundColor: theme.background },
           headerTintColor: theme.foreground,
           headerTitleStyle: { fontWeight: '700' },
+          ...(isDemo ? { headerStatusBarHeight: 0 } : {}),
           headerRight: () => (
             <Pressable
               onPress={() => router.push('/(protected)/share-connection')}
@@ -107,7 +106,7 @@ export default function MyPeopleScreen() {
           </Button>
         </Card>
 
-        {totalCount === 0 ? (
+        {people.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🫶</Text>
             <Text style={[styles.emptyText, { color: theme.foreground }]}>
@@ -118,43 +117,27 @@ export default function MyPeopleScreen() {
             </Text>
           </View>
         ) : (
-          <>
-            {/* Direct connections */}
-            {directConnections.length > 0 && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.mutedForeground }]}>
-                  CONNECTIONS ({directConnections.length})
-                </Text>
-                {directConnections.map((user) => (
-                  <PersonRow
-                    key={user.id}
-                    user={user}
-                    tag="Connected"
-                    onPress={() =>
-                      router.push({
-                        pathname: '/(protected)/feed',
-                        params: { filterUserId: user.id },
-                      })
-                    }
-                  />
-                ))}
-              </View>
-            )}
-
-            {/* Circle people */}
-            {circleOnlyMembers.length > 0 && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.mutedForeground }]}>
-                  IN YOUR CIRCLES ({circleOnlyMembers.length})
-                </Text>
-                {circleOnlyMembers.map((user) => (
-                  <PersonRow key={user.id} user={user} tag="Circle Member" />
-                ))}
-              </View>
-            )}
-          </>
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.mutedForeground }]}>
+              CONNECTIONS ({people.length})
+            </Text>
+            {people.map(({ user, inCircle }) => (
+              <PersonRow
+                key={user.id}
+                user={user}
+                tag={inCircle ? 'In a Circle' : undefined}
+                onPress={() => setSelectedUser(user)}
+              />
+            ))}
+          </View>
         )}
       </ScrollView>
+
+      <UserProfileModal
+        visible={!!selectedUser}
+        onClose={() => setSelectedUser(null)}
+        user={selectedUser}
+      />
     </>
   );
 }
