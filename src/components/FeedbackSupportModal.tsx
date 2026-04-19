@@ -408,7 +408,7 @@ export function FeedbackSupportModal({ visible, onClose }: FeedbackSupportModalP
           style={[styles.emailBtn, { backgroundColor: theme.primary }]}
         >
           <Text style={[styles.emailBtnText, { color: theme.primaryForeground }]}>
-            📧  Email Support
+            📧 Email Support
           </Text>
         </Pressable>
 
@@ -445,7 +445,10 @@ export function FeedbackSupportModal({ visible, onClose }: FeedbackSupportModalP
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <Pressable style={styles.backdrop} onPress={handleClose}>
+      <Pressable
+        style={styles.backdrop}
+        onPress={text.trim() ? undefined : handleClose}
+      >
         <View
           style={[
             styles.sheet,

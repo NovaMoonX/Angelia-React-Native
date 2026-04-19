@@ -260,7 +260,7 @@ export function AccountTab() {
           variant="outline"
           onPress={() => setFeedbackModalOpen(true)}
         >
-          🛟  Get Help & Feedback
+          🛟 Get Help & Feedback
         </Button>
         <Button variant="destructive" onPress={handleSignOut}>
           Sign Out
