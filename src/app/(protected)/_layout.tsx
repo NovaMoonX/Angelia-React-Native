@@ -104,6 +104,18 @@ export default function ProtectedLayout() {
             options={{ headerShown: false }}
           />
           <Stack.Screen name="join-request/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="connection-request/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="my-people" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="share-connection"
+            options={{
+              headerShown: true,
+              title: 'Share Connection Link',
+              headerStyle: { backgroundColor: theme.background },
+              headerTintColor: theme.foreground,
+              headerTitleStyle: { fontWeight: '600' },
+            }}
+          />
           <Stack.Screen name="channel-accepted" options={{ headerShown: false }} />
           <Stack.Screen
             name="error-fallback"

@@ -6,10 +6,13 @@ import { resetAllState } from '../actions/globalActions';
 
 interface ChannelsState {
   items: Channel[];
+  /** Daily channels from connected users — kept separately so setChannels doesn't overwrite them. */
+  connectionChannels: Channel[];
 }
 
 const initialState: ChannelsState = {
   items: [],
+  connectionChannels: [],
 };
 
 const channelsSlice = createSlice({
@@ -18,6 +21,9 @@ const channelsSlice = createSlice({
   reducers: {
     setChannels(state, action: PayloadAction<Channel[]>) {
       state.items = action.payload;
+    },
+    setConnectionChannels(state, action: PayloadAction<Channel[]>) {
+      state.connectionChannels = action.payload;
     },
     addChannel(state, action: PayloadAction<Channel>) {
       state.items.push(action.payload);
@@ -33,6 +39,7 @@ const channelsSlice = createSlice({
     },
     clearChannels(state) {
       state.items = [];
+      state.connectionChannels = [];
     },
     loadDemoChannels(state, action: PayloadAction<Channel[]>) {
       state.items = action.payload;
@@ -45,6 +52,7 @@ const channelsSlice = createSlice({
 
 export const {
   setChannels,
+  setConnectionChannels,
   addChannel,
   updateChannel,
   removeChannel,
@@ -53,6 +61,20 @@ export const {
 } = channelsSlice.actions;
 
 // Selectors
+
+/** All channels: owned/subscribed channels + connected users' daily channels combined. */
+export const selectAllChannels = createSelector(
+  [(state: RootState) => state.channels.items, (state: RootState) => state.channels.connectionChannels],
+  (items, connectionChannels) => {
+    const map = new Map<string, Channel>();
+    for (const ch of items) map.set(ch.id, ch);
+    for (const ch of connectionChannels) {
+      if (!map.has(ch.id)) map.set(ch.id, ch);
+    }
+    return Array.from(map.values());
+  },
+);
+
 export const selectUserChannels = createSelector(
   [(state: RootState) => state.channels.items, (_state: RootState, userId: string) => userId],
   (items, userId) => items.filter((c) => c.ownerId === userId)

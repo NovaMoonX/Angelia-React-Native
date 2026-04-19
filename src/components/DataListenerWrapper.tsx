@@ -5,13 +5,19 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { setPosts } from '@/store/slices/postsSlice';
-import { setChannels } from '@/store/slices/channelsSlice';
+import { setChannels, setConnectionChannels } from '@/store/slices/channelsSlice';
 import { setCurrentUser, setUsers, setCurrentUserNotificationSettings } from '@/store/slices/usersSlice';
 import {
   setIncomingRequests,
   setOutgoingRequests,
 } from '@/store/slices/invitesSlice';
+import {
+  setConnections,
+  setIncomingConnectionRequests,
+  setOutgoingConnectionRequests,
+} from '@/store/slices/connectionsSlice';
 import { processPendingInvite } from '@/store/actions/inviteActions';
+import { processPendingConnection } from '@/store/actions/connectionsActions';
 import { initNotifications } from '@/store/actions/notificationActions';
 import {
   subscribeToCurrentUser,
@@ -21,13 +27,18 @@ import {
   subscribeToOutgoingJoinRequests,
   subscribeToChannelUsers,
   subscribeToNotificationSettings,
+  subscribeToConnections,
+  subscribeToIncomingConnectionRequests,
+  subscribeToOutgoingConnectionRequests,
+  subscribeToConnectionChannels,
 } from '@/services/firebase/firestore';
 import {
   requestNotificationPermission,
   NOTIFICATION_ID,
   getFollowUpForPrompt,
 } from '@/services/notifications';
-import type { AppNotificationType, Channel, ChannelJoinRequest, NotificationSettings, Post, User } from '@/models/types';
+import type { AppNotificationType, Channel, ChannelJoinRequest, Connection, ConnectionRequest, NotificationSettings, Post, User } from '@/models/types';
+import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
 
 interface DataListenerWrapperProps {
   children: React.ReactNode;
@@ -52,12 +63,16 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const channels = useAppSelector((state) => state.channels.items);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const pendingInviteChannel = useAppSelector((state) => state.pendingInvite.channel);
+  const pendingFromUserId = useAppSelector((state) => state.connections.pendingFromUserId);
+  const connections = useAppSelector((state) => state.connections.connections);
 
   const unsubsRef = useRef<Array<() => void>>([]);
   const postsUnsubRef = useRef<(() => void) | null>(null);
   const usersUnsubRef = useRef<(() => void) | null>(null);
   const notifSettingsUnsubRef = useRef<(() => void) | null>(null);
+  const connectionChannelsUnsubRef = useRef<(() => void) | null>(null);
   const pendingInviteProcessed = useRef(false);
+  const pendingConnectionProcessed = useRef(false);
   /**
    * Guards against concurrent initNotifications dispatches.  Set to true while
    * any initNotifications thunk is in flight so that the Firestore subscription
@@ -66,7 +81,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
    */
   const notifInitInFlight = useRef(false);
 
-  // Effect 1: Auth state — subscribe to user, channels, join requests
+  // Effect 1: Auth state — subscribe to user, channels, join requests, connections
   useEffect(() => {
     if (isDemo || !firebaseUser) return;
 
@@ -94,7 +109,33 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       }
     );
 
-    unsubsRef.current = [unsubUser, unsubChannels, unsubIncoming, unsubOutgoing];
+    const unsubConnections = subscribeToConnections(uid, (conns: Connection[]) => {
+      dispatch(setConnections(conns));
+    });
+
+    const unsubIncomingConns = subscribeToIncomingConnectionRequests(
+      uid,
+      (reqs: ConnectionRequest[]) => {
+        dispatch(setIncomingConnectionRequests(reqs));
+      },
+    );
+
+    const unsubOutgoingConns = subscribeToOutgoingConnectionRequests(
+      uid,
+      (reqs: ConnectionRequest[]) => {
+        dispatch(setOutgoingConnectionRequests(reqs));
+      },
+    );
+
+    unsubsRef.current = [
+      unsubUser,
+      unsubChannels,
+      unsubIncoming,
+      unsubOutgoing,
+      unsubConnections,
+      unsubIncomingConns,
+      unsubOutgoingConns,
+    ];
 
     return () => {
       unsubsRef.current.forEach((unsub) => unsub());
@@ -103,11 +144,16 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   }, [firebaseUser, isDemo, dispatch]);
 
   // Effect 2: Channel changes → re-subscribe to posts
+  // Includes connected users' daily channel IDs so their posts appear in the feed.
   useEffect(() => {
     if (isDemo || !firebaseUser) return;
 
     const uid = firebaseUser.uid;
-    const channelIds = channels.map((c) => c.id);
+    const ownChannelIds = channels.map((c) => c.id);
+    const connectedDailyIds = connections
+      .map((c) => `${c.userId}${DAILY_CHANNEL_SUFFIX}`)
+      .filter((id) => !ownChannelIds.includes(id));
+    const channelIds = [...ownChannelIds, ...connectedDailyIds];
 
     if (channelIds.length === 0) return;
 
@@ -129,7 +175,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
         postsUnsubRef.current = null;
       }
     };
-  }, [firebaseUser, isDemo, channels, dispatch]);
+  }, [firebaseUser, isDemo, channels, connections, dispatch]);
 
   // Effect 3: User set changes → re-subscribe to channel users
   useEffect(() => {
@@ -180,6 +226,61 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
         addToast({ type: 'error', title: 'Failed to send join request' });
       });
   }, [pendingInviteChannel, currentUser, dispatch, addToast]);
+
+  // Effect 4b: Process pending connection request once user is authenticated
+  useEffect(() => {
+    if (!pendingFromUserId || !currentUser || pendingConnectionProcessed.current) return;
+    pendingConnectionProcessed.current = true;
+
+    dispatch(processPendingConnection())
+      .unwrap()
+      .then((result) => {
+        if (result) {
+          addToast({ type: 'success', title: 'Connection request sent! 🤝' });
+        }
+      })
+      .catch(() => {
+        pendingConnectionProcessed.current = false;
+        addToast({ type: 'error', title: 'Failed to send connection request' });
+      });
+  }, [pendingFromUserId, currentUser, dispatch, addToast]);
+
+  // Effect 4c: Connections change → subscribe to connected users' daily channels
+  // so channel metadata is available for rendering their posts in the feed.
+  useEffect(() => {
+    if (isDemo || !firebaseUser || connections.length === 0) {
+      if (connectionChannelsUnsubRef.current) {
+        connectionChannelsUnsubRef.current();
+        connectionChannelsUnsubRef.current = null;
+      }
+      return;
+    }
+
+    if (connectionChannelsUnsubRef.current) {
+      connectionChannelsUnsubRef.current();
+    }
+
+    const connectedUserIds = connections.map((c) => c.userId);
+    connectionChannelsUnsubRef.current = subscribeToConnectionChannels(
+      connectedUserIds,
+      (connChannels: Channel[]) => {
+        dispatch(setConnectionChannels(connChannels));
+      },
+    );
+
+    return () => {
+      if (connectionChannelsUnsubRef.current) {
+        connectionChannelsUnsubRef.current();
+        connectionChannelsUnsubRef.current = null;
+      }
+    };
+  // connections.length guards the empty-case fast path; the full reconnect
+  // on id changes is covered by the stable serialised key below.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firebaseUser, isDemo, connections.length,
+    // Stable key: only changes when the set of connected user IDs changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    connections.map((c) => c.userId).sort().join(',')]);
 
   // Effect 5: Initialise notifications once user profile is ready.
   // Always called on login and on app launch so local notifications are
@@ -310,6 +411,25 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
           title: '🎉 You\'ve been accepted!',
           description: `Tap to check out ${channelName} and celebrate!`,
           onPress: () => router.push({ pathname: '/(protected)/channel-accepted', params: { channelName } }),
+        });
+      } else if (type === 'connection_request') {
+        const firstName = data?.fromFirstName ?? 'Someone';
+        const requestId = data?.connectionRequestId;
+        addToast({
+          type: 'info',
+          title: `🤝 ${firstName} wants to connect!`,
+          description: 'Tap to review their connection request',
+          onPress: requestId
+            ? () => router.push({ pathname: '/(protected)/connection-request/[id]', params: { id: requestId } })
+            : () => router.push('/(protected)/notifications'),
+        });
+      } else if (type === 'connection_accepted') {
+        const firstName = data?.toFirstName ?? 'Someone';
+        addToast({
+          type: 'success',
+          title: `🎉 You're connected with ${firstName}!`,
+          description: 'Tap to see your people',
+          onPress: () => router.push('/(protected)/my-people'),
         });
       }
     });

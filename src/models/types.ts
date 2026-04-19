@@ -241,4 +241,25 @@ export interface JoinChannelAcceptedNotification extends BaseAppNotification {
   joinRequestId: string;
 }
 
-export type AppNotification = JoinChannelRequestNotification | JoinChannelAcceptedNotification;
+/** Written when a user sends a connection request — targets the host. */
+export interface ConnectionRequestNotification extends BaseAppNotification {
+  type: 'connection_request';
+  fromId: string;
+  fromFirstName: string;
+  fromLastName: string;
+  connectionRequestId: string;
+}
+
+/** Written when the host accepts a connection request — targets the requester. */
+export interface ConnectionAcceptedNotification extends BaseAppNotification {
+  type: 'connection_accepted';
+  toFirstName: string;
+  toLastName: string;
+  connectionRequestId: string;
+}
+
+export type AppNotification =
+  | JoinChannelRequestNotification
+  | JoinChannelAcceptedNotification
+  | ConnectionRequestNotification
+  | ConnectionAcceptedNotification;
