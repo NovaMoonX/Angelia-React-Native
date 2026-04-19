@@ -26,7 +26,7 @@ export function ConversationMessage({
   if (message.isSystem) {
     return (
       <View style={styles.systemRow}>
-        <Avatar preset={author?.avatar ?? 'moon'} size="sm" />
+        <Avatar preset={author?.avatar ?? 'moon'} uri={author?.avatarUrl} size="sm" />
         <Text style={[styles.systemText, { color: theme.mutedForeground }]}>
           {author?.firstName ?? 'Someone'} {message.text}
         </Text>
@@ -49,6 +49,7 @@ export function ConversationMessage({
       {/* 36×36 Avatar anchor */}
       <Avatar
         preset={author?.avatar ?? 'moon'}
+        uri={author?.avatarUrl}
         size="sm"
         style={styles.avatar}
       />

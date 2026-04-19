@@ -26,7 +26,7 @@ export function ChatMessage({
   return (
     <View style={[styles.container, isCurrentUser && styles.currentUser]}>
       {!isCurrentUser && (
-        <Avatar preset={author?.avatar || 'moon'} size="sm" />
+        <Avatar preset={author?.avatar || 'moon'} uri={author?.avatarUrl} size="sm" />
       )}
       <View
         style={[
@@ -73,7 +73,7 @@ export function ChatMessage({
         </Text>
       </View>
       {isCurrentUser && (
-        <Avatar preset={author?.avatar || 'moon'} size="sm" />
+        <Avatar preset={author?.avatar || 'moon'} uri={author?.avatarUrl} size="sm" />
       )}
     </View>
   );

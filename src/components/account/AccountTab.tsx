@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -14,7 +16,7 @@ import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { exitDemoMode } from '@/store/actions/demoActions';
-import { saveProfile, saveStatus, clearStatus } from '@/store/actions/userActions';
+import { saveProfile, saveStatus, clearStatus, uploadAndSaveAvatar } from '@/store/actions/userActions';
 import { AVATAR_PRESETS } from '@/models/constants';
 import type { AvatarPreset, UserStatus } from '@/models/types';
 import { formatExactExpiry } from '@/lib/timeUtils';
@@ -34,18 +36,62 @@ export function AccountTab() {
   const [editLastName, setEditLastName] = useState(currentUser?.lastName || '');
   const [editFunFact, setEditFunFact] = useState(currentUser?.funFact || '');
   const [editAvatar, setEditAvatar] = useState<AvatarPreset>(currentUser?.avatar || 'moon');
+  const [editAvatarUri, setEditAvatarUri] = useState<string | null>(currentUser?.avatarUrl ?? null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
 
   if (!currentUser) return null;
 
+  const handlePickAvatarPhoto = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      addToast({ type: 'warning', title: 'Photo library access is needed to upload an avatar.' });
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+
+    if (result.canceled || !result.assets[0]) return;
+
+    try {
+      // Resize to a 400×400 square for a compact avatar
+      const compressed = await manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 400, height: 400 } }],
+        { compress: 0.85, format: SaveFormat.JPEG },
+      );
+      setEditAvatarUri(compressed.uri);
+    } catch {
+      setEditAvatarUri(result.assets[0].uri);
+    }
+  };
+
   const handleSaveProfile = async () => {
     try {
+      let resolvedAvatarUrl = currentUser.avatarUrl;
+
+      // Upload new photo if one was selected during this edit session
+      if (editAvatarUri && editAvatarUri !== currentUser.avatarUrl) {
+        setUploadingAvatar(true);
+        try {
+          resolvedAvatarUrl = await dispatch(uploadAndSaveAvatar(editAvatarUri)).unwrap();
+        } finally {
+          setUploadingAvatar(false);
+        }
+      }
+
       await dispatch(
         saveProfile({
           firstName: editFirstName.trim(),
           lastName: editLastName.trim(),
           funFact: editFunFact.trim(),
           avatar: editAvatar,
+          avatarUrl: resolvedAvatarUrl ?? null,
         })
       ).unwrap();
       addToast({ type: 'success', title: 'Profile updated!' });
@@ -94,7 +140,7 @@ export function AccountTab() {
     <>
       <Card style={styles.profileCard}>
         <View style={styles.profileHeader}>
-          <Avatar preset={currentUser.avatar} size="xl" />
+          <Avatar preset={currentUser.avatar} uri={currentUser.avatarUrl} size="xl" />
           <Text style={[styles.profileName, { color: theme.foreground }]}>
             {currentUser.firstName} {currentUser.lastName}
           </Text>
@@ -140,30 +186,57 @@ export function AccountTab() {
               <Textarea value={editFunFact} onChangeText={setEditFunFact} maxLength={200} />
             </View>
             <View style={styles.field}>
-              <Label>Avatar</Label>
-              <View style={styles.avatarGrid}>
-                {AVATAR_PRESETS.map((preset) => (
-                  <Pressable
-                    key={preset}
-                    onPress={() => setEditAvatar(preset)}
-                    style={[
-                      styles.avatarOption,
-                      editAvatar === preset && {
-                        borderColor: theme.primary,
-                        borderWidth: 2,
-                      },
-                    ]}
-                  >
-                    <Avatar preset={preset} size="sm" />
-                  </Pressable>
-                ))}
+              <Label>Profile Photo</Label>
+              <View style={styles.photoRow}>
+                <Avatar preset={editAvatar} uri={editAvatarUri ?? undefined} size="lg" />
+                <View style={styles.photoActions}>
+                  <Button variant="outline" onPress={handlePickAvatarPhoto}>
+                    {editAvatarUri ? 'Change Photo' : 'Upload Photo'}
+                  </Button>
+                  {editAvatarUri ? (
+                    <Button
+                      variant="tertiary"
+                      onPress={() => setEditAvatarUri(null)}
+                    >
+                      Remove Photo
+                    </Button>
+                  ) : null}
+                </View>
               </View>
             </View>
+            {!editAvatarUri && (
+              <View style={styles.field}>
+                <Label>Avatar</Label>
+                <View style={styles.avatarGrid}>
+                  {AVATAR_PRESETS.map((preset) => (
+                    <Pressable
+                      key={preset}
+                      onPress={() => setEditAvatar(preset)}
+                      style={[
+                        styles.avatarOption,
+                        editAvatar === preset && {
+                          borderColor: theme.primary,
+                          borderWidth: 2,
+                        },
+                      ]}
+                    >
+                      <Avatar preset={preset} size="sm" />
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
             <View style={styles.editActions}>
               <Button variant="tertiary" onPress={() => setEditingProfile(false)}>
                 Cancel
               </Button>
-              <Button onPress={handleSaveProfile}>Save</Button>
+              <Button onPress={handleSaveProfile} disabled={uploadingAvatar}>
+                {uploadingAvatar ? (
+                  <ActivityIndicator size="small" color={theme.primaryForeground} />
+                ) : (
+                  'Save'
+                )}
+              </Button>
             </View>
           </View>
         ) : (
@@ -243,6 +316,15 @@ const styles = StyleSheet.create({
   },
   field: {
     gap: 6,
+  },
+  photoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  photoActions: {
+    flex: 1,
+    gap: 8,
   },
   avatarGrid: {
     flexDirection: 'row',

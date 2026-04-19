@@ -36,6 +36,15 @@ service firebase.storage {
           )
         );
     }
+
+    // Allow users to upload/read their own profile avatar.
+    // Path: avatars/{userId}/avatar.jpg
+    match /avatars/{userId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
     // Allow users to upload/read/delete post media based on post status and access
     match /posts/{postId}/{mediaFile} {
       // Allow reading:
