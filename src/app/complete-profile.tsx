@@ -247,7 +247,7 @@ export default function CompleteProfileScreen() {
       circles.push({
         key: `hobby-custom:${i}`,
         name: `The ${h} Journal`,
-        emoji: '✏️',
+        emoji: '🎯',
         color: CHANNEL_COLORS[0].name,
         description: `A Circle for everything ${h.toLowerCase()}.`,
       });
@@ -742,7 +742,7 @@ export default function CompleteProfileScreen() {
             <View style={[styles.bridgeCard, { backgroundColor: theme.secondary, borderColor: theme.border, marginTop: 20 }]}>
               <Text style={[styles.bridgeText, { color: theme.mutedForeground }]}>
                 💬 <Text style={{ fontWeight: '700', color: theme.foreground }}>What's a Circle?</Text>
-                {' '}A Circle is a small, private group where you share updates with people who actually care — family, friends, or whoever you choose. No feeds, no strangers.
+                {' '}A Circle is a small, private group where you share updates with people who actually care — family, friends, or whoever you choose. No feeds, no strangers. Just you sharing moments with the people that matter most.
               </Text>
             </View>
           </>
@@ -832,6 +832,19 @@ export default function CompleteProfileScreen() {
             </Text>
           </View>
         )}
+
+        {/* Categories section header */}
+        <View style={[styles.subSection, !circlesAtMax ? { marginTop: 8 } : null]}>
+          <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>
+            CATEGORIES
+          </Text>
+          <Text style={[styles.subHeader, { color: theme.foreground }]}>
+            Which of these resonates with you?
+          </Text>
+          <Text style={[styles.infoText, { color: theme.mutedForeground }]}>
+            Choose what feels applicable to you. You can select all 3 categories if they all align with who you are.
+          </Text>
+        </View>
 
         {/* Category pills */}
         <View style={styles.pillRow}>
@@ -976,7 +989,7 @@ export default function CompleteProfileScreen() {
                   ]}
                 >
                   <Text style={[styles.hobbyChipText, { color: theme.primaryForeground }]}>
-                    🧩 {h}
+                    🎯 {h}
                   </Text>
                   <Text style={[styles.hobbyChipText, { color: theme.primaryForeground, fontWeight: '700' }]}>✕</Text>
                 </Pressable>
@@ -1063,7 +1076,7 @@ export default function CompleteProfileScreen() {
                   ]}
                 >
                   <Text style={[styles.hobbyChipText, { color: theme.primaryForeground }]}>
-                    🧩 {l}
+                    🎯 {l}
                   </Text>
                   <Text style={[styles.hobbyChipText, { color: theme.primaryForeground, fontWeight: '700' }]}>✕</Text>
                 </Pressable>
@@ -1100,7 +1113,7 @@ export default function CompleteProfileScreen() {
                 CIRCLES TO CREATE ({pendingCircles.length}/3)
               </Text>
               <Text style={[styles.previewHelpText, { color: theme.mutedForeground }]}>
-                Tap a name to rename it
+                Tap a circle to rename it
               </Text>
             </View>
             {pendingCircles.map((circle) => (
@@ -1150,7 +1163,7 @@ export default function CompleteProfileScreen() {
         <Text style={[styles.infoCalloutText, { color: theme.foreground }]}>
           💡 <Text style={{ fontWeight: '700' }}>Why do we ask?</Text>
           {' '}Angelia sends two gentle nudges a day so the people in your Circle know what you're up to — and because people want to know! We schedule them around your day so they feel natural, not intrusive. You can always turn them off later in{' '}
-          <Text style={{ fontWeight: '700' }}>Settings → Notifications</Text>.
+          <Text style={{ fontWeight: '700' }}>Notifications → Settings</Text>.
         </Text>
       </View>
 
@@ -1210,9 +1223,9 @@ export default function CompleteProfileScreen() {
         </Button>
       </View>
 
-      <Text style={[styles.reassurance, { color: theme.mutedForeground }]}>
+      <Text style={[styles.reassurance, { color: theme.mutedForeground }, { marginTop: 10}]}>
         If you skip, we'll default to noon & 6 PM. You can always change this in{' '}
-        <Text style={{ fontWeight: '700' }}>Settings → Notifications</Text>.
+        <Text style={{ fontWeight: '700' }}>Notifications → Settings</Text>.
       </Text>
     </>
   );
@@ -1233,7 +1246,7 @@ export default function CompleteProfileScreen() {
       >
         <Text style={[styles.infoCalloutText, { color: theme.foreground }]}>
           ☀️ <Text style={{ fontWeight: '700', color: theme.primary }}>What's your Daily Circle?</Text>
-          {' '}It's your default space for everyday updates — the small stuff, the funny moments, the "you had to be there" things. Everyone who follows you will see it here.
+          {' '}It's your default space for everyday updates — the small stuff, the funny moments, the "you had to be there" things. Everyone amongst your Circles will see it here.
         </Text>
       </View>
 
