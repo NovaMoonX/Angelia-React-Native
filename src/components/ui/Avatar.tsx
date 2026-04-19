@@ -11,7 +11,7 @@ interface AvatarProps {
   /** When provided, renders a small emoji badge at the bottom-right of the avatar. */
   statusEmoji?: string;
   /** Firebase Storage download URL for a custom profile photo. When set, renders the photo instead of the preset emoji. */
-  uri?: string;
+  uri?: string | null;
 }
 
 const SIZE_MAP = {

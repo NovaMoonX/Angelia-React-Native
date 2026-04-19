@@ -73,7 +73,10 @@ export function AccountTab() {
 
   const handleSaveProfile = async () => {
     try {
-      let resolvedAvatarUrl = currentUser.avatarUrl;
+      // If user removed the photo (editAvatarUri is null), clear the stored URL.
+      // If unchanged (editAvatarUri === currentUser.avatarUrl), keep the remote URL.
+      // If a new local URI was picked, the upload block below replaces it.
+      let resolvedAvatarUrl: string | null = editAvatarUri || null;
 
       // Upload new photo if one was selected during this edit session
       if (editAvatarUri && editAvatarUri !== currentUser.avatarUrl) {
@@ -91,7 +94,7 @@ export function AccountTab() {
           lastName: editLastName.trim(),
           funFact: editFunFact.trim(),
           avatar: editAvatar,
-          avatarUrl: resolvedAvatarUrl ?? null,
+          avatarUrl: resolvedAvatarUrl || null,
         })
       ).unwrap();
       addToast({ type: 'success', title: 'Profile updated!' });
@@ -188,7 +191,7 @@ export function AccountTab() {
             <View style={styles.field}>
               <Label>Profile Photo</Label>
               <View style={styles.photoRow}>
-                <Avatar preset={editAvatar} uri={editAvatarUri ?? undefined} size="lg" />
+                <Avatar preset={editAvatar} uri={editAvatarUri} size="lg" />
                 <View style={styles.photoActions}>
                   <Button variant="outline" onPress={handlePickAvatarPhoto}>
                     {editAvatarUri ? 'Change Photo' : 'Upload Photo'}
@@ -216,7 +219,6 @@ export function AccountTab() {
                         styles.avatarOption,
                         editAvatar === preset && {
                           borderColor: theme.primary,
-                          borderWidth: 2,
                         },
                       ]}
                     >
@@ -334,6 +336,8 @@ const styles = StyleSheet.create({
   avatarOption: {
     borderRadius: 20,
     padding: 3,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   editActions: {
     flexDirection: 'row',

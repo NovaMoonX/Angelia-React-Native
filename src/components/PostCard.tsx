@@ -67,6 +67,7 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
             >
               <Avatar
                 preset={author?.avatar || 'moon'}
+                uri={author?.avatarUrl}
                 size="sm"
                 statusEmoji={isStatusActive(author?.status) ? author?.status?.emoji : undefined}
               />

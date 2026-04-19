@@ -344,7 +344,7 @@ export default function CompleteProfileScreen() {
           email: firebaseUser.email ?? '',
           funFact: firstPost.trim(),
           avatar,
-          ...(uploadedAvatarUrl ? { avatarUrl: uploadedAvatarUrl } : {}),
+          avatarUrl: uploadedAvatarUrl ?? null,
         }),
       ).unwrap();
 
@@ -662,7 +662,7 @@ export default function CompleteProfileScreen() {
       <View style={styles.section}>
         <Label>Choose Your Avatar</Label>
         <View style={styles.avatarCurrent}>
-          <Avatar preset={avatar} uri={avatarPhotoUri ?? undefined} size="xl" />
+          <Avatar preset={avatar} uri={avatarPhotoUri} size="xl" />
         </View>
 
         {/* Photo upload option */}
@@ -689,7 +689,7 @@ export default function CompleteProfileScreen() {
               {AVATAR_PRESETS.map((preset) => (
                 <Pressable
                   key={preset}
-                  onPress={() => setAvatar(preset)}
+                  onPress={() => { setAvatar(preset); setAvatarPhotoUri(null); }}
                   style={[
                     styles.avatarOption,
                     { borderColor: avatar === preset ? theme.primary : 'transparent' },
@@ -1334,7 +1334,7 @@ export default function CompleteProfileScreen() {
 
         {/* Handshake card */}
         <View style={[styles.handshakeCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Avatar preset={avatar} size="xl" />
+          <Avatar preset={avatar} uri={avatarPhotoUri} size="xl" />
           <Text style={[styles.handshakeName, { color: theme.foreground }]}>{displayName}</Text>
 
           <Pressable onPress={() => setShowQrModal(true)} style={styles.qrWrapper}>
@@ -1384,7 +1384,7 @@ export default function CompleteProfileScreen() {
               style={[styles.qrModalCard, { backgroundColor: theme.card }]}
               onStartShouldSetResponder={() => true}
             >
-              <Avatar preset={avatar} size="lg" />
+              <Avatar preset={avatar} uri={avatarPhotoUri} size="lg" />
               <Text style={[styles.handshakeName, { color: theme.foreground }]}>{displayName}</Text>
               <QRCode
                 value={connectionLink}

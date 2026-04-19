@@ -378,6 +378,7 @@ export default function FeedScreen() {
             <Pressable onPress={() => router.push('/(protected)/account')}>
               <Avatar
                 preset={currentUser?.avatar || 'moon'}
+                uri={currentUser?.avatarUrl}
                 size="sm"
                 statusEmoji={isStatusActive(currentUser?.status) ? currentUser?.status?.emoji : undefined}
               />

@@ -58,7 +58,7 @@ export const saveProfile = createAsyncThunk(
     // Convert null → undefined so Partial<User> is satisfied in Redux state
     const stateUpdate: Partial<User> = {
       ...data,
-      avatarUrl: data.avatarUrl ?? undefined,
+      avatarUrl: data.avatarUrl,
     };
 
     if (isDemoActive(getState)) {
