@@ -167,6 +167,48 @@ titled "🎉 You're connected!".
 
 ---
 
+### Scenario E — Big News Post (you are a subscriber of the channel)
+
+A connected user or circle host published a `big-news` tier post. You'll see an
+in-app toast titled "🌟 Big news from …!" and a background push with the same
+message. Tapping either navigates to the post detail screen.
+
+> **Important:** This notification uses a `channel_tier` target instead of a
+> `user` target.  The Cloud Function reads the `channels/{channelId}` document
+> to obtain the `subscribers` array, then fans out to all subscribers' FCM
+> tokens (excluding the author).  Make sure `YOUR_CHANNEL_ID` refers to a real
+> channel document that has your user ID in its `subscribers` array.
+
+Replace `YOUR_USER_ID`, `YOUR_CHANNEL_ID`, and `YOUR_POST_ID` with real values.
+
+```json
+{
+  "id": "test-notif-big-news-1",
+  "type": "big_news_post",
+  "actorId": "fake-author-id",
+  "target": {
+    "type": "channel_tier",
+    "channelId": "YOUR_CHANNEL_ID",
+    "tier": "big-news"
+  },
+  "createdAt": 1713484800000,
+  "postId": "YOUR_POST_ID",
+  "channelId": "YOUR_CHANNEL_ID",
+  "isDaily": false,
+  "authorFirstName": "Alex",
+  "authorLastName": "Test"
+}
+```
+
+For a **daily circle** big-news notification, change `"isDaily": true` and set
+`channelId` to the daily channel ID (format: `{ownerId}-daily`).
+
+> **Note:** Tapping the push routes to `/(protected)/post/[YOUR_POST_ID]`.
+> The screen will show an error if `YOUR_POST_ID` is not a real Firestore post
+> doc — expected in testing mode.
+
+---
+
 ## Step 4 — Observe the Result
 
 | App state | Expected behaviour |

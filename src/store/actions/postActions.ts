@@ -1,6 +1,6 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import type { RootState } from '@/store';
-import type { Post, Reaction, Comment, MediaItem, PostTier } from '@/models/types';
+import type { Post, Reaction, Comment, MediaItem, PostTier, BigNewsPostNotification } from '@/models/types';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 import {
   createPost,
@@ -9,6 +9,7 @@ import {
   addReactionToPost,
   removeReactionFromPost,
   addCommentToPost,
+  createAppNotification,
 } from '@/services/firebase/firestore';
 import { uploadPostMedia } from '@/services/firebase/storage';
 import { generateId } from '@/utils/generateId';
@@ -23,6 +24,39 @@ import {
   removeConversationEnrollee,
 } from '@/store/slices/postsSlice';
 import { isDemoActive } from './globalActions';
+import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
+
+// ── Big-news notification helper ───────────────────────────────────────────
+
+/**
+ * Writes a `big_news_post` notification document so the Cloud Function fans
+ * out FCM pushes to all channel subscribers (excluding the author).
+ * Fire-and-forget — notification failures are non-fatal.
+ */
+async function sendBigNewsNotification(
+  post: Post,
+  authorFirstName: string,
+  authorLastName: string,
+): Promise<void> {
+  try {
+    const isDaily = post.channelId.endsWith(DAILY_CHANNEL_SUFFIX);
+    const notification: BigNewsPostNotification = {
+      id: generateId('nano'),
+      type: 'big_news_post',
+      actorId: post.authorId,
+      target: { type: 'channel_tier', channelId: post.channelId, tier: 'big-news' },
+      createdAt: Date.now(),
+      postId: post.id,
+      channelId: post.channelId,
+      isDaily,
+      authorFirstName,
+      authorLastName,
+    };
+    await createAppNotification(notification);
+  } catch {
+    // Notification delivery is best-effort; do not surface errors to the user
+  }
+}
 
 // ── Upload a new post with optional media ──────────────────────────────────
 
@@ -93,6 +127,10 @@ export const uploadPost = createAsyncThunk(
       await createPost(uploadingPost);
 
       if (!hasMedia) {
+        // Fire big-news notification for no-media posts immediately
+        if (tier === 'big-news') {
+          void sendBigNewsNotification(uploadingPost, user.firstName, user.lastName);
+        }
         return uploadingPost;
       }
 
@@ -161,6 +199,11 @@ export const uploadPost = createAsyncThunk(
             // Silently ignore background thumbnail upload failures
           }
         })();
+      }
+
+      // Fire big-news notification after media post is ready
+      if (tier === 'big-news') {
+        void sendBigNewsNotification(newPost, user.firstName, user.lastName);
       }
 
       return newPost;

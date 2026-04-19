@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { router } from 'expo-router';
 import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -35,10 +36,14 @@ import {
 import {
   requestNotificationPermission,
   NOTIFICATION_ID,
+  WIND_DOWN_NOTIFICATION_ID,
   getFollowUpForPrompt,
 } from '@/services/notifications';
 import type { AppNotificationType, Channel, ChannelJoinRequest, Connection, ConnectionRequest, NotificationSettings, Post, User } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
+
+/** AsyncStorage key that tracks the calendar date when the daily in-app notice was last shown. */
+const DAILY_PROMPT_SHOWN_DATE_KEY = '@angelia/daily_prompt_shown_date';
 
 interface DataListenerWrapperProps {
   children: React.ReactNode;
@@ -65,6 +70,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const pendingInviteChannel = useAppSelector((state) => state.pendingInvite.channel);
   const pendingFromUserId = useAppSelector((state) => state.connections.pendingFromUserId);
   const connections = useAppSelector((state) => state.connections.connections);
+  const posts = useAppSelector((state) => state.posts.items);
 
   const unsubsRef = useRef<Array<() => void>>([]);
   const postsUnsubRef = useRef<(() => void) | null>(null);
@@ -386,7 +392,8 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   }, [currentUser?.id]);
 
   // Effect 9: Show in-app toast when a push notification arrives in the foreground.
-  // Handles join_channel_request and join_channel_accepted types.
+  // Handles join_channel_request, join_channel_accepted, connection_request,
+  // connection_accepted, and big_news_post types.
   useEffect(() => {
     const subscription = Notifications.addNotificationReceivedListener((notification) => {
       const data = notification.request.content.data as Record<string, string> | undefined;
@@ -431,10 +438,78 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
           description: 'Tap to see your people',
           onPress: () => router.push('/(protected)/my-people'),
         });
+      } else if (type === 'big_news_post') {
+        const firstName = data?.authorFirstName ?? 'Someone';
+        const lastName = data?.authorLastName ?? '';
+        const postId = data?.postId;
+        const isDaily = data?.isDaily === 'true';
+        const circleLabel = isDaily ? 'Daily Circle' : 'circle';
+        addToast({
+          type: 'info',
+          title: `🌟 Big news from ${firstName} ${lastName}`.trim() + '!',
+          description: `Tap to see their ${circleLabel} update`,
+          onPress: postId
+            ? () => router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } })
+            : undefined,
+        });
       }
     });
     return () => subscription.remove();
   }, [addToast]);
+
+  // Effect 10: Handle daily prompt notifications that arrive while the app is
+  // in the foreground.  The system banner is suppressed by setNotificationHandler
+  // in _layout.tsx; here we decide whether to show an in-app notice instead.
+  //
+  // Rules (all must pass to show the in-app notice):
+  //   1. The notification is a daily prompt (NOTIFICATION_ID or WIND_DOWN_NOTIFICATION_ID).
+  //   2. The current user has NOT already made a post today.
+  //   3. We have NOT already shown the in-app notice today (checked via AsyncStorage).
+  //
+  // When shown, we store today's date in AsyncStorage so we don't repeat it.
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener((notification) => {
+      const identifier = notification.request.identifier;
+      if (identifier !== NOTIFICATION_ID && identifier !== WIND_DOWN_NOTIFICATION_ID) return;
+      if (!currentUser) return;
+
+      const today = new Date().toDateString();
+
+      // Check if user has already posted today (synchronous Redux check)
+      const hasPostedToday = posts.some(
+        (p) => p.authorId === currentUser.id && new Date(p.timestamp).toDateString() === today,
+      );
+      if (hasPostedToday) return;
+
+      // Async check for whether the in-app notice was already shown today
+      void (async () => {
+        try {
+          const shownDate = await AsyncStorage.getItem(DAILY_PROMPT_SHOWN_DATE_KEY);
+          if (shownDate === today) return;
+
+          // Mark as shown before displaying so a rapid double-fire is handled
+          await AsyncStorage.setItem(DAILY_PROMPT_SHOWN_DATE_KEY, today);
+
+          const body = notification.request.content.body ?? "What's going on today? ✨";
+          addToast({
+            type: 'info',
+            title: '✨ Time to share!',
+            description: body,
+            onPress: () =>
+              router.push({
+                pathname: '/(protected)/post/new',
+                params: { notificationPrompt: getFollowUpForPrompt(0) },
+              }),
+          });
+        } catch {
+          // AsyncStorage failure is non-fatal — silently skip the in-app notice
+        }
+      })();
+    });
+    return () => subscription.remove();
+  // Re-create when user or posts change so the hasPostedToday check is fresh.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id, posts, addToast]);
 
   return <>{children}</>;
 }

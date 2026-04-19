@@ -199,6 +199,7 @@ export type AppNotificationType =
   | 'join_channel_accepted'
   | 'connection_request'
   | 'connection_accepted'
+  | 'big_news_post'
   | 'new_post'        // For post tier subscriptions (future)
   | 'comment_reply';  // For conversation enrollment (future)
 
@@ -260,8 +261,24 @@ export interface ConnectionAcceptedNotification extends BaseAppNotification {
   connectionRequestId: string;
 }
 
+/**
+ * Written when a big-news post is created in a daily circle (targets all connected users)
+ * or in a custom circle (targets all circle members).
+ * Target is always `channel_tier` so the Cloud Function fans out to all subscribers.
+ */
+export interface BigNewsPostNotification extends BaseAppNotification {
+  type: 'big_news_post';
+  postId: string;
+  channelId: string;
+  /** Whether the post is in a daily circle (true) or a custom circle (false). */
+  isDaily: boolean;
+  authorFirstName: string;
+  authorLastName: string;
+}
+
 export type AppNotification =
   | JoinChannelRequestNotification
   | JoinChannelAcceptedNotification
   | ConnectionRequestNotification
-  | ConnectionAcceptedNotification;
+  | ConnectionAcceptedNotification
+  | BigNewsPostNotification;

@@ -14,6 +14,7 @@ type AppNotificationType =
   | 'join_channel_accepted'
   | 'connection_request'
   | 'connection_accepted'
+  | 'big_news_post'
   | 'new_post'
   | 'comment_reply';
 
@@ -64,11 +65,22 @@ interface ConnectionAcceptedNotification extends BaseAppNotification {
   connectionRequestId: string;
 }
 
+/** Mirrors BigNewsPostNotification in src/models/types.ts — keep in sync. */
+interface BigNewsPostNotification extends BaseAppNotification {
+  type: 'big_news_post';
+  postId: string;
+  channelId: string;
+  isDaily: boolean;
+  authorFirstName: string;
+  authorLastName: string;
+}
+
 type AppNotification =
   | JoinChannelRequestNotification
   | JoinChannelAcceptedNotification
   | ConnectionRequestNotification
-  | ConnectionAcceptedNotification;
+  | ConnectionAcceptedNotification
+  | BigNewsPostNotification;
 
 interface ConnectionRequest {
   id: string;
@@ -99,6 +111,14 @@ interface FcmTokenEntry {
 
 interface UserNotificationSettings {
   fcmTokens?: FcmTokenEntry[];
+}
+
+/** Mirrors Channel in src/models/types.ts — keep in sync. */
+interface Channel {
+  id: string;
+  ownerId: string;
+  subscribers: string[];
+  isDaily: boolean | null;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -154,6 +174,23 @@ function buildFcmPayload(notification: AppNotification): {
     };
   }
 
+  if (notification.type === 'big_news_post') {
+    const n = notification as BigNewsPostNotification;
+    const circleLabel = n.isDaily ? 'Daily Circle' : 'circle';
+    return {
+      title: '🌟 Big News!',
+      body: `${n.authorFirstName} ${n.authorLastName} shared big news in their ${circleLabel}`,
+      data: {
+        type: n.type,
+        postId: n.postId,
+        channelId: n.channelId,
+        isDaily: String(n.isDaily),
+        authorFirstName: n.authorFirstName,
+        authorLastName: n.authorLastName,
+      },
+    };
+  }
+
   // connection_accepted
   const n = notification as ConnectionAcceptedNotification;
   return {
@@ -168,12 +205,60 @@ function buildFcmPayload(notification: AppNotification): {
   };
 }
 
-// ── Cloud Function: Send FCM on new notification doc ───────────────────────
+/**
+ * Sends an FCM multicast to all provided tokens with the given payload.
+ * Failure is best-effort — individual token failures are swallowed.
+ */
+async function sendFcmToTokens(
+  tokens: string[],
+  payload: { title: string; body: string; data: Record<string, string> },
+): Promise<void> {
+  if (tokens.length === 0) return;
+  const { title, body, data } = payload;
+  try {
+    await messaging.sendEachForMulticast({
+      tokens,
+      notification: { title, body },
+      data,
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+          },
+        },
+      },
+      android: {
+        priority: 'high',
+        notification: {
+          sound: 'default',
+        },
+      },
+    });
+  } catch {
+    // Delivery failure is best-effort
+  }
+}
+
+/**
+ * Fetches all FCM tokens for a single user from `userNotificationSettings/{uid}`.
+ * Returns an empty array when the document does not exist.
+ */
+async function getTokensForUser(userId: string): Promise<string[]> {
+  const snap = await db.collection('userNotificationSettings').doc(userId).get();
+  if (!snap.exists) return [];
+  const settings = snap.data() as UserNotificationSettings;
+  return (settings.fcmTokens ?? []).map((t) => t.token).filter(Boolean);
+}
 
 /**
  * Triggered when a new document is created in the `notifications` collection.
- * Fetches the target user's FCM tokens, sends the push notification to all
- * registered devices, then deletes the notification document.
+ * Fetches the target user's (or channel's subscribers') FCM tokens, sends the
+ * push notification to all registered devices, then deletes the notification document.
+ *
+ * Supported targets:
+ *   - `user`         — a single specific user (existing behaviour)
+ *   - `channel_tier` — all subscribers of a channel, e.g. for big-news posts
  */
 export const sendAppNotification = onDocumentCreated(
   'notifications/{notificationId}',
@@ -182,58 +267,37 @@ export const sendAppNotification = onDocumentCreated(
     if (!snap) return;
 
     const notification = snap.data() as AppNotification;
+    const payload = buildFcmPayload(notification);
 
-    // Only handle user-targeted notifications for now.
-    // channel_tier and thread targets will be supported in future Cloud Functions.
-    if (notification.target.type !== 'user') {
-      await snap.ref.delete();
-      return;
-    }
+    if (notification.target.type === 'user') {
+      // ── Single-user target ─────────────────────────────────────────────
+      const tokens = await getTokensForUser(notification.target.userId);
+      await sendFcmToTokens(tokens, payload);
+    } else if (notification.target.type === 'channel_tier') {
+      // ── Channel-tier target: fan-out to all channel subscribers ────────
+      const channelSnap = await db
+        .collection('channels')
+        .doc(notification.target.channelId)
+        .get();
 
-    const targetUserId = notification.target.userId;
-
-    // Fetch the target user's notification settings (contains FCM tokens)
-    const settingsSnap = await db
-      .collection('userNotificationSettings')
-      .doc(targetUserId)
-      .get();
-
-    if (!settingsSnap.exists) {
-      // No settings document — nothing to send; clean up and exit
-      await snap.ref.delete();
-      return;
-    }
-
-    const settings = settingsSnap.data() as UserNotificationSettings;
-    const tokens = (settings.fcmTokens ?? []).map((t) => t.token).filter(Boolean);
-
-    if (tokens.length > 0) {
-      const { title, body, data } = buildFcmPayload(notification);
-
-      try {
-        await messaging.sendEachForMulticast({
-          tokens,
-          notification: { title, body },
-          data,
-          apns: {
-            payload: {
-              aps: {
-                sound: 'default',
-                badge: 1,
-              },
-            },
-          },
-          android: {
-            priority: 'high',
-            notification: {
-              sound: 'default',
-            },
-          },
-        });
-      } catch {
-        // Delivery failure is best-effort; still delete the document below
+      if (!channelSnap.exists) {
+        await snap.ref.delete();
+        return;
       }
+
+      const channel = channelSnap.data() as Channel;
+      // Notify all subscribers; exclude the post author (actorId) to avoid
+      // sending a push to the person who just posted.
+      const recipientIds = channel.subscribers.filter(
+        (id) => id !== notification.actorId,
+      );
+
+      // Fan-out: fetch tokens for all recipients in parallel, then batch-send.
+      const tokenArrays = await Promise.all(recipientIds.map(getTokensForUser));
+      const allTokens = tokenArrays.flat();
+      await sendFcmToTokens(allTokens, payload);
     }
+    // `thread` target is not yet supported — delete the document and exit.
 
     // Always delete the notification document after processing
     await snap.ref.delete();
