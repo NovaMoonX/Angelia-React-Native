@@ -287,14 +287,14 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       }
     };
   // connections.length guards the empty-case fast path; the full reconnect
-  // on id changes is covered by the stable serialised key below.
+  // on id changes is covered by the stable serialized key below.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firebaseUser, isDemo, connections.length,
     // Stable key: only changes when the set of connected user IDs changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     connections.map((c) => c.userId).sort().join(',')]);
 
-  // Effect 5: Initialise notifications once user profile is ready.
+  // Effect 5: Initialize notifications once user profile is ready.
   // Always called on login and on app launch so local notifications are
   // re-scheduled even after app reinstalls or OS-level clearing.
   // Permission is requested in parallel but never blocks settings init so the
@@ -312,7 +312,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
 
   // Effect 6: Subscribe to notification settings changes in Firestore.
   // If the document is absent (e.g. after an app reinstall clears Firestore
-  // cache, or if the doc was deleted) and we are not already initialising,
+  // cache, or if the doc was deleted) and we are not already initializing,
   // trigger initNotifications to re-create it with default values.
   useEffect(() => {
     if (isDemo || !firebaseUser) return;

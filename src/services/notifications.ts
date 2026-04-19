@@ -323,7 +323,7 @@ export async function scheduleDailyPrompt(settings: NotificationSettings): Promi
   }
 
   // Schedule wind-down prompt
-  const windDown = settings.windDownPrompt ?? { ...DEFAULT_WIND_DOWN_PROMPT, enabled: false };
+  const windDown = settings.windDownPrompt ?? { ...DEFAULT_WIND_DOWN_PROMPT, enabled: true };
   if (windDown.enabled) {
     const wdIndex = Math.floor(Math.random() * WIND_DOWN_PROMPTS.length);
     const wdBody = WIND_DOWN_PROMPTS[wdIndex].body;

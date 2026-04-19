@@ -140,7 +140,7 @@ export default function PostCreateScreen() {
     >
       {/* Top bar: Cancel + Post */}
       <View style={[styles.topBar, { borderBottomColor: theme.border, paddingTop: isDemo ? 12 : insets.top + 8 }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable onPress={() => router.replace('/(protected)/feed')} hitSlop={12}>
           <Text style={[styles.cancelText, { color: theme.foreground }]}>Cancel</Text>
         </Pressable>
         <Pressable

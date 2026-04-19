@@ -97,7 +97,7 @@ export default function DailyReminderSettingsScreen() {
       try {
         const key = activeTarget === 'midday' ? 'dailyPrompt' : 'windDownPrompt';
         await dispatch(
-          saveNotificationSettings({ [key]: { hour: h, minute: m } }),
+          saveNotificationSettings({ [key]: { hour: h, minute: m, enabled: true } }),
         ).unwrap();
         addToast({ type: 'success', title: activeTarget === 'midday' ? 'Mid-day time updated' : 'Wind-down time updated' });
       } catch {

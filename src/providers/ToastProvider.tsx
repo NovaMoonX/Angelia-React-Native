@@ -52,12 +52,13 @@ function Toast({ item, onDismiss }: { item: ToastItem; onDismiss: (id: string) =
       Animated.timing(translateY, { toValue: 0, duration: 300, useNativeDriver: true }),
     ]).start();
 
+    const delay = item.onPress ? 8000 : 4000;
     const timer = setTimeout(() => {
       Animated.parallel([
         Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
         Animated.timing(translateY, { toValue: -20, duration: 300, useNativeDriver: true }),
       ]).start(() => onDismiss(item.id));
-    }, 4000);
+    }, delay);
 
     return () => clearTimeout(timer);
   }, [item.id, onDismiss, opacity, translateY]);
