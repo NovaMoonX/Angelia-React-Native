@@ -64,6 +64,10 @@ const LIFELOG_EMOJI: Record<string, string> = {
   'Fitness Journey': '🏋️',
 };
 
+const DEFAULT_LIFELOG_EMOJI = '📓';
+
+const CIRCLE_LIMIT_WARNING = "You've hit the 3-circle limit. Remove an existing one to add a different one.";
+
 const HOURS_12 = Array.from({ length: 12 }, (_, i) => i + 1);
 const MINUTES_DISPLAY = ['00', '15', '30', '45'];
 const MINUTES_VALUES = [0, 15, 30, 45];
@@ -252,7 +256,7 @@ export default function CompleteProfileScreen() {
       circles.push({
         key: `lifelog:${l}`,
         name: l,
-        emoji: LIFELOG_EMOJI[l] ?? '📓',
+        emoji: LIFELOG_EMOJI[l] ?? DEFAULT_LIFELOG_EMOJI,
         color: CHANNEL_COLORS[4].name,
         description: `My ${l.toLowerCase()} Circle.`,
       });
@@ -261,7 +265,7 @@ export default function CompleteProfileScreen() {
       circles.push({
         key: `lifelog-custom:${i}`,
         name: l,
-        emoji: '📓',
+        emoji: DEFAULT_LIFELOG_EMOJI,
         color: CHANNEL_COLORS[4].name,
         description: `My ${l.toLowerCase()} Circle.`,
       });
@@ -757,7 +761,7 @@ export default function CompleteProfileScreen() {
       if (selectedHobbies.includes(h)) {
         setSelectedHobbies((prev) => prev.filter((x) => x !== h));
       } else if (circlesAtMax) {
-        addToast({ type: 'warning', title: "You've hit the 3-circle limit. Remove an existing one to add a different one." });
+        addToast({ type: 'warning', title: CIRCLE_LIMIT_WARNING });
       } else {
         setSelectedHobbies((prev) => [...prev, h]);
       }
@@ -767,7 +771,7 @@ export default function CompleteProfileScreen() {
       const name = customHobbyInput.trim();
       if (!name) return;
       if (circlesAtMax) {
-        addToast({ type: 'warning', title: "You've hit the 3-circle limit. Remove an existing one to add a different one." });
+        addToast({ type: 'warning', title: CIRCLE_LIMIT_WARNING });
         return;
       }
       if (customHobbies.includes(name)) return;
@@ -783,7 +787,7 @@ export default function CompleteProfileScreen() {
       if (selectedLifelogs.includes(l)) {
         setSelectedLifelogs((prev) => prev.filter((x) => x !== l));
       } else if (circlesAtMax) {
-        addToast({ type: 'warning', title: "You've hit the 3-circle limit. Remove an existing one to add a different one." });
+        addToast({ type: 'warning', title: CIRCLE_LIMIT_WARNING });
       } else {
         setSelectedLifelogs((prev) => [...prev, l]);
       }
@@ -793,7 +797,7 @@ export default function CompleteProfileScreen() {
       const name = customLifelogInput.trim();
       if (!name) return;
       if (circlesAtMax) {
-        addToast({ type: 'warning', title: "You've hit the 3-circle limit. Remove an existing one to add a different one." });
+        addToast({ type: 'warning', title: CIRCLE_LIMIT_WARNING });
         return;
       }
       if (customLifelogs.includes(name)) return;
@@ -868,7 +872,7 @@ export default function CompleteProfileScreen() {
         {showFamilySub && (
           <View style={styles.subSection}>
             <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>
-              FAMILY &amp; FRIENDS
+              FAMILY & FRIENDS
             </Text>
             <Text style={[styles.subHeader, { color: theme.foreground }]}>
               Does this sound like you?
@@ -883,7 +887,7 @@ export default function CompleteProfileScreen() {
                     if (isSelected) {
                       setFamilyStyle(null);
                     } else if (isDisabled) {
-                      addToast({ type: 'warning', title: "You've hit the 3-circle limit. Remove an existing one to add a different one." });
+                      addToast({ type: 'warning', title: CIRCLE_LIMIT_WARNING });
                     } else {
                       setFamilyStyle(s.id);
                     }
@@ -1036,7 +1040,7 @@ export default function CompleteProfileScreen() {
                         { color: active ? theme.primaryForeground : theme.foreground },
                       ]}
                     >
-                      {LIFELOG_EMOJI[opt] ?? '📓'} {opt}
+                      {LIFELOG_EMOJI[opt] ?? DEFAULT_LIFELOG_EMOJI} {opt}
                     </Text>
                   </Pressable>
                 );
@@ -1207,7 +1211,7 @@ export default function CompleteProfileScreen() {
       </View>
 
       <Text style={[styles.reassurance, { color: theme.mutedForeground }]}>
-        If you skip, we'll default to noon &amp; 6 PM. You can always change this in{' '}
+        If you skip, we'll default to noon & 6 PM. You can always change this in{' '}
         <Text style={{ fontWeight: '700' }}>Settings → Notifications</Text>.
       </Text>
     </>
