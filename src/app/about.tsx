@@ -442,7 +442,7 @@ export default function AboutScreen() {
                   <Card style={styles.solutionCard}>
                     <Text style={styles.solutionIcon}>📢</Text>
                     <Text style={[styles.solutionTitle, { color: theme.foreground }]}>
-                      Channels, Not Chat Rooms
+                      Circles, Not Chat Rooms
                     </Text>
                     <Text style={[styles.solutionBody, { color: theme.mutedForeground }]}>
                       Organize updates by topic — "Kids' Milestones," "Travel
@@ -580,7 +580,7 @@ export default function AboutScreen() {
                     </Text>
                   </Card>
                   <Text style={[styles.stepBody, { color: theme.mutedForeground }]}>
-                    Angelia gives you organized, topic-based channels with zero
+                    Angelia gives you organized, topic-based circles with zero
                     reply pressure. 💆
                   </Text>
                 </ScrollView>

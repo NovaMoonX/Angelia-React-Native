@@ -108,7 +108,7 @@ export default function PostCreateScreen() {
 
   const handleSubmit = () => {
     if (!selectedChannel) {
-      addToast({ type: 'warning', title: 'Please select a channel' });
+      addToast({ type: 'warning', title: 'Please select a circle' });
       return;
     }
     if (!text.trim() && media.length === 0) {
@@ -169,8 +169,8 @@ export default function PostCreateScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Channel selector */}
-        <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>Channel</Text>
+        {/* Circle selector */}
+        <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>Circle</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}

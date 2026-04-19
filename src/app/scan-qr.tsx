@@ -132,7 +132,7 @@ export default function ScanQRScreen() {
       {/* Hint */}
       <View style={[styles.hintRow, { bottom: insets.bottom + 60 }]}>
         <Text style={styles.hintText}>
-          Point your camera at a channel QR code
+          Point your camera at a circle QR code
         </Text>
         <Pressable
           style={styles.enterCodeLink}

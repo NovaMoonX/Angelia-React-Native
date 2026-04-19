@@ -82,18 +82,18 @@ export function ChannelFormModal({
     () => [
       FormFactories.input({
         name: 'name',
-        label: 'Channel Name',
+        label: 'Circle Name',
         placeholder: 'e.g., Family Adventures',
         required: true,
         isValid: (value) => {
           const name = ((value as string) || '').trim();
-          if (!name) return { valid: false, title: 'Channel name is required' };
+          if (!name) return { valid: false, title: 'Circle name is required' };
           if (
             existingChannelNames
               .filter((n) => n !== channel?.name)
               .includes(name)
           ) {
-            return { valid: false, title: 'Channel name already exists' };
+            return { valid: false, title: 'Circle name already exists' };
           }
           return { valid: true };
         },
@@ -101,12 +101,12 @@ export function ChannelFormModal({
       FormFactories.textarea({
         name: 'description',
         label: 'Description',
-        placeholder: 'Share what this channel is about...',
+        placeholder: 'Share what this circle is about...',
         rows: 3,
       }),
       FormFactories.custom({
         name: 'color',
-        label: 'Channel Color',
+        label: 'Circle Color',
         required: true,
         renderComponent: ColorPickerField,
         isValid: (value) => {
@@ -128,7 +128,7 @@ export function ChannelFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={mode === 'create' ? 'Create New Channel' : 'Edit Channel'}
+      title={mode === 'create' ? 'Create New Circle' : 'Edit Circle'}
     >
       <Form<ChannelFormData>
         form={formFields}
@@ -140,7 +140,7 @@ export function ChannelFormModal({
               Cancel
             </Button>
             <Button>
-              {mode === 'create' ? 'Create Channel' : 'Save Changes'}
+              {mode === 'create' ? 'Create Circle' : 'Save Changes'}
             </Button>
           </View>
         }

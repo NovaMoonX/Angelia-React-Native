@@ -155,7 +155,7 @@ export default function HomeScreen() {
             { color: theme.mutedForeground, opacity: sloganOpacity },
           ]}
         >
-          Family updates without the noise.{'\n'}Curate, subscribe, connect.
+          Family updates without the noise.{'\n'}Share, join, connect.
         </Animated.Text>
       </View>
 
@@ -177,7 +177,7 @@ export default function HomeScreen() {
             <Feather name="users" size={24} color={theme.secondaryForeground} />
             <View style={styles.joinChannelTextContainer}>
               <Text style={[styles.joinChannelTitle, { color: theme.secondaryForeground }]}>
-                Join a Channel
+                Join a Circle
               </Text>
               <Text style={[styles.joinChannelDesc, { color: theme.secondaryForeground }]}>
                 Got an invite code? Hop in and start connecting!

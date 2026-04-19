@@ -1,4 +1,4 @@
-import type { AvatarPreset, ChannelColorOption, PostTier } from './types';
+import type { AvatarPreset, ChannelColorOption, NotificationSettings, PostTier } from './types';
 
 export const CUSTOM_CHANNEL_LIMIT = 3;
 export const DAILY_CHANNEL_SUFFIX = '-daily';
@@ -7,9 +7,17 @@ export const MAX_FILE_SIZE_MB = 10;
 
 export const COMMON_EMOJIS = ['❤️', '👀', '😊', '🎉', '😮', '😢', '😄', '🔥'];
 
+/** Default values for the wind-down prompt settings. */
+export const DEFAULT_WIND_DOWN_PROMPT: NotificationSettings['windDownPrompt'] = {
+  enabled: true,
+  hour: 17,
+  minute: 30,
+};
+
 export const AVATAR_PRESETS: AvatarPreset[] = [
   'astronaut', 'moon', 'star', 'galaxy', 'nebula', 'planet',
   'cosmic-cat', 'dream-cloud', 'rocket', 'constellation', 'comet', 'twilight',
+  'aurora', 'supernova', 'lunar-moth', 'satellite', 'alien', 'black-hole',
 ];
 
 export const CHANNEL_COLORS: ChannelColorOption[] = [

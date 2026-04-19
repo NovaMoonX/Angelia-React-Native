@@ -61,10 +61,10 @@ export function MyChannelsTab() {
   }) => {
     try {
       await dispatch(createCustomChannel(data)).unwrap();
-      addToast({ type: 'success', title: 'Channel created!' });
+      addToast({ type: 'success', title: 'Circle created!' });
       setChannelFormOpen(false);
     } catch {
-      addToast({ type: 'error', title: 'Failed to create channel' });
+      addToast({ type: 'error', title: 'Failed to create circle' });
     }
   };
 
@@ -76,26 +76,26 @@ export function MyChannelsTab() {
     if (!editingChannel) return;
     try {
       await dispatch(editCustomChannel({ channel: editingChannel, data })).unwrap();
-      addToast({ type: 'success', title: 'Channel updated!' });
+      addToast({ type: 'success', title: 'Circle updated!' });
       setChannelFormOpen(false);
       setEditingChannel(undefined);
     } catch {
-      addToast({ type: 'error', title: 'Failed to update channel' });
+      addToast({ type: 'error', title: 'Failed to update circle' });
     }
   };
 
   const handleDeleteChannel = async (channelId: string) => {
     const ok = await confirm({
-      title: 'Delete Channel',
-      message: 'This will permanently delete this channel and all its posts. Continue?',
+      title: 'Delete Circle',
+      message: 'This will permanently delete this circle and all its posts. Continue?',
       destructive: true,
     });
     if (!ok) return;
     try {
       await dispatch(deleteCustomChannel(channelId)).unwrap();
-      addToast({ type: 'success', title: 'Channel deleted' });
+      addToast({ type: 'success', title: 'Circle deleted' });
     } catch {
-      addToast({ type: 'error', title: 'Failed to delete channel' });
+      addToast({ type: 'error', title: 'Failed to delete circle' });
     }
   };
 
@@ -110,7 +110,7 @@ export function MyChannelsTab() {
           }}
           style={{ marginBottom: 16 }}
         >
-          {`+ New Channel (${customChannelCount}/${CUSTOM_CHANNEL_LIMIT})`}
+          {`+ New Circle (${customChannelCount}/${CUSTOM_CHANNEL_LIMIT})`}
         </Button>
       )}
 
@@ -134,7 +134,7 @@ export function MyChannelsTab() {
 
       {myChannels.length === 0 && (
         <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>
-          You don't have any channels yet.
+          You don't have any circles yet.
         </Text>
       )}
 
@@ -181,9 +181,9 @@ export function MyChannelsTab() {
                     await dispatch(
                       removeChannelSubscriber({ channelId: selectedChannel.id, subscriberId })
                     ).unwrap();
-                    addToast({ type: 'success', title: 'Subscriber removed' });
+                    addToast({ type: 'success', title: 'Member removed' });
                   } catch {
-                    addToast({ type: 'error', title: 'Failed to remove subscriber' });
+                    addToast({ type: 'error', title: 'Failed to remove member' });
                   } finally {
                     setRemovingSubscriberId(null);
                   }

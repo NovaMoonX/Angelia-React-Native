@@ -20,6 +20,7 @@ import {
 } from '@/store/slices/usersSlice';
 import { retryWithBackoff } from '@/utils/retryWithBackoff';
 import type { NotificationSettings, NotificationSettingsUpdate } from '@/models/types';
+import { DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
 import type { RootState } from '@/store';
 import { isDemoActive } from './globalActions';
 
@@ -117,10 +118,14 @@ export const saveNotificationSettings = createAsyncThunk(
     const mergedDailyPrompt: NotificationSettings['dailyPrompt'] = data.dailyPrompt
       ? { ...current.dailyPrompt, ...data.dailyPrompt }
       : current.dailyPrompt;
+    const mergedWindDownPrompt: NotificationSettings['windDownPrompt'] = data.windDownPrompt
+      ? { ...(current.windDownPrompt ?? DEFAULT_WIND_DOWN_PROMPT), ...data.windDownPrompt }
+      : (current.windDownPrompt ?? DEFAULT_WIND_DOWN_PROMPT);
     const updated: NotificationSettings = {
       ...current,
       ...data,
       dailyPrompt: mergedDailyPrompt,
+      windDownPrompt: mergedWindDownPrompt,
     };
 
     if (isDemoActive(getState)) {

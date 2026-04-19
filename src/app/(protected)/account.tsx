@@ -40,8 +40,8 @@ export default function AccountScreen() {
         <Tabs defaultValue="account">
           <TabsList style={{ marginBottom: 16 }}>
             <TabsTrigger value="account">Account</TabsTrigger>
-            <TabsTrigger value="my-channels">My Channels</TabsTrigger>
-            <TabsTrigger value="subscribed">Subscribed</TabsTrigger>
+            <TabsTrigger value="my-channels">My Circles</TabsTrigger>
+            <TabsTrigger value="subscribed">Joined</TabsTrigger>
           </TabsList>
 
           <TabsContent value="account">

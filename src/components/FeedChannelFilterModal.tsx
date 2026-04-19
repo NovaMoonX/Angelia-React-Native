@@ -173,7 +173,7 @@ export function FeedChannelFilterModal({
     searchQuery.length > 0;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Filter Channels">
+    <Modal isOpen={isOpen} onClose={onClose} title="Filter Circles">
       {/* Radio — scope */}
       <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>Scope</Text>
       {(['all', 'others'] as const).map((mode) => {
@@ -191,7 +191,7 @@ export function FeedChannelFilterModal({
               )}
             </View>
             <Text style={[styles.radioLabel, { color: theme.foreground }]}>
-              {mode === 'all' ? 'All Channels' : "Others' Channels"}
+              {mode === 'all' ? 'All Circles' : "Others' Circles"}
             </Text>
           </Pressable>
         );
@@ -201,7 +201,7 @@ export function FeedChannelFilterModal({
 
       {/* Specific channel picker */}
       <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>
-        Or pick specific channels
+        Or pick specific circles
       </Text>
 
       {showSearch && (
@@ -215,7 +215,7 @@ export function FeedChannelFilterModal({
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Search channels…"
+            placeholder="Search circles…"
             placeholderTextColor={theme.mutedForeground}
             style={[styles.searchInput, { color: theme.foreground }]}
             autoCorrect={false}
@@ -234,11 +234,11 @@ export function FeedChannelFilterModal({
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionEmoji}>📅</Text>
             <Text style={[styles.sectionLabel, { color: theme.mutedForeground, marginBottom: 0 }]}>
-              Daily Channels
+              Daily Circles
             </Text>
           </View>
           <CheckboxGroup
-            label="Daily Channels"
+            label="Daily Circles"
             items={filteredDailyItems}
             selectedIds={selectedIds}
             onToggleItem={handleToggleItem}
@@ -255,7 +255,7 @@ export function FeedChannelFilterModal({
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionEmoji}>📣</Text>
             <Text style={[styles.sectionLabel, { color: theme.mutedForeground, marginBottom: 0 }]}>
-              Channels
+              Circles
             </Text>
           </View>
           {filteredRegularGroups.map(({ ownerId, label, items }) => (
@@ -273,7 +273,7 @@ export function FeedChannelFilterModal({
 
       {noResults && (
         <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>
-          No channels match your search.
+          No circles match your search.
         </Text>
       )}
 

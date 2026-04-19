@@ -13,7 +13,7 @@ import { ActionModalProvider } from '@/providers/ActionModalProvider';
 import { AuthProvider } from '@/providers/AuthProvider';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useTheme } from '@/hooks/useTheme';
-import { NOTIFICATION_ID, getFollowUpForPrompt } from '@/services/notifications';
+import { NOTIFICATION_ID, WIND_DOWN_NOTIFICATION_ID, getFollowUpForPrompt, getFollowUpForWindDown } from '@/services/notifications';
 
 // Configure how notifications are presented when the app is in the foreground.
 Notifications.setNotificationHandler({
@@ -31,11 +31,13 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 	const notification = response.notification;
 	const data = notification.request.content.data as Record<string, string> | undefined;
 	const type = data?.type;
+	const identifier = notification.request.identifier;
 
-	if (notification.request.identifier === NOTIFICATION_ID) {
-		// Daily prompt notification — navigate to post creation
+	if (identifier === NOTIFICATION_ID || identifier === WIND_DOWN_NOTIFICATION_ID) {
 		const promptIndex = parseInt((data?.promptIndex as string) ?? '0', 10);
-		const followUp = getFollowUpForPrompt(promptIndex);
+		const followUp = identifier === WIND_DOWN_NOTIFICATION_ID
+			? getFollowUpForWindDown(promptIndex)
+			: getFollowUpForPrompt(promptIndex);
 		router.push({
 			pathname: '/(protected)/post/new',
 			params: { existingText: followUp },

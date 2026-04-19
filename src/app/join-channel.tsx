@@ -64,7 +64,7 @@ export default function JoinChannelScreen() {
     try {
       const found = await getChannelByInviteCode(trimmed);
       if (!found) {
-        setLookupError('No channel found with this code. Double-check and try again!');
+        setLookupError('No circle found with this code. Double-check and try again!');
         setLookupLoading(false);
         return;
       }
@@ -87,7 +87,7 @@ export default function JoinChannelScreen() {
     getChannelByInviteCode(initialCode)
       .then((found) => {
         if (!found) {
-          setLookupError('No channel found with this code. Double-check and try again!');
+          setLookupError('No circle found with this code. Double-check and try again!');
           return;
         }
         setChannel(found);
@@ -184,10 +184,10 @@ export default function JoinChannelScreen() {
             </View>
 
             <Text style={[styles.heading, { color: theme.foreground }]}>
-              Join a Channel
+              Join a Circle
             </Text>
             <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
-              Enter the 8-character invite code shared with you, or scan the channel's QR code.
+              Enter the 8-character invite code shared with you, or scan the circle's QR code.
             </Text>
 
             {/* QR scan button */}
@@ -231,7 +231,7 @@ export default function JoinChannelScreen() {
               size="lg"
               style={styles.findButton}
             >
-              Find Channel
+              Find Circle
             </Button>
 
             {code.length > 0 && (
@@ -287,7 +287,7 @@ export default function JoinChannelScreen() {
               <View style={styles.statusSection}>
                 <Feather name="check-circle" size={20} color={theme.success} />
                 <Text style={[styles.statusText, { color: theme.success }]}>
-                  You're already subscribed to this channel!
+                  You're already a member of this circle!
                 </Text>
               </View>
             ) : isAuthenticated && existingRequest ? (
@@ -345,7 +345,7 @@ export default function JoinChannelScreen() {
 
                 {!isAuthenticated && (
                   <Text style={[styles.hint, { color: theme.mutedForeground }]}>
-                    You'll create an account or sign in, then be added to this channel.
+                    You'll create an account or sign in, then be added to this circle.
                   </Text>
                 )}
               </View>

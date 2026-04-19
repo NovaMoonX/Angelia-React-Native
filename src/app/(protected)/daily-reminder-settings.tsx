@@ -44,74 +44,96 @@ export default function DailyReminderSettingsScreen() {
     (state) => state.users.currentUserNotificationSettings,
   );
 
-  const notifEnabled = notificationSettings?.dailyPrompt?.enabled ?? true;
-  const notifHour = notificationSettings?.dailyPrompt?.hour ?? 12;
-  const notifMinute = notificationSettings?.dailyPrompt?.minute ?? 0;
+  // Mid-day prompt
+  const midDayEnabled = notificationSettings?.dailyPrompt?.enabled ?? true;
+  const midDayHour = notificationSettings?.dailyPrompt?.hour ?? 12;
+  const midDayMinute = notificationSettings?.dailyPrompt?.minute ?? 0;
+
+  // Wind-down prompt
+  const windDownEnabled = notificationSettings?.windDownPrompt?.enabled ?? true;
+  const windDownHour = notificationSettings?.windDownPrompt?.hour ?? 17;
+  const windDownMinute = notificationSettings?.windDownPrompt?.minute ?? 30;
+
+  // Active picker state: which prompt's time are we editing?
+  type PickerTarget = 'midday' | 'winddown';
+  const [activeTarget, setActiveTarget] = useState<PickerTarget>('midday');
 
   // iOS time picker modal state
   const [showIosTimePicker, setShowIosTimePicker] = useState(false);
   const [iosPickerDate, setIosPickerDate] = useState<Date>(() =>
-    buildTimeDate(notifHour, notifMinute),
+    buildTimeDate(midDayHour, midDayMinute),
   );
   // Android time picker (shown as native dialog by conditionally rendering)
   const [showAndroidPicker, setShowAndroidPicker] = useState(false);
 
   // ---- Handlers ----
 
-  const handleToggleDailyPrompt = useCallback(async () => {
+  const handleToggleMidDay = useCallback(async () => {
     try {
       await dispatch(
-        saveNotificationSettings({ dailyPrompt: { enabled: !notifEnabled } }),
+        saveNotificationSettings({ dailyPrompt: { enabled: !midDayEnabled } }),
       ).unwrap();
     } catch {
       addToast({ type: 'error', title: 'Failed to update notification settings' });
     }
-  }, [dispatch, notifEnabled, addToast]);
+  }, [dispatch, midDayEnabled, addToast]);
+
+  const handleToggleWindDown = useCallback(async () => {
+    try {
+      await dispatch(
+        saveNotificationSettings({ windDownPrompt: { enabled: !windDownEnabled } }),
+      ).unwrap();
+    } catch {
+      addToast({ type: 'error', title: 'Failed to update notification settings' });
+    }
+  }, [dispatch, windDownEnabled, addToast]);
+
+  /** Shared logic for saving a time change and showing feedback. */
+  const saveTimeChange = useCallback(
+    async (h: number, m: number) => {
+      const currentH = activeTarget === 'midday' ? midDayHour : windDownHour;
+      const currentM = activeTarget === 'midday' ? midDayMinute : windDownMinute;
+      if (h === currentH && m === currentM) return;
+      try {
+        const key = activeTarget === 'midday' ? 'dailyPrompt' : 'windDownPrompt';
+        await dispatch(
+          saveNotificationSettings({ [key]: { hour: h, minute: m } }),
+        ).unwrap();
+        addToast({ type: 'success', title: activeTarget === 'midday' ? 'Mid-day time updated' : 'Wind-down time updated' });
+      } catch {
+        addToast({ type: 'error', title: 'Failed to update reminder time' });
+      }
+    },
+    [dispatch, addToast, activeTarget, midDayHour, midDayMinute, windDownHour, windDownMinute],
+  );
 
   /** Android: time picker calls this directly with the new date. */
   const handleAndroidTimeChange = useCallback(
     async (_event: DateTimePickerEvent, date?: Date) => {
       setShowAndroidPicker(false);
       if (!date) return;
-      const h = date.getHours();
-      const m = date.getMinutes();
-      if (h === notifHour && m === notifMinute) return;
-      try {
-        await dispatch(
-          saveNotificationSettings({ dailyPrompt: { hour: h, minute: m } }),
-        ).unwrap();
-        addToast({ type: 'success', title: 'Reminder time updated' });
-      } catch {
-        addToast({ type: 'error', title: 'Failed to update reminder time' });
-      }
+      await saveTimeChange(date.getHours(), date.getMinutes());
     },
-    [dispatch, addToast, notifHour, notifMinute],
+    [saveTimeChange],
   );
 
   /** iOS: "Done" pressed in the time picker modal. */
   const handleIosTimeDone = useCallback(async () => {
     setShowIosTimePicker(false);
-    const h = iosPickerDate.getHours();
-    const m = iosPickerDate.getMinutes();
-    if (h === notifHour && m === notifMinute) return;
-    try {
-      await dispatch(
-        saveNotificationSettings({ dailyPrompt: { hour: h, minute: m } }),
-      ).unwrap();
-      addToast({ type: 'success', title: 'Reminder time updated' });
-    } catch {
-      addToast({ type: 'error', title: 'Failed to update reminder time' });
-    }
-  }, [dispatch, addToast, iosPickerDate, notifHour, notifMinute]);
+    await saveTimeChange(iosPickerDate.getHours(), iosPickerDate.getMinutes());
+  }, [saveTimeChange, iosPickerDate]);
 
-  const handleOpenTimePicker = useCallback(() => {
-    setIosPickerDate(buildTimeDate(notifHour, notifMinute));
+  const handleOpenTimePicker = useCallback((target: PickerTarget) => {
+    setActiveTarget(target);
+    const h = target === 'midday' ? midDayHour : windDownHour;
+    const m = target === 'midday' ? midDayMinute : windDownMinute;
+    setIosPickerDate(buildTimeDate(h, m));
     if (Platform.OS === 'ios') {
       setShowIosTimePicker(true);
     } else {
       setShowAndroidPicker(true);
     }
-  }, [notifHour, notifMinute]);
+  }, [midDayHour, midDayMinute, windDownHour, windDownMinute]);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
@@ -123,31 +145,31 @@ export default function DailyReminderSettingsScreen() {
             Daily Reminders
           </Text>
           <Text style={[styles.heroSubtitle, { color: theme.secondaryForeground }]}>
-            A gentle nudge to share what's going on — because your people
-            actually want to hear from you. 💛
+            Two gentle nudges a day — a mid-day check-in and an evening
+            wind-down — because your people actually want to hear from you. 💛
           </Text>
         </View>
 
-        {/* Settings group */}
+        {/* Mid-day check-in group */}
         <View style={[styles.group, { backgroundColor: theme.card, borderColor: theme.border }]}>
 
           {/* Enable toggle */}
           <View style={styles.row}>
             <View style={styles.rowLeft}>
-              <Text style={styles.rowEmoji}>✨</Text>
+              <Text style={styles.rowEmoji}>☀️</Text>
               <View style={styles.rowText}>
                 <Text style={[styles.rowLabel, { color: theme.foreground }]}>
-                  Get reminders
+                  Mid-day check-in
                 </Text>
                 <Text style={[styles.rowSub, { color: theme.mutedForeground }]}>
-                  {notifEnabled ? "On — we'll nudge you daily 💛" : 'Off'}
+                  {midDayEnabled ? "On — we'll ask how your day's going 💛" : 'Off'}
                 </Text>
               </View>
             </View>
             {notificationSettings ? (
               <Switch
-                value={notifEnabled}
-                onValueChange={handleToggleDailyPrompt}
+                value={midDayEnabled}
+                onValueChange={handleToggleMidDay}
                 trackColor={{ false: theme.muted, true: theme.primary }}
                 thumbColor="#FFFFFF"
               />
@@ -158,7 +180,7 @@ export default function DailyReminderSettingsScreen() {
             )}
           </View>
 
-          {notifEnabled && notificationSettings ? (
+          {midDayEnabled && notificationSettings ? (
             <>
               <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
@@ -167,20 +189,81 @@ export default function DailyReminderSettingsScreen() {
                 <View style={styles.rowLeft}>
                   <Text style={styles.rowEmoji}>🕐</Text>
                   <Text style={[styles.rowLabel, { color: theme.foreground }]}>
-                    Reminder time
+                    Check-in time
                   </Text>
                 </View>
 
                 {/* Tappable time display */}
                 <Pressable
-                  onPress={handleOpenTimePicker}
+                  onPress={() => handleOpenTimePicker('midday')}
                   style={[
                     styles.timeTrigger,
                     { borderColor: theme.border, backgroundColor: theme.background },
                   ]}
                 >
                   <Text style={[styles.timeValue, { color: theme.foreground }]}>
-                    {formatTime(notifHour, notifMinute)}
+                    {formatTime(midDayHour, midDayMinute)}
+                  </Text>
+                  <Feather name="clock" size={16} color={theme.mutedForeground} />
+                </Pressable>
+              </View>
+            </>
+          ) : null}
+        </View>
+
+        {/* Wind-down prompt group */}
+        <View style={[styles.group, { backgroundColor: theme.card, borderColor: theme.border }]}>
+
+          {/* Enable toggle */}
+          <View style={styles.row}>
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowEmoji}>🌙</Text>
+              <View style={styles.rowText}>
+                <Text style={[styles.rowLabel, { color: theme.foreground }]}>
+                  Evening wind-down
+                </Text>
+                <Text style={[styles.rowSub, { color: theme.mutedForeground }]}>
+                  {windDownEnabled ? "On — a cozy end-of-day nudge 🌙" : 'Off'}
+                </Text>
+              </View>
+            </View>
+            {notificationSettings ? (
+              <Switch
+                value={windDownEnabled}
+                onValueChange={handleToggleWindDown}
+                trackColor={{ false: theme.muted, true: theme.primary }}
+                thumbColor="#FFFFFF"
+              />
+            ) : (
+              <Text style={[styles.loadingText, { color: theme.mutedForeground }]}>
+                Loading…
+              </Text>
+            )}
+          </View>
+
+          {windDownEnabled && notificationSettings ? (
+            <>
+              <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+              {/* Reminder time */}
+              <View style={styles.rowStack}>
+                <View style={styles.rowLeft}>
+                  <Text style={styles.rowEmoji}>🕐</Text>
+                  <Text style={[styles.rowLabel, { color: theme.foreground }]}>
+                    Wind-down time
+                  </Text>
+                </View>
+
+                {/* Tappable time display */}
+                <Pressable
+                  onPress={() => handleOpenTimePicker('winddown')}
+                  style={[
+                    styles.timeTrigger,
+                    { borderColor: theme.border, backgroundColor: theme.background },
+                  ]}
+                >
+                  <Text style={[styles.timeValue, { color: theme.foreground }]}>
+                    {formatTime(windDownHour, windDownMinute)}
                   </Text>
                   <Feather name="clock" size={16} color={theme.mutedForeground} />
                 </Pressable>
@@ -189,7 +272,10 @@ export default function DailyReminderSettingsScreen() {
                 {Platform.OS === 'android' && showAndroidPicker && (
                   <DateTimePicker
                     mode="time"
-                    value={buildTimeDate(notifHour, notifMinute)}
+                    value={buildTimeDate(
+                      activeTarget === 'midday' ? midDayHour : windDownHour,
+                      activeTarget === 'midday' ? midDayMinute : windDownMinute,
+                    )}
                     display="clock"
                     onChange={handleAndroidTimeChange}
                   />
@@ -199,9 +285,9 @@ export default function DailyReminderSettingsScreen() {
           ) : null}
         </View>
 
-        {notifEnabled && notificationSettings ? (
+        {(midDayEnabled || windDownEnabled) && notificationSettings ? (
           <Text style={[styles.footerNote, { color: theme.mutedForeground }]}>
-            You'll get a friendly nudge at the time you choose — tap it
+            You'll get a friendly nudge at the times you choose — tap one
             to share a quick update with your circles. 🌟
           </Text>
         ) : null}

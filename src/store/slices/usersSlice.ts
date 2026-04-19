@@ -1,5 +1,6 @@
 import { createSlice, createSelector, type PayloadAction } from '@reduxjs/toolkit';
 import type { User, UserStatus, PostTier, NotificationSettings, NotificationSettingsUpdate } from '@/models/types';
+import { DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
 import type { RootState } from '../index';
 import { resetAllState } from '../actions/globalActions';
 
@@ -57,12 +58,18 @@ const usersSlice = createSlice({
       action: PayloadAction<NotificationSettingsUpdate>,
     ) {
       if (state.currentUserNotificationSettings) {
-        const { dailyPrompt, ...rest } = action.payload;
+        const { dailyPrompt, windDownPrompt, ...rest } = action.payload;
         Object.assign(state.currentUserNotificationSettings, rest);
         if (dailyPrompt) {
           state.currentUserNotificationSettings.dailyPrompt = {
             ...state.currentUserNotificationSettings.dailyPrompt,
             ...dailyPrompt,
+          };
+        }
+        if (windDownPrompt) {
+          state.currentUserNotificationSettings.windDownPrompt = {
+            ...(state.currentUserNotificationSettings.windDownPrompt ?? DEFAULT_WIND_DOWN_PROMPT),
+            ...windDownPrompt,
           };
         }
       }

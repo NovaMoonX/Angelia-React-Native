@@ -7,7 +7,7 @@ const COMPARISONS = [
   { useCase: 'Share once, reach everyone', groupChat: false, socialMedia: true, angelia: true },
   { useCase: 'Organized updates', groupChat: false, socialMedia: true, angelia: true },
   { useCase: 'Private & family-focused', groupChat: true, socialMedia: false, angelia: true },
-  { useCase: 'Subscribe to topics', groupChat: false, socialMedia: false, angelia: true },
+  { useCase: 'Join topic Circles', groupChat: false, socialMedia: false, angelia: true },
   { useCase: 'Temporary updates', groupChat: false, socialMedia: false, angelia: true },
   { useCase: 'No algorithm distraction', groupChat: true, socialMedia: false, angelia: true },
   { useCase: 'Share life updates', groupChat: true, socialMedia: true, angelia: true },

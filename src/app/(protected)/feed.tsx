@@ -75,15 +75,15 @@ export default function FeedScreen() {
   const [scrolledPast, setScrolledPast] = useState(false);
 
   const channelFilterLabel = useMemo(() => {
-    if (channelFilter.mode === 'all') return 'All Channels';
-    if (channelFilter.mode === 'others') return "Others' Channels";
+    if (channelFilter.mode === 'all') return 'All Circles';
+    if (channelFilter.mode === 'others') return "Others' Circles";
     const count = channelFilter.specificIds.length;
-    if (count === 0) return 'All Channels';
+    if (count === 0) return 'All Circles';
     if (count === 1) {
       const ch = channels.find((c) => c.id === channelFilter.specificIds[0]);
-      return ch?.name ?? '1 Channel';
+      return ch?.name ?? '1 Circle';
     }
-    return `${count} Channels`;
+    return `${count} Circles`;
   }, [channelFilter, channels]);
 
   // Pre-compute the set of allowed channel IDs based on the filter (null = all)
