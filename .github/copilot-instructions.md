@@ -36,6 +36,7 @@ Specifically, the following must always match between the two files:
 - `NotificationTarget` discriminated union shape
 - `BaseAppNotification` fields (`actorId`, `target`, `createdAt`, `id`, `type`)
 - Each per-notification-type interface (e.g. `JoinChannelRequestNotification`)
+- Domain model interfaces used by Cloud Functions (e.g. `ConnectionRequest`, `ChannelJoinRequest`)
 
 When adding a new notification type:
 1. Add it to `AppNotificationType` in both files.

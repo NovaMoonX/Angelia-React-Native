@@ -79,6 +79,7 @@ interface ConnectionRequest {
   respondedAt: number | null;
 }
 
+/** Mirrors ChannelJoinRequest in src/models/types.ts — keep in sync. */
 interface ChannelJoinRequest {
   id: string;
   channelId: string;
