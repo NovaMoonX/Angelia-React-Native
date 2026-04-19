@@ -18,6 +18,25 @@ Angelia is a warm, playful, and encouraging app. All user-facing copy — placeh
 
 ---
 
+## Cloud Functions type sync
+
+The notification types in `functions/src/index.ts` (the Cloud Functions entry point) mirror the types in `src/models/types.ts`. These **must be kept in sync** whenever notification types change.
+
+Specifically, the following must always match between the two files:
+- `AppNotificationType` union values
+- `NotificationTarget` discriminated union shape
+- `BaseAppNotification` fields (`actorId`, `target`, `createdAt`, `id`, `type`)
+- Each per-notification-type interface (e.g. `JoinChannelRequestNotification`)
+
+When adding a new notification type:
+1. Add it to `AppNotificationType` in both files.
+2. Add the corresponding interface in both files.
+3. Add a `buildFcmPayload` branch in `functions/src/index.ts`.
+4. Add a foreground toast handler in `src/components/DataListenerWrapper.tsx` (Effect 9).
+5. Add a tap-routing branch in `src/app/_layout.tsx`.
+
+---
+
 ## Keeping docs up to date
 
 ### PRODUCT_SUMMARY.md

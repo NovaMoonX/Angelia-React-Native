@@ -214,6 +214,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // App notifications — written by the app, processed & deleted by Cloud Functions.
+    // Clients only need create access; the Admin SDK handles reads and deletes.
+    match /notifications/{notificationId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if false;
+    }
+
     // Default: deny all reads and writes not explicitly allowed above.
     // This prevents accidental open-read rules from exposing private data.
     match /{document=**} {

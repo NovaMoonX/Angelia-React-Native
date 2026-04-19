@@ -26,16 +26,30 @@ Notifications.setNotificationHandler({
 });
 
 // Register a global response handler so that notification taps from
-// background / quit states navigate to the post creation screen.
+// background / quit states navigate to the appropriate screen.
 Notifications.addNotificationResponseReceivedListener((response) => {
 	const notification = response.notification;
+	const data = notification.request.content.data as Record<string, string> | undefined;
+	const type = data?.type;
+
 	if (notification.request.identifier === NOTIFICATION_ID) {
-		const promptIndex = parseInt((notification.request.content.data?.promptIndex as string) ?? '0', 10);
+		// Daily prompt notification — navigate to post creation
+		const promptIndex = parseInt((data?.promptIndex as string) ?? '0', 10);
 		const followUp = getFollowUpForPrompt(promptIndex);
 		router.push({
 			pathname: '/(protected)/post/new',
 			params: { existingText: followUp },
 		});
+	} else if (type === 'join_channel_request') {
+		const joinRequestId = data?.joinRequestId;
+		if (joinRequestId) {
+			router.push({ pathname: '/(protected)/join-request/[id]', params: { id: joinRequestId } });
+		} else {
+			router.push('/(protected)/notifications');
+		}
+	} else if (type === 'join_channel_accepted') {
+		const channelName = data?.channelName ?? '';
+		router.push({ pathname: '/(protected)/channel-accepted', params: { channelName } });
 	}
 });
 

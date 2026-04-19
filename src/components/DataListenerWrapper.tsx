@@ -27,7 +27,7 @@ import {
   NOTIFICATION_ID,
   getFollowUpForPrompt,
 } from '@/services/notifications';
-import type { Channel, ChannelJoinRequest, NotificationSettings, Post, User } from '@/models/types';
+import type { AppNotificationType, Channel, ChannelJoinRequest, NotificationSettings, Post, User } from '@/models/types';
 
 interface DataListenerWrapperProps {
   children: React.ReactNode;
@@ -283,6 +283,38 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   // Run once when the user profile first becomes available after app start
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]);
+
+  // Effect 9: Show in-app toast when a push notification arrives in the foreground.
+  // Handles join_channel_request and join_channel_accepted types.
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener((notification) => {
+      const data = notification.request.content.data as Record<string, string> | undefined;
+      const type = data?.type as AppNotificationType | undefined;
+
+      if (type === 'join_channel_request') {
+        const channelName = data?.channelName ?? 'your channel';
+        const firstName = data?.requesterFirstName ?? 'Someone';
+        const joinRequestId = data?.joinRequestId;
+        addToast({
+          type: 'info',
+          title: `📬 ${firstName} wants to join!`,
+          description: `Tap to review their request for ${channelName}`,
+          onPress: joinRequestId
+            ? () => router.push({ pathname: '/(protected)/join-request/[id]', params: { id: joinRequestId } })
+            : undefined,
+        });
+      } else if (type === 'join_channel_accepted') {
+        const channelName = data?.channelName ?? 'the channel';
+        addToast({
+          type: 'success',
+          title: '🎉 You\'ve been accepted!',
+          description: `Tap to check out ${channelName} and celebrate!`,
+          onPress: () => router.push({ pathname: '/(protected)/channel-accepted', params: { channelName } }),
+        });
+      }
+    });
+    return () => subscription.remove();
+  }, [addToast]);
 
   return <>{children}</>;
 }

@@ -15,7 +15,7 @@ import {
   arrayUnion,
   arrayRemove,
 } from '@react-native-firebase/firestore';
-import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message } from '@/models/types';
+import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
@@ -519,4 +519,15 @@ export function subscribeToMessages(
       callback([]);
     },
   );
+}
+
+// ── App Notification Operations ────────────────────────────────────────────
+
+/**
+ * Writes a notification document to the top-level `notifications` collection.
+ * A Cloud Function listens for new documents, sends the FCM push to the target
+ * user's registered devices, and then deletes the document.
+ */
+export async function createAppNotification(notification: AppNotification): Promise<void> {
+  await setDoc(doc(db, 'notifications', notification.id), notification);
 }
