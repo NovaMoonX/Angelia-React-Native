@@ -65,12 +65,15 @@ export default function MyPeopleScreen() {
   const usersMap = useAppSelector(selectAllUsersMapById);
 
   /**
-   * Build the combined "My People" list:
-   *   1. Direct connections (accepted connection requests)
-   *   2. Circle members — subscribers of Custom Circles the current user owns
-   *   3. Circle hosts + fellow members — owners & co-members of circles the current user has joined
+   * Build the combined "My People" list.
+   * Everyone here has implicit Daily Circle access (circle membership grants it).
    *
-   * Each person appears only once across all sections. Direct connections take priority.
+   * Two sections:
+   *   1. Direct connections (accepted connection requests)
+   *   2. Circle people — subscribers of circles you own
+   *                    + owners of circles you've joined (NOT co-members)
+   *
+   * Each person appears only once. Direct connections take priority.
    */
   const { directConnections, circleOnlyMembers } = useMemo(() => {
     const currentUserId = currentUser?.id ?? '';
@@ -89,16 +92,13 @@ export default function MyPeopleScreen() {
       }
     }
 
-    // ── Circles I'm in → collect the owner + co-subscribers ────────────────
+    // ── Circles I'm in → collect only the host (owner), NOT co-subscribers ──
     const joinedChannels = channels.filter(
       (ch) => !ch.isDaily && ch.ownerId !== currentUserId && ch.subscribers.includes(currentUserId),
     );
-    const joinedCirclePeopleIds = new Set<string>();
+    const joinedCircleHostIds = new Set<string>();
     for (const ch of joinedChannels) {
-      joinedCirclePeopleIds.add(ch.ownerId);
-      for (const sub of ch.subscribers) {
-        if (sub !== currentUserId) joinedCirclePeopleIds.add(sub);
-      }
+      joinedCircleHostIds.add(ch.ownerId);
     }
 
     // ── Circle-only = union of both circle sets, minus direct connections ───
@@ -106,7 +106,7 @@ export default function MyPeopleScreen() {
     for (const id of ownedCircleMemberIds) {
       if (!directIds.has(id)) circleOnlyIds.add(id);
     }
-    for (const id of joinedCirclePeopleIds) {
+    for (const id of joinedCircleHostIds) {
       if (!directIds.has(id)) circleOnlyIds.add(id);
     }
 
@@ -203,14 +203,11 @@ export default function MyPeopleScreen() {
               </View>
             )}
 
-            {/* Circle-only members */}
+            {/* Circle people */}
             {circleOnlyMembers.length > 0 && (
               <View style={styles.section}>
                 <Text style={[styles.sectionTitle, { color: theme.mutedForeground }]}>
                   IN YOUR CIRCLES ({circleOnlyMembers.length})
-                </Text>
-                <Text style={[styles.sectionNote, { color: theme.mutedForeground }]}>
-                  People in circles you own or have joined. Connect directly to also see their Daily Circle.
                 </Text>
                 {circleOnlyMembers.map((user) => (
                   <PersonRow key={user.id} user={user} tag="Circle Member" />
@@ -269,10 +266,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 1.1,
     textTransform: 'uppercase',
-  },
-  sectionNote: {
-    fontSize: 13,
-    lineHeight: 18,
   },
   personRow: {
     flexDirection: 'row',

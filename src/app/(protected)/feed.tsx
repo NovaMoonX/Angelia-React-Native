@@ -47,6 +47,9 @@ export default function FeedScreen() {
   const hasIncoming = useAppSelector(
     (state) => state.invites.incoming.some((r) => r.status === 'pending')
   );
+  const hasPendingConnRequest = useAppSelector(
+    (state) => state.connections.incomingRequests.some((r) => r.status === 'pending')
+  );
 
   const [channelFilter, setChannelFilter] = useState<ChannelFilterState>({ mode: 'all', specificIds: [] });
   const [channelFilterOpen, setChannelFilterOpen] = useState(false);
@@ -390,10 +393,16 @@ export default function FeedScreen() {
             </Text>
           </View>
           <View style={[styles.headerSide, styles.headerSideRight]}>
-            <Pressable onPress={() => router.push('/(protected)/notifications')}>
-              <BellIcon hasNotification={hasIncoming} />
-            </Pressable>
-          </View>
+              <Pressable
+                onPress={() => router.push('/(protected)/my-people')}
+                style={styles.headerIconBtn}
+              >
+                <Feather name="users" size={22} color={theme.foreground} />
+              </Pressable>
+              <Pressable onPress={() => router.push('/(protected)/notifications')}>
+                <BellIcon hasNotification={hasIncoming || hasPendingConnRequest} />
+              </Pressable>
+            </View>
         </View>
 
         {/* Filters */}
@@ -645,7 +654,13 @@ const styles = StyleSheet.create({
     width: 40,
   },
   headerSideRight: {
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    width: 'auto',
+  },
+  headerIconBtn: {
+    padding: 2,
   },
   headerCenter: {
     flex: 1,
