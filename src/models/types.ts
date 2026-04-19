@@ -162,11 +162,41 @@ export interface ChannelColorOption {
   textColor: string;
 }
 
+// ── Connections ────────────────────────────────────────────────────────────
+
+/**
+ * Represents a single connection between the owning user and another user.
+ * Stored in `connections/{userId}/people/{connectedUserId}`.
+ */
+export interface Connection {
+  /** The connected user's ID. */
+  userId: string;
+  /** Epoch ms when the connection was established. */
+  connectedAt: number;
+}
+
+/**
+ * A connection request sent from one user to another.
+ * Stored in `connectionRequests/{requestId}`.
+ */
+export interface ConnectionRequest {
+  id: string;
+  /** The user who initiated the request (clicked the host's share link). */
+  fromId: string;
+  /** The user whose link was shared (the host). */
+  toId: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: number;
+  respondedAt: number | null;
+}
+
 // ── App Notifications (Firestore-triggered FCM) ────────────────────────────
 
 export type AppNotificationType =
   | 'join_channel_request'
   | 'join_channel_accepted'
+  | 'connection_request'
+  | 'connection_accepted'
   | 'new_post'        // For post tier subscriptions (future)
   | 'comment_reply';  // For conversation enrollment (future)
 
