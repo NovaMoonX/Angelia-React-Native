@@ -14,6 +14,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
+import { Modal } from '@/components/ui/Modal';
 import { Textarea } from '@/components/ui/Textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -32,12 +33,13 @@ const TOTAL_STEPS = 5;
 
 type Category = 'family' | 'hobbies' | 'lifelog';
 
-type FamilyStyle = 'new-parent' | 'grandparent' | 'long-distance' | 'inner-circle';
+type FamilyStyle = 'new-parent' | 'grandparent' | 'long-distance' | 'immediate-family' | 'inner-circle';
 
 const FAMILY_STYLES: { id: FamilyStyle; title: string; label: string; desc: string }[] = [
-  { id: 'new-parent', title: '👶 New Parent', label: 'New Parent', desc: 'I want to share milestones and tiny moments of my children.' },
-  { id: 'grandparent', title: '🧡 Grandparent', label: 'Grandparent', desc: 'I want to stay in the loop and share my daily vibe.' },
+  { id: 'new-parent', title: '👶 New Parent', label: 'New Parent', desc: 'I want to share milestones and tiny moments of my child(ren).' },
+  { id: 'grandparent', title: '🧡 Grandparent', label: 'Grandparent', desc: 'I want to stay connected and share what life looks like these days.' },
   { id: 'long-distance', title: '🌍 Long Distance', label: 'Long Distance', desc: 'Staying close with people who are far away.' },
+  { id: 'immediate-family', title: '🏡 Immediate Family', label: 'Immediate Family', desc: 'Staying in sync with the people closest to home.' },
   { id: 'inner-circle', title: '🤝 Inner Circle', label: 'Inner Circle', desc: 'Just for my tight-knit group of friends.' },
 ];
 
@@ -53,7 +55,14 @@ const HOBBY_EMOJI: Record<string, string> = {
   Photography: '📷', Sports: '⚽', Outdoors: '🏕️', Parenting: '👪', Pets: '🐾',
 };
 
-const LIFELOG_OPTIONS = ['Travel Log', 'Daily Win Tracker'] as const;
+const LIFELOG_OPTIONS = ['Travel Log', 'Daily Wins', 'Career Journey', 'Fitness Journey'] as const;
+
+const LIFELOG_EMOJI: Record<string, string> = {
+  'Travel Log': '✈️',
+  'Daily Wins': '🏆',
+  'Career Journey': '💼',
+  'Fitness Journey': '🏋️',
+};
 
 const HOURS_12 = Array.from({ length: 12 }, (_, i) => i + 1);
 const MINUTES_DISPLAY = ['00', '15', '30', '45'];
@@ -141,6 +150,7 @@ export default function CompleteProfileScreen() {
 
   // Step 5
   const [firstPost, setFirstPost] = useState('');
+  const [showSkipPostModal, setShowSkipPostModal] = useState(false);
 
   // ── Logout handler ──────────────────────────────────────────────────────
 
@@ -242,7 +252,7 @@ export default function CompleteProfileScreen() {
       circles.push({
         key: `lifelog:${l}`,
         name: l,
-        emoji: l === 'Travel Log' ? '✈️' : '🏆',
+        emoji: LIFELOG_EMOJI[l] ?? '📓',
         color: CHANNEL_COLORS[4].name,
         description: `My ${l.toLowerCase()} Circle.`,
       });
@@ -336,6 +346,29 @@ export default function CompleteProfileScreen() {
       return [...prev, cat];
     });
   };
+
+  const removePendingCircle = useCallback((key: string) => {
+    if (key.startsWith('family:')) {
+      setFamilyStyle(null);
+    } else if (key.startsWith('hobby:')) {
+      const h = key.slice('hobby:'.length);
+      setSelectedHobbies((prev) => prev.filter((x) => x !== h));
+    } else if (key.startsWith('hobby-custom:')) {
+      const idx = parseInt(key.slice('hobby-custom:'.length), 10);
+      setCustomHobbies((prev) => prev.filter((_, i) => i !== idx));
+    } else if (key.startsWith('lifelog:')) {
+      const l = key.slice('lifelog:'.length);
+      setSelectedLifelogs((prev) => prev.filter((x) => x !== l));
+    } else if (key.startsWith('lifelog-custom:')) {
+      const idx = parseInt(key.slice('lifelog-custom:'.length), 10);
+      setCustomLifelogs((prev) => prev.filter((_, i) => i !== idx));
+    }
+    setCircleNameOverrides((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
 
   // ── Reusable sub-components ─────────────────────────────────────────────
 
@@ -667,7 +700,7 @@ export default function CompleteProfileScreen() {
                 ]}
               >
                 <Text style={[styles.bridgeText, { color: theme.foreground }]}>
-                  🎉 Once your space is set up, we'll take you straight to join your friend's Circle!
+                  🎉 Once your space is set up, we'll take you straight to join their Circle!
                 </Text>
               </View>
             )}
@@ -677,7 +710,9 @@ export default function CompleteProfileScreen() {
                 Now, let's set up your space!
               </Text>
               <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
-                Angelia gives you a Daily Circle automatically — your default space for everyday updates.
+                Angelia gives you a{' '}
+                <Text style={{ fontWeight: '700', color: theme.primary }}>Daily Circle</Text>
+                {' '}automatically — your default space for everyday updates.
                 You can also create custom Circles for specific groups and interests.
               </Text>
             </View>
@@ -698,6 +733,14 @@ export default function CompleteProfileScreen() {
                 Set up my Circle →
               </Button>
             </View>
+
+            {/* What's a Circle? */}
+            <View style={[styles.bridgeCard, { backgroundColor: theme.secondary, borderColor: theme.border, marginTop: 20 }]}>
+              <Text style={[styles.bridgeText, { color: theme.mutedForeground }]}>
+                💬 <Text style={{ fontWeight: '700', color: theme.foreground }}>What's a Circle?</Text>
+                {' '}A Circle is a small, private group where you share updates with people who actually care — family, friends, or whoever you choose. No feeds, no strangers.
+              </Text>
+            </View>
           </>
         )}
       </>
@@ -713,14 +756,21 @@ export default function CompleteProfileScreen() {
     const toggleHobby = (h: string) => {
       if (selectedHobbies.includes(h)) {
         setSelectedHobbies((prev) => prev.filter((x) => x !== h));
-      } else if (!circlesAtMax) {
+      } else if (circlesAtMax) {
+        addToast({ type: 'warning', title: "You've hit the 3-circle limit. Remove an existing one to add a different one." });
+      } else {
         setSelectedHobbies((prev) => [...prev, h]);
       }
     };
 
     const addCustomHobby = () => {
       const name = customHobbyInput.trim();
-      if (!name || circlesAtMax || customHobbies.includes(name)) return;
+      if (!name) return;
+      if (circlesAtMax) {
+        addToast({ type: 'warning', title: "You've hit the 3-circle limit. Remove an existing one to add a different one." });
+        return;
+      }
+      if (customHobbies.includes(name)) return;
       setCustomHobbies((prev) => [...prev, name]);
       setCustomHobbyInput('');
     };
@@ -732,14 +782,21 @@ export default function CompleteProfileScreen() {
     const toggleLifelog = (l: string) => {
       if (selectedLifelogs.includes(l)) {
         setSelectedLifelogs((prev) => prev.filter((x) => x !== l));
-      } else if (!circlesAtMax) {
+      } else if (circlesAtMax) {
+        addToast({ type: 'warning', title: "You've hit the 3-circle limit. Remove an existing one to add a different one." });
+      } else {
         setSelectedLifelogs((prev) => [...prev, l]);
       }
     };
 
     const addCustomLifelog = () => {
       const name = customLifelogInput.trim();
-      if (!name || circlesAtMax || customLifelogs.includes(name)) return;
+      if (!name) return;
+      if (circlesAtMax) {
+        addToast({ type: 'warning', title: "You've hit the 3-circle limit. Remove an existing one to add a different one." });
+        return;
+      }
+      if (customLifelogs.includes(name)) return;
       setCustomLifelogs((prev) => [...prev, name]);
       setCustomLifelogInput('');
     };
@@ -752,8 +809,16 @@ export default function CompleteProfileScreen() {
       <>
         <StepHeader
           title="What do you want to share? 💬"
-          subtitle="Create up to 3 custom Circles. Mix and match whatever fits you."
+          subtitle="Pick categories below, then choose what fits you. You can mix all three!"
         />
+
+        <Text style={[styles.infoText, { color: theme.mutedForeground, marginBottom: 12 }]}>
+          You can create up to{' '}
+          <Text style={{ fontWeight: '700', color: theme.foreground }}>3 custom Circles in total</Text>
+          {' '}across all categories. Your{' '}
+          <Text style={{ fontWeight: '700', color: theme.primary }}>Daily Circle</Text>
+          {' '}is separate and created automatically.
+        </Text>
 
         {/* 3-circle max indicator */}
         {circlesAtMax && (
@@ -808,21 +873,49 @@ export default function CompleteProfileScreen() {
             <Text style={[styles.subHeader, { color: theme.foreground }]}>
               Does this sound like you?
             </Text>
-            {FAMILY_STYLES.map((s) => (
-              <OptionCard
-                key={s.id}
-                title={s.title}
-                description={s.desc}
-                selected={familyStyle === s.id}
-                onPress={() => {
-                  if (familyStyle === s.id) {
-                    setFamilyStyle(null);
-                  } else if (!circlesAtMax || familyStyle !== null) {
-                    setFamilyStyle(s.id);
-                  }
-                }}
-              />
-            ))}
+            {FAMILY_STYLES.map((s) => {
+              const isSelected = familyStyle === s.id;
+              const isDisabled = !isSelected && circlesAtMax;
+              return (
+                <Pressable
+                  key={s.id}
+                  onPress={() => {
+                    if (isSelected) {
+                      setFamilyStyle(null);
+                    } else if (isDisabled) {
+                      addToast({ type: 'warning', title: "You've hit the 3-circle limit. Remove an existing one to add a different one." });
+                    } else {
+                      setFamilyStyle(s.id);
+                    }
+                  }}
+                  style={[
+                    styles.optionCard,
+                    {
+                      backgroundColor: isSelected ? theme.primary : theme.card,
+                      borderColor: isSelected ? theme.primary : theme.border,
+                      opacity: isDisabled ? 0.4 : 1,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.optionCardTitle,
+                      { color: isSelected ? theme.primaryForeground : theme.foreground },
+                    ]}
+                  >
+                    {s.title}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.optionCardDesc,
+                      { color: isSelected ? theme.primaryForeground : theme.mutedForeground },
+                    ]}
+                  >
+                    {s.desc}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         )}
 
@@ -861,41 +954,50 @@ export default function CompleteProfileScreen() {
                   </Pressable>
                 );
               })}
+
+              {/* Custom hobbies — rendered as pills in the same grid */}
+              {customHobbies.map((h, i) => (
+                <Pressable
+                  key={`custom-${i}`}
+                  onPress={() => removeCustomHobby(i)}
+                  style={[
+                    styles.hobbyChip,
+                    {
+                      backgroundColor: theme.primary,
+                      borderColor: theme.primary,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.hobbyChipText, { color: theme.primaryForeground }]}>
+                    🧩 {h}
+                  </Text>
+                  <Text style={[styles.hobbyChipText, { color: theme.primaryForeground, fontWeight: '700' }]}>✕</Text>
+                </Pressable>
+              ))}
             </View>
 
-            {/* Custom hobbies added */}
-            {customHobbies.map((h, i) => (
-              <View key={i} style={styles.customChipRow}>
-                <Text style={[styles.customChipText, { color: theme.foreground }]}>
-                  ✏️ {h}
-                </Text>
-                <Pressable onPress={() => removeCustomHobby(i)} hitSlop={8}>
-                  <Text style={[styles.removeChipText, { color: theme.destructive }]}>✕</Text>
-                </Pressable>
-              </View>
-            ))}
-
             {/* Add custom hobby */}
-            {!circlesAtMax && (
-              <View style={styles.customInputRow}>
-                <Input
-                  value={customHobbyInput}
-                  onChangeText={setCustomHobbyInput}
-                  placeholder="Add a custom hobby…"
-                  autoCapitalize="words"
-                  onSubmitEditing={addCustomHobby}
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  size="sm"
-                  onPress={addCustomHobby}
-                  disabled={!customHobbyInput.trim()}
-                  style={{ marginLeft: 8 }}
-                >
-                  Add
-                </Button>
-              </View>
-            )}
+            <View style={styles.customInputRow}>
+              <Input
+                value={customHobbyInput}
+                onChangeText={setCustomHobbyInput}
+                placeholder="Add a custom hobby…"
+                autoCapitalize="words"
+                onSubmitEditing={addCustomHobby}
+                style={{ flex: 1 }}
+              />
+              <Button
+                size="sm"
+                onPress={addCustomHobby}
+                disabled={!customHobbyInput.trim()}
+                style={{ marginLeft: 8 }}
+              >
+                Add
+              </Button>
+            </View>
           </View>
         )}
 
@@ -907,7 +1009,9 @@ export default function CompleteProfileScreen() {
               What would you like to track?
             </Text>
             <Text style={[styles.infoText, { color: theme.mutedForeground }]}>
-              You already have a Daily Circle for everyday updates. These are for a more specific focus. ☀️
+              Your{' '}
+              <Text style={{ fontWeight: '700', color: theme.primary }}>Daily Circle</Text>
+              {' '}handles everyday updates. These are for a more specific focus.
             </Text>
             <View style={styles.hobbyGrid}>
               {LIFELOG_OPTIONS.map((opt) => {
@@ -932,55 +1036,69 @@ export default function CompleteProfileScreen() {
                         { color: active ? theme.primaryForeground : theme.foreground },
                       ]}
                     >
-                      {opt === 'Travel Log' ? '✈️' : '🏆'} {opt}
+                      {LIFELOG_EMOJI[opt] ?? '📓'} {opt}
                     </Text>
                   </Pressable>
                 );
               })}
+
+              {/* Custom lifelogs — rendered as pills in the same grid */}
+              {customLifelogs.map((l, i) => (
+                <Pressable
+                  key={`custom-${i}`}
+                  onPress={() => removeCustomLifelog(i)}
+                  style={[
+                    styles.hobbyChip,
+                    {
+                      backgroundColor: theme.primary,
+                      borderColor: theme.primary,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.hobbyChipText, { color: theme.primaryForeground }]}>
+                    🧩 {l}
+                  </Text>
+                  <Text style={[styles.hobbyChipText, { color: theme.primaryForeground, fontWeight: '700' }]}>✕</Text>
+                </Pressable>
+              ))}
             </View>
 
-            {/* Custom lifelogs added */}
-            {customLifelogs.map((l, i) => (
-              <View key={i} style={styles.customChipRow}>
-                <Text style={[styles.customChipText, { color: theme.foreground }]}>
-                  📓 {l}
-                </Text>
-                <Pressable onPress={() => removeCustomLifelog(i)} hitSlop={8}>
-                  <Text style={[styles.removeChipText, { color: theme.destructive }]}>✕</Text>
-                </Pressable>
-              </View>
-            ))}
-
             {/* Add custom lifelog */}
-            {!circlesAtMax && (
-              <View style={styles.customInputRow}>
-                <Input
-                  value={customLifelogInput}
-                  onChangeText={setCustomLifelogInput}
-                  placeholder="Add a custom log…"
-                  autoCapitalize="words"
-                  onSubmitEditing={addCustomLifelog}
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  size="sm"
-                  onPress={addCustomLifelog}
-                  disabled={!customLifelogInput.trim()}
-                  style={{ marginLeft: 8 }}
-                >
-                  Add
-                </Button>
-              </View>
-            )}
+            <View style={styles.customInputRow}>
+              <Input
+                value={customLifelogInput}
+                onChangeText={setCustomLifelogInput}
+                placeholder="Add a custom log…"
+                autoCapitalize="words"
+                onSubmitEditing={addCustomLifelog}
+                style={{ flex: 1 }}
+              />
+              <Button
+                size="sm"
+                onPress={addCustomLifelog}
+                disabled={!customLifelogInput.trim()}
+                style={{ marginLeft: 8 }}
+              >
+                Add
+              </Button>
+            </View>
           </View>
         )}
 
         {/* Circles preview panel */}
         {pendingCircles.length > 0 && (
           <View style={[styles.previewPanel, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
-            <Text style={[styles.previewHeader, { color: theme.mutedForeground }]}>
-              CIRCLES TO CREATE ({pendingCircles.length}/3)
-            </Text>
+            <View style={styles.previewPanelHeader}>
+              <Text style={[styles.previewHeader, { color: theme.mutedForeground }]}>
+                CIRCLES TO CREATE ({pendingCircles.length}/3)
+              </Text>
+              <Text style={[styles.previewHelpText, { color: theme.mutedForeground }]}>
+                Tap a name to rename it
+              </Text>
+            </View>
             {pendingCircles.map((circle) => (
               <View key={circle.key} style={styles.previewItem}>
                 <Text style={styles.previewItemEmoji}>{circle.emoji}</Text>
@@ -991,6 +1109,9 @@ export default function CompleteProfileScreen() {
                   }
                   style={{ flex: 1 }}
                 />
+                <Pressable onPress={() => removePendingCircle(circle.key)} hitSlop={8} style={styles.previewItemRemove}>
+                  <Text style={[styles.removeChipText, { color: theme.mutedForeground }]}>✕</Text>
+                </Pressable>
               </View>
             ))}
           </View>
@@ -1084,6 +1205,11 @@ export default function CompleteProfileScreen() {
           Looks good!
         </Button>
       </View>
+
+      <Text style={[styles.reassurance, { color: theme.mutedForeground }]}>
+        If you skip, we'll default to noon &amp; 6 PM. You can always change this in{' '}
+        <Text style={{ fontWeight: '700' }}>Settings → Notifications</Text>.
+      </Text>
     </>
   );
 
@@ -1102,7 +1228,7 @@ export default function CompleteProfileScreen() {
         ]}
       >
         <Text style={[styles.infoCalloutText, { color: theme.foreground }]}>
-          ☀️ <Text style={{ fontWeight: '700' }}>What's your Daily Circle?</Text>
+          ☀️ <Text style={{ fontWeight: '700', color: theme.primary }}>What's your Daily Circle?</Text>
           {' '}It's your default space for everyday updates — the small stuff, the funny moments, the "you had to be there" things. Everyone who follows you will see it here.
         </Text>
       </View>
@@ -1129,6 +1255,42 @@ export default function CompleteProfileScreen() {
       >
         Finish Setup 🚀
       </Button>
+
+      <Button
+        variant="tertiary"
+        onPress={() => setShowSkipPostModal(true)}
+        style={{ marginTop: 12 }}
+      >
+        Skip first post
+      </Button>
+
+      {/* Skip first post confirmation modal */}
+      <Modal
+        isOpen={showSkipPostModal}
+        onClose={() => setShowSkipPostModal(false)}
+        title="Skip your first post?"
+      >
+        <Text style={[styles.infoCalloutText, { color: theme.foreground, marginBottom: 16 }]}>
+          Your first post is a great way to say "I'm here!" — even something small like a quick hello goes a long way. The people in your{' '}
+          <Text style={{ fontWeight: '700', color: theme.primary }}>Daily Circle</Text>
+          {' '}will love knowing you've arrived. 🌟
+        </Text>
+        <Text style={[styles.infoCalloutText, { color: theme.mutedForeground, marginBottom: 20 }]}>
+          No pressure though — you can always post later from your feed.
+        </Text>
+        <Button onPress={() => setShowSkipPostModal(false)} style={{ marginBottom: 12 }}>
+          Make the post
+        </Button>
+        <Button
+          variant="tertiary"
+          onPress={() => {
+            setShowSkipPostModal(false);
+            handleFinish();
+          }}
+        >
+          Skip for now
+        </Button>
+      </Modal>
     </>
   );
 
@@ -1466,12 +1628,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     gap: 10,
   },
+  previewPanelHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   previewHeader: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-    marginBottom: 4,
+  },
+  previewHelpText: {
+    fontSize: 11,
+    fontStyle: 'italic',
   },
   previewItem: {
     flexDirection: 'row',
@@ -1480,5 +1651,8 @@ const styles = StyleSheet.create({
   },
   previewItemEmoji: {
     fontSize: 20,
+  },
+  previewItemRemove: {
+    paddingHorizontal: 4,
   },
 });
