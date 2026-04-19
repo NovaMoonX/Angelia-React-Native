@@ -117,8 +117,11 @@ export default function HomeScreen() {
     return () => {
       clearTimeout(timeoutId);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading]);
+  }, [
+    authLoading,
+    logoScale, logoOpacity, titleOpacity, sloganOpacity, actionsOpacity, actionsTranslateY,
+    setShowActions,
+  ]);
 
   const handleTryDemo = async () => {
     await enterDemo();

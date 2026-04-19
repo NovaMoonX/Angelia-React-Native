@@ -18,6 +18,8 @@ import { resetAllState } from '@/store/actions/globalActions';
 import type { User } from '@/models/types';
 
 const DEMO_MODE_KEY = '@angelia/demo_mode';
+/** Maximum time (ms) to wait for a Firestore profile fetch before giving up. */
+const PROFILE_FETCH_TIMEOUT_MS = 8000;
 
 const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 if (googleWebClientId) {
@@ -72,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           const profileFetch = dispatch(fetchUserProfile(user.uid)).unwrap();
           const timeout = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('profile_fetch_timeout')), 8000)
+            setTimeout(() => reject(new Error('profile_fetch_timeout')), PROFILE_FETCH_TIMEOUT_MS)
           );
           const profile = await Promise.race([profileFetch, timeout]);
 
