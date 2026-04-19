@@ -79,6 +79,17 @@ interface ConnectionRequest {
   respondedAt: number | null;
 }
 
+interface ChannelJoinRequest {
+  id: string;
+  channelId: string;
+  channelOwnerId: string;
+  requesterId: string;
+  message: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: number;
+  respondedAt: number | null;
+}
+
 interface FcmTokenEntry {
   deviceId: string;
   token: string;
@@ -266,6 +277,53 @@ export const onConnectionRequestAccepted = onDocumentUpdated(
     batch.set(
       db.collection('connections').doc(toId).collection('people').doc(fromId),
       { userId: fromId, connectedAt },
+    );
+
+    await batch.commit();
+  },
+);
+
+// ── Cloud Function: Create mutual connection when a circle join is accepted ─
+
+/**
+ * Triggered when a `channelJoinRequests` document is updated.
+ * When the status changes to 'accepted', writes mutual connection documents
+ * under `connections/{userId}/people/{connectedUserId}` for both the requester
+ * and the circle owner.
+ *
+ * This means joining a circle automatically creates a direct connection between
+ * the new member and the circle host, giving both parties access to each other's
+ * Daily Circle without a separate connection request.
+ *
+ * The write is idempotent: if `before.status` is already 'accepted', the
+ * function exits early so retries do not produce duplicate documents.
+ */
+export const onJoinRequestAccepted = onDocumentUpdated(
+  'channelJoinRequests/{requestId}',
+  async (event) => {
+    const before = event.data?.before.data() as ChannelJoinRequest | undefined;
+    const after = event.data?.after.data() as ChannelJoinRequest | undefined;
+
+    if (!before || !after) return;
+
+    // Only act when status transitions to 'accepted' for the first time.
+    if (before.status === 'accepted' || after.status !== 'accepted') return;
+
+    const { requesterId, channelOwnerId } = after;
+    const connectedAt = Date.now();
+
+    const batch = db.batch();
+
+    // requester → channelOwner
+    batch.set(
+      db.collection('connections').doc(requesterId).collection('people').doc(channelOwnerId),
+      { userId: channelOwnerId, connectedAt },
+    );
+
+    // channelOwner → requester
+    batch.set(
+      db.collection('connections').doc(channelOwnerId).collection('people').doc(requesterId),
+      { userId: requesterId, connectedAt },
     );
 
     await batch.commit();

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -8,8 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useAppSelector } from '@/store/hooks';
 import { useTheme } from '@/hooks/useTheme';
-import { selectAllUsersMapById } from '@/store/slices/usersSlice';
-import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
+import { selectMyPeopleData } from '@/store/crossSelectors/myPeopleSelectors';
 import type { User } from '@/models/types';
 
 interface PersonRowProps {
@@ -59,68 +58,7 @@ export default function MyPeopleScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const currentUser = useAppSelector((state) => state.users.currentUser);
-  const connections = useAppSelector((state) => state.connections.connections);
-  const channels = useAppSelector((state) => state.channels.items);
-  const usersMap = useAppSelector(selectAllUsersMapById);
-
-  /**
-   * Build the combined "My People" list.
-   * Everyone here has implicit Daily Circle access (circle membership grants it).
-   *
-   * Two sections:
-   *   1. Direct connections (accepted connection requests)
-   *   2. Circle people — subscribers of circles you own
-   *                    + owners of circles you've joined (NOT co-members)
-   *
-   * Each person appears only once. Direct connections take priority.
-   */
-  const { directConnections, circleOnlyMembers } = useMemo(() => {
-    const currentUserId = currentUser?.id ?? '';
-
-    // ── Direct connections ──────────────────────────────────────────────────
-    const directIds = new Set(connections.map((c) => c.userId));
-
-    // ── Circles I own → collect my subscribers ─────────────────────────────
-    const myOwnedChannels = channels.filter(
-      (ch) => ch.ownerId === currentUserId && !ch.isDaily,
-    );
-    const ownedCircleMemberIds = new Set<string>();
-    for (const ch of myOwnedChannels) {
-      for (const sub of ch.subscribers) {
-        if (sub !== currentUserId) ownedCircleMemberIds.add(sub);
-      }
-    }
-
-    // ── Circles I'm in → collect only the host (owner), NOT co-subscribers ──
-    const joinedChannels = channels.filter(
-      (ch) => !ch.isDaily && ch.ownerId !== currentUserId && ch.subscribers.includes(currentUserId),
-    );
-    const joinedCircleHostIds = new Set<string>();
-    for (const ch of joinedChannels) {
-      joinedCircleHostIds.add(ch.ownerId);
-    }
-
-    // ── Circle-only = union of both circle sets, minus direct connections ───
-    const circleOnlyIds = new Set<string>();
-    for (const id of ownedCircleMemberIds) {
-      if (!directIds.has(id)) circleOnlyIds.add(id);
-    }
-    for (const id of joinedCircleHostIds) {
-      if (!directIds.has(id)) circleOnlyIds.add(id);
-    }
-
-    const resolveUsers = (ids: Set<string>): User[] =>
-      Array.from(ids)
-        .map((id) => usersMap[id])
-        .filter((u): u is User => !!u)
-        .sort((a, b) => a.firstName.localeCompare(b.firstName));
-
-    return {
-      directConnections: resolveUsers(directIds),
-      circleOnlyMembers: resolveUsers(circleOnlyIds),
-    };
-  }, [connections, channels, usersMap, currentUser?.id]);
+  const { directConnections, circleOnlyMembers } = useAppSelector(selectMyPeopleData);
 
   const totalCount = directConnections.length + circleOnlyMembers.length;
 

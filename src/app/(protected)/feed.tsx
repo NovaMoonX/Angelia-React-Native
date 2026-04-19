@@ -23,6 +23,7 @@ import { FeedChannelFilterModal, type ChannelFilterState } from '@/components/Fe
 import { formatTimeRemaining } from '@/lib/timeUtils';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { saveStatus, clearStatus } from '@/store/actions/userActions';
+import { selectHasAnyPendingActivity } from '@/store/crossSelectors/activitySelectors';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { POST_TIERS } from '@/models/constants';
@@ -44,12 +45,7 @@ export default function FeedScreen() {
   const channels = useAppSelector((state) => state.channels.items);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const isDemo = useAppSelector((state) => state.demo.isActive);
-  const hasIncoming = useAppSelector(
-    (state) => state.invites.incoming.some((r) => r.status === 'pending')
-  );
-  const hasPendingConnRequest = useAppSelector(
-    (state) => state.connections.incomingRequests.some((r) => r.status === 'pending')
-  );
+  const hasPendingActivity = useAppSelector(selectHasAnyPendingActivity);
 
   const [channelFilter, setChannelFilter] = useState<ChannelFilterState>({ mode: 'all', specificIds: [] });
   const [channelFilterOpen, setChannelFilterOpen] = useState(false);
@@ -400,7 +396,7 @@ export default function FeedScreen() {
                 <Feather name="users" size={22} color={theme.foreground} />
               </Pressable>
               <Pressable onPress={() => router.push('/(protected)/notifications')}>
-                <BellIcon hasNotification={hasIncoming || hasPendingConnRequest} />
+                <BellIcon hasNotification={hasPendingActivity} />
               </Pressable>
             </View>
         </View>

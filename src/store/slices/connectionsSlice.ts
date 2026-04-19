@@ -49,6 +49,10 @@ const connectionsSlice = createSlice({
     clearConnectionsPendingState(state) {
       state.pendingFromUserId = null;
     },
+    loadDemoConnections(state, action: PayloadAction<Connection[]>) {
+      state.connections = action.payload;
+      state.loaded = true;
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(resetAllState, () => initialState);
@@ -62,6 +66,7 @@ export const {
   updateConnectionRequest,
   setPendingFromUserId,
   clearConnectionsPendingState,
+  loadDemoConnections,
 } = connectionsSlice.actions;
 
 export default connectionsSlice.reducer;

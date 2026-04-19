@@ -43,6 +43,29 @@ When adding a new notification type:
 3. Add a `buildFcmPayload` branch in `functions/src/index.ts`.
 4. Add a foreground toast handler in `src/components/DataListenerWrapper.tsx` (Effect 9).
 5. Add a tap-routing branch in `src/app/_layout.tsx`.
+6. **Add a Firestore test example to `NOTIFICATION_TESTING.md`** (Scenario C, D, etc.) so the notification can be manually tested without a real device action.
+
+---
+
+## Cross-slice selectors (`src/store/crossSelectors/`)
+
+Selectors that need to read from **more than one Redux slice** live in
+`src/store/crossSelectors/`. Do **not** put cross-slice selectors directly in
+individual slice files — they create circular-import risks and make it harder to
+discover shared logic.
+
+Conventions:
+- One file per domain concern, named `<domain>Selectors.ts`
+  (e.g. `activitySelectors.ts`, `myPeopleSelectors.ts`).
+- Use RTK `createSelector` for memoisation.
+- Import the file directly from `@/store/crossSelectors/<file>` — do not create
+  a barrel `index.ts` unless the directory grows large enough to warrant one.
+
+Current files:
+| File | Exports | Purpose |
+|---|---|---|
+| `activitySelectors.ts` | `selectHasAnyPendingActivity` | `true` when user has any pending circle join request OR connection request — drives the bell badge in the feed header |
+| `myPeopleSelectors.ts` | `selectMyPeopleData` | Derives `directConnections` + `circleOnlyMembers` arrays for the My People screen |
 
 ---
 
