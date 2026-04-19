@@ -153,7 +153,7 @@ export const saveTierPrefs = createAsyncThunk(
 
 /**
  * Uploads a local image URI as the user's profile avatar to Firebase Storage,
- * then persists the resulting download URL to Firestore and Redux.
+ * then persists the resulting download URL to Firestore and Redux via saveProfile.
  * Resolves to the download URL on success.
  */
 export const uploadAndSaveAvatar = createAsyncThunk(

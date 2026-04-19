@@ -322,7 +322,8 @@ export default function CompleteProfileScreen() {
         try {
           uploadedAvatarUrl = await uploadUserAvatar(firebaseUser.uid, avatarPhotoUri);
         } catch {
-          // Non-fatal: fall back to preset avatar
+          // Non-fatal: fall back to preset avatar, but let the user know
+          addToast({ type: 'warning', title: "Couldn't upload your photo — we'll use the emoji avatar for now. You can change it later in settings." });
         }
       }
 
