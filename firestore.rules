@@ -232,6 +232,14 @@ service cloud.firestore {
       allow read, update, delete: if false;
     }
 
+    // Feedback submissions — written by the authenticated submitter only.
+    // Staff review via Firebase Console / Admin SDK; no client reads.
+    match /feedback/{feedbackId} {
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+
     // Connection requests — sent by one user to another.
     match /connectionRequests/{requestId} {
       function isRequester() {
