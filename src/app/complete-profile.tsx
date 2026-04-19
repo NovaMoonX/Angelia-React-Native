@@ -158,6 +158,7 @@ export default function CompleteProfileScreen() {
 
   // Step 5 — Connection Bridge
   const [showQrModal, setShowQrModal] = useState(false);
+  const [hasSharedConnection, setHasSharedConnection] = useState(false);
 
   // Step 6 (was Step 5)
   const [firstPost, setFirstPost] = useState('');
@@ -1248,6 +1249,7 @@ export default function CompleteProfileScreen() {
           url: Platform.OS === 'ios' ? connectionLink : undefined,
           title: `Connect with ${firstName.trim() || 'me'} on Angelia`,
         });
+        setHasSharedConnection(true);
       } catch {
         // User cancelled — no-op
       }
@@ -1279,14 +1281,16 @@ export default function CompleteProfileScreen() {
         <Button onPress={handleShareLink} style={styles.cta} size="lg">
           Share Connection Link
         </Button>
-        <Button
-          variant="outline"
-          onPress={() => setShowQrModal(true)}
-          style={{ marginTop: 10 }}
-          size="lg"
-        >
-          Show My QR Code
-        </Button>
+        {hasSharedConnection && (
+          <Button
+            variant='outline'
+            onPress={goNext}
+            style={{ marginTop: 10 }}
+            size="lg"
+          >
+            Done
+          </Button>
+        )}
         <Button
           variant="tertiary"
           onPress={goNext}

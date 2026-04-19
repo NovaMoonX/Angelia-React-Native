@@ -89,14 +89,6 @@ export default function ShareConnectionScreen() {
           <Button variant="outline" size="lg" onPress={handleCopyLink} style={styles.actionBtn}>
             Copy Link
           </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            onPress={() => setQrModalVisible(true)}
-            style={styles.actionBtn}
-          >
-            Show My QR Code
-          </Button>
         </View>
 
         <Pressable onPress={() => router.back()} style={styles.doneRow}>
