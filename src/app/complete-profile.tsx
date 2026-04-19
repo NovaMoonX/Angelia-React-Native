@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import QRCode from 'react-native-qrcode-svg';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -27,6 +29,7 @@ import { useAppDispatch } from '@/store/hooks';
 import { createUserProfile } from '@/store/actions/userActions';
 import { createDailyChannel, createCustomChannel } from '@/store/actions/channelActions';
 import { saveNotificationSettings } from '@/store/actions/notificationActions';
+import { uploadUserAvatar } from '@/services/firebase/storage';
 import { AVATAR_PRESETS, CHANNEL_COLORS } from '@/models/constants';
 import type { AvatarPreset } from '@/models/types';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
@@ -130,6 +133,8 @@ export default function CompleteProfileScreen() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [avatar, setAvatar] = useState<AvatarPreset>('moon');
+  /** Local file URI of a custom photo picked during sign-up. Uploaded in handleFinish. */
+  const [avatarPhotoUri, setAvatarPhotoUri] = useState<string | null>(null);
 
   // Step 2
   const [invitedAnswer, setInvitedAnswer] = useState<'yes' | 'no' | null>(null);
@@ -174,6 +179,36 @@ export default function CompleteProfileScreen() {
       addToast({ type: 'error', title: 'Could not sign out. Please try again.' });
     }
   }, [signOut, router, addToast]);
+
+  // ── Avatar photo picker (Step 1) ─────────────────────────────────────────
+
+  const handlePickAvatarPhoto = useCallback(async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      addToast({ type: 'warning', title: 'Photo library access is needed to upload an avatar.' });
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+
+    if (result.canceled || !result.assets[0]) return;
+
+    try {
+      const compressed = await manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 400, height: 400 } }],
+        { compress: 0.85, format: SaveFormat.JPEG },
+      );
+      setAvatarPhotoUri(compressed.uri);
+    } catch {
+      setAvatarPhotoUri(result.assets[0].uri);
+    }
+  }, [addToast]);
 
   // ── Navigation helpers ──────────────────────────────────────────────────
 
@@ -289,7 +324,18 @@ export default function CompleteProfileScreen() {
 
     setLoading(true);
     try {
-      // 1 — Create user profile
+      // 1 — Upload custom avatar photo if one was selected (non-fatal)
+      let uploadedAvatarUrl: string | undefined;
+      if (avatarPhotoUri) {
+        try {
+          uploadedAvatarUrl = await uploadUserAvatar(firebaseUser.uid, avatarPhotoUri);
+        } catch {
+          // Non-fatal: fall back to preset avatar, but let the user know
+          addToast({ type: 'warning', title: "Couldn't upload your photo — we'll use the emoji avatar for now. You can change it later in settings." });
+        }
+      }
+
+      // 2 — Create user profile
       await dispatch(
         createUserProfile({
           id: firebaseUser.uid,
@@ -298,6 +344,7 @@ export default function CompleteProfileScreen() {
           email: firebaseUser.email ?? '',
           funFact: firstPost.trim(),
           avatar,
+          avatarUrl: uploadedAvatarUrl ?? null,
         }),
       ).unwrap();
 
@@ -615,22 +662,45 @@ export default function CompleteProfileScreen() {
       <View style={styles.section}>
         <Label>Choose Your Avatar</Label>
         <View style={styles.avatarCurrent}>
-          <Avatar preset={avatar} size="xl" />
+          <Avatar preset={avatar} uri={avatarPhotoUri} size="xl" />
         </View>
-        <View style={styles.avatarGrid}>
-          {AVATAR_PRESETS.map((preset) => (
-            <Pressable
-              key={preset}
-              onPress={() => setAvatar(preset)}
-              style={[
-                styles.avatarOption,
-                { borderColor: avatar === preset ? theme.primary : 'transparent' },
-              ]}
+
+        {/* Photo upload option */}
+        <View style={styles.photoUploadRow}>
+          <Button variant="outline" onPress={handlePickAvatarPhoto} style={{ flex: 1 }}>
+            {avatarPhotoUri ? '📷 Change Photo' : '📷 Upload a Photo'}
+          </Button>
+          {avatarPhotoUri ? (
+            <Button
+              variant="tertiary"
+              onPress={() => setAvatarPhotoUri(null)}
+              style={{ flex: 1 }}
             >
-              <Avatar preset={preset} size="md" />
-            </Pressable>
-          ))}
+              Remove Photo
+            </Button>
+          ) : null}
         </View>
+
+        {/* Emoji preset grid — shown only when no photo is selected */}
+        {!avatarPhotoUri && (
+          <>
+            <Text style={[styles.orDivider, { color: theme.mutedForeground }]}>— or pick an emoji —</Text>
+            <View style={styles.avatarGrid}>
+              {AVATAR_PRESETS.map((preset) => (
+                <Pressable
+                  key={preset}
+                  onPress={() => { setAvatar(preset); setAvatarPhotoUri(null); }}
+                  style={[
+                    styles.avatarOption,
+                    { borderColor: avatar === preset ? theme.primary : 'transparent' },
+                  ]}
+                >
+                  <Avatar preset={preset} size="md" />
+                </Pressable>
+              ))}
+            </View>
+          </>
+        )}
       </View>
 
       <Button
@@ -1264,7 +1334,7 @@ export default function CompleteProfileScreen() {
 
         {/* Handshake card */}
         <View style={[styles.handshakeCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Avatar preset={avatar} size="xl" />
+          <Avatar preset={avatar} uri={avatarPhotoUri} size="xl" />
           <Text style={[styles.handshakeName, { color: theme.foreground }]}>{displayName}</Text>
 
           <Pressable onPress={() => setShowQrModal(true)} style={styles.qrWrapper}>
@@ -1314,7 +1384,7 @@ export default function CompleteProfileScreen() {
               style={[styles.qrModalCard, { backgroundColor: theme.card }]}
               onStartShouldSetResponder={() => true}
             >
-              <Avatar preset={avatar} size="lg" />
+              <Avatar preset={avatar} uri={avatarPhotoUri} size="lg" />
               <Text style={[styles.handshakeName, { color: theme.foreground }]}>{displayName}</Text>
               <QRCode
                 value={connectionLink}
@@ -1525,6 +1595,16 @@ const styles = StyleSheet.create({
   avatarCurrent: {
     alignItems: 'center',
     marginBottom: 12,
+  },
+  photoUploadRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  orDivider: {
+    textAlign: 'center',
+    fontSize: 12,
+    marginBottom: 10,
   },
   avatarGrid: {
     flexDirection: 'row',

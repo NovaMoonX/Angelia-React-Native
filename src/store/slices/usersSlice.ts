@@ -22,6 +22,17 @@ const usersSlice = createSlice({
   reducers: {
     setCurrentUser(state, action: PayloadAction<User | null>) {
       state.currentUser = action.payload;
+      // Keep users[] in sync so components reading from the array (feed, chat,
+      // channel member lists) immediately reflect the current user's latest
+      // profile data (name, avatar preset, custom photo URL, etc.).
+      if (action.payload) {
+        const idx = state.users.findIndex((u) => u.id === action.payload!.id);
+        if (idx !== -1) {
+          state.users[idx] = action.payload;
+        } else {
+          state.users.push(action.payload);
+        }
+      }
     },
     setUsers(state, action: PayloadAction<User[]>) {
       state.users = action.payload;
@@ -29,6 +40,13 @@ const usersSlice = createSlice({
     updateCurrentUser(state, action: PayloadAction<Partial<User>>) {
       if (state.currentUser) {
         Object.assign(state.currentUser, action.payload);
+        // Also sync the matching entry in the users array so that components
+        // reading from state.users (feed, conversation, channel members, etc.)
+        // immediately reflect the updated name / avatar / photo.
+        const idx = state.users.findIndex((u) => u.id === state.currentUser!.id);
+        if (idx !== -1) {
+          Object.assign(state.users[idx], action.payload);
+        }
       }
     },
     updateCurrentUserStatus(state, action: PayloadAction<UserStatus | null>) {

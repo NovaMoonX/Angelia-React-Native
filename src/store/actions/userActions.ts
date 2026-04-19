@@ -7,8 +7,9 @@ import {
   updateUserStatus as firestoreUpdateUserStatus,
   updateChannelTierPrefs as firestoreUpdateChannelTierPrefs,
 } from '@/services/firebase/firestore';
+import { uploadUserAvatar } from '@/services/firebase/storage';
 import { setCurrentUser, updateCurrentUser, updateCurrentUserStatus, updateCurrentUserTierPrefs } from '@/store/slices/usersSlice';
-import type { NewUser, UpdateUserProfileData, UserStatus, PostTier } from '@/models/types';
+import type { NewUser, UpdateUserProfileData, UserStatus, PostTier, User } from '@/models/types';
 import type { RootState } from '@/store';
 import { isDemoActive } from './globalActions';
 
@@ -54,13 +55,20 @@ export const saveProfile = createAsyncThunk(
     const user = state.users.currentUser;
     if (!user) return rejectWithValue('User not authenticated');
 
+    // Convert null → undefined so Partial<User> is satisfied in Redux state
+    const stateUpdate: Partial<User> = {
+      ...data,
+      avatarUrl: data.avatarUrl,
+    };
+
     if (isDemoActive(getState)) {
-      dispatch(updateCurrentUser(data));
+      dispatch(updateCurrentUser(stateUpdate));
       return data;
     }
 
     try {
       await firestoreUpdateUserProfile(user.id, data);
+      dispatch(updateCurrentUser(stateUpdate));
       return data;
     } catch (err) {
       return rejectWithValue(err instanceof Error ? err.message : err);
@@ -137,6 +145,44 @@ export const saveTierPrefs = createAsyncThunk(
     try {
       await firestoreUpdateChannelTierPrefs(user.id, prefs);
       return prefs;
+    } catch (err) {
+      return rejectWithValue(err instanceof Error ? err.message : err);
+    }
+  },
+);
+
+/**
+ * Uploads a local image URI as the user's profile avatar to Firebase Storage,
+ * then persists the resulting download URL to Firestore and Redux via saveProfile.
+ * Resolves to the download URL on success.
+ */
+export const uploadAndSaveAvatar = createAsyncThunk(
+  'users/uploadAndSaveAvatar',
+  async (
+    fileUri: string,
+    { getState, dispatch, rejectWithValue },
+  ) => {
+    const state = getState() as RootState;
+    const user = state.users.currentUser;
+    if (!user) return rejectWithValue('User not authenticated');
+
+    if (isDemoActive(getState)) {
+      // In demo mode just surface a local URI so the UI reflects the change
+      dispatch(updateCurrentUser({ avatarUrl: fileUri }));
+      return fileUri;
+    }
+
+    try {
+      const downloadUrl = await uploadUserAvatar(user.id, fileUri);
+      await firestoreUpdateUserProfile(user.id, {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        funFact: user.funFact,
+        avatar: user.avatar,
+        avatarUrl: downloadUrl,
+      });
+      dispatch(updateCurrentUser({ avatarUrl: downloadUrl }));
+      return downloadUrl;
     } catch (err) {
       return rejectWithValue(err instanceof Error ? err.message : err);
     }

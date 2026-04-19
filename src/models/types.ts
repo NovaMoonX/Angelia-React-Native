@@ -17,6 +17,8 @@ export interface User {
   email: string;
   funFact: string;
   avatar: AvatarPreset;
+  /** Firebase Storage download URL for a custom profile photo. When set, takes precedence over `avatar`. */
+  avatarUrl: string | null;
   joinedAt: number;
   accountProgress: {
     signUpComplete: boolean;
@@ -68,7 +70,7 @@ export interface NotificationSettings {
    */
   autoDetectTimeZone: boolean;
 }
-export type UpdateUserProfileData = Pick<User, 'firstName' | 'lastName' | 'funFact' | 'avatar'>;
+export type UpdateUserProfileData = Pick<User, 'firstName' | 'lastName' | 'funFact' | 'avatar' | 'avatarUrl'>
 
 /**
  * Partial update shape for notification settings.  The `dailyPrompt` sub-object

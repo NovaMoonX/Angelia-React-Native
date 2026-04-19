@@ -37,3 +37,29 @@ export async function uploadPostMedia(
 
   return getDownloadURL(storageRef);
 }
+
+/**
+ * Uploads a local image file as the current user's profile avatar.
+ * Stored at `avatars/{userId}/avatar.jpg` in Firebase Storage.
+ * Returns the public download URL.
+ */
+export async function uploadUserAvatar(userId: string, fileUri: string): Promise<string> {
+  if (!getAuth().currentUser) {
+    throw new Error('You need to be signed in before uploading an avatar.');
+  }
+
+  const storageRef = ref(getStorage(), `avatars/${userId}/avatar.jpg`);
+
+  // Strip file:// prefix — putFile expects a bare file system path
+  const localPath = fileUri.replace(/^file:\/\//, '');
+
+  await retryWithBackoff(
+    async () => {
+      await putFile(storageRef, localPath, { contentType: 'image/jpeg' });
+    },
+    UPLOAD_RULE_RETRY_DELAYS_MS,
+    { shouldRetry: isStorageUnauthorizedError },
+  );
+
+  return getDownloadURL(storageRef);
+}

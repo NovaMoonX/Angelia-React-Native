@@ -133,7 +133,7 @@ export default function NotificationsScreen() {
                   return (
                     <Card key={req.id} style={styles.requestCard}>
                       <View style={styles.requestHeader}>
-                        <Avatar preset={requester?.avatar || 'moon'} size="sm" />
+                        <Avatar preset={requester?.avatar || 'moon'} uri={requester?.avatarUrl} size="sm" />
                         <View style={{ flex: 1, marginLeft: 8 }}>
                           <Text style={[styles.requestName, { color: theme.foreground }]}>
                             {requester?.firstName || 'Unknown'}{' '}
@@ -179,6 +179,7 @@ export default function NotificationsScreen() {
                       <View style={styles.requestHeader}>
                         <Avatar
                           preset={requester?.avatar || 'moon'}
+                          uri={requester?.avatarUrl}
                           size="sm"
                         />
                         <View style={{ flex: 1, marginLeft: 8 }}>

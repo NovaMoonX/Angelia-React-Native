@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { AngeliaLogo } from '@/components/AngeliaLogo';
 import { Button } from '@/components/ui/Button';
+import { Loading } from '@/components/Loading';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppDispatch } from '@/store/hooks';
@@ -53,6 +54,19 @@ export default function HomeScreen() {
   const actionsTranslateY = useRef(new Animated.Value(40)).current;
 
   useEffect(() => {
+    // Don't start animations while auth is still resolving — wait until we
+    // know the user is unauthenticated (and will actually see this screen).
+    if (authLoading) return;
+
+    // Reset animation values so the sequence always plays from scratch.
+    logoScale.setValue(0.5);
+    logoOpacity.setValue(0);
+    titleOpacity.setValue(0);
+    sloganOpacity.setValue(0);
+    actionsOpacity.setValue(0);
+    actionsTranslateY.setValue(40);
+    setShowActions(false);
+
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     // Splash entrance animation
@@ -103,7 +117,11 @@ export default function HomeScreen() {
     return () => {
       clearTimeout(timeoutId);
     };
-  }, []);
+  }, [
+    authLoading,
+    logoScale, logoOpacity, titleOpacity, sloganOpacity, actionsOpacity, actionsTranslateY,
+    setShowActions,
+  ]);
 
   const handleTryDemo = async () => {
     await enterDemo();
@@ -111,11 +129,10 @@ export default function HomeScreen() {
     router.replace('/(protected)/feed');
   };
 
-  // While auth state is resolving, render a plain background so that
-  // authenticated users never see the welcome screen flash before the
-  // redirect to the feed fires.
+  // Show a loading indicator while auth state is resolving so the user gets
+  // visual feedback instead of a blank screen.
   if (authLoading) {
-    return <View style={[styles.fullScreen, { backgroundColor: theme.background }]} />;
+    return <Loading />;
   }
 
   return (

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, type ViewStyle } from 'react-native';
+import { Image } from 'expo-image';
 import type { AvatarPreset } from '@/models/types';
 
 interface AvatarProps {
@@ -9,6 +10,8 @@ interface AvatarProps {
   style?: ViewStyle;
   /** When provided, renders a small emoji badge at the bottom-right of the avatar. */
   statusEmoji?: string;
+  /** Firebase Storage download URL for a custom profile photo. When set, renders the photo instead of the preset emoji. */
+  uri?: string | null;
 }
 
 const SIZE_MAP = {
@@ -62,7 +65,7 @@ const PRESET_COLORS: Record<AvatarPreset, string> = {
   'black-hole': '#18181B',
 };
 
-export function Avatar({ preset, size = 'md', shape = 'circle', style, statusEmoji }: AvatarProps) {
+export function Avatar({ preset, size = 'md', shape = 'circle', style, statusEmoji, uri }: AvatarProps) {
   const dimension = SIZE_MAP[size];
   const borderRadius = shape === 'circle' ? dimension / 2 : 8;
   const fontSize = dimension * 0.5;
@@ -71,19 +74,27 @@ export function Avatar({ preset, size = 'md', shape = 'circle', style, statusEmo
 
   return (
     <View style={[{ width: dimension, height: dimension }, style]}>
-      <View
-        style={[
-          styles.container,
-          {
-            width: dimension,
-            height: dimension,
-            borderRadius,
-            backgroundColor: PRESET_COLORS[preset] || '#6366F1',
-          },
-        ]}
-      >
-        <Text style={{ fontSize }}>{PRESET_EMOJIS[preset] || '🌙'}</Text>
-      </View>
+      {uri ? (
+        <Image
+          source={{ uri }}
+          style={[styles.container, { width: dimension, height: dimension, borderRadius }]}
+          contentFit="cover"
+        />
+      ) : (
+        <View
+          style={[
+            styles.container,
+            {
+              width: dimension,
+              height: dimension,
+              borderRadius,
+              backgroundColor: PRESET_COLORS[preset] || '#6366F1',
+            },
+          ]}
+        >
+          <Text style={{ fontSize }}>{PRESET_EMOJIS[preset] || '🌙'}</Text>
+        </View>
+      )}
       {statusEmoji ? (
         <View
           style={[

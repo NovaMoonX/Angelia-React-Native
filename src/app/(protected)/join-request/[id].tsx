@@ -154,7 +154,7 @@ export default function JoinRequestScreen() {
 
           <Card style={styles.requestCard}>
             <View style={styles.requesterRow}>
-              <Avatar preset={requester?.avatar ?? 'moon'} size="md" />
+              <Avatar preset={requester?.avatar ?? 'moon'} uri={requester?.avatarUrl} size="md" />
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={[styles.requesterName, { color: theme.foreground }]}>
                   {requester?.firstName ?? 'Unknown'} {requester?.lastName ?? 'User'}
