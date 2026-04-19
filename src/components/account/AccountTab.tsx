@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/Label';
 import { Separator } from '@/components/ui/Separator';
 import { Textarea } from '@/components/ui/Textarea';
 import { NowStatusModal } from '@/components/NowStatusModal';
+import { FeedbackSupportModal } from '@/components/FeedbackSupportModal';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
@@ -39,6 +40,7 @@ export function AccountTab() {
   const [editAvatarUri, setEditAvatarUri] = useState<string | null>(currentUser?.avatarUrl ?? null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
 
   if (!currentUser) return null;
 
@@ -254,6 +256,14 @@ export function AccountTab() {
 
       <Separator style={{ marginVertical: 16 }} />
       <View style={styles.bottomSection}>
+        {!isDemo && (
+          <Button
+            variant="outline"
+            onPress={() => setFeedbackModalOpen(true)}
+          >
+            🛟 Get Help & Feedback
+          </Button>
+        )}
         <Button variant="destructive" onPress={handleSignOut}>
           Sign Out
         </Button>
@@ -265,6 +275,11 @@ export function AccountTab() {
         onSave={handleSaveStatus}
         onClear={handleClearStatus}
         currentStatus={currentUser.status}
+      />
+
+      <FeedbackSupportModal
+        visible={feedbackModalOpen}
+        onClose={() => setFeedbackModalOpen(false)}
       />
     </>
   );

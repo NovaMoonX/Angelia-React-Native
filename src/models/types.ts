@@ -283,3 +283,28 @@ export type AppNotification =
   | ConnectionRequestNotification
   | ConnectionAcceptedNotification
   | BigNewsPostNotification;
+
+// ── Feedback & Support ──────────────────────────────────────────────────────
+
+export type FeedbackCategory =
+  | 'bug'
+  | 'feature_request'
+  | 'account'
+  | 'circles'
+  | 'posts'
+  | 'notifications'
+  | 'other';
+
+export interface FeedbackSubmission {
+  id: string;
+  userId: string;
+  /** Email address of the submitting user. */
+  userEmail: string;
+  /** Primary category chosen by the user. */
+  category: FeedbackCategory;
+  /** Optional subcategory string. */
+  subcategory: string | null;
+  /** Free-form description written by the user. */
+  text: string;
+  createdAt: number;
+}
