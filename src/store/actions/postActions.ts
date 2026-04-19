@@ -24,7 +24,6 @@ import {
   removeConversationEnrollee,
 } from '@/store/slices/postsSlice';
 import { isDemoActive } from './globalActions';
-import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
 
 // ── Big-news notification helper ───────────────────────────────────────────
 
@@ -37,9 +36,10 @@ async function sendBigNewsNotification(
   post: Post,
   authorFirstName: string,
   authorLastName: string,
+  channelName: string,
+  isDaily: boolean,
 ): Promise<void> {
   try {
-    const isDaily = post.channelId.endsWith(DAILY_CHANNEL_SUFFIX);
     const notification: BigNewsPostNotification = {
       id: generateId('nano'),
       type: 'big_news_post',
@@ -48,6 +48,7 @@ async function sendBigNewsNotification(
       createdAt: Date.now(),
       postId: post.id,
       channelId: post.channelId,
+      channelName,
       isDaily,
       authorFirstName,
       authorLastName,
@@ -98,6 +99,16 @@ export const uploadPost = createAsyncThunk(
       return rejectWithValue('User not authenticated');
     }
 
+    // Look up channel from state so we can pass authoritative isDaily / name
+    // to the big-news notification without relying on ID string-matching.
+    const allChannels = [
+      ...state.channels.items,
+      ...state.channels.connectionChannels,
+    ];
+    const channel = allChannels.find((c) => c.id === channelId);
+    const channelIsDaily = channel?.isDaily ?? false;
+    const channelName = channel?.name ?? '';
+
     const postId = generateId('nano');
     const hasMedia = media.length > 0;
 
@@ -129,7 +140,7 @@ export const uploadPost = createAsyncThunk(
       if (!hasMedia) {
         // Fire big-news notification for no-media posts immediately
         if (tier === 'big-news') {
-          void sendBigNewsNotification(uploadingPost, user.firstName, user.lastName);
+          void sendBigNewsNotification(uploadingPost, user.firstName, user.lastName, channelName, channelIsDaily);
         }
         return uploadingPost;
       }
@@ -203,7 +214,7 @@ export const uploadPost = createAsyncThunk(
 
       // Fire big-news notification after media post is ready
       if (tier === 'big-news') {
-        void sendBigNewsNotification(newPost, user.firstName, user.lastName);
+        void sendBigNewsNotification(newPost, user.firstName, user.lastName, channelName, channelIsDaily);
       }
 
       return newPost;

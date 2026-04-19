@@ -450,11 +450,16 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
         const name = lastName ? `${firstName} ${lastName}` : firstName;
         const postId = data?.postId;
         const isDaily = data?.isDaily === 'true';
-        const circleLabel = isDaily ? 'Daily Circle' : 'circle';
+        const channelName = data?.channelName ?? '';
+        const circleDescription = isDaily
+          ? 'their Daily Circle'
+          : channelName
+            ? `their "${channelName}" circle`
+            : 'their circle';
         addToast({
           type: 'info',
-          title: `🌟 Big news from ${name}!`,
-          description: `Tap to see their ${circleLabel} update`,
+          title: `🔔 Big news from ${name}!!`,
+          description: `Tap to see the update in ${circleDescription}`,
           onPress: postId
             ? () => router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } })
             : undefined,

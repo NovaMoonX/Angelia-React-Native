@@ -270,6 +270,7 @@ export interface BigNewsPostNotification extends BaseAppNotification {
   type: 'big_news_post';
   postId: string;
   channelId: string;
+  channelName: string;
   /** Whether the post is in a daily circle (true) or a custom circle (false). */
   isDaily: boolean;
   authorFirstName: string;

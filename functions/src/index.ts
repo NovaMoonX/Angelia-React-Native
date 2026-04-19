@@ -70,6 +70,7 @@ interface BigNewsPostNotification extends BaseAppNotification {
   type: 'big_news_post';
   postId: string;
   channelId: string;
+  channelName: string;
   isDaily: boolean;
   authorFirstName: string;
   authorLastName: string;
@@ -176,14 +177,15 @@ function buildFcmPayload(notification: AppNotification): {
 
   if (notification.type === 'big_news_post') {
     const n = notification as BigNewsPostNotification;
-    const circleLabel = n.isDaily ? 'Daily Circle' : 'circle';
+    const circleLabel = n.isDaily ? 'Daily Circle' : `"${n.channelName}"`;
     return {
-      title: '🌟 Big News!',
+      title: '🔔 Big News!!',
       body: `${n.authorFirstName} ${n.authorLastName} shared big news in their ${circleLabel}`,
       data: {
         type: n.type,
         postId: n.postId,
         channelId: n.channelId,
+        channelName: n.channelName,
         isDaily: String(n.isDaily),
         authorFirstName: n.authorFirstName,
         authorLastName: n.authorLastName,
