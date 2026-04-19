@@ -112,6 +112,61 @@ push titled "Request Accepted! 🎉".
 
 ---
 
+### Scenario C — Connection Request (you receive a request)
+
+Someone wants to connect with you. You'll see an in-app toast and a background
+push titled "🤝 Connection Request".
+
+Replace `YOUR_USER_ID` with your real user ID, and `CONN_REQUEST_ID` with the
+ID of the `connectionRequests` doc you want this notification to link to (it can
+be a fake ID for push-delivery testing).
+
+```json
+{
+  "id": "test-notif-conn-request-1",
+  "type": "connection_request",
+  "actorId": "fake-sender-id",
+  "target": {
+    "type": "user",
+    "userId": "YOUR_USER_ID"
+  },
+  "createdAt": 1713484800000,
+  "fromId": "fake-sender-id",
+  "fromFirstName": "Jamie",
+  "fromLastName": "Test",
+  "connectionRequestId": "CONN_REQUEST_ID"
+}
+```
+
+> **Note:** Tapping the push routes to `/(protected)/connection-request/[CONN_REQUEST_ID]`.
+> The screen will show an error if `CONN_REQUEST_ID` is not a real Firestore doc —
+> expected in testing mode.
+
+---
+
+### Scenario D — Connection Accepted (your request was accepted)
+
+You'll see an in-app toast titled "🎉 You're connected!" and a background push
+titled "🎉 You're connected!".
+
+```json
+{
+  "id": "test-notif-conn-accepted-1",
+  "type": "connection_accepted",
+  "actorId": "fake-acceptor-id",
+  "target": {
+    "type": "user",
+    "userId": "YOUR_USER_ID"
+  },
+  "createdAt": 1713484800000,
+  "toFirstName": "Morgan",
+  "toLastName": "Test",
+  "connectionRequestId": "CONN_REQUEST_ID"
+}
+```
+
+---
+
 ## Step 4 — Observe the Result
 
 | App state | Expected behaviour |

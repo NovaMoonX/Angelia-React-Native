@@ -15,7 +15,7 @@ import {
   arrayUnion,
   arrayRemove,
 } from '@react-native-firebase/firestore';
-import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification } from '@/models/types';
+import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX, DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
@@ -531,4 +531,150 @@ export function subscribeToMessages(
  */
 export async function createAppNotification(notification: AppNotification): Promise<void> {
   await setDoc(doc(db, 'notifications', notification.id), notification);
+}
+
+// ── Connection Operations ────────────────────────────────────────────────────
+
+/**
+ * Creates a connection request from `fromId` to `toId`.
+ * The host (`toId`) whose link was shared will receive an FCM notification.
+ */
+export async function createConnectionRequest(
+  fromId: string,
+  toId: string,
+): Promise<ConnectionRequest> {
+  const id = generateId('nano');
+  const request: ConnectionRequest = {
+    id,
+    fromId,
+    toId,
+    status: 'pending',
+    createdAt: Date.now(),
+    respondedAt: null,
+  };
+  await setDoc(doc(db, 'connectionRequests', id), request);
+  return request;
+}
+
+export async function getConnectionRequest(requestId: string): Promise<ConnectionRequest | null> {
+  const snap = await getDoc(doc(db, 'connectionRequests', requestId));
+  return snap.exists ? (snap.data() as ConnectionRequest) : null;
+}
+
+/**
+ * Updates a connection request status to 'accepted' or 'declined'.
+ * Mutual connection documents (`connections/{id}/people/{id}`) are written
+ * by a Cloud Function that triggers on this status change.
+ */
+export async function respondToConnectionRequest(
+  requestId: string,
+  accept: boolean,
+): Promise<void> {
+  await updateDoc(doc(db, 'connectionRequests', requestId), {
+    status: accept ? 'accepted' : 'declined',
+    respondedAt: Date.now(),
+  });
+}
+
+/**
+ * Returns existing pending/accepted connection request between two users,
+ * or null if none exists.
+ */
+export async function getExistingConnectionRequest(
+  fromId: string,
+  toId: string,
+): Promise<ConnectionRequest | null> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'connectionRequests'),
+      where('fromId', '==', fromId),
+      where('toId', '==', toId),
+      where('status', 'in', ['pending', 'accepted']),
+      limit(1),
+    ),
+  );
+  if (snap.empty) return null;
+  return snap.docs[0].data() as ConnectionRequest;
+}
+
+/** Subscribes to incoming connection requests (toId == uid). */
+export function subscribeToIncomingConnectionRequests(
+  uid: string,
+  callback: (requests: ConnectionRequest[]) => void,
+): () => void {
+  return onSnapshot(
+    query(collection(db, 'connectionRequests'), where('toId', '==', uid)),
+    (snap) => {
+      callback(snap.docs.map((d) => d.data() as ConnectionRequest));
+    },
+  );
+}
+
+/** Subscribes to outgoing connection requests (fromId == uid). */
+export function subscribeToOutgoingConnectionRequests(
+  uid: string,
+  callback: (requests: ConnectionRequest[]) => void,
+): () => void {
+  return onSnapshot(
+    query(collection(db, 'connectionRequests'), where('fromId', '==', uid)),
+    (snap) => {
+      callback(snap.docs.map((d) => d.data() as ConnectionRequest));
+    },
+  );
+}
+
+/**
+ * Subscribes to the current user's accepted connections.
+ * Stored at `connections/{userId}/people/{connectedUserId}`.
+ * Written by the Cloud Function that handles connection request acceptance.
+ */
+export function subscribeToConnections(
+  uid: string,
+  callback: (connections: Connection[]) => void,
+): () => void {
+  return onSnapshot(
+    collection(db, 'connections', uid, 'people'),
+    (snap) => {
+      callback(snap.docs.map((d) => d.data() as Connection));
+    },
+  );
+}
+
+/**
+ * Subscribes to channel documents for a list of user IDs' daily channels.
+ * Used to populate the Redux channels state with connected users' daily channels.
+ */
+export function subscribeToConnectionChannels(
+  connectedUserIds: string[],
+  callback: (channels: Channel[]) => void,
+): () => void {
+  if (connectedUserIds.length === 0) {
+    callback([]);
+    return () => {};
+  }
+
+  const dailyChannelIds = connectedUserIds.map((id) => `${id}${DAILY_CHANNEL_SUFFIX}`);
+
+  const batches: string[][] = [];
+  for (let i = 0; i < dailyChannelIds.length; i += 30) {
+    batches.push(dailyChannelIds.slice(i, i + 30));
+  }
+
+  const allChannels: Map<string, Channel> = new Map();
+  const unsubscribes: Array<() => void> = [];
+
+  for (const batch of batches) {
+    const unsub = onSnapshot(
+      query(collection(db, 'channels'), where('__name__', 'in', batch)),
+      (snap) => {
+        for (const d of snap.docs) {
+          allChannels.set(d.id, d.data() as Channel);
+        }
+        callback(Array.from(allChannels.values()));
+      },
+    );
+    unsubscribes.push(unsub);
+  }
+
+  return () => unsubscribes.forEach((u) => u());
 }

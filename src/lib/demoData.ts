@@ -1,4 +1,4 @@
-import type { User, Channel, Post, ChannelJoinRequest, Message } from '@/models/types';
+import type { User, Channel, Post, ChannelJoinRequest, Message, Connection } from '@/models/types';
 
 const DEMO_USER: User = {
   id: 'demo-user-1',
@@ -395,6 +395,17 @@ const DEMO_MESSAGES: Record<string, Message[]> = {
   ],
 };
 
+/**
+ * Demo connections for demo-user-1 (the current user in demo mode).
+ * demo-user-1 ↔ demo-user-2 are directly connected.
+ */
+const DEMO_CONNECTIONS: Connection[] = [
+  {
+    userId: 'demo-user-2',
+    connectedAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
+  },
+];
+
 export const DEMO_DATA = {
   users: {
     currentUser: DEMO_USER,
@@ -404,4 +415,5 @@ export const DEMO_DATA = {
   posts: DEMO_POSTS,
   invites: DEMO_INVITES,
   messages: DEMO_MESSAGES,
+  connections: DEMO_CONNECTIONS,
 };

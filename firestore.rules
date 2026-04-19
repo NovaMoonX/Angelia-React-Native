@@ -121,9 +121,20 @@ service cloud.firestore {
       function isAuthorOnCreate() {
         return isSignedIn() && request.auth.uid == request.resource.data.authorId;
       }
+      // Returns true when the requesting user is in the post author's connections list.
+      // Only applicable to daily channels so that stand-alone connections grant Daily Circle access.
+      function isConnectedToAuthorDailyChannel() {
+        let ch = get(/databases/$(database)/documents/channels/$(resource.data.channelId));
+        return isSignedIn()
+          && ch.data.isDaily == true
+          && exists(/databases/$(database)/documents/connections/$(resource.data.authorId)/people/$(request.auth.uid));
+      }
 
-      // Channel owners and subscribers may read posts in their channel
-      allow read: if isAuthor() || isChannelMember(resource.data.channelId);
+      // Channel owners and subscribers may read posts in their channel.
+      // Connected users may also read posts in their connections' daily channels.
+      allow read: if isAuthor()
+        || isChannelMember(resource.data.channelId)
+        || isConnectedToAuthorDailyChannel();
 
       // Only the author can create a post for themselves
       allow create: if isAuthorOnCreate();
@@ -219,6 +230,44 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow create: if isSignedIn();
       allow read, update, delete: if false;
+    }
+
+    // Connection requests — sent by one user to another.
+    match /connectionRequests/{requestId} {
+      function isRequester() {
+        return isSignedIn() && request.auth.uid == resource.data.fromId;
+      }
+      function isHost() {
+        return isSignedIn() && request.auth.uid == resource.data.toId;
+      }
+      function isRequesterOnCreate() {
+        return isSignedIn() && request.auth.uid == request.resource.data.fromId;
+      }
+
+      // Both parties may read a request they are involved in.
+      allow read: if isRequester() || isHost();
+
+      // Only the requester may create a pending request for themselves.
+      allow create: if isRequesterOnCreate()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.respondedAt == null;
+
+      // Only the host may update the status (accept/decline).
+      // Core fields cannot change.
+      allow update: if isHost()
+        && request.resource.data.fromId == resource.data.fromId
+        && request.resource.data.toId == resource.data.toId
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if false;
+    }
+
+    // Connections — mutual connections written by Cloud Function on acceptance.
+    // Each user can only read their own connections list.
+    match /connections/{userId}/people/{personId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      // Writes are handled exclusively by the Admin SDK (Cloud Function).
+      allow create, update, delete: if false;
     }
 
     // Default: deny all reads and writes not explicitly allowed above.

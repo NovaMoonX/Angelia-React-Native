@@ -2,8 +2,11 @@ import React, { useCallback, useRef, useState } from 'react';
 import {
   Animated,
   KeyboardAvoidingView,
+  Modal as RNModal,
+  Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -12,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import QRCode from 'react-native-qrcode-svg';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -32,7 +36,7 @@ import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout'
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
 type Category = 'family' | 'hobbies' | 'lifelog';
 
@@ -157,7 +161,11 @@ export default function CompleteProfileScreen() {
   // Step 4 — allow skipping with noon/6 PM defaults
   const [notifSkipped, setNotifSkipped] = useState(false);
 
-  // Step 5
+  // Step 5 — Connection Bridge
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [hasSharedConnection, setHasSharedConnection] = useState(false);
+
+  // Step 6 (was Step 5)
   const [firstPost, setFirstPost] = useState('');
   const [showSkipPostModal, setShowSkipPostModal] = useState(false);
 
@@ -1300,11 +1308,108 @@ export default function CompleteProfileScreen() {
     </>
   );
 
-  const renderStep5 = () => (
+  const renderStep5 = () => {
+    const connectionLink = `angelia://connect-request?from=${firebaseUser?.uid ?? ''}`;
+    const displayName = `${firstName.trim() || 'You'} ${lastName.trim()}`.trim();
+
+    const handleShareLink = async () => {
+      try {
+        await Share.share({
+          message: `Connect with me on Angelia! 🤝\n\n${connectionLink}`,
+          url: Platform.OS === 'ios' ? connectionLink : undefined,
+          title: `Connect with ${firstName.trim() || 'me'} on Angelia`,
+        });
+        setHasSharedConnection(true);
+      } catch {
+        // User cancelled — no-op
+      }
+    };
+
+    return (
+      <>
+        <StepHeader
+          title="Bring your people in. 🤝"
+          subtitle="Angelia works best with a small, trusted group. Share your connection link — when someone taps it, they'll send you a request to connect."
+        />
+
+        {/* Handshake card */}
+        <View style={[styles.handshakeCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Avatar preset={avatar} size="xl" />
+          <Text style={[styles.handshakeName, { color: theme.foreground }]}>{displayName}</Text>
+
+          <Pressable onPress={() => setShowQrModal(true)} style={styles.qrWrapper}>
+            <QRCode
+              value={connectionLink}
+              size={140}
+              color={theme.foreground}
+              backgroundColor={theme.card}
+            />
+            <Text style={[styles.qrTapHint, { color: theme.mutedForeground }]}>Tap to enlarge</Text>
+          </Pressable>
+        </View>
+
+        <Button onPress={handleShareLink} style={styles.cta} size="lg">
+          Share Connection Link
+        </Button>
+        {hasSharedConnection && (
+          <Button
+            variant='outline'
+            onPress={goNext}
+            style={{ marginTop: 10 }}
+            size="lg"
+          >
+            Done
+          </Button>
+        )}
+        <Button
+          variant="tertiary"
+          onPress={goNext}
+          style={{ marginTop: 6 }}
+        >
+          I'll do this later
+        </Button>
+
+        {/* QR code full-screen overlay */}
+        <RNModal
+          visible={showQrModal}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setShowQrModal(false)}
+        >
+          <Pressable
+            style={styles.qrOverlay}
+            onPress={() => setShowQrModal(false)}
+          >
+            <View
+              style={[styles.qrModalCard, { backgroundColor: theme.card }]}
+              onStartShouldSetResponder={() => true}
+            >
+              <Avatar preset={avatar} size="lg" />
+              <Text style={[styles.handshakeName, { color: theme.foreground }]}>{displayName}</Text>
+              <QRCode
+                value={connectionLink}
+                size={220}
+                color={theme.foreground}
+                backgroundColor={theme.card}
+              />
+              <Text style={[styles.qrTapHint, { color: theme.mutedForeground }]}>
+                Point a camera here to connect
+              </Text>
+              <Button variant="outline" onPress={() => setShowQrModal(false)} style={{ marginTop: 8 }}>
+                Close
+              </Button>
+            </View>
+          </Pressable>
+        </RNModal>
+      </>
+    );
+  };
+
+  const renderStep6 = () => (
     <>
       <StepHeader
-        title="One last thing — let's break the ice! 🎉"
-        subtitle="Your Daily Circle is set up and ready to go."
+        title="You're all set. Let's break the ice! 🎉"
+        subtitle="Share a 'Now' status for your Daily Circle. Even if no one is here yet, your post will be waiting for them when they arrive."
       />
 
       {/* Daily Circle explanation */}
@@ -1389,6 +1494,7 @@ export default function CompleteProfileScreen() {
     3: renderStep3,
     4: renderStep4,
     5: renderStep5,
+    6: renderStep6,
   };
 
   return (
@@ -1751,5 +1857,40 @@ const styles = StyleSheet.create({
   },
   previewItemRemove: {
     paddingHorizontal: 4,
+  },
+
+  // Step 5 — Connection Bridge
+  handshakeCard: {
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 4,
+  },
+  handshakeName: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  qrWrapper: {
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  qrTapHint: {
+    fontSize: 12,
+  },
+  qrOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qrModalCard: {
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    gap: 16,
+    width: 300,
   },
 });
