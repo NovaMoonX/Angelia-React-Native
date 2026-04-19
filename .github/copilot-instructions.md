@@ -36,6 +36,7 @@ Specifically, the following must always match between the two files:
 - `NotificationTarget` discriminated union shape
 - `BaseAppNotification` fields (`actorId`, `target`, `createdAt`, `id`, `type`)
 - Each per-notification-type interface (e.g. `JoinChannelRequestNotification`)
+- Domain model interfaces used by Cloud Functions (e.g. `ConnectionRequest`, `ChannelJoinRequest`)
 
 When adding a new notification type:
 1. Add it to `AppNotificationType` in both files.
@@ -43,6 +44,53 @@ When adding a new notification type:
 3. Add a `buildFcmPayload` branch in `functions/src/index.ts`.
 4. Add a foreground toast handler in `src/components/DataListenerWrapper.tsx` (Effect 9).
 5. Add a tap-routing branch in `src/app/_layout.tsx`.
+6. **Add a Firestore test example to `NOTIFICATION_TESTING.md`** (Scenario C, D, etc.) so the notification can be manually tested without a real device action.
+
+---
+
+## Cross-slice selectors (`src/store/crossSelectors/`)
+
+Selectors that need to read from **more than one Redux slice** live in
+`src/store/crossSelectors/`. Do **not** put cross-slice selectors directly in
+individual slice files — they create circular-import risks and make it harder to
+discover shared logic.
+
+Conventions:
+- One file per domain concern, named `<domain>Selectors.ts`
+  (e.g. `activitySelectors.ts`, `myPeopleSelectors.ts`).
+- Use RTK `createSelector` for memoisation.
+- Import the file directly from `@/store/crossSelectors/<file>` — do not create
+  a barrel `index.ts` unless the directory grows large enough to warrant one.
+
+Current files:
+| File | Exports | Purpose |
+|---|---|---|
+| `activitySelectors.ts` | `selectHasAnyPendingActivity` | `true` when user has any pending circle join request OR connection request — drives the bell badge in the feed header |
+| `myPeopleSelectors.ts` | `selectMyPeopleData` | Derives a `people` array of `{ user, inCircle }` entries for the My People screen. `inCircle` is `true` when the person also shares a circle with the current user. |
+
+---
+
+## Safe area insets & demo-mode header gap
+
+### Bottom insets
+Always use `useSafeAreaInsets()` to account for home-bar / system-navigation-bar height.
+- For `ScrollView`, apply the inset to `contentContainerStyle`:
+  ```tsx
+  contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+  ```
+- For fixed `View` containers, apply it inline:
+  ```tsx
+  style={{ paddingBottom: insets.bottom + 24 }}
+  ```
+- **Never** use a flat pixel constant for bottom padding — it will clip content on devices with a home bar or soft navigation buttons.
+- Prefer `ScrollView` over a plain `View` for any screen whose content could exceed the viewport, so users can always reach every button/action.
+
+### Demo-mode header gap
+In demo mode the `DemoModeBanner` is rendered **above** the `Stack` navigator in `_layout.tsx`. This means the Stack's header should not add an additional status-bar-height offset. For every screen that has `headerShown: true`, add:
+```tsx
+...(isDemo ? { headerStatusBarHeight: 0 } : {})
+```
+This pattern is already applied to `post/[id]`, `account`, and `share-connection`. Apply it to every new screen that uses a Stack header.
 
 ---
 

@@ -52,6 +52,15 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 	} else if (type === 'join_channel_accepted') {
 		const channelName = data?.channelName ?? '';
 		router.push({ pathname: '/(protected)/channel-accepted', params: { channelName } });
+	} else if (type === 'connection_request') {
+		const requestId = data?.connectionRequestId;
+		if (requestId) {
+			router.push({ pathname: '/(protected)/connection-request/[id]', params: { id: requestId } });
+		} else {
+			router.push('/(protected)/notifications');
+		}
+	} else if (type === 'connection_accepted') {
+		router.push('/(protected)/my-people');
 	}
 });
 
@@ -76,6 +85,7 @@ function NavigationLayout() {
 				<Stack.Screen name='complete-profile' options={{ headerShown: false }} />
 				<Stack.Screen name='verify-email' options={{ headerShown: false }} />
 				<Stack.Screen name='join-channel' options={{ headerShown: false }} />
+			<Stack.Screen name='connect-request' options={{ headerShown: false }} />
 				<Stack.Screen name='scan-qr' options={{ headerShown: false, animation: 'slide_from_bottom' }} />
 				<Stack.Screen name='(protected)' options={{ headerShown: false }} />
 				<Stack.Screen name='+not-found' options={{ title: 'Not Found' }} />

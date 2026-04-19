@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { respondToJoinRequest } from '@/store/actions/inviteActions';
+import { respondToConnectionRequest } from '@/store/actions/connectionsActions';
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -22,9 +23,11 @@ export default function NotificationsScreen() {
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const channels = useAppSelector((state) => state.channels.items);
   const incoming = useAppSelector((state) => state.invites.incoming);
+  const incomingConnRequests = useAppSelector((state) => state.connections.incomingRequests);
   const usersMap = useAppSelector(selectAllUsersMapById);
 
   const pendingIncoming = incoming.filter((r) => r.status === 'pending');
+  const pendingConnRequests = incomingConnRequests.filter((r) => r.status === 'pending');
 
   const handleRespondToRequest = async (
     requestId: string,
@@ -39,6 +42,18 @@ export default function NotificationsScreen() {
       addToast({
         type: 'success',
         title: accept ? 'Request accepted' : 'Request declined',
+      });
+    } catch {
+      addToast({ type: 'error', title: 'Failed to respond' });
+    }
+  };
+
+  const handleRespondToConnection = async (requestId: string, accept: boolean) => {
+    try {
+      await dispatch(respondToConnectionRequest({ requestId, accept })).unwrap();
+      addToast({
+        type: 'success',
+        title: accept ? 'Connected! 🤝' : 'Request declined',
       });
     } catch {
       addToast({ type: 'error', title: 'Failed to respond' });
@@ -94,87 +109,135 @@ export default function NotificationsScreen() {
           <Feather name="chevron-right" size={18} color={theme.secondaryForeground} />
         </Pressable>
 
-        {/* Join requests */}
-        {pendingIncoming.length === 0 ? (
+        {/* Empty state — only shown when both request types are empty */}
+        {pendingIncoming.length === 0 && pendingConnRequests.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🫶</Text>
             <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>
               You're all caught up!
             </Text>
             <Text style={[styles.emptySubtext, { color: theme.mutedForeground }]}>
-              Circle join requests will show up here.
+              Circle join requests and connection requests will show up here.
             </Text>
           </View>
         ) : (
           <>
-            <Text style={[styles.sectionTitle, { color: theme.foreground }]}>
-              Circle Join Requests ({pendingIncoming.length})
-            </Text>
-            {pendingIncoming.map((req) => {
-              const requester = usersMap[req.requesterId];
-              const ch = channels.find((c) => c.id === req.channelId);
-              return (
-                <Card key={req.id} style={styles.requestCard}>
-                  <View style={styles.requestHeader}>
-                    <Avatar
-                      preset={requester?.avatar || 'moon'}
-                      size="sm"
-                    />
-                    <View style={{ flex: 1, marginLeft: 8 }}>
-                      <Text
-                        style={[
-                          styles.requestName,
-                          { color: theme.foreground },
-                        ]}
-                      >
-                        {requester?.firstName || 'Unknown'}{' '}
-                        {requester?.lastName || 'User'}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.requestChannel,
-                          { color: theme.mutedForeground },
-                        ]}
-                      >
-                        wants to join{' '}
-                        <Text style={{ fontWeight: '600' }}>
-                          {ch?.name || 'circle'}
+            {/* Connection requests */}
+            {pendingConnRequests.length > 0 && (
+              <>
+                <Text style={[styles.sectionTitle, { color: theme.foreground }]}>
+                  Connection Requests ({pendingConnRequests.length})
+                </Text>
+                {pendingConnRequests.map((req) => {
+                  const requester = usersMap[req.fromId];
+                  return (
+                    <Card key={req.id} style={styles.requestCard}>
+                      <View style={styles.requestHeader}>
+                        <Avatar preset={requester?.avatar || 'moon'} size="sm" />
+                        <View style={{ flex: 1, marginLeft: 8 }}>
+                          <Text style={[styles.requestName, { color: theme.foreground }]}>
+                            {requester?.firstName || 'Unknown'}{' '}
+                            {requester?.lastName || 'User'}
+                          </Text>
+                          <Text style={[styles.requestChannel, { color: theme.mutedForeground }]}>
+                            wants to connect with you
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.requestActions}>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onPress={() => handleRespondToConnection(req.id, false)}
+                        >
+                          Decline
+                        </Button>
+                        <Button
+                          size="sm"
+                          onPress={() => handleRespondToConnection(req.id, true)}
+                        >
+                          Accept
+                        </Button>
+                      </View>
+                    </Card>
+                  );
+                })}
+              </>
+            )}
+
+            {/* Circle join requests */}
+            {pendingIncoming.length > 0 && (
+              <>
+                <Text style={[styles.sectionTitle, { color: theme.foreground }]}>
+                  Circle Join Requests ({pendingIncoming.length})
+                </Text>
+                {pendingIncoming.map((req) => {
+                  const requester = usersMap[req.requesterId];
+                  const ch = channels.find((c) => c.id === req.channelId);
+                  return (
+                    <Card key={req.id} style={styles.requestCard}>
+                      <View style={styles.requestHeader}>
+                        <Avatar
+                          preset={requester?.avatar || 'moon'}
+                          size="sm"
+                        />
+                        <View style={{ flex: 1, marginLeft: 8 }}>
+                          <Text
+                            style={[
+                              styles.requestName,
+                              { color: theme.foreground },
+                            ]}
+                          >
+                            {requester?.firstName || 'Unknown'}{' '}
+                            {requester?.lastName || 'User'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.requestChannel,
+                              { color: theme.mutedForeground },
+                            ]}
+                          >
+                            wants to join{' '}
+                            <Text style={{ fontWeight: '600' }}>
+                              {ch?.name || 'circle'}
+                            </Text>
+                          </Text>
+                        </View>
+                      </View>
+                      {req.message ? (
+                        <Text
+                          style={[
+                            styles.requestMessage,
+                            { color: theme.foreground },
+                          ]}
+                        >
+                          &quot;{req.message}&quot;
                         </Text>
-                      </Text>
-                    </View>
-                  </View>
-                  {req.message ? (
-                    <Text
-                      style={[
-                        styles.requestMessage,
-                        { color: theme.foreground },
-                      ]}
-                    >
-                      &quot;{req.message}&quot;
-                    </Text>
-                  ) : null}
-                  <View style={styles.requestActions}>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onPress={() =>
-                        handleRespondToRequest(req.id, false)
-                      }
-                    >
-                      Decline
-                    </Button>
-                    <Button
-                      size="sm"
-                      onPress={() =>
-                        handleRespondToRequest(req.id, true)
-                      }
-                    >
-                      Accept
-                    </Button>
-                  </View>
-                </Card>
-              );
-            })}
+                      ) : null}
+                      <View style={styles.requestActions}>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onPress={() =>
+                            handleRespondToRequest(req.id, false)
+                          }
+                        >
+                          Decline
+                        </Button>
+                        <Button
+                          size="sm"
+                          onPress={() =>
+                            handleRespondToRequest(req.id, true)
+                          }
+                        >
+                          Accept
+                        </Button>
+                      </View>
+                    </Card>
+                  );
+                })}
+              </>
+            )}
           </>
         )}
       </ScrollView>
