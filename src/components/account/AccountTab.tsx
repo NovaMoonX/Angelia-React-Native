@@ -256,12 +256,14 @@ export function AccountTab() {
 
       <Separator style={{ marginVertical: 16 }} />
       <View style={styles.bottomSection}>
-        <Button
-          variant="outline"
-          onPress={() => setFeedbackModalOpen(true)}
-        >
-          🛟 Get Help & Feedback
-        </Button>
+        {!isDemo && (
+          <Button
+            variant="outline"
+            onPress={() => setFeedbackModalOpen(true)}
+          >
+            🛟 Get Help & Feedback
+          </Button>
+        )}
         <Button variant="destructive" onPress={handleSignOut}>
           Sign Out
         </Button>

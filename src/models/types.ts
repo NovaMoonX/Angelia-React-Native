@@ -273,11 +273,15 @@ export type FeedbackCategory =
   | 'feature_request'
   | 'account'
   | 'circles'
+  | 'posts'
+  | 'notifications'
   | 'other';
 
 export interface FeedbackSubmission {
   id: string;
   userId: string;
+  /** Email address of the submitting user. */
+  userEmail: string;
   /** Primary category chosen by the user. */
   category: FeedbackCategory;
   /** Optional subcategory string. */

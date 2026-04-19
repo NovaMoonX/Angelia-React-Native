@@ -1,8 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Linking,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,11 +18,12 @@ import { useToast } from '@/hooks/useToast';
 import { useAppSelector } from '@/store/hooks';
 import { submitFeedback } from '@/services/firebase/firestore';
 import { generateId } from '@/utils/generateId';
+import { CopyButton } from '@/components/ui/CopyButton';
 import type { FeedbackCategory } from '@/models/types';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const SUPPORT_EMAIL = 'support@angeliaapp.com';
+const SUPPORT_EMAIL = 'angelia-support@moondreams.dev';
 
 interface CategoryOption {
   value: FeedbackCategory;
@@ -62,6 +65,30 @@ const CATEGORIES: CategoryOption[] = [
       'My Circles',
       'Finding people',
       'Joining Circles',
+      'Other',
+    ],
+  },
+  {
+    value: 'posts',
+    label: 'Posts & Media',
+    emoji: '📝',
+    subcategories: [
+      'Creating posts',
+      'Viewing posts',
+      'Photos & videos',
+      'Post tiers',
+      'Other',
+    ],
+  },
+  {
+    value: 'notifications',
+    label: 'Notifications',
+    emoji: '🔔',
+    subcategories: [
+      'Not receiving notifications',
+      'Too many notifications',
+      'Wrong notification content',
+      'Notification settings',
       'Other',
     ],
   },
@@ -168,6 +195,7 @@ export function FeedbackSupportModal({ visible, onClose }: FeedbackSupportModalP
       await submitFeedback({
         id: generateId('nano'),
         userId: currentUser.id,
+        userEmail: currentUser.email,
         category: selectedCategory.value,
         subcategory: selectedSubcategory,
         text: text.trim(),
@@ -412,9 +440,18 @@ export function FeedbackSupportModal({ visible, onClose }: FeedbackSupportModalP
           </Text>
         </Pressable>
 
-        <Text style={[styles.emailAddress, { color: theme.mutedForeground }]}>
-          {SUPPORT_EMAIL}
-        </Text>
+        <View style={styles.emailRow}>
+          <Text style={[styles.emailAddress, { color: theme.mutedForeground }]}>
+            {SUPPORT_EMAIL}
+          </Text>
+          <CopyButton
+            textToCopy={SUPPORT_EMAIL}
+            variant="tertiary"
+            size="sm"
+          >
+            Copy
+          </CopyButton>
+        </View>
 
         <Pressable
           onPress={() => handlePickFlow('feedback')}
@@ -445,23 +482,28 @@ export function FeedbackSupportModal({ visible, onClose }: FeedbackSupportModalP
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <Pressable
-        style={styles.backdrop}
-        onPress={text.trim() ? undefined : handleClose}
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View
-          style={[
-            styles.sheet,
-            {
-              backgroundColor: theme.card,
-              paddingBottom: insets.bottom + 16,
-            },
-          ]}
-          onStartShouldSetResponder={() => true}
+        <Pressable
+          style={styles.backdrop}
+          onPress={text.trim() ? undefined : handleClose}
         >
-          {renderStep()}
-        </View>
-      </Pressable>
+          <View
+            style={[
+              styles.sheet,
+              {
+                backgroundColor: theme.card,
+                paddingBottom: insets.bottom + 16,
+              },
+            ]}
+            onStartShouldSetResponder={() => true}
+          >
+            {renderStep()}
+          </View>
+        </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -469,6 +511,9 @@ export function FeedbackSupportModal({ visible, onClose }: FeedbackSupportModalP
 // ── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  keyboardAvoid: {
+    flex: 1,
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -637,10 +682,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
+  emailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
   emailAddress: {
     fontSize: 13,
-    textAlign: 'center',
-    marginTop: -4,
   },
   feedbackLink: {
     alignItems: 'center',
