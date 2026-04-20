@@ -9,13 +9,13 @@ import type { Comment } from '@/models/types';
  * Redux `commentsSlice` up to date. In demo mode the Firestore subscription
  * is skipped — demo comments are already loaded into the store.
  *
- * @param postId - The post whose comments should be loaded.
- * @returns The current comments array for that post (stable empty array when unloaded).
+ * @param postId - The post whose comments should be loaded. Accepts null/undefined (no-op).
+ * @returns An object containing the current comments array for that post (stable empty array when unloaded).
  */
-export function usePostComments(postId: string): Comment[] {
+export function usePostComments({ postId }: { postId: string | null | undefined }): { comments: Comment[] } {
   const dispatch = useAppDispatch();
   const isDemo = useAppSelector((state) => state.demo.isActive);
-  const comments = useAppSelector((state) => selectComments(state, postId));
+  const comments = useAppSelector((state) => selectComments(state, postId ?? ''));
 
   useEffect(() => {
     if (!postId || isDemo) return;
@@ -25,5 +25,5 @@ export function usePostComments(postId: string): Comment[] {
     return unsub;
   }, [postId, isDemo, dispatch]);
 
-  return comments;
+  return { comments };
 }

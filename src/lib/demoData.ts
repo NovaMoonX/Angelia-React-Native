@@ -282,6 +282,50 @@ const DEMO_POSTS: Post[] = [
     status: 'ready',
     tier: 'big-news',
   },
+  {
+    // No reactions — shows "Be the first to react! 🎉" since this is another user's post
+    id: 'demo-post-8',
+    authorId: 'demo-user-2',
+    channelId: 'demo-channel-cooking',
+    text: 'Anyone else obsessed with matcha lattes lately? ☕️ Found the perfect recipe.',
+    media: [],
+    timestamp: Date.now() - 8 * 60 * 60 * 1000,
+    reactions: [],
+    conversationEnrollees: [],
+    markedForDeletionAt: null,
+    status: 'ready',
+    tier: 'everyday',
+  },
+  {
+    // 6 unique emojis with duplicates — exercises count-ordering (❤️×3, 🔥×2, …)
+    // and the cap at 5 visible bubbles (🌟 is the 6th and should be hidden)
+    id: 'demo-post-9',
+    authorId: 'demo-user-3',
+    channelId: 'demo-channel-cooking',
+    text: 'My sourdough game has officially leveled up! 🍞🏆 Scored a local baking competition this weekend.',
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&h=600&fit=crop'
+      }
+    ],
+    timestamp: Date.now() - 10 * 60 * 60 * 1000,
+    reactions: [
+      { emoji: '❤️', userId: 'demo-user-1' },
+      { emoji: '❤️', userId: 'demo-user-2' },
+      { emoji: '❤️', userId: 'demo-user-3' },
+      { emoji: '🔥', userId: 'demo-user-1' },
+      { emoji: '🔥', userId: 'demo-user-2' },
+      { emoji: '😮', userId: 'demo-user-1' },
+      { emoji: '👏', userId: 'demo-user-2' },
+      { emoji: '🎉', userId: 'demo-user-1' },
+      { emoji: '🌟', userId: 'demo-user-2' },
+    ],
+    conversationEnrollees: [],
+    markedForDeletionAt: null,
+    status: 'ready',
+    tier: 'big-news',
+  },
 ];
 
 const DEMO_INVITES: {
