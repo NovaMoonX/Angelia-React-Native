@@ -541,6 +541,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   // generated once and persisted to Firestore.  For other channels the existing
   // key is simply fetched.  All operations are best-effort — a key failure only
   // means posts/comments fall back to plaintext.
+  const channelEncryptionEffectStableKey = [...channels, ...connectionChannels].map((c) => c.id).sort().join(',')
   useEffect(() => {
     if (isDemo || !firebaseUser) return;
 
@@ -574,7 +575,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
     firebaseUser?.uid,
     isDemo,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [...channels, ...connectionChannels].map((c) => c.id).sort().join(','),
+    channelEncryptionEffectStableKey,
   ]);
 
   return <>{children}</>;

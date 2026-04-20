@@ -415,6 +415,7 @@ export async function setChannelEncryptionKey(channelId: string, key: string): P
 }
 
 // ---- Subscriptions ----
+export function subscribeToCurrentUser(
   uid: string,
   callback: (user: User | null) => void
 ): () => void {
