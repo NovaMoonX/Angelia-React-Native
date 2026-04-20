@@ -100,7 +100,7 @@ export default function TasksScreen() {
                     </Text>
                   </Text>
                   <Text style={[styles.cardDesc, { color: theme.mutedForeground }]}>
-                    Circles are better with people in them! Share your invite link so someone can join.
+                    Circles are better with people in them! Share your invite code so someone can join.
                   </Text>
                 </View>
               </View>

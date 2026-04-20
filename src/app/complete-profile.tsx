@@ -801,12 +801,16 @@ export default function CompleteProfileScreen() {
     if (step2Phase === 2) {
       // When the user came from "Join a Circle" on the home screen we can
       // reference the specific Circle they're joining.
-      const circleRef = pendingInviteChannel
+      // Daily circles show "their Daily Circle" rather than the raw name "Daily".
+      const circleName = pendingInviteChannel
+        ? (pendingInviteChannel.isDaily ? 'their Daily Circle' : pendingInviteChannel.name)
+        : null;
+      const circleRef = circleName
         ? (
           <>
             {' '}to join{' '}
             <Text style={{ fontWeight: '700', color: theme.primary }}>
-              {pendingInviteChannel.name}
+              {circleName}
             </Text>
           </>
         )
