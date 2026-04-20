@@ -8,11 +8,14 @@ interface ChannelsState {
   items: Channel[];
   /** Daily channels from connected users — kept separately so setChannels doesn't overwrite them. */
   connectionChannels: Channel[];
+  /** Per-channel AES-256 encryption keys (hex), loaded on sign-in. */
+  encryptionKeys: Record<string, string>;
 }
 
 const initialState: ChannelsState = {
   items: [],
   connectionChannels: [],
+  encryptionKeys: {},
 };
 
 const channelsSlice = createSlice({
@@ -44,6 +47,12 @@ const channelsSlice = createSlice({
     loadDemoChannels(state, action: PayloadAction<Channel[]>) {
       state.items = action.payload;
     },
+    setEncryptionKey(state, action: PayloadAction<{ channelId: string; key: string }>) {
+      state.encryptionKeys[action.payload.channelId] = action.payload.key;
+    },
+    setEncryptionKeys(state, action: PayloadAction<Record<string, string>>) {
+      state.encryptionKeys = { ...state.encryptionKeys, ...action.payload };
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(resetAllState, () => initialState);
@@ -58,6 +67,8 @@ export const {
   removeChannel,
   clearChannels,
   loadDemoChannels,
+  setEncryptionKey,
+  setEncryptionKeys,
 } = channelsSlice.actions;
 
 // Selectors

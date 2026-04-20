@@ -7,6 +7,7 @@ import invitesReducer from './slices/invitesSlice';
 import pendingInviteReducer from './slices/pendingInviteSlice';
 import conversationReducer from './slices/conversationSlice';
 import connectionsReducer from './slices/connectionsSlice';
+import commentsReducer from './slices/commentsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -18,6 +19,7 @@ export const store = configureStore({
     pendingInvite: pendingInviteReducer,
     conversation: conversationReducer,
     connections: connectionsReducer,
+    comments: commentsReducer,
   },
 });
 

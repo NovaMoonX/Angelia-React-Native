@@ -8,11 +8,13 @@ import {
   refreshChannelInviteCode as firestoreRefreshInvite,
   removeSubscriberFromChannel as firestoreRemoveSubscriber,
   getChannel,
+  setChannelEncryptionKey,
 } from '@/services/firebase/firestore';
 import {
   addChannel,
   updateChannel,
   removeChannel,
+  setEncryptionKey,
 } from '@/store/slices/channelsSlice';
 import { updateAccountProgress } from './userActions';
 import type { RootState } from '@/store';
@@ -20,6 +22,7 @@ import type { Channel } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 import { isDemoActive } from './globalActions';
+import { generateChannelKey } from '@/utils/crypto';
 
 // ── Daily channel setup ────────────────────────────────────────────────────
 
@@ -28,6 +31,17 @@ export const createDailyChannel = createAsyncThunk(
   async (userId: string, { dispatch }) => {
     const channel = await firestoreCreateDailyChannel(userId);
     dispatch(addChannel(channel));
+
+    // Generate an AES-256 key and store it in Firestore for this channel.
+    // Best-effort: a failure here is non-fatal; posts will fall back to plaintext.
+    try {
+      const key = await generateChannelKey();
+      await setChannelEncryptionKey(channel.id, key);
+      dispatch(setEncryptionKey({ channelId: channel.id, key }));
+    } catch {
+      // Key generation failure is non-fatal
+    }
+
     return channel;
   }
 );
@@ -119,6 +133,16 @@ export const createCustomChannel = createAsyncThunk(
         ownerId: user.id,
         subscribers: [],
       });
+
+      // Generate and persist the channel's encryption key (best-effort).
+      try {
+        const key = await generateChannelKey();
+        await setChannelEncryptionKey(channel.id, key);
+        dispatch(setEncryptionKey({ channelId: channel.id, key }));
+      } catch {
+        // Key generation failure is non-fatal
+      }
+
       return channel;
     } catch (err) {
       return rejectWithValue(err instanceof Error ? err.message : err);

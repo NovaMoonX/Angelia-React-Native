@@ -115,6 +115,10 @@ export interface Comment {
   authorId: string;
   text: string;
   timestamp: number;
+  /** True when `text` is AES-256-GCM ciphertext (base64). */
+  encrypted?: boolean;
+  /** Hex-encoded 12-byte IV used during encryption. Present when `encrypted` is true. */
+  iv?: string;
 }
 
 export type PostStatus = 'uploading' | 'ready' | 'error';
@@ -129,11 +133,14 @@ export interface Post {
   media: MediaItem[] | null;
   timestamp: number;
   reactions: Reaction[];
-  comments: Comment[];
   conversationEnrollees: string[];
   markedForDeletionAt: number | null;
   status: PostStatus;
   tier?: PostTier;
+  /** True when `text` is AES-256-GCM ciphertext (base64). */
+  encrypted?: boolean;
+  /** Hex-encoded 12-byte IV used during encryption. Present when `encrypted` is true. */
+  iv?: string;
 }
 
 export interface ChannelJoinRequest {

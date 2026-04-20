@@ -153,7 +153,6 @@ service cloud.firestore {
         && request.resource.data.text == resource.data.text
         && request.resource.data.timestamp == resource.data.timestamp
         && request.resource.data.reactions == resource.data.reactions
-        && request.resource.data.comments == resource.data.comments
         && request.resource.data.status == resource.data.status
         && request.resource.data.markedForDeletionAt == resource.data.markedForDeletionAt
         && request.resource.data.conversationEnrollees is list
@@ -175,6 +174,21 @@ service cloud.firestore {
           && request.auth.uid == request.resource.data.authorId;
 
         // Messages cannot be updated or deleted
+        allow update, delete: if false;
+      }
+
+      // Comments subcollection under posts — encrypted at rest, loaded on demand
+      match /comments/{commentId} {
+        // Channel members may read comments for posts in their circle
+        allow read: if isSignedIn()
+          && isChannelMember(get(/databases/$(database)/documents/posts/$(postId)).data.channelId);
+
+        // Channel members may create a comment authored by themselves
+        allow create: if isSignedIn()
+          && request.auth.uid == request.resource.data.authorId
+          && isChannelMember(get(/databases/$(database)/documents/posts/$(postId)).data.channelId);
+
+        // Comments cannot be updated or deleted by clients
         allow update, delete: if false;
       }
     }
@@ -283,6 +297,27 @@ service cloud.firestore {
     match /{document=**} {
       allow read: if false;
       allow write: if false;
+    }
+
+    // Per-channel AES-256 encryption keys — written once at channel creation,
+    // readable only by channel members. Keys are immutable after creation.
+    match /channelKeys/{channelId} {
+      function isChannelOwnerForKey() {
+        let channel = get(/databases/$(database)/documents/channels/$(channelId));
+        return isSignedIn() && channel.data.ownerId == request.auth.uid;
+      }
+
+      // Connected users may also read the key for a daily channel they can access
+      function isConnectedToKeyOwner() {
+        let channel = get(/databases/$(database)/documents/channels/$(channelId));
+        return isSignedIn()
+          && channel.data.isDaily == true
+          && exists(/databases/$(database)/documents/connections/$(channel.data.ownerId)/people/$(request.auth.uid));
+      }
+
+      allow read: if isChannelMember(channelId) || isConnectedToKeyOwner();
+      allow create: if isChannelOwnerForKey();
+      allow update, delete: if false;
     }
   }
 }
