@@ -6,6 +6,7 @@ import usersReducer from './slices/usersSlice';
 import invitesReducer from './slices/invitesSlice';
 import pendingInviteReducer from './slices/pendingInviteSlice';
 import conversationReducer from './slices/conversationSlice';
+import commentsReducer from './slices/commentsSlice';
 import connectionsReducer from './slices/connectionsSlice';
 import tasksReducer from './slices/tasksSlice';
 
@@ -18,6 +19,7 @@ export const store = configureStore({
     invites: invitesReducer,
     pendingInvite: pendingInviteReducer,
     conversation: conversationReducer,
+    comments: commentsReducer,
     connections: connectionsReducer,
     tasks: tasksReducer,
   },

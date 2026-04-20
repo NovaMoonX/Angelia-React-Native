@@ -28,9 +28,10 @@ import { ConversationEmptyState } from '@/components/conversation/ConversationEm
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { selectMessages, setMessages } from '@/store/slices/conversationSlice';
+import { setComments } from '@/store/slices/commentsSlice';
 import { sendMessage, sendJoinMessage } from '@/store/actions/conversationActions';
 import { joinConversation } from '@/store/actions/postActions';
-import { subscribeToMessages } from '@/services/firebase/firestore';
+import { subscribeToMessages, subscribeToComments } from '@/services/firebase/firestore';
 
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
@@ -92,6 +93,15 @@ export default function ConversationScreen() {
     if (!postId || isDemo) return;
     const unsub = subscribeToMessages(postId, (msgs) => {
       dispatch(setMessages({ postId, messages: msgs }));
+    });
+    return unsub;
+  }, [postId, dispatch, isDemo]);
+
+  // Subscribe to comments
+  useEffect(() => {
+    if (!postId || isDemo) return;
+    const unsub = subscribeToComments(postId, (comments) => {
+      dispatch(setComments({ postId, comments }));
     });
     return unsub;
   }, [postId, dispatch, isDemo]);

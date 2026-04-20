@@ -14,6 +14,7 @@ import {
   selectPostAuthor,
   selectPostChannel,
 } from '@/store/slices/postsSlice';
+import { selectComments } from '@/store/slices/commentsSlice';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName } from '@/lib/post/post.utils';
@@ -34,6 +35,7 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
     selectPostChannel(state, post.channelId)
   );
   const currentUser = useAppSelector((state) => state.users.currentUser);
+  const comments = useAppSelector((state) => selectComments(state, post.id));
   const { theme } = useTheme();
 
   const colors = channel
@@ -136,10 +138,10 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
               {post.reactions.length !== 1 ? 's' : ''}
             </Text>
           )}
-          {post.comments.length > 0 && (
+          {comments.length > 0 && (
             <Text style={[styles.metaText, { color: theme.mutedForeground }]}>
-              {post.comments.length} comment
-              {post.comments.length !== 1 ? 's' : ''}
+              {comments.length} comment
+              {comments.length !== 1 ? 's' : ''}
             </Text>
           )}
         </View>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Animated, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -14,6 +14,7 @@ import { MediaViewerModal } from '@/components/MediaViewerModal';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { selectMessages } from '@/store/slices/conversationSlice';
+import { selectComments, setComments } from '@/store/slices/commentsSlice';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { getRelativeTime } from '@/lib/timeUtils';
@@ -24,6 +25,7 @@ import { EmojiPicker } from '@/components/EmojiPicker';
 import { AddReactionIcon } from '@/components/AddReactionIcon';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { updatePostReactions, removePostReaction } from '@/store/actions/postActions';
+import { subscribeToComments } from '@/services/firebase/firestore';
 import type { Reaction, MediaItem } from '@/models/types';
 
 export default function PostDetailScreen() {
@@ -37,7 +39,18 @@ export default function PostDetailScreen() {
 	const author = useAppSelector((state) => selectPostAuthor(state, post?.authorId || ''));
 	const channel = useAppSelector((state) => selectPostChannel(state, post?.channelId || ''));
 	const currentUser = useAppSelector((state) => state.users.currentUser);
+	const isDemo = useAppSelector((state) => state.demo.isActive);
 	const conversationMessages = useAppSelector((state) => selectMessages(state, id || ''));
+	const postComments = useAppSelector((state) => selectComments(state, id || ''));
+
+	// Subscribe to this post's comments subcollection
+	useEffect(() => {
+		if (!id || isDemo) return;
+		const unsub = subscribeToComments(id, (comments) => {
+			dispatch(setComments({ postId: id, comments }));
+		});
+		return unsub;
+	}, [id, isDemo, dispatch]);
 
 	const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
 	const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
@@ -64,8 +77,8 @@ export default function PostDetailScreen() {
 	const authorName = getPostAuthorName(author, currentUser);
 	const hasReacted = post.reactions.some((r) => r.userId === currentUser.id);
 
-	// Use conversation messages count, falling back to legacy post.comments
-	const messageCount = conversationMessages.filter((m) => Boolean(m.isSystem) === false).length || post.comments.length;
+	// Use conversation messages count, falling back to post comments
+	const messageCount = conversationMessages.filter((m) => Boolean(m.isSystem) === false).length || postComments.length;
 
 	// Group reactions by emoji
 	const reactionGroups = useMemo(() => {

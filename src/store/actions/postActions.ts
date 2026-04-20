@@ -8,7 +8,7 @@ import {
   joinConversation as firestoreJoinConversation,
   addReactionToPost,
   removeReactionFromPost,
-  addCommentToPost,
+  addComment,
   createAppNotification,
 } from '@/services/firebase/firestore';
 import { uploadPostMedia } from '@/services/firebase/storage';
@@ -18,11 +18,13 @@ import {
   updateReactionsOptimistic,
   removeReactionOptimistic,
   revertReactionsOptimistic,
-  updateCommentsOptimistic,
-  revertCommentsOptimistic,
   addConversationEnrollee,
   removeConversationEnrollee,
 } from '@/store/slices/postsSlice';
+import {
+  addCommentOptimistic,
+  removeCommentOptimistic,
+} from '@/store/slices/commentsSlice';
 import { isDemoActive } from './globalActions';
 
 // ── Big-news notification helper ───────────────────────────────────────────
@@ -78,7 +80,6 @@ function buildPost(params: {
     media: null,
     timestamp: Date.now(),
     reactions: [],
-    comments: [],
     conversationEnrollees: [],
     markedForDeletionAt: null,
     status: params.status,
@@ -309,15 +310,15 @@ export const updatePostComments = createAsyncThunk(
     { postId, newComment }: { postId: string; newComment: Comment },
     { getState, dispatch, rejectWithValue },
   ) => {
-    dispatch(updateCommentsOptimistic({ postId, newComment }));
+    dispatch(addCommentOptimistic({ postId, comment: newComment }));
     if (isDemoActive(getState)) {
       return { postId, newComment };
     }
     try {
-      await addCommentToPost(postId, newComment);
+      await addComment(postId, newComment);
       return { postId, newComment };
     } catch (err) {
-      dispatch(revertCommentsOptimistic({ postId }));
+      dispatch(removeCommentOptimistic({ postId, commentId: newComment.id }));
       return rejectWithValue(err instanceof Error ? err.message : err);
     }
   },

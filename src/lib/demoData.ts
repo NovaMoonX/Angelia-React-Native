@@ -1,4 +1,4 @@
-import type { User, Channel, Post, ChannelJoinRequest, Message, Connection } from '@/models/types';
+import type { User, Channel, Post, Comment, ChannelJoinRequest, Message, Connection } from '@/models/types';
 
 const DEMO_USER: User = {
   id: 'demo-user-1',
@@ -129,14 +129,6 @@ const DEMO_POSTS: Post[] = [
       { emoji: '❤️', userId: 'demo-user-2' },
       { emoji: '😊', userId: 'demo-user-3' },
     ],
-    comments: [
-      {
-        id: 'demo-comment-1',
-        authorId: 'demo-user-2',
-        text: 'Gorgeous! Wish I could see it!',
-        timestamp: Date.now() - 1 * 60 * 60 * 1000,
-      },
-    ],
     conversationEnrollees: ['demo-user-2'],
     markedForDeletionAt: null,
     status: 'ready',
@@ -163,7 +155,6 @@ const DEMO_POSTS: Post[] = [
       { emoji: '😊', userId: 'demo-user-3' },
       { emoji: '❤️', userId: 'demo-user-1' },
     ],
-    comments: [],
     conversationEnrollees: [],
     markedForDeletionAt: null,
     status: 'ready',
@@ -190,14 +181,6 @@ const DEMO_POSTS: Post[] = [
     ],
     timestamp: Date.now() - 24 * 60 * 60 * 1000,
     reactions: [{ emoji: '🎉', userId: 'demo-user-2' }],
-    comments: [
-      {
-        id: 'demo-comment-2',
-        authorId: 'demo-user-2',
-        text: 'So jealous! Take lots of photos!',
-        timestamp: Date.now() - 23 * 60 * 60 * 1000,
-      },
-    ],
     conversationEnrollees: ['demo-user-2'],
     markedForDeletionAt: null,
     status: 'ready',
@@ -219,7 +202,6 @@ const DEMO_POSTS: Post[] = [
       { emoji: '👀', userId: 'demo-user-1' },
       { emoji: '😮', userId: 'demo-user-2' },
     ],
-    comments: [],
     conversationEnrollees: [],
     markedForDeletionAt: null,
     status: 'ready',
@@ -243,7 +225,6 @@ const DEMO_POSTS: Post[] = [
       { emoji: '❤️', userId: 'demo-user-1' },
       { emoji: '😄', userId: 'demo-user-3' },
     ],
-    comments: [],
     conversationEnrollees: [],
     markedForDeletionAt: null,
     status: 'ready',
@@ -278,14 +259,6 @@ const DEMO_POSTS: Post[] = [
       { emoji: '🌍', userId: 'demo-user-2' },
       { emoji: '✈️', userId: 'demo-user-3' },
     ],
-    comments: [
-      {
-        id: 'demo-comment-3',
-        authorId: 'demo-user-2',
-        text: 'The mountain scenery looks amazing!',
-        timestamp: Date.now() - 4 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
-      },
-    ],
     conversationEnrollees: ['demo-user-2'],
     markedForDeletionAt: null,
     status: 'ready',
@@ -304,7 +277,6 @@ const DEMO_POSTS: Post[] = [
     ],
     timestamp: Date.now() - 6 * 60 * 60 * 1000,
     reactions: [],
-    comments: [],
     conversationEnrollees: [],
     markedForDeletionAt: null,
     status: 'ready',
@@ -329,6 +301,37 @@ const DEMO_INVITES: {
     },
   ],
   outgoing: [],
+};
+
+/**
+ * Pre-seeded comments for demo posts. Stored separately as a subcollection
+ * in `posts/{postId}/comments/{commentId}`.
+ */
+const DEMO_COMMENTS: Record<string, Comment[]> = {
+  'demo-post-1': [
+    {
+      id: 'demo-comment-1',
+      authorId: 'demo-user-2',
+      text: 'Gorgeous! Wish I could see it!',
+      timestamp: Date.now() - 1 * 60 * 60 * 1000,
+    },
+  ],
+  'demo-post-3': [
+    {
+      id: 'demo-comment-2',
+      authorId: 'demo-user-2',
+      text: 'So jealous! Take lots of photos!',
+      timestamp: Date.now() - 23 * 60 * 60 * 1000,
+    },
+  ],
+  'demo-post-6': [
+    {
+      id: 'demo-comment-3',
+      authorId: 'demo-user-2',
+      text: 'The mountain scenery looks amazing!',
+      timestamp: Date.now() - 4 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000,
+    },
+  ],
 };
 
 /**
@@ -413,6 +416,7 @@ export const DEMO_DATA = {
   },
   channels: DEMO_CHANNELS,
   posts: DEMO_POSTS,
+  comments: DEMO_COMMENTS,
   invites: DEMO_INVITES,
   messages: DEMO_MESSAGES,
   connections: DEMO_CONNECTIONS,
