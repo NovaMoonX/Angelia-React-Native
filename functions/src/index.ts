@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin';
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 
 admin.initializeApp();
 
@@ -398,3 +399,58 @@ export const onJoinRequestAccepted = onDocumentUpdated(
     await batch.commit();
   },
 );
+
+// ── Cloud Function: Delete expired posts every 24 hours ────────────────────
+
+/**
+ * Daily retention policy:
+ *   - Posts in a Daily Circle expire after 14 days.
+ *   - Posts in a Custom Circle expire after 3 months (90 days).
+ *
+ * Runs once every 24 hours. Queries all posts older than 14 days (the shorter
+ * cutoff), then deletes them if the post's channel is a Daily Circle, or if
+ * the post is older than 90 days for a Custom Circle.
+ */
+const DAILY_POST_RETENTION_MS = 14 * 24 * 60 * 60 * 1000;   // 14 days
+const CUSTOM_POST_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;  // 90 days (~3 months)
+
+export const deleteExpiredPosts = onSchedule('every 24 hours', async () => {
+  const now = Date.now();
+  const dailyCutoff = now - DAILY_POST_RETENTION_MS;
+  const customCutoff = now - CUSTOM_POST_RETENTION_MS;
+
+  // Build a channelId → isDaily map from all channel documents.
+  const channelsSnap = await db.collection('channels').select('isDaily').get();
+  const channelIsDaily = new Map<string, boolean>();
+  for (const doc of channelsSnap.docs) {
+    channelIsDaily.set(doc.id, doc.data().isDaily === true);
+  }
+
+  // Fetch all posts older than the shortest retention window (14 days).
+  // Posts between 14 and 90 days old will be filtered further below.
+  const oldPostsSnap = await db
+    .collection('posts')
+    .where('timestamp', '<', dailyCutoff)
+    .get();
+
+  const toDelete: admin.firestore.DocumentReference[] = [];
+  for (const doc of oldPostsSnap.docs) {
+    const data = doc.data() as { channelId?: string; timestamp?: number };
+    const { channelId, timestamp } = data;
+    if (typeof channelId !== 'string' || typeof timestamp !== 'number') continue;
+    const isDaily = channelIsDaily.get(channelId) ?? false;
+    if (isDaily || timestamp < customCutoff) {
+      toDelete.push(doc.ref);
+    }
+  }
+
+  // Firestore batches are limited to 500 operations each.
+  const BATCH_SIZE = 500;
+  for (let i = 0; i < toDelete.length; i += BATCH_SIZE) {
+    const batch = db.batch();
+    for (const ref of toDelete.slice(i, i + BATCH_SIZE)) {
+      batch.delete(ref);
+    }
+    await batch.commit();
+  }
+});
