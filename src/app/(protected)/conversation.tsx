@@ -36,7 +36,6 @@ import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { usePostComments } from '@/hooks/usePostComments';
 import { getTierTheme } from '@/lib/conversation/tierTheme';
-import { getPostAuthorName } from '@/lib/post/post.utils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { isStatusActive } from '@/components/NowStatusBadge';
