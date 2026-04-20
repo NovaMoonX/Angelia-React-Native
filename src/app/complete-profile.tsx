@@ -29,7 +29,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { createUserProfile } from '@/store/actions/userActions';
 import { createDailyChannel, createCustomChannel } from '@/store/actions/channelActions';
 import { saveNotificationSettings } from '@/store/actions/notificationActions';
-import { createInviteCircleTask } from '@/store/actions/taskActions';
+import { createInviteCircleTask, createSetFunFactTask, createSetStatusTask, createCustomCircleTask } from '@/store/actions/taskActions';
 import { uploadPost } from '@/store/actions/postActions';
 import { uploadUserAvatar } from '@/services/firebase/storage';
 import { AVATAR_PRESETS, CHANNEL_COLORS, DAILY_CHANNEL_SUFFIX } from '@/models/constants';
@@ -354,6 +354,10 @@ export default function CompleteProfileScreen() {
 
   // ── Final submit ────────────────────────────────────────────────────────
 
+  /** Minimum time (ms) each loading step is shown so the user can read it. */
+  const MIN_STEP_MS = 800;
+  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
   const handleFinish = async () => {
     if (!firebaseUser) return;
 
@@ -387,16 +391,20 @@ export default function CompleteProfileScreen() {
       // 3 — Create daily Circle
       setLoadingMessage('Building your Daily Circle 🌙');
       const dailyChannelId = `${firebaseUser.uid}${DAILY_CHANNEL_SUFFIX}`;
-      await dispatch(createDailyChannel(firebaseUser.uid)).unwrap();
+      await Promise.all([dispatch(createDailyChannel(firebaseUser.uid)).unwrap(), sleep(MIN_STEP_MS)]);
 
       // 4 — Upload first post to Daily Circle (non-fatal)
       const firstPostText = firstPost.trim();
       if (firstPostText) {
         setLoadingMessage('Saving your first post 📝');
         try {
-          await dispatch(uploadPost({ channelId: dailyChannelId, text: firstPostText, media: [] })).unwrap();
+          await Promise.all([
+            dispatch(uploadPost({ channelId: dailyChannelId, text: firstPostText, media: [] })).unwrap(),
+            sleep(MIN_STEP_MS),
+          ]);
         } catch {
           // Non-fatal: the user can post later
+          await sleep(MIN_STEP_MS);
         }
       }
 
@@ -404,6 +412,7 @@ export default function CompleteProfileScreen() {
       const pendingCircles = getPendingCircles();
       if (pendingCircles.length > 0) {
         setLoadingMessage('Setting up your custom Circles 💫');
+        await sleep(MIN_STEP_MS);
       }
       for (const circle of pendingCircles) {
         const name = (circleNameOverrides[circle.key] ?? circle.name).trim() || circle.name;
@@ -422,7 +431,23 @@ export default function CompleteProfileScreen() {
         }
       }
 
-      // 6 — Save notification settings
+      // 6 — Create nudge tasks (non-fatal, all in parallel)
+      setLoadingMessage('Setting up your to-do list 📋');
+      await Promise.all([
+        sleep(MIN_STEP_MS),
+        // Nudge to fill in their bio if they skipped it during step 6
+        !firstPostText
+          ? dispatch(createSetFunFactTask()).unwrap().catch(() => null)
+          : Promise.resolve(null),
+        // Nudge to set first status — everyone starts without one
+        dispatch(createSetStatusTask()).unwrap().catch(() => null),
+        // Nudge to create a custom circle if they opted out during onboarding
+        pendingCircles.length === 0
+          ? dispatch(createCustomCircleTask()).unwrap().catch(() => null)
+          : Promise.resolve(null),
+      ]);
+
+      // 7 — Save notification settings
       try {
         const dailyHour = notifSkipped ? 12 : midCheckIn.hour;
         const dailyMinute = notifSkipped ? 0 : midCheckIn.minute;
@@ -438,9 +463,9 @@ export default function CompleteProfileScreen() {
         // Non-fatal: defaults will apply
       }
 
-      // 7 — Verification email
+      // 8 — Verification email
       setLoadingMessage('Almost there — sending your verification email 💌');
-      await sendVerificationEmail();
+      await Promise.all([sendVerificationEmail(), sleep(MIN_STEP_MS)]);
 
       addToast({ type: 'success', title: "You're all set! 🎉" });
       if (invitedAnswer === 'yes') {

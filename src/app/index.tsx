@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Pressable,
@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { AngeliaLogo } from '@/components/AngeliaLogo';
 import { Button } from '@/components/ui/Button';
@@ -27,10 +27,20 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [showActions, setShowActions] = useState(false);
   const didRedirect = useRef(false);
+  // Track whether this screen is currently focused so the auto-redirect effect
+  // does not fire while the user is on another screen (e.g. mid sign-up).
+  const isFocusedRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      isFocusedRef.current = true;
+      return () => { isFocusedRef.current = false; };
+    }, []),
+  );
 
   // Auto-redirect when auth state or demo mode was persisted
   useEffect(() => {
-    if (authLoading || didRedirect.current) return;
+    if (!isFocusedRef.current || authLoading || didRedirect.current) return;
 
     if (firebaseUser) {
       didRedirect.current = true;

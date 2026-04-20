@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -17,7 +18,47 @@ import { useTheme } from '@/hooks/useTheme';
 import { completeTask } from '@/store/actions/taskActions';
 import type { AppTask } from '@/models/types';
 
+/** Returns icon name, title, description and optional primary CTA label for a task. */
+function taskMeta(task: AppTask): {
+  icon: React.ComponentProps<typeof Feather>['name'];
+  title: string;
+  desc: string;
+  ctaLabel?: string;
+} {
+  switch (task.type) {
+    case 'invite_to_circle':
+      return {
+        icon: 'user-plus',
+        title: `Invite someone to ${task.channelName}`,
+        desc: 'Circles are better with people in them! Share your invite code so someone can join.',
+        ctaLabel: 'Share Invite',
+      };
+    case 'set_fun_fact':
+      return {
+        icon: 'user',
+        title: 'Add your bio',
+        desc: "Let your people know who you are! Add a fun fact to your profile so friends can learn a little more about you.",
+        ctaLabel: 'Go to Profile',
+      };
+    case 'set_status':
+      return {
+        icon: 'smile',
+        title: 'Set your first status',
+        desc: "Let people know what's going on with you! Tap the + button on the feed and choose Status.",
+        ctaLabel: 'Go to Feed',
+      };
+    case 'create_custom_circle':
+      return {
+        icon: 'circle',
+        title: 'Create a custom Circle',
+        desc: "Custom Circles let you share specific updates with specific people. Head to your profile to create one whenever you're ready.",
+        ctaLabel: 'Go to Profile',
+      };
+  }
+}
+
 export default function TasksScreen() {
+  const router = useRouter();
   const dispatch = useAppDispatch();
   const { addToast } = useToast();
   const { theme } = useTheme();
@@ -44,6 +85,7 @@ export default function TasksScreen() {
 
   const handleShareInvite = useCallback(
     async (task: AppTask) => {
+      if (task.type !== 'invite_to_circle') return;
       const channel = channels.find((c) => c.id === task.channelId);
       if (!channel?.inviteCode) {
         addToast({ type: 'warning', title: "Couldn't find that Circle's invite code." });
@@ -61,6 +103,24 @@ export default function TasksScreen() {
       }
     },
     [channels, dispatch, addToast],
+  );
+
+  /** Handles the primary CTA for non-invite tasks (navigates to the relevant screen). */
+  const handlePrimaryCta = useCallback(
+    async (task: AppTask) => {
+      switch (task.type) {
+        case 'set_fun_fact':
+        case 'create_custom_circle':
+          router.push('/(protected)/account');
+          break;
+        case 'set_status':
+          router.push('/(protected)/feed');
+          break;
+        default:
+          break;
+      }
+    },
+    [router],
   );
 
   return (
@@ -86,45 +146,51 @@ export default function TasksScreen() {
           <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>
             {tasks.length} TASK{tasks.length !== 1 ? 'S' : ''} PENDING
           </Text>
-          {tasks.map((task) => (
-            <Card key={task.id} style={[styles.card, { borderColor: theme.border }]}>
-              <View style={styles.cardHeader}>
-                <View style={[styles.iconWrap, { backgroundColor: theme.secondary }]}>
-                  <Feather name="user-plus" size={20} color={theme.primary} />
-                </View>
-                <View style={styles.cardBody}>
-                  <Text style={[styles.cardTitle, { color: theme.foreground }]}>
-                    Invite someone to{' '}
-                    <Text style={{ color: theme.primary, fontWeight: '700' }}>
-                      {task.channelName}
+          {tasks.map((task) => {
+            const meta = taskMeta(task);
+            return (
+              <Card key={task.id} style={[styles.card, { borderColor: theme.border }]}>
+                <View style={styles.cardHeader}>
+                  <View style={[styles.iconWrap, { backgroundColor: theme.secondary }]}>
+                    <Feather name={meta.icon} size={20} color={theme.primary} />
+                  </View>
+                  <View style={styles.cardBody}>
+                    <Text style={[styles.cardTitle, { color: theme.foreground }]}>
+                      {meta.title}
                     </Text>
-                  </Text>
-                  <Text style={[styles.cardDesc, { color: theme.mutedForeground }]}>
-                    Circles are better with people in them! Share your invite code so someone can join.
-                  </Text>
+                    <Text style={[styles.cardDesc, { color: theme.mutedForeground }]}>
+                      {meta.desc}
+                    </Text>
+                  </View>
                 </View>
-              </View>
 
-              <View style={styles.cardActions}>
-                <Button
-                  onPress={() => handleShareInvite(task)}
-                  style={{ flex: 1 }}
-                  size="sm"
-                >
-                  Share Invite
-                </Button>
-                <Pressable
-                  onPress={() => handleComplete(task)}
-                  style={[styles.dismissButton, { borderColor: theme.border }]}
-                  disabled={loadingId === task.id}
-                >
-                  <Text style={[styles.dismissText, { color: theme.mutedForeground }]}>
-                    {loadingId === task.id ? '…' : 'Dismiss'}
-                  </Text>
-                </Pressable>
-              </View>
-            </Card>
-          ))}
+                <View style={styles.cardActions}>
+                  {meta.ctaLabel && (
+                    <Button
+                      onPress={() =>
+                        task.type === 'invite_to_circle'
+                          ? handleShareInvite(task)
+                          : handlePrimaryCta(task)
+                      }
+                      style={{ flex: 1 }}
+                      size="sm"
+                    >
+                      {meta.ctaLabel}
+                    </Button>
+                  )}
+                  <Pressable
+                    onPress={() => handleComplete(task)}
+                    style={[styles.dismissButton, { borderColor: theme.border }]}
+                    disabled={loadingId === task.id}
+                  >
+                    <Text style={[styles.dismissText, { color: theme.mutedForeground }]}>
+                      {loadingId === task.id ? '…' : 'Dismiss'}
+                    </Text>
+                  </Pressable>
+                </View>
+              </Card>
+            );
+          })}
         </>
       )}
     </ScrollView>

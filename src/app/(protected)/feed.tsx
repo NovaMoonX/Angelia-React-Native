@@ -346,20 +346,6 @@ export default function FeedScreen() {
               </View>
             )
           }
-          ListHeaderComponent={
-            pendingTasks.length > 0 ? (
-              <Pressable
-                onPress={() => router.push('/(protected)/tasks')}
-                style={[styles.tasksBanner, { backgroundColor: theme.primary }]}
-              >
-                <Feather name="check-square" size={16} color={theme.primaryForeground} />
-                <Text style={[styles.tasksBannerText, { color: theme.primaryForeground }]}>
-                  You have {pendingTasks.length} pending task{pendingTasks.length !== 1 ? 's' : ''} — tap to view
-                </Text>
-                <Feather name="chevron-right" size={16} color={theme.primaryForeground} />
-              </Pressable>
-            ) : null
-          }
           ListFooterComponent={
             hasMore ? <SkeletonPostCard /> : null
           }
@@ -499,6 +485,21 @@ export default function FeedScreen() {
             })}
           </View>
         </View>
+
+        {/* Task banner — lives inside the header so `headerHeight` includes it,
+            preventing overlap with both the skeleton list and the filtering dots. */}
+        {pendingTasks.length > 0 && (
+          <Pressable
+            onPress={() => router.push('/(protected)/tasks')}
+            style={[styles.tasksBanner, { backgroundColor: theme.success }]}
+          >
+            <Feather name="check-square" size={16} color={theme.successForeground} />
+            <Text style={[styles.tasksBannerText, { color: theme.successForeground }]}>
+              {pendingTasks.length} thing{pendingTasks.length !== 1 ? 's' : ''} on your to-do list — tap to see
+            </Text>
+            <Feather name="chevron-right" size={16} color={theme.successForeground} />
+          </Pressable>
+        )}
       </Animated.View>
 
       {/* Channel filter modal */}
