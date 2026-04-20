@@ -435,7 +435,9 @@ export const deleteExpiredPosts = onSchedule('every 24 hours', async () => {
 
   const toDelete: admin.firestore.DocumentReference[] = [];
   for (const doc of oldPostsSnap.docs) {
-    const { channelId, timestamp } = doc.data() as { channelId: string; timestamp: number };
+    const data = doc.data() as { channelId?: string; timestamp?: number };
+    const { channelId, timestamp } = data;
+    if (typeof channelId !== 'string' || typeof timestamp !== 'number') continue;
     const isDaily = channelIsDaily.get(channelId) ?? false;
     if (isDaily || timestamp < customCutoff) {
       toDelete.push(doc.ref);

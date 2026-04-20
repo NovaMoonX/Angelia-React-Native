@@ -780,6 +780,7 @@ export default function CompleteProfileScreen() {
           </View>
         )}
 
+        {/* Add spacing between the bridge card (yes path) and the heading below */}
         <View style={[styles.headerBlock, { marginTop: invitedAnswer === 'yes' ? 16 : 0 }]}>
           <Text style={[styles.heading, { color: theme.foreground }]}>
             Now, let's set up your space!
