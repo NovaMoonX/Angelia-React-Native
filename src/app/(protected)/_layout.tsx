@@ -120,6 +120,17 @@ export default function ProtectedLayout() {
           />
           <Stack.Screen name="channel-accepted" options={{ headerShown: false }} />
           <Stack.Screen
+            name="tasks"
+            options={{
+              headerShown: true,
+              title: 'My Tasks',
+              headerStyle: { backgroundColor: theme.background },
+              headerTintColor: theme.foreground,
+              headerTitleStyle: { fontWeight: '600' },
+              ...(isDemo ? { headerStatusBarHeight: 0 } : {}),
+            }}
+          />
+          <Stack.Screen
             name="error-fallback"
             options={{ title: 'Error', headerBackVisible: false }}
           />

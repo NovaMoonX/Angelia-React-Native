@@ -284,6 +284,30 @@ export type AppNotification =
   | ConnectionAcceptedNotification
   | BigNewsPostNotification;
 
+// ── Tasks ───────────────────────────────────────────────────────────────────
+
+/**
+ * The only current task type: prompts the user to invite someone to a Circle
+ * they created during sign-up.
+ */
+export type TaskType = 'invite_to_circle';
+
+/**
+ * A lightweight to-do item owned by a single user.
+ * Stored in `tasks/{userId}/items/{taskId}`.
+ */
+export interface AppTask {
+  id: string;
+  userId: string;
+  type: TaskType;
+  /** The Circle the user should invite someone to. */
+  channelId: string;
+  channelName: string;
+  createdAt: number;
+  /** Non-null once the user marks the task done (or dismisses it). */
+  completedAt: number | null;
+}
+
 // ── Feedback & Support ──────────────────────────────────────────────────────
 
 export type FeedbackCategory =

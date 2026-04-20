@@ -12,6 +12,7 @@ import {
   setIncomingRequests,
   setOutgoingRequests,
 } from '@/store/slices/invitesSlice';
+import { setTasks } from '@/store/slices/tasksSlice';
 import {
   setConnections,
   setIncomingConnectionRequests,
@@ -32,6 +33,7 @@ import {
   subscribeToIncomingConnectionRequests,
   subscribeToOutgoingConnectionRequests,
   subscribeToConnectionChannels,
+  subscribeToTasks,
 } from '@/services/firebase/firestore';
 import {
   requestNotificationPermission,
@@ -83,6 +85,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const usersUnsubRef = useRef<(() => void) | null>(null);
   const notifSettingsUnsubRef = useRef<(() => void) | null>(null);
   const connectionChannelsUnsubRef = useRef<(() => void) | null>(null);
+  const tasksUnsubRef = useRef<(() => void) | null>(null);
   const pendingInviteProcessed = useRef(false);
   const pendingConnectionProcessed = useRef(false);
   /**
@@ -524,6 +527,21 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
     });
     return () => subscription.remove();
   }, [addToast]);
+
+  // Effect 11: Subscribe to the current user's pending tasks.
+  useEffect(() => {
+    if (isDemo || !firebaseUser) return;
+
+    tasksUnsubRef.current?.();
+    tasksUnsubRef.current = subscribeToTasks(firebaseUser.uid, (tasks) => {
+      dispatch(setTasks(tasks));
+    });
+
+    return () => {
+      tasksUnsubRef.current?.();
+      tasksUnsubRef.current = null;
+    };
+  }, [isDemo, firebaseUser, dispatch]);
 
   return <>{children}</>;
 }

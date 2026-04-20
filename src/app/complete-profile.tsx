@@ -25,10 +25,11 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
-import { useAppDispatch } from '@/store/hooks';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { createUserProfile } from '@/store/actions/userActions';
 import { createDailyChannel, createCustomChannel } from '@/store/actions/channelActions';
 import { saveNotificationSettings } from '@/store/actions/notificationActions';
+import { createInviteCircleTask } from '@/store/actions/taskActions';
 import { uploadUserAvatar } from '@/services/firebase/storage';
 import { AVATAR_PRESETS, CHANNEL_COLORS } from '@/models/constants';
 import type { AvatarPreset } from '@/models/types';
@@ -124,6 +125,11 @@ export default function CompleteProfileScreen() {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
 
+  // If the user arrived here from "Join a Circle" on the home screen, a
+  // pending invite channel will be in Redux.  We use this to skip the
+  // YES/NO invited question and go straight to the acknowledgement screen.
+  const pendingInviteChannel = useAppSelector((state) => state.pendingInvite.channel);
+
   // ── Wizard state ────────────────────────────────────────────────────────
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -136,9 +142,15 @@ export default function CompleteProfileScreen() {
   /** Local file URI of a custom photo picked during sign-up. Uploaded in handleFinish. */
   const [avatarPhotoUri, setAvatarPhotoUri] = useState<string | null>(null);
 
-  // Step 2
-  const [invitedAnswer, setInvitedAnswer] = useState<'yes' | 'no' | null>(null);
-  const [step2Phase, setStep2Phase] = useState<1 | 2 | 3>(1);
+  // Step 2 — if a pending invite exists we already know the answer is "yes"
+  const [invitedAnswer, setInvitedAnswer] = useState<'yes' | 'no' | null>(
+    pendingInviteChannel ? 'yes' : null,
+  );
+  // When there's a pending invite we skip phase 1 (the YES/NO question) and
+  // go directly to phase 2 (the "you'll be added after setup" acknowledgement).
+  const [step2Phase, setStep2Phase] = useState<1 | 2 | 3>(
+    pendingInviteChannel ? 2 : 1,
+  );
 
   // Step 3
   const [categories, setCategories] = useState<Category[]>([]);
@@ -243,13 +255,18 @@ export default function CompleteProfileScreen() {
     if (step === 2 && step2Phase === 3) {
       animateTransition(() => setStep2Phase(invitedAnswer === 'yes' ? 2 : 1));
     } else if (step === 2 && step2Phase === 2) {
-      animateTransition(() => setStep2Phase(1));
+      // If the user came via "Join a Circle" there is no phase 1 — go back to step 1.
+      if (pendingInviteChannel) {
+        animateTransition(() => setStep((s) => s - 1));
+      } else {
+        animateTransition(() => setStep2Phase(1));
+      }
     } else if (step === 3) {
       animateTransition(() => { setStep(2); setStep2Phase(3); });
     } else if (step > 1) {
       animateTransition(() => setStep((s) => s - 1));
     }
-  }, [step, step2Phase, animateTransition]);
+  }, [step, step2Phase, animateTransition, pendingInviteChannel]);
 
   // ── Derived values for Step 4 ───────────────────────────────────────────
 
@@ -368,7 +385,15 @@ export default function CompleteProfileScreen() {
       for (const circle of pendingCircles) {
         const name = (circleNameOverrides[circle.key] ?? circle.name).trim() || circle.name;
         try {
-          await dispatch(createCustomChannel({ name, description: circle.description, color: circle.color })).unwrap();
+          const createdChannel = await dispatch(createCustomChannel({ name, description: circle.description, color: circle.color })).unwrap();
+          // Create a task reminding the user to invite someone to each new Circle
+          if (createdChannel) {
+            try {
+              await dispatch(createInviteCircleTask({ channelId: createdChannel.id, channelName: createdChannel.name })).unwrap();
+            } catch {
+              // Non-fatal: task creation failure shouldn't block sign-up
+            }
+          }
         } catch {
           // Non-fatal: the user can create it later
         }
@@ -732,6 +757,9 @@ export default function CompleteProfileScreen() {
 
   const renderStep2 = () => {
     // Phase 1 — just the YES / NO question
+    // Skipped entirely when the user arrived via "Join a Circle" on the home
+    // screen (pendingInviteChannel is set), because we already know they have
+    // an invite.
     if (step2Phase === 1) {
       return (
         <>
@@ -771,6 +799,19 @@ export default function CompleteProfileScreen() {
 
     // Phase 2 — prominent "You're invited!" acknowledgement (yes path only)
     if (step2Phase === 2) {
+      // When the user came from "Join a Circle" on the home screen we can
+      // reference the specific Circle they're joining.
+      const circleRef = pendingInviteChannel
+        ? (
+          <>
+            {' '}to join{' '}
+            <Text style={{ fontWeight: '700', color: theme.primary }}>
+              {pendingInviteChannel.name}
+            </Text>
+          </>
+        )
+        : ' to join a Circle on Angelia';
+
       return (
         <View style={styles.invitedHero}>
           <Text style={styles.invitedEmoji}>🎉</Text>
@@ -778,9 +819,9 @@ export default function CompleteProfileScreen() {
             You're in!
           </Text>
           <Text style={[styles.invitedHeroBody, { color: theme.mutedForeground }]}>
-            Someone invited you to join their Circle on Angelia.{' '}
+            You've been invited{circleRef}.{' '}
             <Text style={{ fontWeight: '700', color: theme.foreground }}>
-              Once you finish setting up your space, we'll take you right to it.
+              Once you finish setting up your profile, you'll be taken right to it.
             </Text>
           </Text>
 
