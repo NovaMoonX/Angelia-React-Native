@@ -6,7 +6,11 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { setPosts } from '@/store/slices/postsSlice';
-import { setChannels, setConnectionChannels } from '@/store/slices/channelsSlice';
+import {
+  setChannels,
+  setConnectionChannels,
+  setEncryptionKey,
+} from '@/store/slices/channelsSlice';
 import { setCurrentUser, setUsers, setCurrentUserNotificationSettings } from '@/store/slices/usersSlice';
 import {
   setIncomingRequests,
@@ -32,6 +36,8 @@ import {
   subscribeToIncomingConnectionRequests,
   subscribeToOutgoingConnectionRequests,
   subscribeToConnectionChannels,
+  getChannelEncryptionKey,
+  setChannelEncryptionKey,
 } from '@/services/firebase/firestore';
 import {
   requestNotificationPermission,
@@ -41,6 +47,7 @@ import {
 } from '@/services/notifications';
 import type { AppNotificationType, Channel, ChannelJoinRequest, Connection, ConnectionRequest, NotificationSettings, Post, User } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
+import { generateChannelKey } from '@/utils/crypto';
 
 /** AsyncStorage key that tracks the calendar date when the daily in-app notice was last shown. */
 const DAILY_PROMPT_SHOWN_DATE_KEY = '@angelia/daily_prompt_shown_date';
@@ -66,6 +73,8 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const { addToast } = useToast();
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const channels = useAppSelector((state) => state.channels.items);
+  const connectionChannels = useAppSelector((state) => state.channels.connectionChannels);
+  const encryptionKeys = useAppSelector((state) => state.channels.encryptionKeys);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const pendingInviteChannel = useAppSelector((state) => state.pendingInvite.channel);
   const pendingFromUserId = useAppSelector((state) => state.connections.pendingFromUserId);
@@ -524,6 +533,50 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
     });
     return () => subscription.remove();
   }, [addToast]);
+
+  // Effect 11: Load (or generate) AES-256 encryption keys for all accessible
+  // channels whenever the channel list changes.  This runs for own channels and
+  // connected users' daily channels.  For owned channels that don't yet have a
+  // key (channels created before encryption was introduced) a new key is
+  // generated once and persisted to Firestore.  For other channels the existing
+  // key is simply fetched.  All operations are best-effort — a key failure only
+  // means posts/comments fall back to plaintext.
+  const channelEncryptionEffectStableKey = [...channels, ...connectionChannels].map((c) => c.id).sort().join(',')
+  useEffect(() => {
+    if (isDemo || !firebaseUser) return;
+
+    const uid = firebaseUser.uid;
+    const allChannels = [...channels, ...connectionChannels];
+    if (allChannels.length === 0) return;
+
+    void Promise.all(
+      allChannels.map(async (ch) => {
+        if (encryptionKeys[ch.id]) return; // already cached
+        try {
+          const existing = await getChannelEncryptionKey(ch.id);
+          if (existing) {
+            dispatch(setEncryptionKey({ channelId: ch.id, key: existing }));
+            return;
+          }
+          // Generate a key for owned channels that don't have one yet
+          if (ch.ownerId === uid) {
+            const newKey = await generateChannelKey();
+            await setChannelEncryptionKey(ch.id, newKey);
+            dispatch(setEncryptionKey({ channelId: ch.id, key: newKey }));
+          }
+        } catch {
+          // Best-effort; skip silently
+        }
+      }),
+    );
+  // Stable key: only re-run when the set of channel IDs changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    firebaseUser?.uid,
+    isDemo,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    channelEncryptionEffectStableKey,
+  ]);
 
   return <>{children}</>;
 }

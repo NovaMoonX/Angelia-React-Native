@@ -20,6 +20,7 @@ import { getPostAuthorName } from '@/lib/post/post.utils';
 import { POST_TIERS } from '@/models/constants';
 import type { Post, MediaItem } from '@/models/types';
 import { useTheme } from '@/hooks/useTheme';
+import { useDecryptedText } from '@/hooks/useDecryptedText';
 
 interface PostCardProps {
   post: Post;

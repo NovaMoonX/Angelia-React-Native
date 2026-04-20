@@ -8,7 +8,7 @@ import {
   joinConversation as firestoreJoinConversation,
   addReactionToPost,
   removeReactionFromPost,
-  addCommentToPost,
+  addPostComment,
   createAppNotification,
 } from '@/services/firebase/firestore';
 import { uploadPostMedia } from '@/services/firebase/storage';
@@ -18,11 +18,14 @@ import {
   updateReactionsOptimistic,
   removeReactionOptimistic,
   revertReactionsOptimistic,
-  updateCommentsOptimistic,
-  revertCommentsOptimistic,
   addConversationEnrollee,
   removeConversationEnrollee,
 } from '@/store/slices/postsSlice';
+import {
+  addCommentOptimistic,
+  removeCommentOptimistic,
+} from '@/store/slices/commentsSlice';
+import { encryptText } from '@/utils/crypto';
 import { isDemoActive } from './globalActions';
 
 // ── Big-news notification helper ───────────────────────────────────────────
@@ -78,7 +81,6 @@ function buildPost(params: {
     media: null,
     timestamp: Date.now(),
     reactions: [],
-    comments: [],
     conversationEnrollees: [],
     markedForDeletionAt: null,
     status: params.status,
@@ -132,10 +134,23 @@ export const uploadPost = createAsyncThunk(
         tier,
       });
 
-      // Optimistically add the post to the store
+      // Optimistically add the post to the store (plaintext, no encryption flag)
       dispatch(addPost(uploadingPost));
 
-      await createPost(uploadingPost);
+      // Encrypt post text if a channel key is available (real accounts only).
+      let postToCreate: Post = uploadingPost;
+      const encKey = (getState() as RootState).channels.encryptionKeys[channelId];
+      if (!isDemoActive(getState) && encKey && uploadingPost.text) {
+        try {
+          const { ciphertext, iv } = await encryptText(uploadingPost.text, encKey);
+          postToCreate = { ...uploadingPost, text: ciphertext, encrypted: true, iv };
+        } catch {
+          // Encryption failure is non-fatal; fall back to plaintext
+          postToCreate = uploadingPost;
+        }
+      }
+
+      await createPost(postToCreate);
 
       if (!hasMedia) {
         // Fire big-news notification for no-media posts immediately
@@ -301,23 +316,46 @@ export const removePostReaction = createAsyncThunk(
   },
 );
 
-// ── Add comment with optimistic update ─────────────────────────────────────
+// ── Add comment with optimistic update + encryption ────────────────────────
 
-export const updatePostComments = createAsyncThunk(
-  'posts/updatePostComments',
+export const addComment = createAsyncThunk(
+  'posts/addComment',
   async (
-    { postId, newComment }: { postId: string; newComment: Comment },
+    { postId, channelId, text }: { postId: string; channelId: string; text: string },
     { getState, dispatch, rejectWithValue },
   ) => {
-    dispatch(updateCommentsOptimistic({ postId, newComment }));
+    const state = getState() as RootState;
+    const user = state.users.currentUser;
+    if (!user) return rejectWithValue('User not authenticated');
+
+    const id = generateId('nano');
+    const timestamp = Date.now();
+
+    // Optimistic update uses plaintext so the user sees their comment immediately.
+    const optimisticComment: Comment = { id, authorId: user.id, text: text.trim(), timestamp };
+    dispatch(addCommentOptimistic({ postId, comment: optimisticComment }));
+
     if (isDemoActive(getState)) {
-      return { postId, newComment };
+      return optimisticComment;
     }
+
+    // Build the persisted comment, encrypting text if a key is available.
+    let commentToWrite: Comment = optimisticComment;
+    const encKey = state.channels.encryptionKeys[channelId];
+    if (encKey && text.trim()) {
+      try {
+        const { ciphertext, iv } = await encryptText(text.trim(), encKey);
+        commentToWrite = { id, authorId: user.id, text: ciphertext, timestamp, encrypted: true, iv };
+      } catch {
+        // Encryption failure is non-fatal; persist plaintext
+      }
+    }
+
     try {
-      await addCommentToPost(postId, newComment);
-      return { postId, newComment };
+      await addPostComment(postId, commentToWrite);
+      return commentToWrite;
     } catch (err) {
-      dispatch(revertCommentsOptimistic({ postId }));
+      dispatch(removeCommentOptimistic({ postId, commentId: id }));
       return rejectWithValue(err instanceof Error ? err.message : err);
     }
   },

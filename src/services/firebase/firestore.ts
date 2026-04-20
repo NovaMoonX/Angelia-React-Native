@@ -15,7 +15,7 @@ import {
   arrayUnion,
   arrayRemove,
 } from '@react-native-firebase/firestore';
-import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission } from '@/models/types';
+import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, Comment } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX, DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
@@ -361,18 +361,60 @@ export async function removeReactionFromPost(postId: string, reaction: { emoji: 
   });
 }
 
-export async function updatePostComments(postId: string, comments: unknown[]): Promise<void> {
-  await updateDoc(doc(db, 'posts', postId), { comments });
+// ── Post Comments (subcollection) ────────────────────────────────────────────
+
+/**
+ * Writes a comment document to the `posts/{postId}/comments` subcollection.
+ * Comment text may be AES-256-GCM ciphertext when `comment.encrypted` is true.
+ */
+export async function addPostComment(postId: string, comment: Comment): Promise<void> {
+  await setDoc(doc(db, 'posts', postId, 'comments', comment.id), comment);
 }
 
-export async function addCommentToPost(postId: string, comment: { id: string; authorId: string; text: string; timestamp: number }): Promise<void> {
-  await updateDoc(doc(db, 'posts', postId), {
-    comments: arrayUnion(comment),
-  });
+/**
+ * Real-time subscription to a post's comments subcollection, ordered by timestamp.
+ * Call the returned unsubscribe function when the screen unmounts.
+ */
+export function subscribeToPostComments(
+  postId: string,
+  callback: (comments: Comment[]) => void,
+): () => void {
+  return onSnapshot(
+    query(
+      collection(db, 'posts', postId, 'comments'),
+      orderBy('timestamp', 'asc'),
+    ),
+    (snap) => {
+      const comments = snap?.docs?.map((d) => d.data() as Comment) ?? [];
+      callback(comments);
+    },
+    () => {
+      callback([]);
+    },
+  );
+}
+
+// ── Channel Encryption Keys ───────────────────────────────────────────────────
+
+/**
+ * Reads the AES-256 encryption key for a channel.
+ * Returns null if the document does not exist (channel pre-dates encryption).
+ */
+export async function getChannelEncryptionKey(channelId: string): Promise<string | null> {
+  const snap = await getDoc(doc(db, 'channelKeys', channelId));
+  if (!snap.exists) return null;
+  return (snap.data() as { key: string }).key ?? null;
+}
+
+/**
+ * Stores the AES-256 encryption key for a channel.
+ * Called once at channel creation time by the channel owner.
+ */
+export async function setChannelEncryptionKey(channelId: string, key: string): Promise<void> {
+  await setDoc(doc(db, 'channelKeys', channelId), { key });
 }
 
 // ---- Subscriptions ----
-
 export function subscribeToCurrentUser(
   uid: string,
   callback: (user: User | null) => void
