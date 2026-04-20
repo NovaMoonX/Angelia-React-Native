@@ -451,8 +451,9 @@ export const deleteExpiredPosts = onSchedule('every 24 hours', async () => {
     toDelete.map(async (ref) => {
       try {
         await bucket.deleteFiles({ prefix: `posts/${ref.id}/` });
-      } catch {
+      } catch (err) {
         // Best-effort: a storage failure should not block Firestore cleanup.
+        console.error(`Failed to delete Storage files for post ${ref.id}:`, err);
       }
     }),
   );
