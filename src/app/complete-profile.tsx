@@ -138,7 +138,7 @@ export default function CompleteProfileScreen() {
 
   // Step 2
   const [invitedAnswer, setInvitedAnswer] = useState<'yes' | 'no' | null>(null);
-  const [step2Phase, setStep2Phase] = useState<1 | 2>(1);
+  const [step2Phase, setStep2Phase] = useState<1 | 2 | 3>(1);
 
   // Step 3
   const [categories, setCategories] = useState<Category[]>([]);
@@ -169,6 +169,9 @@ export default function CompleteProfileScreen() {
   // Step 6 (was Step 5)
   const [firstPost, setFirstPost] = useState('');
   const [showSkipPostModal, setShowSkipPostModal] = useState(false);
+
+  // Step 2 — Phase 2: skip space setup confirmation
+  const [showSkipSpaceModal, setShowSkipSpaceModal] = useState(false);
 
   // ── Logout handler ──────────────────────────────────────────────────────
 
@@ -237,10 +240,12 @@ export default function CompleteProfileScreen() {
   }, [step, animateTransition]);
 
   const goBack = useCallback(() => {
-    if (step === 2 && step2Phase === 2) {
+    if (step === 2 && step2Phase === 3) {
+      animateTransition(() => setStep2Phase(invitedAnswer === 'yes' ? 2 : 1));
+    } else if (step === 2 && step2Phase === 2) {
       animateTransition(() => setStep2Phase(1));
     } else if (step === 3) {
-      animateTransition(() => { setStep(2); setStep2Phase(2); });
+      animateTransition(() => { setStep(2); setStep2Phase(3); });
     } else if (step > 1) {
       animateTransition(() => setStep((s) => s - 1));
     }
@@ -749,7 +754,7 @@ export default function CompleteProfileScreen() {
             </Pressable>
 
             <Pressable
-              onPress={() => { setInvitedAnswer('no'); animateTransition(() => setStep2Phase(2)); }}
+              onPress={() => { setInvitedAnswer('no'); animateTransition(() => setStep2Phase(3)); }}
               style={[
                 styles.yesNoButton,
                 { backgroundColor: theme.card, borderColor: theme.border },
@@ -764,60 +769,119 @@ export default function CompleteProfileScreen() {
       );
     }
 
-    // Phase 2 — explanation revealed after answering
-    return (
-      <>
-        {invitedAnswer === 'yes' && (
+    // Phase 2 — prominent "You're invited!" acknowledgement (yes path only)
+    if (step2Phase === 2) {
+      return (
+        <View style={styles.invitedHero}>
+          <Text style={styles.invitedEmoji}>🎉</Text>
+          <Text style={[styles.invitedHeroTitle, { color: theme.foreground }]}>
+            You're in!
+          </Text>
+          <Text style={[styles.invitedHeroBody, { color: theme.mutedForeground }]}>
+            Someone invited you to join their Circle on Angelia.{' '}
+            <Text style={{ fontWeight: '700', color: theme.foreground }}>
+              Once you finish setting up your space, we'll take you right to it.
+            </Text>
+          </Text>
+
           <View
             style={[
-              styles.bridgeCard,
+              styles.invitedHeroCallout,
               { backgroundColor: theme.secondary, borderColor: theme.border },
             ]}
           >
             <Text style={[styles.bridgeText, { color: theme.foreground }]}>
-              🎉 Once your space is set up, we'll take you straight to join their Circle!
+              💡 Your space is separate from theirs — it's yours to own and share with whoever you choose.
             </Text>
           </View>
-        )}
 
-        {/* Add spacing between the bridge card (yes path) and the heading below */}
-        <View style={[styles.headerBlock, { marginTop: invitedAnswer === 'yes' ? 16 : 0 }]}>
-          <Text style={[styles.heading, { color: theme.foreground }]}>
-            Now, let's set up your space!
+          <Button
+            onPress={() => animateTransition(() => setStep2Phase(3))}
+            style={styles.invitedHeroCta}
+            size="lg"
+          >
+            Let's set up your space →
+          </Button>
+
+          <Button
+            variant="tertiary"
+            onPress={() => setShowSkipSpaceModal(true)}
+            style={styles.invitedHeroSkip}
+          >
+            Skip — take me to join their Circle
+          </Button>
+
+          <Modal
+            isOpen={showSkipSpaceModal}
+            onClose={() => setShowSkipSpaceModal(false)}
+            title="Skip setting up your space?"
+          >
+            <Text style={[styles.infoCalloutText, { color: theme.foreground, marginBottom: 16 }]}>
+              Your{' '}
+              <Text style={{ fontWeight: '700', color: theme.primary }}>Daily Circle</Text>
+              {' '}will still be created automatically — but you won't set up any custom Circles right now. You can always do that later from the app.
+            </Text>
+            <Text style={[styles.infoCalloutText, { color: theme.mutedForeground, marginBottom: 20 }]}>
+              We'll take you straight to the Circle you were invited to after the last step. 🎉
+            </Text>
+            <Button
+              onPress={() => setShowSkipSpaceModal(false)}
+              style={{ marginBottom: 12 }}
+            >
+              Set up my space
+            </Button>
+            <Button
+              variant="tertiary"
+              onPress={() => {
+                setShowSkipSpaceModal(false);
+                animateTransition(() => setStep(4));
+              }}
+            >
+              Skip for now
+            </Button>
+          </Modal>
+        </View>
+      );
+    }
+
+    // Phase 3 — space setup explanation
+    return (
+      <View style={styles.spaceSetupHero}>
+        {/* Centered hero content */}
+        <View style={styles.spaceSetupHeroCenter}>
+          <Text style={styles.spaceSetupEmoji}>🏡</Text>
+          <Text style={[styles.invitedHeroTitle, { color: theme.foreground }]}>
+            Let's set up your space!
           </Text>
-          <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
+          <Text style={[styles.invitedHeroBody, { color: theme.mutedForeground }]}>
             Angelia gives you a{' '}
             <Text style={{ fontWeight: '700', color: theme.primary }}>Daily Circle</Text>
-            {' '}automatically — your default space for everyday updates.
-            You can also create custom Circles for specific groups and interests.
+            {' '}automatically — your default space for everyday updates.{'\n\n'}
+            You can also create up to{' '}
+            <Text style={{ fontWeight: '700', color: theme.foreground }}>3 custom Circles</Text>
+            {' '}for specific groups and interests.
           </Text>
-        </View>
 
-        <Text style={[styles.infoText, { color: theme.mutedForeground, marginBottom: 16 }]}>
-          We recommend setting up at least one Circle now, but you can always do it later.
-        </Text>
-
-        <View style={styles.ctaRow}>
+          <Button onPress={goNext} style={styles.invitedHeroCta} size="lg">
+            Set up my Circle →
+          </Button>
           <Button
             variant="tertiary"
             onPress={() => animateTransition(() => setStep(4))}
-            style={{ flex: 1 }}
+            style={styles.invitedHeroSkip}
           >
             Skip for now
           </Button>
-          <Button onPress={goNext} style={{ flex: 1 }}>
-            Set up my Circle →
-          </Button>
         </View>
 
-        {/* What's a Circle? */}
-        <View style={[styles.bridgeCard, { backgroundColor: theme.secondary, borderColor: theme.border, marginTop: 20 }]}>
+        {/* What's a Circle? — anchored at the bottom */}
+        <View style={[styles.bridgeCard, styles.spaceSetupFooter, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
           <Text style={[styles.bridgeText, { color: theme.mutedForeground }]}>
             💬 <Text style={{ fontWeight: '700', color: theme.foreground }}>What's a Circle?</Text>
-            {' '}A Circle is a small, private group where you share updates with people who actually care — family, friends, or whoever you choose. No feeds, no strangers. Just you sharing moments with the people that matter most.
+            {' '}A small, private group where you share updates with people who actually care — family, friends, or whoever you choose. No feeds, no strangers.
           </Text>
         </View>
-      </>
+      </View>
     );
   };
 
@@ -1884,5 +1948,61 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
     width: 300,
+  },
+
+  // Step 2 — Phase 2: Invited hero screen
+  invitedHero: {
+    flex: 1,
+    alignItems: 'center',
+    paddingTop: 24,
+    paddingHorizontal: 8,
+  },
+  invitedEmoji: {
+    fontSize: 72,
+    marginBottom: 16,
+  },
+  invitedHeroTitle: {
+    fontSize: 34,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  invitedHeroBody: {
+    fontSize: 17,
+    lineHeight: 26,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  invitedHeroCallout: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 16,
+    width: '100%',
+  },
+  invitedHeroCta: {
+    marginTop: 32,
+    width: '100%',
+  },
+  invitedHeroSkip: {
+    marginTop: 12,
+    width: '100%',
+  },
+
+  // Step 2 — Phase 3: space setup hero
+  spaceSetupHero: {
+    flex: 1,
+    paddingHorizontal: 8,
+  },
+  spaceSetupHeroCenter: {
+    alignItems: 'center',
+    paddingTop: 24,
+  },
+  spaceSetupEmoji: {
+    fontSize: 72,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  spaceSetupFooter: {
+    marginTop: 40,
   },
 });
