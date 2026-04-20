@@ -25,12 +25,14 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
-import { useAppDispatch } from '@/store/hooks';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { createUserProfile } from '@/store/actions/userActions';
 import { createDailyChannel, createCustomChannel } from '@/store/actions/channelActions';
 import { saveNotificationSettings } from '@/store/actions/notificationActions';
+import { createInviteCircleTask, createSetFunFactTask, createSetStatusTask, createCustomCircleTask } from '@/store/actions/taskActions';
+import { uploadPost } from '@/store/actions/postActions';
 import { uploadUserAvatar } from '@/services/firebase/storage';
-import { AVATAR_PRESETS, CHANNEL_COLORS } from '@/models/constants';
+import { AVATAR_PRESETS, CHANNEL_COLORS, DAILY_CHANNEL_SUFFIX } from '@/models/constants';
 import type { AvatarPreset } from '@/models/types';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 
@@ -81,6 +83,10 @@ const MINUTES_VALUES = [0, 15, 30, 45];
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
+function randomChannelColor(): string {
+  return CHANNEL_COLORS[Math.floor(Math.random() * CHANNEL_COLORS.length)].name;
+}
+
 function to24(hour12: number, ampm: 'AM' | 'PM'): number {
   if (ampm === 'AM') return hour12 === 12 ? 0 : hour12;
   return hour12 === 12 ? 12 : hour12 + 12;
@@ -124,9 +130,15 @@ export default function CompleteProfileScreen() {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
 
+  // If the user arrived here from "Join a Circle" on the home screen, a
+  // pending invite channel will be in Redux.  We use this to skip the
+  // YES/NO invited question and go straight to the acknowledgement screen.
+  const pendingInviteChannel = useAppSelector((state) => state.pendingInvite.channel);
+
   // ── Wizard state ────────────────────────────────────────────────────────
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   // Step 1
@@ -136,9 +148,15 @@ export default function CompleteProfileScreen() {
   /** Local file URI of a custom photo picked during sign-up. Uploaded in handleFinish. */
   const [avatarPhotoUri, setAvatarPhotoUri] = useState<string | null>(null);
 
-  // Step 2
-  const [invitedAnswer, setInvitedAnswer] = useState<'yes' | 'no' | null>(null);
-  const [step2Phase, setStep2Phase] = useState<1 | 2 | 3>(1);
+  // Step 2 — if a pending invite exists we already know the answer is "yes"
+  const [invitedAnswer, setInvitedAnswer] = useState<'yes' | 'no' | null>(
+    pendingInviteChannel ? 'yes' : null,
+  );
+  // When there's a pending invite we skip phase 1 (the YES/NO question) and
+  // go directly to phase 2 (the "you'll be added after setup" acknowledgement).
+  const [step2Phase, setStep2Phase] = useState<1 | 2 | 3>(
+    pendingInviteChannel ? 2 : 1,
+  );
 
   // Step 3
   const [categories, setCategories] = useState<Category[]>([]);
@@ -243,13 +261,18 @@ export default function CompleteProfileScreen() {
     if (step === 2 && step2Phase === 3) {
       animateTransition(() => setStep2Phase(invitedAnswer === 'yes' ? 2 : 1));
     } else if (step === 2 && step2Phase === 2) {
-      animateTransition(() => setStep2Phase(1));
+      // If the user came via "Join a Circle" there is no phase 1 — go back to step 1.
+      if (pendingInviteChannel) {
+        animateTransition(() => setStep((s) => s - 1));
+      } else {
+        animateTransition(() => setStep2Phase(1));
+      }
     } else if (step === 3) {
       animateTransition(() => { setStep(2); setStep2Phase(3); });
     } else if (step > 1) {
       animateTransition(() => setStep((s) => s - 1));
     }
-  }, [step, step2Phase, animateTransition]);
+  }, [step, step2Phase, animateTransition, pendingInviteChannel]);
 
   // ── Derived values for Step 4 ───────────────────────────────────────────
 
@@ -285,7 +308,7 @@ export default function CompleteProfileScreen() {
         key: `family:${familyStyle}`,
         name: style?.label ?? 'Family Circle',
         emoji: '💛',
-        color: CHANNEL_COLORS[3].name,
+        color: randomChannelColor(),
         description: style?.desc ?? '',
       });
     }
@@ -294,7 +317,7 @@ export default function CompleteProfileScreen() {
         key: `hobby:${h}`,
         name: `The ${h} Journal`,
         emoji: HOBBY_EMOJI[h] ?? '🎲',
-        color: CHANNEL_COLORS[0].name,
+        color: randomChannelColor(),
         description: `A Circle for everything ${h.toLowerCase()}.`,
       });
     }
@@ -303,7 +326,7 @@ export default function CompleteProfileScreen() {
         key: `hobby-custom:${i}`,
         name: `The ${h} Journal`,
         emoji: '🎯',
-        color: CHANNEL_COLORS[0].name,
+        color: randomChannelColor(),
         description: `A Circle for everything ${h.toLowerCase()}.`,
       });
     });
@@ -312,7 +335,7 @@ export default function CompleteProfileScreen() {
         key: `lifelog:${l}`,
         name: l,
         emoji: LIFELOG_EMOJI[l] ?? DEFAULT_LIFELOG_EMOJI,
-        color: CHANNEL_COLORS[4].name,
+        color: randomChannelColor(),
         description: `My ${l.toLowerCase()} Circle.`,
       });
     }
@@ -321,7 +344,7 @@ export default function CompleteProfileScreen() {
         key: `lifelog-custom:${i}`,
         name: l,
         emoji: DEFAULT_LIFELOG_EMOJI,
-        color: CHANNEL_COLORS[4].name,
+        color: randomChannelColor(),
         description: `My ${l.toLowerCase()} Circle.`,
       });
     });
@@ -331,10 +354,15 @@ export default function CompleteProfileScreen() {
 
   // ── Final submit ────────────────────────────────────────────────────────
 
+  /** Minimum time (ms) each loading step is shown so the user can read it. */
+  const MIN_STEP_MS = 800;
+  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
   const handleFinish = async () => {
     if (!firebaseUser) return;
 
     setLoading(true);
+    setLoadingMessage('Getting everything ready for you ✨');
     try {
       // 1 — Upload custom avatar photo if one was selected (non-fatal)
       let uploadedAvatarUrl: string | undefined;
@@ -360,21 +388,68 @@ export default function CompleteProfileScreen() {
         }),
       ).unwrap();
 
-      // 2 — Create daily Circle
-      await dispatch(createDailyChannel(firebaseUser.uid)).unwrap();
+      // 3 — Create daily Circle
+      setLoadingMessage('Building your Daily Circle 🌙');
+      const dailyChannelId = `${firebaseUser.uid}${DAILY_CHANNEL_SUFFIX}`;
+      await Promise.all([dispatch(createDailyChannel(firebaseUser.uid)).unwrap(), sleep(MIN_STEP_MS)]);
 
-      // 3 — Create custom Circles (up to 3, from Step 3 selections)
+      // 4 — Upload first post to Daily Circle (non-fatal)
+      const firstPostText = firstPost.trim();
+      if (firstPostText) {
+        setLoadingMessage('Saving your first post 📝');
+        try {
+          await Promise.all([
+            dispatch(uploadPost({ channelId: dailyChannelId, text: firstPostText, media: [] })).unwrap(),
+            sleep(MIN_STEP_MS),
+          ]);
+        } catch {
+          // Non-fatal: the user can post later
+          await sleep(MIN_STEP_MS);
+        }
+      }
+
+      // 5 — Create custom Circles (up to 3, from Step 3 selections)
       const pendingCircles = getPendingCircles();
+      if (pendingCircles.length > 0) {
+        setLoadingMessage('Setting up your custom Circles 💫');
+        await sleep(MIN_STEP_MS);
+      }
       for (const circle of pendingCircles) {
         const name = (circleNameOverrides[circle.key] ?? circle.name).trim() || circle.name;
         try {
-          await dispatch(createCustomChannel({ name, description: circle.description, color: circle.color })).unwrap();
+          const createdChannel = await dispatch(createCustomChannel({ name, description: circle.description, color: circle.color })).unwrap();
+          // Create a task reminding the user to invite someone to each new Circle
+          if (createdChannel) {
+            try {
+              await dispatch(createInviteCircleTask({ channelId: createdChannel.id, channelName: createdChannel.name })).unwrap();
+            } catch {
+              // Non-fatal: task creation failure shouldn't block sign-up
+            }
+          }
         } catch {
           // Non-fatal: the user can create it later
         }
       }
 
-      // 4 — Save notification settings
+      // 6 — Create nudge tasks (non-fatal, all in parallel)
+      setLoadingMessage('Setting up your to-do list 📋');
+      await Promise.all([
+        sleep(MIN_STEP_MS),
+        // Nudge to fill in their bio/fun fact if they skipped the first-post step.
+        // The first post content is also stored as their profile fun fact, so if they
+        // didn't write anything there they haven't set one yet.
+        !firstPostText
+          ? dispatch(createSetFunFactTask()).unwrap().catch(() => null)
+          : Promise.resolve(null),
+        // Nudge to set first status — everyone starts without one
+        dispatch(createSetStatusTask()).unwrap().catch(() => null),
+        // Nudge to create a custom circle if they opted out during onboarding
+        pendingCircles.length === 0
+          ? dispatch(createCustomCircleTask()).unwrap().catch(() => null)
+          : Promise.resolve(null),
+      ]);
+
+      // 7 — Save notification settings
       try {
         const dailyHour = notifSkipped ? 12 : midCheckIn.hour;
         const dailyMinute = notifSkipped ? 0 : midCheckIn.minute;
@@ -390,12 +465,13 @@ export default function CompleteProfileScreen() {
         // Non-fatal: defaults will apply
       }
 
-      // 5 — Verification email
-      await sendVerificationEmail();
+      // 8 — Verification email
+      setLoadingMessage('Almost there — sending your verification email 💌');
+      await Promise.all([sendVerificationEmail(), sleep(MIN_STEP_MS)]);
 
       addToast({ type: 'success', title: "You're all set! 🎉" });
       if (invitedAnswer === 'yes') {
-        router.replace('/join-channel');
+        router.replace({ pathname: '/join-channel', params: { fromOnboarding: '1' } });
       } else {
         router.replace('/verify-email');
       }
@@ -406,6 +482,7 @@ export default function CompleteProfileScreen() {
       });
     } finally {
       setLoading(false);
+      setLoadingMessage('');
     }
   };
 
@@ -732,6 +809,9 @@ export default function CompleteProfileScreen() {
 
   const renderStep2 = () => {
     // Phase 1 — just the YES / NO question
+    // Skipped entirely when the user arrived via "Join a Circle" on the home
+    // screen (pendingInviteChannel is set), because we already know they have
+    // an invite.
     if (step2Phase === 1) {
       return (
         <>
@@ -771,6 +851,23 @@ export default function CompleteProfileScreen() {
 
     // Phase 2 — prominent "You're invited!" acknowledgement (yes path only)
     if (step2Phase === 2) {
+      // When the user came from "Join a Circle" on the home screen we can
+      // reference the specific Circle they're joining.
+      // Daily circles show "their Daily Circle" rather than the raw name "Daily".
+      const circleName = pendingInviteChannel
+        ? (pendingInviteChannel.isDaily ? 'their Daily Circle' : pendingInviteChannel.name)
+        : null;
+      const circleRef = circleName
+        ? (
+          <>
+            {' '}to join{' '}
+            <Text style={{ fontWeight: '700', color: theme.primary }}>
+              {circleName}
+            </Text>
+          </>
+        )
+        : ' to join a Circle on Angelia';
+
       return (
         <View style={styles.invitedHero}>
           <Text style={styles.invitedEmoji}>🎉</Text>
@@ -778,9 +875,9 @@ export default function CompleteProfileScreen() {
             You're in!
           </Text>
           <Text style={[styles.invitedHeroBody, { color: theme.mutedForeground }]}>
-            Someone invited you to join their Circle on Angelia.{' '}
+            You've been invited{circleRef}.{' '}
             <Text style={{ fontWeight: '700', color: theme.foreground }}>
-              Once you finish setting up your space, we'll take you right to it.
+              Once you finish setting up your profile, you'll be taken right to it.
             </Text>
           </Text>
 
@@ -1553,6 +1650,21 @@ export default function CompleteProfileScreen() {
     6: renderStep6,
   };
 
+  // Show a full-screen loading overlay while the finish sequence runs
+  if (loading && loadingMessage) {
+    return (
+      <View style={[styles.loadingOverlay, { backgroundColor: theme.background }]}>
+        <Text style={styles.loadingEmoji}>✨</Text>
+        <Text style={[styles.loadingHeading, { color: theme.foreground }]}>
+          Prepping your space…
+        </Text>
+        <Text style={[styles.loadingMessage, { color: theme.mutedForeground }]}>
+          {loadingMessage}
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -1580,6 +1692,29 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 40,
+  },
+
+  // Loading overlay (shown during handleFinish)
+  loadingOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+    gap: 12,
+  },
+  loadingEmoji: {
+    fontSize: 64,
+    marginBottom: 8,
+  },
+  loadingHeading: {
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  loadingMessage: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 
   // Top bar (progress + back + sign out)

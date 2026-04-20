@@ -278,6 +278,23 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Tasks — a user's personal to-do items (e.g. invite someone to a Circle).
+    // Stored at tasks/{userId}/items/{taskId}.
+    match /tasks/{userId}/items/{taskId} {
+      // Users can only read and write their own tasks
+      allow read, create: if isSignedIn() && request.auth.uid == userId;
+
+      // Allow updating only the completedAt field (mark as done)
+      allow update: if isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.type == resource.data.type
+        && request.resource.data.channelId == resource.data.channelId
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if false;
+    }
+
     // Default: deny all reads and writes not explicitly allowed above.
     // This prevents accidental open-read rules from exposing private data.
     match /{document=**} {

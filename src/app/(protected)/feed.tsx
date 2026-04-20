@@ -46,6 +46,7 @@ export default function FeedScreen() {
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const hasPendingActivity = useAppSelector(selectHasAnyPendingActivity);
+  const pendingTasks = useAppSelector((state) => state.tasks.items);
 
   const [channelFilter, setChannelFilter] = useState<ChannelFilterState>({ mode: 'all', specificIds: [] });
   const [channelFilterOpen, setChannelFilterOpen] = useState(false);
@@ -484,6 +485,21 @@ export default function FeedScreen() {
             })}
           </View>
         </View>
+
+        {/* Task banner — lives inside the header so `headerHeight` includes it,
+            preventing overlap with both the skeleton list and the filtering dots. */}
+        {pendingTasks.length > 0 && (
+          <Pressable
+            onPress={() => router.push('/(protected)/tasks')}
+            style={[styles.tasksBanner, { backgroundColor: theme.tertiary }]}
+          >
+            <Feather name="check-square" size={16} color={theme.tertiaryForeground} />
+            <Text style={[styles.tasksBannerText, { color: theme.tertiaryForeground }]}>
+            {pendingTasks.length} task{pendingTasks.length !== 1 ? 's' : ''} to do — tap to see
+            </Text>
+            <Feather name="chevron-right" size={16} color={theme.tertiaryForeground} />
+          </Pressable>
+        )}
       </Animated.View>
 
       {/* Channel filter modal */}
@@ -849,5 +865,20 @@ const styles = StyleSheet.create({
   },
   clearFiltersButton: {
     marginTop: 4,
+  },
+  tasksBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  tasksBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

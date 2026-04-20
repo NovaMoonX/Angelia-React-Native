@@ -284,6 +284,40 @@ export type AppNotification =
   | ConnectionAcceptedNotification
   | BigNewsPostNotification;
 
+// ── Tasks ───────────────────────────────────────────────────────────────────
+
+/**
+ * All task types surfaced to the user.
+ * - `invite_to_circle`: invite someone to a custom Circle they just created.
+ * - `set_fun_fact`: prompt user to fill in their profile bio.
+ * - `set_status`: prompt user to set their first status.
+ * - `create_custom_circle`: prompt user to create their first custom Circle.
+ */
+export type TaskType =
+  | 'invite_to_circle'
+  | 'set_fun_fact'
+  | 'set_status'
+  | 'create_custom_circle';
+
+/**
+ * A lightweight to-do item owned by a single user.
+ * Stored in `tasks/{userId}/items/{taskId}`.
+ *
+ * `channelId` / `channelName` are only present for `invite_to_circle` tasks.
+ */
+export interface AppTask {
+  id: string;
+  userId: string;
+  type: TaskType;
+  /** Only set for `invite_to_circle`. */
+  channelId?: string;
+  /** Only set for `invite_to_circle`. */
+  channelName?: string;
+  createdAt: number;
+  /** Non-null once the user marks the task done (or dismisses it). */
+  completedAt: number | null;
+}
+
 // ── Feedback & Support ──────────────────────────────────────────────────────
 
 export type FeedbackCategory =

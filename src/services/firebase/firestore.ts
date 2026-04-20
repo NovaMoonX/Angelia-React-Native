@@ -15,7 +15,7 @@ import {
   arrayUnion,
   arrayRemove,
 } from '@react-native-firebase/firestore';
-import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission } from '@/models/types';
+import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, AppTask } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX, DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
@@ -687,4 +687,48 @@ export function subscribeToConnectionChannels(
  */
 export async function submitFeedback(submission: FeedbackSubmission): Promise<void> {
   await setDoc(doc(db, 'feedback', submission.id), submission);
+}
+
+// ── Task Operations ─────────────────────────────────────────────────────────
+
+/**
+ * Creates a task document in the user's tasks subcollection.
+ * Stored at `tasks/{userId}/items/{taskId}`.
+ */
+export async function createTask(task: AppTask): Promise<void> {
+  await setDoc(
+    doc(db, 'tasks', task.userId, 'items', task.id),
+    task,
+  );
+}
+
+/**
+ * Marks a task as completed by setting its `completedAt` timestamp.
+ */
+export async function markTaskComplete(userId: string, taskId: string): Promise<void> {
+  await updateDoc(
+    doc(db, 'tasks', userId, 'items', taskId),
+    { completedAt: Date.now() },
+  );
+}
+
+/**
+ * Subscribes to all pending (not completed) tasks for the given user.
+ */
+export function subscribeToTasks(
+  userId: string,
+  callback: (tasks: AppTask[]) => void,
+): () => void {
+  return onSnapshot(
+    query(
+      collection(db, 'tasks', userId, 'items'),
+      where('completedAt', '==', null),
+    ),
+    (snap) => {
+      callback(snap.docs.map((d) => d.data() as AppTask));
+    },
+    (_error) => {
+      callback([]);
+    },
+  );
 }

@@ -32,8 +32,9 @@ export default function ProtectedLayout() {
       return <Redirect href="/complete-profile" />;
     }
 
-    // Email not verified
-    if (!firebaseUser.emailVerified) {
+    // Email not verified — allow access if Redux profile already recorded
+    // emailVerified=true (e.g. right after the verify-email polling detects it)
+    if (!firebaseUser.emailVerified && !currentUser.accountProgress.emailVerified) {
       return <Redirect href="/verify-email" />;
     }
   }
@@ -119,6 +120,17 @@ export default function ProtectedLayout() {
             }}
           />
           <Stack.Screen name="channel-accepted" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="tasks"
+            options={{
+              headerShown: true,
+              title: 'My Tasks',
+              headerStyle: { backgroundColor: theme.background },
+              headerTintColor: theme.foreground,
+              headerTitleStyle: { fontWeight: '600' },
+              ...(isDemo ? { headerStatusBarHeight: 0 } : {}),
+            }}
+          />
           <Stack.Screen
             name="error-fallback"
             options={{ title: 'Error', headerBackVisible: false }}
