@@ -14,7 +14,7 @@ import { MediaViewerModal } from '@/components/MediaViewerModal';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { selectMessages } from '@/store/slices/conversationSlice';
-import { selectComments, setComments } from '@/store/slices/commentsSlice';
+import { usePostComments } from '@/hooks/usePostComments';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { getRelativeTime } from '@/lib/timeUtils';
@@ -25,7 +25,6 @@ import { EmojiPicker } from '@/components/EmojiPicker';
 import { AddReactionIcon } from '@/components/AddReactionIcon';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { updatePostReactions, removePostReaction } from '@/store/actions/postActions';
-import { subscribeToComments } from '@/services/firebase/firestore';
 import type { Reaction, MediaItem } from '@/models/types';
 
 export default function PostDetailScreen() {
@@ -41,16 +40,7 @@ export default function PostDetailScreen() {
 	const currentUser = useAppSelector((state) => state.users.currentUser);
 	const isDemo = useAppSelector((state) => state.demo.isActive);
 	const conversationMessages = useAppSelector((state) => selectMessages(state, id || ''));
-	const postComments = useAppSelector((state) => selectComments(state, id || ''));
-
-	// Subscribe to this post's comments subcollection
-	useEffect(() => {
-		if (!id || isDemo) return;
-		const unsub = subscribeToComments(id, (comments) => {
-			dispatch(setComments({ postId: id, comments }));
-		});
-		return unsub;
-	}, [id, isDemo, dispatch]);
+	const postComments = usePostComments(id || '');
 
 	const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
 	const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);

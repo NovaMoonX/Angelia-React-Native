@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
@@ -14,7 +14,6 @@ import {
   selectPostAuthor,
   selectPostChannel,
 } from '@/store/slices/postsSlice';
-import { selectComments } from '@/store/slices/commentsSlice';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName } from '@/lib/post/post.utils';
@@ -35,7 +34,6 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
     selectPostChannel(state, post.channelId)
   );
   const currentUser = useAppSelector((state) => state.users.currentUser);
-  const comments = useAppSelector((state) => selectComments(state, post.id));
   const { theme } = useTheme();
 
   const colors = channel
@@ -49,6 +47,18 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
 
   const hasTierBadge = post.tier === 'worth-knowing' || post.tier === 'big-news';
   const tierBadgeConfig = post.tier ? POST_TIERS.find((t) => t.value === post.tier) ?? null : null;
+
+  // Aggregate reactions by emoji, ordered by count descending — top 5 shown
+  const topReactions = useMemo(() => {
+    const counts: Record<string, number> = {};
+    post.reactions.forEach((r) => {
+      counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([emoji]) => emoji);
+  }, [post.reactions]);
 
   return (
     <View style={[styles.cardWrapper, hasTierBadge && styles.cardWrapperBadged]}>
@@ -132,18 +142,33 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
       {/* Tappable footer */}
       <Pressable onPress={onNavigate}>
         <View style={styles.footer}>
-          {post.reactions.length > 0 && (
-            <Text style={[styles.metaText, { color: theme.mutedForeground }]}>
-              {post.reactions.length} reaction
-              {post.reactions.length !== 1 ? 's' : ''}
+          {topReactions.length > 0 ? (
+            <View style={styles.reactionStack}>
+              {topReactions.map((emoji, i) => (
+                <View
+                  key={emoji}
+                  style={[
+                    styles.reactionBubble,
+                    {
+                      marginLeft: i === 0 ? 0 : -10,
+                      zIndex: topReactions.length - i,
+                      backgroundColor: theme.card,
+                      borderColor: theme.background,
+                    },
+                  ]}
+                >
+                  <Text style={styles.reactionBubbleEmoji}>{emoji}</Text>
+                </View>
+              ))}
+              <Text style={[styles.reactionTotalText, { color: theme.mutedForeground }]}>
+                {post.reactions.length}
+              </Text>
+            </View>
+          ) : isOtherUser ? (
+            <Text style={[styles.firstReactText, { color: theme.mutedForeground }]}>
+              Be the first to react! 🎉
             </Text>
-          )}
-          {comments.length > 0 && (
-            <Text style={[styles.metaText, { color: theme.mutedForeground }]}>
-              {comments.length} comment
-              {comments.length !== 1 ? 's' : ''}
-            </Text>
-          )}
+          ) : null}
         </View>
       </Pressable>
 
@@ -300,9 +325,32 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
-    gap: 16,
+    alignItems: 'center',
+    minHeight: 28,
   },
-  metaText: {
+  reactionStack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  reactionBubble: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reactionBubbleEmoji: {
+    fontSize: 14,
+    lineHeight: 16,
+  },
+  reactionTotalText: {
+    marginLeft: 6,
     fontSize: 12,
+    fontWeight: '500',
+  },
+  firstReactText: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
 });

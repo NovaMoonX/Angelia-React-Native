@@ -28,13 +28,13 @@ import { ConversationEmptyState } from '@/components/conversation/ConversationEm
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { selectMessages, setMessages } from '@/store/slices/conversationSlice';
-import { setComments } from '@/store/slices/commentsSlice';
 import { sendMessage, sendJoinMessage } from '@/store/actions/conversationActions';
 import { joinConversation } from '@/store/actions/postActions';
-import { subscribeToMessages, subscribeToComments } from '@/services/firebase/firestore';
+import { subscribeToMessages } from '@/services/firebase/firestore';
 
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
+import { usePostComments } from '@/hooks/usePostComments';
 import { getTierTheme } from '@/lib/conversation/tierTheme';
 import { getPostAuthorName } from '@/lib/post/post.utils';
 import { getColorPair } from '@/lib/channel/channel.utils';
@@ -97,14 +97,8 @@ export default function ConversationScreen() {
     return unsub;
   }, [postId, dispatch, isDemo]);
 
-  // Subscribe to comments
-  useEffect(() => {
-    if (!postId || isDemo) return;
-    const unsub = subscribeToComments(postId, (comments) => {
-      dispatch(setComments({ postId, comments }));
-    });
-    return unsub;
-  }, [postId, dispatch, isDemo]);
+  // Subscribe to comments — handled by hook
+  usePostComments(postId ?? '');
 
   // Entry animation for Big News and Worth Knowing tiers
   useEffect(() => {
