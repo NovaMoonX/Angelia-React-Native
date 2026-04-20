@@ -189,18 +189,18 @@ export default function HomeScreen() {
         >
           <Pressable
             onPress={() => router.push('/join-channel')}
-            style={[styles.joinChannelButton, { backgroundColor: theme.secondary }]}
+            style={[styles.joinChannelButton, { backgroundColor: theme.primary }]}
           >
-            <Feather name="users" size={24} color={theme.secondaryForeground} />
+            <Feather name="users" size={24} color={theme.primaryForeground} />
             <View style={styles.joinChannelTextContainer}>
-              <Text style={[styles.joinChannelTitle, { color: theme.secondaryForeground }]}>
+              <Text style={[styles.joinChannelTitle, { color: theme.primaryForeground }]}>
                 Join a Circle
               </Text>
-              <Text style={[styles.joinChannelDesc, { color: theme.secondaryForeground }]}>
+              <Text style={[styles.joinChannelDesc, { color: theme.primaryForeground }]}>
                 Got an invite code? Hop in and start connecting!
               </Text>
             </View>
-            <Feather name="chevron-right" size={20} color={theme.secondaryForeground} />
+            <Feather name="chevron-right" size={20} color={theme.primaryForeground} />
           </Pressable>
 
           <Button
@@ -213,9 +213,8 @@ export default function HomeScreen() {
           </Button>
 
           <Button
-            variant="outline"
+            variant="tertiary"
             onPress={handleTryDemo}
-            size="lg"
             style={styles.actionButton}
           >
             🎭 Try Demo Mode
