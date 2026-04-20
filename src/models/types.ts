@@ -129,7 +129,6 @@ export interface Post {
   media: MediaItem[] | null;
   timestamp: number;
   reactions: Reaction[];
-  comments: Comment[];
   conversationEnrollees: string[];
   markedForDeletionAt: number | null;
   status: PostStatus;

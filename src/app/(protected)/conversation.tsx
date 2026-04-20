@@ -34,6 +34,7 @@ import { subscribeToMessages } from '@/services/firebase/firestore';
 
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
+import { usePostComments } from '@/hooks/usePostComments';
 import { getTierTheme } from '@/lib/conversation/tierTheme';
 import { getPostAuthorName } from '@/lib/post/post.utils';
 import { getColorPair } from '@/lib/channel/channel.utils';
@@ -95,6 +96,8 @@ export default function ConversationScreen() {
     });
     return unsub;
   }, [postId, dispatch, isDemo]);
+
+  usePostComments({ postId });
 
   // Entry animation for Big News and Worth Knowing tiers
   useEffect(() => {

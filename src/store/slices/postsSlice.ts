@@ -1,5 +1,5 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import type { Post, Reaction, Comment } from '@/models/types';
+import type { Post, Reaction } from '@/models/types';
 import type { RootState } from '../index';
 import { resetAllState } from '../actions/globalActions';
 
@@ -7,14 +7,12 @@ interface PostsState {
   items: Post[];
   loaded: boolean;
   previousReactions: Record<string, Reaction[]>;
-  previousComments: Record<string, Comment[]>;
 }
 
 const initialState: PostsState = {
   items: [],
   loaded: false,
   previousReactions: {},
-  previousComments: {},
 };
 
 const postsSlice = createSlice({
@@ -66,24 +64,6 @@ const postsSlice = createSlice({
         delete state.previousReactions[postId];
       }
     },
-    updateCommentsOptimistic(
-      state,
-      action: PayloadAction<{ postId: string; newComment: Comment }>
-    ) {
-      const post = state.items.find((p) => p.id === action.payload.postId);
-      if (post) {
-        state.previousComments[action.payload.postId] = [...post.comments];
-        post.comments = [...post.comments, action.payload.newComment];
-      }
-    },
-    revertCommentsOptimistic(state, action: PayloadAction<{ postId: string }>) {
-      const { postId } = action.payload;
-      const post = state.items.find((p) => p.id === postId);
-      if (post && state.previousComments[postId]) {
-        post.comments = state.previousComments[postId];
-        delete state.previousComments[postId];
-      }
-    },
     addConversationEnrollee(
       state,
       action: PayloadAction<{ postId: string; userId: string }>,
@@ -118,8 +98,6 @@ export const {
   updateReactionsOptimistic,
   removeReactionOptimistic,
   revertReactionsOptimistic,
-  updateCommentsOptimistic,
-  revertCommentsOptimistic,
   addConversationEnrollee,
   removeConversationEnrollee,
 } = postsSlice.actions;

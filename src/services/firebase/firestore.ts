@@ -15,7 +15,7 @@ import {
   arrayUnion,
   arrayRemove,
 } from '@react-native-firebase/firestore';
-import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, AppTask } from '@/models/types';
+import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, AppTask, Comment } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX, DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
@@ -361,14 +361,30 @@ export async function removeReactionFromPost(postId: string, reaction: { emoji: 
   });
 }
 
-export async function updatePostComments(postId: string, comments: unknown[]): Promise<void> {
-  await updateDoc(doc(db, 'posts', postId), { comments });
+export async function addComment(postId: string, comment: Comment): Promise<void> {
+  await setDoc(
+    doc(db, 'posts', postId, 'comments', comment.id),
+    comment,
+  );
 }
 
-export async function addCommentToPost(postId: string, comment: { id: string; authorId: string; text: string; timestamp: number }): Promise<void> {
-  await updateDoc(doc(db, 'posts', postId), {
-    comments: arrayUnion(comment),
-  });
+export function subscribeToComments(
+  postId: string,
+  callback: (comments: Comment[]) => void,
+): () => void {
+  return onSnapshot(
+    query(
+      collection(db, 'posts', postId, 'comments'),
+      orderBy('timestamp', 'asc'),
+    ),
+    (snap) => {
+      const comments = snap?.docs?.map((d) => d.data() as Comment) ?? [];
+      callback(comments);
+    },
+    (_error) => {
+      callback([]);
+    },
+  );
 }
 
 // ---- Subscriptions ----

@@ -4,6 +4,7 @@ import { clearChannels, loadDemoChannels } from '@/store/slices/channelsSlice';
 import { clearUsers, loadDemoUsers } from '@/store/slices/usersSlice';
 import { clearInvites, loadDemoInvites } from '@/store/slices/invitesSlice';
 import { loadDemoMessages } from '@/store/slices/conversationSlice';
+import { loadDemoComments } from '@/store/slices/commentsSlice';
 import { loadDemoConnections } from '@/store/slices/connectionsSlice';
 import {
   enterDemoMode as enterDemoModeAction,
@@ -28,6 +29,7 @@ export const enterDemoMode = createAsyncThunk(
     dispatch(loadDemoUsers(DEMO_DATA.users));
     dispatch(loadDemoInvites(DEMO_DATA.invites));
     dispatch(loadDemoMessages(DEMO_DATA.messages));
+    dispatch(loadDemoComments(DEMO_DATA.comments));
     dispatch(loadDemoConnections(DEMO_DATA.connections));
 
     // Finally, activate demo mode

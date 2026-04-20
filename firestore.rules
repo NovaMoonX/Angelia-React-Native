@@ -153,7 +153,6 @@ service cloud.firestore {
         && request.resource.data.text == resource.data.text
         && request.resource.data.timestamp == resource.data.timestamp
         && request.resource.data.reactions == resource.data.reactions
-        && request.resource.data.comments == resource.data.comments
         && request.resource.data.status == resource.data.status
         && request.resource.data.markedForDeletionAt == resource.data.markedForDeletionAt
         && request.resource.data.conversationEnrollees is list
@@ -175,6 +174,27 @@ service cloud.firestore {
           && request.auth.uid == request.resource.data.authorId;
 
         // Messages cannot be updated or deleted
+        allow update, delete: if false;
+      }
+
+      // Comments subcollection under posts
+      match /comments/{commentId} {
+        // Channel members and users connected to the post author (for daily circles) may read comments
+        allow read: if isSignedIn()
+          && (
+            isChannelMember(get(/databases/$(database)/documents/posts/$(postId)).data.channelId)
+            || exists(/databases/$(database)/documents/connections/$(get(/databases/$(database)/documents/posts/$(postId)).data.authorId)/people/$(request.auth.uid))
+          );
+
+        // Any authenticated channel member (or connected user for daily posts) may add a comment
+        allow create: if isSignedIn()
+          && request.auth.uid == request.resource.data.authorId
+          && (
+            isChannelMember(get(/databases/$(database)/documents/posts/$(postId)).data.channelId)
+            || exists(/databases/$(database)/documents/connections/$(get(/databases/$(database)/documents/posts/$(postId)).data.authorId)/people/$(request.auth.uid))
+          );
+
+        // Comments cannot be updated or deleted by clients
         allow update, delete: if false;
       }
     }
