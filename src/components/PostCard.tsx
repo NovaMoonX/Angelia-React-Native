@@ -48,7 +48,9 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
   const hasTierBadge = post.tier === 'worth-knowing' || post.tier === 'big-news';
   const tierBadgeConfig = post.tier ? POST_TIERS.find((t) => t.value === post.tier) ?? null : null;
 
-  // Aggregate reactions by emoji, ordered by count descending — top 5 shown
+  // Aggregate reactions by emoji, ordered by count descending — top 5 shown.
+  // post.reactions is the correct dependency: RTK/immer structural sharing ensures
+  // the reference only changes when the reactions array actually changes.
   const topReactions = useMemo(() => {
     const counts: Record<string, number> = {};
     post.reactions.forEach((r) => {
@@ -58,6 +60,7 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([emoji]) => emoji);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post.reactions]);
 
   return (

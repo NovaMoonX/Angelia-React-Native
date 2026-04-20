@@ -97,7 +97,9 @@ export default function ConversationScreen() {
     return unsub;
   }, [postId, dispatch, isDemo]);
 
-  // Subscribe to comments — handled by hook
+  // Subscribe to comments — hook handles Firestore subscription and Redux dispatch.
+  // Return value is unused here because conversation.tsx doesn't render comments directly;
+  // it only needs the store populated so sub-components can read via selectComments.
   usePostComments(postId ?? '');
 
   // Entry animation for Big News and Worth Knowing tiers
