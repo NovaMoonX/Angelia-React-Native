@@ -33,6 +33,10 @@ Posts are the updates shared inside circles. Every post supports:
   - ⭐ **Worth Knowing** — amber badge for noteworthy moments
   - 🔔 **Big News** — red badge for major announcements
 
+**Post retention** — Posts are automatically cleaned up to keep circles fresh:
+- Daily Circle posts are kept for **14 days**.
+- Custom Circle posts are kept for **3 months (90 days)**.
+
 ### Feed & Filtering
 The main feed aggregates posts from all joined circles. Users can filter by circle and by post tier, so they can quickly skim for big news or catch up on everything at their own pace.
 

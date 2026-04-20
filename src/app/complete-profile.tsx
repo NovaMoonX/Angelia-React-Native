@@ -138,6 +138,7 @@ export default function CompleteProfileScreen() {
 
   // Step 2
   const [invitedAnswer, setInvitedAnswer] = useState<'yes' | 'no' | null>(null);
+  const [step2Phase, setStep2Phase] = useState<1 | 2>(1);
 
   // Step 3
   const [categories, setCategories] = useState<Category[]>([]);
@@ -236,8 +237,14 @@ export default function CompleteProfileScreen() {
   }, [step, animateTransition]);
 
   const goBack = useCallback(() => {
-    if (step > 1) animateTransition(() => setStep((s) => s - 1));
-  }, [step, animateTransition]);
+    if (step === 2 && step2Phase === 2) {
+      animateTransition(() => setStep2Phase(1));
+    } else if (step === 3) {
+      animateTransition(() => { setStep(2); setStep2Phase(2); });
+    } else if (step > 1) {
+      animateTransition(() => setStep((s) => s - 1));
+    }
+  }, [step, step2Phase, animateTransition]);
 
   // ── Derived values for Step 4 ───────────────────────────────────────────
 
@@ -719,112 +726,96 @@ export default function CompleteProfileScreen() {
   );
 
   const renderStep2 = () => {
-    const phase2Visible = invitedAnswer !== null;
+    // Phase 1 — just the YES / NO question
+    if (step2Phase === 1) {
+      return (
+        <>
+          <StepHeader
+            title="Have you been invited? 👋"
+            subtitle="Did someone share a Circle invite with you?"
+          />
 
+          <View style={styles.yesNoRow}>
+            <Pressable
+              onPress={() => { setInvitedAnswer('yes'); animateTransition(() => setStep2Phase(2)); }}
+              style={[
+                styles.yesNoButton,
+                { backgroundColor: theme.card, borderColor: theme.border },
+              ]}
+            >
+              <Text style={[styles.yesNoText, { color: theme.foreground }]}>
+                ✅ Yes, I was invited
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => { setInvitedAnswer('no'); animateTransition(() => setStep2Phase(2)); }}
+              style={[
+                styles.yesNoButton,
+                { backgroundColor: theme.card, borderColor: theme.border },
+              ]}
+            >
+              <Text style={[styles.yesNoText, { color: theme.foreground }]}>
+                🚀 No, just exploring
+              </Text>
+            </Pressable>
+          </View>
+        </>
+      );
+    }
+
+    // Phase 2 — explanation revealed after answering
     return (
       <>
-        <StepHeader
-          title="Have you been invited? 👋"
-          subtitle="Did someone share a Circle invite with you?"
-        />
-
-        {/* YES / NO choice */}
-        <View style={styles.yesNoRow}>
-          <Pressable
-            onPress={() => setInvitedAnswer('yes')}
+        {invitedAnswer === 'yes' && (
+          <View
             style={[
-              styles.yesNoButton,
-              {
-                backgroundColor: invitedAnswer === 'yes' ? theme.primary : theme.card,
-                borderColor: invitedAnswer === 'yes' ? theme.primary : theme.border,
-              },
+              styles.bridgeCard,
+              { backgroundColor: theme.secondary, borderColor: theme.border },
             ]}
           >
-            <Text
-              style={[
-                styles.yesNoText,
-                { color: invitedAnswer === 'yes' ? theme.primaryForeground : theme.foreground },
-              ]}
-            >
-              ✅ Yes, I was invited
+            <Text style={[styles.bridgeText, { color: theme.foreground }]}>
+              🎉 Once your space is set up, we'll take you straight to join their Circle!
             </Text>
-          </Pressable>
+          </View>
+        )}
 
-          <Pressable
-            onPress={() => setInvitedAnswer('no')}
-            style={[
-              styles.yesNoButton,
-              {
-                backgroundColor: invitedAnswer === 'no' ? theme.primary : theme.card,
-                borderColor: invitedAnswer === 'no' ? theme.primary : theme.border,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.yesNoText,
-                { color: invitedAnswer === 'no' ? theme.primaryForeground : theme.foreground },
-              ]}
-            >
-              🚀 No, just exploring
-            </Text>
-          </Pressable>
+        <View style={[styles.headerBlock, { marginTop: invitedAnswer === 'yes' ? 16 : 0 }]}>
+          <Text style={[styles.heading, { color: theme.foreground }]}>
+            Now, let's set up your space!
+          </Text>
+          <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
+            Angelia gives you a{' '}
+            <Text style={{ fontWeight: '700', color: theme.primary }}>Daily Circle</Text>
+            {' '}automatically — your default space for everyday updates.
+            You can also create custom Circles for specific groups and interests.
+          </Text>
         </View>
 
-        {/* Phase 2 — revealed after answering */}
-        {phase2Visible && (
-          <>
-            {invitedAnswer === 'yes' && (
-              <View
-                style={[
-                  styles.bridgeCard,
-                  { backgroundColor: theme.secondary, borderColor: theme.border },
-                ]}
-              >
-                <Text style={[styles.bridgeText, { color: theme.foreground }]}>
-                  🎉 Once your space is set up, we'll take you straight to join their Circle!
-                </Text>
-              </View>
-            )}
+        <Text style={[styles.infoText, { color: theme.mutedForeground, marginBottom: 16 }]}>
+          We recommend setting up at least one Circle now, but you can always do it later.
+        </Text>
 
-            <View style={[styles.headerBlock, { marginTop: 16 }]}>
-              <Text style={[styles.heading, { color: theme.foreground }]}>
-                Now, let's set up your space!
-              </Text>
-              <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
-                Angelia gives you a{' '}
-                <Text style={{ fontWeight: '700', color: theme.primary }}>Daily Circle</Text>
-                {' '}automatically — your default space for everyday updates.
-                You can also create custom Circles for specific groups and interests.
-              </Text>
-            </View>
+        <View style={styles.ctaRow}>
+          <Button
+            variant="tertiary"
+            onPress={() => animateTransition(() => setStep(4))}
+            style={{ flex: 1 }}
+          >
+            Skip for now
+          </Button>
+          <Button onPress={goNext} style={{ flex: 1 }}>
+            Set up my Circle →
+          </Button>
+        </View>
 
-            <Text style={[styles.infoText, { color: theme.mutedForeground, marginBottom: 16 }]}>
-              We recommend setting up at least one Circle now, but you can always do it later.
-            </Text>
-
-            <View style={styles.ctaRow}>
-              <Button
-                variant="tertiary"
-                onPress={() => animateTransition(() => setStep(4))}
-                style={{ flex: 1 }}
-              >
-                Skip for now
-              </Button>
-              <Button onPress={goNext} style={{ flex: 1 }}>
-                Set up my Circle →
-              </Button>
-            </View>
-
-            {/* What's a Circle? */}
-            <View style={[styles.bridgeCard, { backgroundColor: theme.secondary, borderColor: theme.border, marginTop: 20 }]}>
-              <Text style={[styles.bridgeText, { color: theme.mutedForeground }]}>
-                💬 <Text style={{ fontWeight: '700', color: theme.foreground }}>What's a Circle?</Text>
-                {' '}A Circle is a small, private group where you share updates with people who actually care — family, friends, or whoever you choose. No feeds, no strangers. Just you sharing moments with the people that matter most.
-              </Text>
-            </View>
-          </>
-        )}
+        {/* What's a Circle? */}
+        <View style={[styles.bridgeCard, { backgroundColor: theme.secondary, borderColor: theme.border, marginTop: 20 }]}>
+          <Text style={[styles.bridgeText, { color: theme.mutedForeground }]}>
+            💬 <Text style={{ fontWeight: '700', color: theme.foreground }}>What's a Circle?</Text>
+            {' '}A Circle is a small, private group where you share updates with people who actually care — family, friends, or whoever you choose. No feeds, no strangers. Just you sharing moments with the people that matter most.
+          </Text>
+        </View>
       </>
     );
   };
