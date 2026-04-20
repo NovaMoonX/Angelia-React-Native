@@ -59,6 +59,8 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
       .map(([emoji]) => emoji);
   }, [post.reactions]);
 
+  const hasFooter = topReactions.length > 0 || !!isOtherUser;
+
   return (
     <View style={[styles.cardWrapper, hasTierBadge && styles.cardWrapperBadged]}>
       {hasTierBadge && tierBadgeConfig && (
@@ -139,37 +141,36 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
       ) : null}
 
       {/* Tappable footer */}
-      <Pressable onPress={onNavigate}>
-        <View style={styles.footer}>
-          {topReactions.length > 0 ? (
-            <View style={styles.reactionStack}>
-              {topReactions.map((emoji, i) => (
-                <View
-                  key={emoji}
-                  style={[
-                    styles.reactionBubble,
-                    {
-                      marginLeft: i === 0 ? 0 : -10,
-                      zIndex: topReactions.length - i,
-                      backgroundColor: theme.card,
-                      borderColor: theme.background,
-                    },
-                  ]}
-                >
-                  <Text style={styles.reactionBubbleEmoji}>{emoji}</Text>
-                </View>
-              ))}
-              <Text style={[styles.reactionTotalText, { color: theme.mutedForeground }]}>
-                {post.reactions.length}
+      {hasFooter && (
+        <Pressable onPress={onNavigate}>
+          <View style={styles.footer}>
+            {topReactions.length > 0 ? (
+              <View style={styles.reactionStack}>
+                {topReactions.map((emoji, i) => (
+                  <View
+                    key={emoji}
+                    style={[
+                      styles.reactionBubble,
+                      {
+                        marginLeft: i === 0 ? 0 : -8,
+                        zIndex: topReactions.length - i,
+                        backgroundColor: theme.card,
+                        borderColor: theme.background,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.reactionBubbleEmoji}>{emoji}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : isOtherUser ? (
+              <Text style={[styles.firstReactText, { color: theme.mutedForeground }]}>
+                Be the first to react! 🎉
               </Text>
-            </View>
-          ) : isOtherUser ? (
-            <Text style={[styles.firstReactText, { color: theme.mutedForeground }]}>
-              Be the first to react! 🎉
-            </Text>
-          ) : null}
-        </View>
-      </Pressable>
+            ) : null}
+          </View>
+        </Pressable>
+      )}
 
       {/* User profile modal for other users */}
       <UserProfileModal
@@ -325,7 +326,6 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 28,
   },
   reactionStack: {
     flexDirection: 'row',
@@ -342,11 +342,6 @@ const styles = StyleSheet.create({
   reactionBubbleEmoji: {
     fontSize: 14,
     lineHeight: 16,
-  },
-  reactionTotalText: {
-    marginLeft: 6,
-    fontSize: 12,
-    fontWeight: '500',
   },
   firstReactText: {
     fontSize: 12,
