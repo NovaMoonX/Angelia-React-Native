@@ -11,6 +11,9 @@
     "prefs",
     "Pressable",
     "Schedulable",
-    "viewability"
+    "unsub",
+    "unsubs",
+    "viewability",
+    "winddown"
   ]
 }
