@@ -491,13 +491,13 @@ export default function FeedScreen() {
         {pendingTasks.length > 0 && (
           <Pressable
             onPress={() => router.push('/(protected)/tasks')}
-            style={[styles.tasksBanner, { backgroundColor: theme.success }]}
+            style={[styles.tasksBanner, { backgroundColor: theme.tertiary }]}
           >
-            <Feather name="check-square" size={16} color={theme.successForeground} />
-            <Text style={[styles.tasksBannerText, { color: theme.successForeground }]}>
+            <Feather name="check-square" size={16} color={theme.tertiaryForeground} />
+            <Text style={[styles.tasksBannerText, { color: theme.tertiaryForeground }]}>
             {pendingTasks.length} task{pendingTasks.length !== 1 ? 's' : ''} to do — tap to see
             </Text>
-            <Feather name="chevron-right" size={16} color={theme.successForeground} />
+            <Feather name="chevron-right" size={16} color={theme.tertiaryForeground} />
           </Pressable>
         )}
       </Animated.View>
@@ -873,6 +873,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     gap: 8,
+    marginHorizontal: 16,
     marginBottom: 12,
   },
   tasksBannerText: {
