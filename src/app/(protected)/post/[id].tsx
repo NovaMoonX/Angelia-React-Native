@@ -19,7 +19,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
-import { getPostAuthorName } from '@/lib/post/post.utils';
+import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { COMMON_EMOJIS } from '@/models/constants';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { AddReactionIcon } from '@/components/AddReactionIcon';
@@ -66,6 +66,9 @@ export default function PostDetailScreen() {
 	const colors = channel ? getColorPair(channel) : { backgroundColor: '#6366F1', textColor: '#FFF' };
 	const authorName = getPostAuthorName(author, currentUser);
 	const hasReacted = post.reactions.some((r) => r.userId === currentUser.id);
+	const expiryInfo = channel != null
+		? getPostExpiryInfo(post.timestamp, channel.isDaily === true)
+		: null;
 
 	// Use conversation messages count, falling back to post comments
 	const messageCount = conversationMessages.filter((m) => Boolean(m.isSystem) === false).length || postComments.length;
@@ -194,6 +197,11 @@ export default function PostDetailScreen() {
 							<Text style={[styles.timestamp, { color: theme.mutedForeground }]}>
 								{getRelativeTime(post.timestamp)}
 							</Text>
+							{expiryInfo != null && (
+								<Text style={styles.expiryBadge}>
+									{expiryInfo.daysLeft === 0 ? '⏳ Going away today' : `⏳ ${expiryInfo.daysLeft}d left`}
+								</Text>
+							)}
 						</View>
 					</View>
 					{channel && (
@@ -415,6 +423,11 @@ const styles = StyleSheet.create({
 	},
 	timestamp: {
 		fontSize: 13,
+	},
+	expiryBadge: {
+		fontSize: 12,
+		color: '#92400E',
+		fontWeight: '500',
 	},
 	postText: {
 		fontSize: 15,

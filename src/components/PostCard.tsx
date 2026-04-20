@@ -16,7 +16,7 @@ import {
 } from '@/store/slices/postsSlice';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
-import { getPostAuthorName } from '@/lib/post/post.utils';
+import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { POST_TIERS } from '@/models/constants';
 import type { Post, MediaItem } from '@/models/types';
 import { useTheme } from '@/hooks/useTheme';
@@ -47,6 +47,10 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
 
   const hasTierBadge = post.tier === 'worth-knowing' || post.tier === 'big-news';
   const tierBadgeConfig = post.tier ? POST_TIERS.find((t) => t.value === post.tier) ?? null : null;
+
+  const expiryInfo = channel != null
+    ? getPostExpiryInfo(post.timestamp, channel.isDaily === true)
+    : null;
 
   const topReactions = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -93,6 +97,11 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
                 <Text style={[styles.time, { color: theme.mutedForeground }]}>
                   {getRelativeTime(post.timestamp)}
                 </Text>
+                {expiryInfo != null && (
+                  <Text style={styles.expiryBadge}>
+                    {expiryInfo.daysLeft === 0 ? '⏳ Going away today' : `⏳ ${expiryInfo.daysLeft}d left`}
+                  </Text>
+                )}
               </View>
             </View>
             {channel && (
@@ -288,6 +297,11 @@ const styles = StyleSheet.create({
   },
   time: {
     fontSize: 12,
+  },
+  expiryBadge: {
+    fontSize: 11,
+    color: '#92400E',
+    fontWeight: '500',
   },
   postText: {
     fontSize: 14,

@@ -38,6 +38,7 @@ import { usePostComments } from '@/hooks/usePostComments';
 import { getTierTheme } from '@/lib/conversation/tierTheme';
 import { getPostAuthorName } from '@/lib/post/post.utils';
 import { getColorPair } from '@/lib/channel/channel.utils';
+import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { POST_TIERS } from '@/models/constants';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
@@ -216,6 +217,9 @@ export default function ConversationScreen() {
     ? getColorPair(channel)
     : { backgroundColor: '#6366F1', textColor: '#FFF' };
   const authorName = getPostAuthorName(author, currentUser);
+  const expiryInfo = channel != null
+    ? getPostExpiryInfo(post.timestamp, channel.isDaily === true)
+    : null;
 
   const headerBg = tierTheme.headerGradientColors[0] !== 'transparent'
     ? tierTheme.headerGradientColors[0]
@@ -252,6 +256,11 @@ export default function ConversationScreen() {
               {post.text}
             </Text>
           ) : null}
+          {expiryInfo != null && (
+            <Text style={styles.expiryBadge}>
+              {expiryInfo.daysLeft === 0 ? '⏳ Going away today' : `⏳ ${expiryInfo.daysLeft}d left`}
+            </Text>
+          )}
         </View>
 
         {channel && (
@@ -389,6 +398,12 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 12,
     marginTop: 1,
+  },
+  expiryBadge: {
+    fontSize: 11,
+    color: '#92400E',
+    fontWeight: '500',
+    marginTop: 2,
   },
   tierIndicator: {
     width: 26,
