@@ -435,7 +435,9 @@ export default function CompleteProfileScreen() {
       setLoadingMessage('Setting up your to-do list 📋');
       await Promise.all([
         sleep(MIN_STEP_MS),
-        // Nudge to fill in their bio if they skipped it during step 6
+        // Nudge to fill in their bio/fun fact if they skipped the first-post step.
+        // The first post content is also stored as their profile fun fact, so if they
+        // didn't write anything there they haven't set one yet.
         !firstPostText
           ? dispatch(createSetFunFactTask()).unwrap().catch(() => null)
           : Promise.resolve(null),

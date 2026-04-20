@@ -495,7 +495,7 @@ export default function FeedScreen() {
           >
             <Feather name="check-square" size={16} color={theme.successForeground} />
             <Text style={[styles.tasksBannerText, { color: theme.successForeground }]}>
-              {pendingTasks.length} thing{pendingTasks.length !== 1 ? 's' : ''} on your to-do list — tap to see
+            {pendingTasks.length} task{pendingTasks.length !== 1 ? 's' : ''} to do — tap to see
             </Text>
             <Feather name="chevron-right" size={16} color={theme.successForeground} />
           </Pressable>
