@@ -36,11 +36,13 @@ export default function JoinChannelScreen() {
   const { firebaseUser } = useAuth();
   const { addToast } = useToast();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ code?: string; autoLookup?: string }>();
+  const params = useLocalSearchParams<{ code?: string; autoLookup?: string; fromOnboarding?: string }>();
 
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const outgoing = useAppSelector((state) => state.invites.outgoing);
+
+  const fromOnboarding = params.fromOnboarding === '1';
 
   const [step, setStep] = useState<Step>('enter-code');
   const [code, setCode] = useState(params.code?.toUpperCase() || '');
@@ -143,8 +145,9 @@ export default function JoinChannelScreen() {
       setChannel(null);
       return;
     }
+    if (fromOnboarding) return; // no back when arriving from sign-up flow
     router.back();
-  }, [step, router]);
+  }, [step, router, fromOnboarding]);
 
   const isSubscribed = channel?.subscribers.includes(currentUser?.id || '') || false;
   const existingRequest = channel
@@ -169,13 +172,15 @@ export default function JoinChannelScreen() {
         ]}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
-        <Pressable onPress={handleBack} style={styles.backRow}>
-          <Feather name="arrow-left" size={20} color={theme.primary} />
-          <Text style={[styles.backText, { color: theme.primary }]}>
-            Back
-          </Text>
-        </Pressable>
+        {/* Header — hide back button when arriving from sign-up onboarding */}
+        {!fromOnboarding && (
+          <Pressable onPress={handleBack} style={styles.backRow}>
+            <Feather name="arrow-left" size={20} color={theme.primary} />
+            <Text style={[styles.backText, { color: theme.primary }]}>
+              Back
+            </Text>
+          </Pressable>
+        )}
 
         {step === 'enter-code' && (
           <View style={styles.enterCodeContainer}>
@@ -245,6 +250,16 @@ export default function JoinChannelScreen() {
                 }}
               >
                 Clear
+              </Button>
+            )}
+
+            {fromOnboarding && (
+              <Button
+                variant="tertiary"
+                onPress={() => router.replace('/verify-email')}
+                style={{ marginTop: 8 }}
+              >
+                Nevermind, I'll do this later
               </Button>
             )}
           </View>
@@ -361,6 +376,16 @@ export default function JoinChannelScreen() {
             >
               Try a different code
             </Button>
+
+            {fromOnboarding && (
+              <Button
+                variant="tertiary"
+                onPress={() => router.replace('/verify-email')}
+                style={{ marginTop: 4 }}
+              >
+                Nevermind, I'll do this later
+              </Button>
+            )}
           </View>
         )}
       </ScrollView>

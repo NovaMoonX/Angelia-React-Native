@@ -30,8 +30,9 @@ import { createUserProfile } from '@/store/actions/userActions';
 import { createDailyChannel, createCustomChannel } from '@/store/actions/channelActions';
 import { saveNotificationSettings } from '@/store/actions/notificationActions';
 import { createInviteCircleTask } from '@/store/actions/taskActions';
+import { uploadPost } from '@/store/actions/postActions';
 import { uploadUserAvatar } from '@/services/firebase/storage';
-import { AVATAR_PRESETS, CHANNEL_COLORS } from '@/models/constants';
+import { AVATAR_PRESETS, CHANNEL_COLORS, DAILY_CHANNEL_SUFFIX } from '@/models/constants';
 import type { AvatarPreset } from '@/models/types';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 
@@ -81,6 +82,10 @@ const MINUTES_DISPLAY = ['00', '15', '30', '45'];
 const MINUTES_VALUES = [0, 15, 30, 45];
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+
+function randomChannelColor(): string {
+  return CHANNEL_COLORS[Math.floor(Math.random() * CHANNEL_COLORS.length)].name;
+}
 
 function to24(hour12: number, ampm: 'AM' | 'PM'): number {
   if (ampm === 'AM') return hour12 === 12 ? 0 : hour12;
@@ -133,6 +138,7 @@ export default function CompleteProfileScreen() {
   // ── Wizard state ────────────────────────────────────────────────────────
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   // Step 1
@@ -302,7 +308,7 @@ export default function CompleteProfileScreen() {
         key: `family:${familyStyle}`,
         name: style?.label ?? 'Family Circle',
         emoji: '💛',
-        color: CHANNEL_COLORS[3].name,
+        color: randomChannelColor(),
         description: style?.desc ?? '',
       });
     }
@@ -311,7 +317,7 @@ export default function CompleteProfileScreen() {
         key: `hobby:${h}`,
         name: `The ${h} Journal`,
         emoji: HOBBY_EMOJI[h] ?? '🎲',
-        color: CHANNEL_COLORS[0].name,
+        color: randomChannelColor(),
         description: `A Circle for everything ${h.toLowerCase()}.`,
       });
     }
@@ -320,7 +326,7 @@ export default function CompleteProfileScreen() {
         key: `hobby-custom:${i}`,
         name: `The ${h} Journal`,
         emoji: '🎯',
-        color: CHANNEL_COLORS[0].name,
+        color: randomChannelColor(),
         description: `A Circle for everything ${h.toLowerCase()}.`,
       });
     });
@@ -329,7 +335,7 @@ export default function CompleteProfileScreen() {
         key: `lifelog:${l}`,
         name: l,
         emoji: LIFELOG_EMOJI[l] ?? DEFAULT_LIFELOG_EMOJI,
-        color: CHANNEL_COLORS[4].name,
+        color: randomChannelColor(),
         description: `My ${l.toLowerCase()} Circle.`,
       });
     }
@@ -338,7 +344,7 @@ export default function CompleteProfileScreen() {
         key: `lifelog-custom:${i}`,
         name: l,
         emoji: DEFAULT_LIFELOG_EMOJI,
-        color: CHANNEL_COLORS[4].name,
+        color: randomChannelColor(),
         description: `My ${l.toLowerCase()} Circle.`,
       });
     });
@@ -352,6 +358,7 @@ export default function CompleteProfileScreen() {
     if (!firebaseUser) return;
 
     setLoading(true);
+    setLoadingMessage('Getting everything ready for you ✨');
     try {
       // 1 — Upload custom avatar photo if one was selected (non-fatal)
       let uploadedAvatarUrl: string | undefined;
@@ -377,11 +384,27 @@ export default function CompleteProfileScreen() {
         }),
       ).unwrap();
 
-      // 2 — Create daily Circle
+      // 3 — Create daily Circle
+      setLoadingMessage('Building your Daily Circle 🌙');
+      const dailyChannelId = `${firebaseUser.uid}${DAILY_CHANNEL_SUFFIX}`;
       await dispatch(createDailyChannel(firebaseUser.uid)).unwrap();
 
-      // 3 — Create custom Circles (up to 3, from Step 3 selections)
+      // 4 — Upload first post to Daily Circle (non-fatal)
+      const firstPostText = firstPost.trim();
+      if (firstPostText) {
+        setLoadingMessage('Saving your first post 📝');
+        try {
+          await dispatch(uploadPost({ channelId: dailyChannelId, text: firstPostText, media: [] })).unwrap();
+        } catch {
+          // Non-fatal: the user can post later
+        }
+      }
+
+      // 5 — Create custom Circles (up to 3, from Step 3 selections)
       const pendingCircles = getPendingCircles();
+      if (pendingCircles.length > 0) {
+        setLoadingMessage('Setting up your custom Circles 💫');
+      }
       for (const circle of pendingCircles) {
         const name = (circleNameOverrides[circle.key] ?? circle.name).trim() || circle.name;
         try {
@@ -399,7 +422,7 @@ export default function CompleteProfileScreen() {
         }
       }
 
-      // 4 — Save notification settings
+      // 6 — Save notification settings
       try {
         const dailyHour = notifSkipped ? 12 : midCheckIn.hour;
         const dailyMinute = notifSkipped ? 0 : midCheckIn.minute;
@@ -415,12 +438,13 @@ export default function CompleteProfileScreen() {
         // Non-fatal: defaults will apply
       }
 
-      // 5 — Verification email
+      // 7 — Verification email
+      setLoadingMessage('Almost there — sending your verification email 💌');
       await sendVerificationEmail();
 
       addToast({ type: 'success', title: "You're all set! 🎉" });
       if (invitedAnswer === 'yes') {
-        router.replace('/join-channel');
+        router.replace({ pathname: '/join-channel', params: { fromOnboarding: '1' } });
       } else {
         router.replace('/verify-email');
       }
@@ -431,6 +455,7 @@ export default function CompleteProfileScreen() {
       });
     } finally {
       setLoading(false);
+      setLoadingMessage('');
     }
   };
 
@@ -1598,6 +1623,21 @@ export default function CompleteProfileScreen() {
     6: renderStep6,
   };
 
+  // Show a full-screen loading overlay while the finish sequence runs
+  if (loading && loadingMessage) {
+    return (
+      <View style={[styles.loadingOverlay, { backgroundColor: theme.background }]}>
+        <Text style={styles.loadingEmoji}>✨</Text>
+        <Text style={[styles.loadingHeading, { color: theme.foreground }]}>
+          Prepping your space…
+        </Text>
+        <Text style={[styles.loadingMessage, { color: theme.mutedForeground }]}>
+          {loadingMessage}
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -1625,6 +1665,29 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 40,
+  },
+
+  // Loading overlay (shown during handleFinish)
+  loadingOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+    gap: 12,
+  },
+  loadingEmoji: {
+    fontSize: 64,
+    marginBottom: 8,
+  },
+  loadingHeading: {
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  loadingMessage: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 
   // Top bar (progress + back + sign out)

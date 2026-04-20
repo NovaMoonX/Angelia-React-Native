@@ -32,8 +32,9 @@ export default function ProtectedLayout() {
       return <Redirect href="/complete-profile" />;
     }
 
-    // Email not verified
-    if (!firebaseUser.emailVerified) {
+    // Email not verified — allow access if Redux profile already recorded
+    // emailVerified=true (e.g. right after the verify-email polling detects it)
+    if (!firebaseUser.emailVerified && !currentUser.accountProgress.emailVerified) {
       return <Redirect href="/verify-email" />;
     }
   }

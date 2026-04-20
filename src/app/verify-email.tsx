@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { getAuth } from '@react-native-firebase/auth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Button } from '@/components/ui/Button';
-import { Callout } from '@/components/ui/Callout';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -20,11 +20,23 @@ export default function VerifyEmailScreen() {
   currentUserRef.current = currentUser;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const insets = useSafeAreaInsets();
+  const [checking, setChecking] = useState(false);
 
   const checkVerification = useCallback(async () => {
     if (!firebaseUser) return;
-    await firebaseUser.reload();
-    if (firebaseUser.emailVerified) {
+    try {
+      await firebaseUser.reload();
+    } catch {
+      // Reload failure is non-fatal; rely on the cached value
+    }
+    // Use getAuth().currentUser to get the freshest emailVerified value after reload.
+    // Fall back to false (not verified) if no current user is found.
+    const verified = getAuth().currentUser?.emailVerified ?? false;
+    if (verified) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
       const user = currentUserRef.current;
       try {
         if (user && !user.accountProgress.emailVerified) {
@@ -53,6 +65,15 @@ export default function VerifyEmailScreen() {
     await sendVerificationEmail();
   };
 
+  const handleManualCheck = async () => {
+    setChecking(true);
+    try {
+      await checkVerification();
+    } finally {
+      setChecking(false);
+    }
+  };
+
   return (
     <View
       style={[styles.container, { backgroundColor: theme.background, paddingTop: insets.top }]}
@@ -69,7 +90,11 @@ export default function VerifyEmailScreen() {
         . Click the link to verify your account. You may need to check your spam folder.
       </Text>
 
-      <Button variant="outline" onPress={handleResend}>
+      <Button onPress={handleManualCheck} loading={checking} style={styles.button}>
+        I did ✓
+      </Button>
+
+      <Button variant="outline" onPress={handleResend} style={styles.button}>
         Resend Verification Email
       </Button>
     </View>
@@ -82,19 +107,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
+    gap: 16,
   },
   emoji: {
     fontSize: 64,
-    marginBottom: 16,
+    marginBottom: 4,
   },
   heading: {
     fontSize: 24,
     fontWeight: '700',
-    marginBottom: 12,
+    marginBottom: 4,
   },
   description: {
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
+    marginBottom: 8,
+  },
+  button: {
+    width: '100%',
   },
 });
