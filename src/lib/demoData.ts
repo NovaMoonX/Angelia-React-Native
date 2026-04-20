@@ -326,6 +326,58 @@ const DEMO_POSTS: Post[] = [
     status: 'ready',
     tier: 'big-news',
   },
+  // ── Expiry-badge demo posts ────────────────────────────────────────────────
+  {
+    // Daily circle post exactly at its 14-day retention limit → "⏳ Going away today"
+    id: 'demo-post-expiry-today',
+    authorId: 'demo-user-2',
+    channelId: 'demo-user-2-daily',
+    text: 'Whew, what a week! Finally found a moment to breathe. 🌿',
+    media: [],
+    timestamp: Date.now() - 14 * 24 * 60 * 60 * 1000,
+    reactions: [],
+    conversationEnrollees: [],
+    markedForDeletionAt: null,
+    status: 'ready',
+    tier: 'everyday',
+  },
+  {
+    // Daily circle post 12 days old → 2 days left → "⏳ 2d left"
+    id: 'demo-post-expiry-2d',
+    authorId: 'demo-user-1',
+    channelId: 'demo-user-1-daily',
+    text: 'Morning run done! Feeling energized for the week ahead. 🏃‍♂️',
+    media: [],
+    timestamp: Date.now() - 12 * 24 * 60 * 60 * 1000,
+    reactions: [
+      { emoji: '🔥', userId: 'demo-user-2' },
+    ],
+    conversationEnrollees: [],
+    markedForDeletionAt: null,
+    status: 'ready',
+    tier: 'everyday',
+  },
+  {
+    // Custom circle post 85 days old → 5 days left → "⏳ 5d left"
+    id: 'demo-post-expiry-5d',
+    authorId: 'demo-user-1',
+    channelId: 'demo-channel-travel',
+    text: "That trip to the coast was absolutely worth it. Sunsets like that don't get old. 🌅",
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=600&fit=crop',
+      },
+    ],
+    timestamp: Date.now() - 85 * 24 * 60 * 60 * 1000,
+    reactions: [
+      { emoji: '😊', userId: 'demo-user-2' },
+    ],
+    conversationEnrollees: [],
+    markedForDeletionAt: null,
+    status: 'ready',
+    tier: 'everyday',
+  },
 ];
 
 const DEMO_INVITES: {
