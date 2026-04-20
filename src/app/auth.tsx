@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, ExternalPathString } from 'expo-router';
@@ -11,6 +11,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useAppDispatch } from '@/store/hooks';
 import { enterDemoMode } from '@/store/actions/demoActions';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
+import { Loading } from '@/components/Loading';
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -23,6 +24,7 @@ export default function AuthScreen() {
   const { addToast } = useToast();
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
+  const signUpInProgress = useRef(false);
   const [, setAuthMode] = useState<'login' | 'sign up'>(
     params.mode === 'signup' ? 'sign up' : 'login'
   );
@@ -36,6 +38,7 @@ export default function AuthScreen() {
   }): Promise<{ error?: { message: string } }> => {
     try {
       if (action === 'signup') {
+        signUpInProgress.current = true;
         await signUp(data.email, data.password);
         addToast({ type: 'success', title: 'Account created!' });
         router.replace('/complete-profile');
@@ -63,8 +66,8 @@ export default function AuthScreen() {
     // While auth state is resolving or resolved, render a plain background 
     // so that authenticated users never see the welcome screen flash before 
     // the redirect to the feed fires.
-    if (authLoading || firebaseUser) {
-      return <View style={{ flex: 1, backgroundColor: theme.background }} />;
+    if (!signUpInProgress.current && (authLoading || firebaseUser)) {
+      return <Loading />;
     }
 
   return (
