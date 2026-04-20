@@ -444,6 +444,20 @@ export const deleteExpiredPosts = onSchedule('every 24 hours', async () => {
     }
   }
 
+  // Delete all Storage media files for each expired post (best-effort).
+  // Post media is stored under posts/{postId}/ in the default bucket.
+  const bucket = admin.storage().bucket();
+  await Promise.all(
+    toDelete.map(async (ref) => {
+      try {
+        await bucket.deleteFiles({ prefix: `posts/${ref.id}/` });
+      } catch (err) {
+        // Best-effort: a storage failure should not block Firestore cleanup.
+        console.error(`Failed to delete Storage files for post ${ref.id}:`, err);
+      }
+    }),
+  );
+
   // Firestore batches are limited to 500 operations each.
   const BATCH_SIZE = 500;
   for (let i = 0; i < toDelete.length; i += BATCH_SIZE) {
