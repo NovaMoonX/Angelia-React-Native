@@ -52,7 +52,7 @@ const commentsSlice = createSlice({
       state,
       action: PayloadAction<Record<string, Comment[]>>,
     ) {
-      state.commentsByPost = { ...state.commentsByPost, ...action.payload };
+      state.commentsByPost = action.payload;
     },
   },
   extraReducers: (builder) => {
