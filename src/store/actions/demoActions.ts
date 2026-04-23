@@ -6,6 +6,7 @@ import { clearInvites, loadDemoInvites } from '@/store/slices/invitesSlice';
 import { loadDemoMessages } from '@/store/slices/conversationSlice';
 import { loadDemoComments } from '@/store/slices/commentsSlice';
 import { loadDemoConnections } from '@/store/slices/connectionsSlice';
+import { loadDemoPrivateNotes } from '@/store/slices/privateNotesSlice';
 import {
   enterDemoMode as enterDemoModeAction,
   exitDemoMode as exitDemoModeAction,
@@ -31,6 +32,7 @@ export const enterDemoMode = createAsyncThunk(
     dispatch(loadDemoMessages(DEMO_DATA.messages));
     dispatch(loadDemoComments(DEMO_DATA.comments));
     dispatch(loadDemoConnections(DEMO_DATA.connections));
+    dispatch(loadDemoPrivateNotes(DEMO_DATA.privateNotes));
 
     // Finally, activate demo mode
     dispatch(enterDemoModeAction());

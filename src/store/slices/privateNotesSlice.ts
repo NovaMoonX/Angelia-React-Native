@@ -48,6 +48,9 @@ const privateNotesSlice = createSlice({
     clearPrivateNotes(state, action: PayloadAction<string>) {
       delete state.notesByPost[action.payload];
     },
+    loadDemoPrivateNotes(state, action: PayloadAction<Record<string, PrivateNote[]>>) {
+      state.notesByPost = { ...state.notesByPost, ...action.payload };
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(resetAllState, () => initialState);
@@ -59,6 +62,7 @@ export const {
   addPrivateNoteOptimistic,
   removePrivateNoteOptimistic,
   clearPrivateNotes,
+  loadDemoPrivateNotes,
 } = privateNotesSlice.actions;
 
 // Selectors

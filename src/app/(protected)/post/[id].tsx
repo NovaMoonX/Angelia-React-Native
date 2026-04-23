@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Animated, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
@@ -56,6 +56,7 @@ export default function PostDetailScreen() {
 	const [profileModalOpen, setProfileModalOpen] = useState(false);
 	const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
 	const [unlockEmoji, setUnlockEmoji] = useState<string | null>(null);
+	const [noteModalVisible, setNoteModalVisible] = useState(false);
 	const [privateNoteText, setPrivateNoteText] = useState('');
 	const [sendingNote, setSendingNote] = useState(false);
 	const chatTabScale = useRef(new Animated.Value(1)).current;
@@ -172,7 +173,7 @@ export default function PostDetailScreen() {
 		}
 	};
 
-	const handleSendPrivateNote = async () => {
+	const handleSendPrivateNote = useCallback(async () => {
 		if (!privateNoteText.trim() || !post.authorId) return;
 		setSendingNote(true);
 		try {
@@ -180,13 +181,19 @@ export default function PostDetailScreen() {
 				sendPrivateNote({ postId: post.id, hostId: post.authorId, text: privateNoteText }),
 			).unwrap();
 			setPrivateNoteText('');
+			setNoteModalVisible(false);
 			addToast({ type: 'success', title: 'Note sent! 💌' });
 		} catch {
 			addToast({ type: 'error', title: 'Failed to send note' });
 		} finally {
 			setSendingNote(false);
 		}
-	};
+	}, [privateNoteText, post.authorId, post.id, dispatch, addToast]);
+
+	const handleCloseNoteModal = useCallback(() => {
+		setNoteModalVisible(false);
+		setPrivateNoteText('');
+	}, []);
 
 	return (
 		<KeyboardAvoidingView
@@ -292,8 +299,8 @@ export default function PostDetailScreen() {
 					)}
 				</View>
 
-				{/* Private Notes — host sees badge, visitors see send form */}
-				{isHost ? (
+				{/* Host: private notes badge — only when notes exist */}
+				{isHost && privateNotes.length > 0 && (
 					<Pressable
 						style={[styles.privateNotesBadge, { backgroundColor: theme.card, borderColor: theme.border }]}
 						onPress={() =>
@@ -303,59 +310,28 @@ export default function PostDetailScreen() {
 							})
 						}
 					>
-						<Feather name='mail' size={16} color={theme.mutedForeground} />
-						<Text style={[styles.privateNotesBadgeText, { color: theme.mutedForeground }]}>
-							{privateNotes.length > 0
-								? `${privateNotes.length} Private Note${privateNotes.length !== 1 ? 's' : ''}`
-								: 'No private notes yet'}
+						<Feather name='mail' size={16} color={theme.primary} />
+						<Text style={[styles.privateNotesBadgeText, { color: theme.primary }]}>
+							{`${privateNotes.length} Private Note${privateNotes.length !== 1 ? 's' : ''}`}
 						</Text>
-						<Feather name='chevron-right' size={14} color={theme.mutedForeground} />
+						<Feather name='chevron-right' size={14} color={theme.primary} />
 					</Pressable>
-				) : (
-					<View style={[styles.privateNoteSection, { borderColor: theme.border }]}>
-						<Text style={[styles.privateNoteNudge, { color: theme.mutedForeground }]}>
-							Want to tell {author?.firstName ?? 'them'} something just between you two? 💌
-						</Text>
-						<View style={styles.privateNoteInputRow}>
-							<TextInput
-								style={[
-									styles.privateNoteInput,
-									{
-										backgroundColor: theme.card,
-										borderColor: theme.border,
-										color: theme.foreground,
-									},
-								]}
-								placeholder='Write a private note…'
-								placeholderTextColor={theme.mutedForeground}
-								value={privateNoteText}
-								onChangeText={setPrivateNoteText}
-								multiline
-								maxLength={500}
-								editable={!sendingNote}
-							/>
-							<Pressable
-								style={[
-									styles.privateNoteSendButton,
-									{
-										backgroundColor:
-											privateNoteText.trim() && !sendingNote
-												? theme.primary
-												: theme.border,
-									},
-								]}
-								onPress={handleSendPrivateNote}
-								disabled={!privateNoteText.trim() || sendingNote}
-							>
-								<Feather name='send' size={18} color='#FFF' />
-							</Pressable>
-						</View>
-					</View>
 				)}
 			</ScrollView>
 
 			{/* Bottom bar — chat tab + emoji pill */}
 			<View style={styles.bottomBarContainer}>
+				{/* Visitor: minimal private note trigger above the pill */}
+				{!isHost && (
+					<Pressable
+						style={styles.privateNoteTrigger}
+						onPress={() => setNoteModalVisible(true)}
+					>
+						<Feather name='mail' size={13} color={theme.mutedForeground} />
+						<Text style={[styles.privateNoteTriggerText, { color: theme.mutedForeground }]}>
+							Send private note to {author?.firstName ?? 'host'}</Text>
+					</Pressable>
+				)}
 				{/* Chat tab — attached to top of pill */}
 				<Animated.View
 					style={[
@@ -453,6 +429,83 @@ export default function PostDetailScreen() {
 				}}
 				onClose={() => setEmojiPickerVisible(false)}
 			/>
+
+			{/* Private note bottom-sheet modal (visitor only) */}
+			{!isHost && (
+				<Modal
+					visible={noteModalVisible}
+					transparent
+					animationType='slide'
+					onRequestClose={handleCloseNoteModal}
+				>
+					<KeyboardAvoidingView
+						style={{ flex: 1 }}
+						behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+					>
+						<Pressable style={styles.noteModalBackdrop} onPress={handleCloseNoteModal}>
+							<View
+								style={[
+									styles.noteModalSheet,
+									{ backgroundColor: theme.card, paddingBottom: insets.bottom + 16 },
+								]}
+								onStartShouldSetResponder={() => true}
+							>
+								{/* Header */}
+								<View style={[styles.noteModalHeader, { borderBottomColor: theme.border }]}>
+									<Text style={[styles.noteModalTitle, { color: theme.foreground }]}>
+										Private note to {author?.firstName ?? 'host'} 💌
+									</Text>
+									<Pressable onPress={handleCloseNoteModal} hitSlop={8}>
+										<Text style={[styles.noteModalClose, { color: theme.mutedForeground }]}>✕</Text>
+									</Pressable>
+								</View>
+
+								{/* Note input */}
+								<View style={styles.noteModalBody}>
+									<Text style={[styles.noteModalNudge, { color: theme.mutedForeground }]}>
+										Want to tell {author?.firstName ?? 'them'} something just between you two?
+									</Text>
+									<TextInput
+										style={[
+											styles.noteModalInput,
+											{
+												backgroundColor: theme.background,
+												borderColor: theme.border,
+												color: theme.foreground,
+											},
+										]}
+										placeholder='Write your note…'
+										placeholderTextColor={theme.mutedForeground}
+										value={privateNoteText}
+										onChangeText={setPrivateNoteText}
+										multiline
+										maxLength={500}
+										editable={!sendingNote}
+										autoFocus
+									/>
+									<Pressable
+										style={[
+											styles.noteModalSendButton,
+											{
+												backgroundColor:
+													privateNoteText.trim() && !sendingNote
+														? theme.primary
+														: theme.muted,
+											},
+										]}
+										onPress={handleSendPrivateNote}
+										disabled={!privateNoteText.trim() || sendingNote}
+									>
+										<Text style={[styles.noteModalSendText, { color: theme.primaryForeground }]}>
+											{sendingNote ? 'Sending…' : 'Send note'}
+										</Text>
+									</Pressable>
+								</View>
+							</View>
+						</Pressable>
+					</KeyboardAvoidingView>
+				</Modal>
+			)}
 
 			<UserProfileModal visible={profileModalOpen} onClose={() => setProfileModalOpen(false)} user={author} />
 
@@ -643,38 +696,77 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		fontWeight: '500',
 	},
-	privateNoteSection: {
-		marginTop: 20,
-		borderTopWidth: 1,
-		paddingTop: 16,
-		gap: 10,
+	// ── Visitor private note trigger (above the pill) ───────────────────────────
+	privateNoteTrigger: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 5,
+		paddingVertical: 7,
 	},
-	privateNoteNudge: {
+	privateNoteTriggerText: {
+		fontSize: 12,
+		fontWeight: '500',
+	},
+	// ── Private note bottom-sheet modal ─────────────────────────────────────────
+	noteModalBackdrop: {
+		flex: 1,
+		backgroundColor: 'rgba(0,0,0,0.5)',
+		justifyContent: 'flex-end',
+	},
+	noteModalSheet: {
+		borderTopLeftRadius: 20,
+		borderTopRightRadius: 20,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: -4 },
+		shadowOpacity: 0.15,
+		shadowRadius: 12,
+		elevation: 8,
+	},
+	noteModalHeader: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		paddingHorizontal: 20,
+		paddingVertical: 16,
+		borderBottomWidth: 1,
+	},
+	noteModalTitle: {
+		fontSize: 16,
+		fontWeight: '600',
+	},
+	noteModalClose: {
+		fontSize: 18,
+		fontWeight: '600',
+	},
+	noteModalBody: {
+		padding: 20,
+		gap: 14,
+	},
+	noteModalNudge: {
 		fontSize: 13,
 		lineHeight: 18,
 	},
-	privateNoteInputRow: {
-		flexDirection: 'row',
-		alignItems: 'flex-end',
-		gap: 10,
-	},
-	privateNoteInput: {
-		flex: 1,
+	noteModalInput: {
 		borderWidth: 1,
 		borderRadius: 12,
 		paddingHorizontal: 14,
-		paddingVertical: 10,
-		fontSize: 14,
-		lineHeight: 20,
-		minHeight: 44,
-		maxHeight: 120,
+		paddingVertical: 12,
+		fontSize: 15,
+		lineHeight: 22,
+		minHeight: 100,
+		maxHeight: 200,
+		textAlignVertical: 'top',
 	},
-	privateNoteSendButton: {
-		width: 44,
-		height: 44,
-		borderRadius: 22,
-		justifyContent: 'center',
+	noteModalSendButton: {
+		paddingVertical: 13,
+		borderRadius: 12,
 		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	noteModalSendText: {
+		fontSize: 15,
+		fontWeight: '600',
 	},
 });
 

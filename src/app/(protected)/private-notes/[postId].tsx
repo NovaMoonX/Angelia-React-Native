@@ -1,8 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { useAppSelector } from '@/store/hooks';
 import { selectPostById } from '@/store/slices/postsSlice';
@@ -16,6 +15,7 @@ export default function PrivateNotesScreen() {
 	const { postId } = useLocalSearchParams<{ postId: string }>();
 	const { theme } = useTheme();
 	const insets = useSafeAreaInsets();
+	const router = useRouter();
 	const isDemo = useAppSelector((state) => state.demo.isActive);
 
 	const post = useAppSelector((state) => selectPostById(state, postId ?? ''));
@@ -30,11 +30,19 @@ export default function PrivateNotesScreen() {
 		hostId: isHost ? post?.authorId : null,
 	});
 
-	if (!post || !currentUser || !isHost) {
+	// Guard: redirect back if not the host, or notes are empty
+	// (badge on the post screen is only shown when notes > 0, so this protects
+	// against direct deep-links and race conditions)
+	useEffect(() => {
+		if (!post || !currentUser) return;
+		if (!isHost || notes.length === 0) {
+			router.back();
+		}
+	}, [isHost, notes.length, post, currentUser, router]);
+
+	if (!post || !currentUser || !isHost || notes.length === 0) {
 		return (
-			<View style={[styles.centered, { backgroundColor: theme.background }]}>
-				<Text style={{ color: theme.mutedForeground }}>Notes not available</Text>
-			</View>
+			<View style={[styles.centered, { backgroundColor: theme.background }]} />
 		);
 	}
 
@@ -57,59 +65,47 @@ export default function PrivateNotesScreen() {
 					{ paddingBottom: insets.bottom + 24 },
 				]}
 			>
-				{notes.length === 0 ? (
-					<View style={styles.emptyState}>
-						<Feather name='mail' size={48} color={theme.mutedForeground} />
-						<Text style={[styles.emptyTitle, { color: theme.foreground }]}>
-							No private notes yet
-						</Text>
-						<Text style={[styles.emptySubtitle, { color: theme.mutedForeground }]}>
-							When someone sends you a private note on this post, you'll see it right here. 💌
-						</Text>
-					</View>
-				) : (
-					notes.map((note) => {
-						const author = usersMap[note.authorId];
-						const authorName = author
-							? `${author.firstName} ${author.lastName}`
-							: 'Someone';
+				{notes.map((note) => {
+					const author = usersMap[note.authorId];
+					const authorName = author
+						? `${author.firstName} ${author.lastName}`
+						: 'Someone';
 
-						return (
-							<View
-								key={note.id}
-								style={[
-									styles.noteCard,
-									{
-										backgroundColor: theme.card,
-										borderColor: theme.border,
-									},
-								]}
-							>
-								<Avatar
-									preset={author?.avatar ?? 'moon'}
-									size='sm'
-									uri={author?.avatarUrl ?? undefined}
-									statusEmoji={
-										isStatusActive(author?.status) ? author?.status?.emoji : undefined
-									}
-								/>
-								<View style={styles.noteContent}>
-									<View style={styles.noteHeader}>
-										<Text style={[styles.authorName, { color: theme.foreground }]}>
-											{authorName}
-										</Text>
-										<Text style={[styles.timestamp, { color: theme.mutedForeground }]}>
-											{getRelativeTime(note.timestamp)}
-										</Text>
-									</View>
-									<Text style={[styles.noteText, { color: theme.foreground }]}>
-										{note.text}
+					return (
+						<View
+							key={note.id}
+							style={[
+								styles.noteCard,
+								{
+									backgroundColor: theme.card,
+									borderColor: theme.border,
+								},
+							]}
+						>
+							<Avatar
+								preset={author?.avatar ?? 'moon'}
+								size='sm'
+								uri={author?.avatarUrl ?? undefined}
+								statusEmoji={
+									isStatusActive(author?.status) ? author?.status?.emoji : undefined
+								}
+							/>
+							<View style={styles.noteContent}>
+								<View style={styles.noteHeader}>
+									<Text style={[styles.authorName, { color: theme.foreground }]}>
+										{authorName}
+									</Text>
+									<Text style={[styles.timestamp, { color: theme.mutedForeground }]}>
+										{getRelativeTime(note.timestamp)}
 									</Text>
 								</View>
+								<Text style={[styles.noteText, { color: theme.foreground }]}>
+									{note.text}
+								</Text>
 							</View>
-						);
-					})
-				)}
+						</View>
+					);
+				})}
 			</ScrollView>
 		</>
 	);
@@ -118,28 +114,11 @@ export default function PrivateNotesScreen() {
 const styles = StyleSheet.create({
 	centered: {
 		flex: 1,
-		justifyContent: 'center',
-		alignItems: 'center',
 	},
 	content: {
 		paddingHorizontal: 20,
 		paddingTop: 16,
 		gap: 12,
-	},
-	emptyState: {
-		alignItems: 'center',
-		paddingTop: 64,
-		gap: 12,
-	},
-	emptyTitle: {
-		fontSize: 18,
-		fontWeight: '600',
-	},
-	emptySubtitle: {
-		fontSize: 14,
-		textAlign: 'center',
-		lineHeight: 20,
-		maxWidth: 280,
 	},
 	noteCard: {
 		flexDirection: 'row',

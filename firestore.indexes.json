@@ -1,14 +1,4 @@
 {
-  "indexes": [
-    {
-      "collectionGroup": "privateNotes",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "hostId", "order": "ASCENDING" },
-        { "fieldPath": "postId", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "ASCENDING" }
-      ]
-    }
-  ],
+  "indexes": [],
   "fieldOverrides": []
 }

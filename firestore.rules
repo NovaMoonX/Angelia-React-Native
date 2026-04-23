@@ -197,6 +197,22 @@ service cloud.firestore {
         // Comments cannot be updated or deleted by clients
         allow update, delete: if false;
       }
+
+      // Private notes subcollection — visitor sends a note directly to the post Host.
+      // Stored at posts/{postId}/privateNotes/{noteId}.
+      match /privateNotes/{noteId} {
+        // Only the note author may create a note; they cannot send to themselves.
+        allow create: if isSignedIn()
+          && request.auth.uid == request.resource.data.authorId
+          && request.resource.data.authorId != request.resource.data.hostId;
+
+        // Only the intended host (post author / recipient) may read their notes.
+        allow read: if isSignedIn()
+          && request.auth.uid == resource.data.hostId;
+
+        // Notes cannot be updated or deleted by clients.
+        allow update, delete: if false;
+      }
     }
 
     // Channel join requests
@@ -313,22 +329,6 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt;
 
       allow delete: if false;
-    }
-
-    // Private notes — a visitor sends a private note to the post Host.
-    // Stored at privateNotes/{noteId}.
-    match /privateNotes/{noteId} {
-      // Only the note author may create a note; they cannot write notes to themselves.
-      allow create: if isSignedIn()
-        && request.auth.uid == request.resource.data.authorId
-        && request.resource.data.authorId != request.resource.data.hostId;
-
-      // Only the host (the post author / recipient) may read notes addressed to them.
-      allow read: if isSignedIn()
-        && request.auth.uid == resource.data.hostId;
-
-      // Notes cannot be updated or deleted by clients.
-      allow update, delete: if false;
     }
 
     // Default: deny all reads and writes not explicitly allowed above.

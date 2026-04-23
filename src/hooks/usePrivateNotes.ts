@@ -26,7 +26,7 @@ export function usePrivateNotes({
 
   useEffect(() => {
     if (!postId || !hostId || isDemo) return;
-    const unsub = subscribeToPrivateNotesForPost(hostId, postId, (incoming) => {
+    const unsub = subscribeToPrivateNotesForPost(postId, (incoming) => {
       dispatch(setPrivateNotes({ postId, notes: incoming }));
     });
     return unsub;

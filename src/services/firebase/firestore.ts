@@ -708,28 +708,26 @@ export async function submitFeedback(submission: FeedbackSubmission): Promise<vo
 // ── Private Note Operations ─────────────────────────────────────────────────
 
 /**
- * Writes a private note to the top-level `privateNotes` collection.
+ * Writes a private note to the `posts/{postId}/privateNotes/{noteId}` subcollection.
+ * Notes are automatically deleted when the parent post is removed.
  * Only the note author can create; only the host (post author) can read.
  */
 export async function createPrivateNote(note: PrivateNote): Promise<void> {
-  await setDoc(doc(db, 'privateNotes', note.id), note);
+  await setDoc(doc(db, 'posts', note.postId, 'privateNotes', note.id), note);
 }
 
 /**
- * Subscribes to all private notes sent to `hostId` for a specific `postId`,
- * ordered by timestamp ascending.
+ * Subscribes to all private notes under `posts/{postId}/privateNotes`, ordered
+ * by timestamp ascending.
  * Only the host (post author) should call this — the Firestore rules enforce it.
  */
 export function subscribeToPrivateNotesForPost(
-  hostId: string,
   postId: string,
   callback: (notes: PrivateNote[]) => void,
 ): () => void {
   return onSnapshot(
     query(
-      collection(db, 'privateNotes'),
-      where('hostId', '==', hostId),
-      where('postId', '==', postId),
+      collection(db, 'posts', postId, 'privateNotes'),
       orderBy('timestamp', 'asc'),
     ),
     (snap) => {
