@@ -272,13 +272,23 @@ export default function FeedScreen() {
 
   // Load the last-seen timestamp from AsyncStorage once on mount.
   useEffect(() => {
-    AsyncStorage.getItem(FEED_LAST_SEEN_TIMESTAMP_KEY).then((val) => {
-      lastSeenTimestampRef.current = val ? parseInt(val, 10) : 0;
-      setLastSeenLoaded(true);
-    });
+    AsyncStorage.getItem(FEED_LAST_SEEN_TIMESTAMP_KEY)
+      .then((val) => {
+        lastSeenTimestampRef.current = val ? parseInt(val, 10) : 0;
+      })
+      .catch(() => {
+        // Fall back to 0 (first-visit behaviour) if storage is unavailable.
+        lastSeenTimestampRef.current = 0;
+      })
+      .finally(() => {
+        setLastSeenLoaded(true);
+      });
   }, []);
 
   // Recompute new posts whenever the posts list or current user changes.
+  // lastSeenTimestampRef is intentionally omitted from deps — it is a stable
+  // ref whose .current is mutated in-place; adding it would create a
+  // phantom dependency without affecting correctness.
   useEffect(() => {
     if (!lastSeenLoaded || !postsLoaded || !currentUser) return;
 
@@ -306,6 +316,8 @@ export default function FeedScreen() {
   }, [posts, postsLoaded, currentUser, lastSeenLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Animate the pill in/out as newPosts count changes.
+  // pillAnimValue is created from useRef().current and is stable for the
+  // component lifetime — it intentionally stays out of the deps array.
   useEffect(() => {
     pillAnimRef.current?.stop();
     if (newPosts.length > 0) {
