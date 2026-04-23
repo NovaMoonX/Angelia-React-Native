@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Animated, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
@@ -15,6 +15,7 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { selectMessages } from '@/store/slices/conversationSlice';
 import { usePostComments } from '@/hooks/usePostComments';
+import { usePrivateNotes } from '@/hooks/usePrivateNotes';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { getRelativeTime } from '@/lib/timeUtils';
@@ -25,6 +26,7 @@ import { EmojiPicker } from '@/components/EmojiPicker';
 import { AddReactionIcon } from '@/components/AddReactionIcon';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { updatePostReactions, removePostReaction } from '@/store/actions/postActions';
+import { sendPrivateNote } from '@/store/actions/privateNoteActions';
 import type { Reaction, MediaItem } from '@/models/types';
 
 export default function PostDetailScreen() {
@@ -42,11 +44,20 @@ export default function PostDetailScreen() {
 	const conversationMessages = useAppSelector((state) => selectMessages(state, id || ''));
 	const { comments: postComments } = usePostComments({ postId: id });
 
+	// Determine host role before hook calls (hooks must be unconditional)
+	const isHost = currentUser?.id === post?.authorId;
+	const { notes: privateNotes } = usePrivateNotes({
+		postId: isHost ? id : null,
+		hostId: isHost ? post?.authorId : null,
+	});
+
 	const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
 	const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
 	const [profileModalOpen, setProfileModalOpen] = useState(false);
 	const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
 	const [unlockEmoji, setUnlockEmoji] = useState<string | null>(null);
+	const [privateNoteText, setPrivateNoteText] = useState('');
+	const [sendingNote, setSendingNote] = useState(false);
 	const chatTabScale = useRef(new Animated.Value(1)).current;
 	const chatTabUnlockOpacity = useRef(new Animated.Value(0)).current;
 	const unlockEmojiY = useRef(new Animated.Value(0)).current;
@@ -161,6 +172,22 @@ export default function PostDetailScreen() {
 		}
 	};
 
+	const handleSendPrivateNote = async () => {
+		if (!privateNoteText.trim() || !post.authorId) return;
+		setSendingNote(true);
+		try {
+			await dispatch(
+				sendPrivateNote({ postId: post.id, hostId: post.authorId, text: privateNoteText }),
+			).unwrap();
+			setPrivateNoteText('');
+			addToast({ type: 'success', title: 'Note sent! 💌' });
+		} catch {
+			addToast({ type: 'error', title: 'Failed to send note' });
+		} finally {
+			setSendingNote(false);
+		}
+	};
+
 	return (
 		<KeyboardAvoidingView
 			style={{ flex: 1 }}
@@ -264,6 +291,67 @@ export default function PostDetailScreen() {
 						</View>
 					)}
 				</View>
+
+				{/* Private Notes — host sees badge, visitors see send form */}
+				{isHost ? (
+					<Pressable
+						style={[styles.privateNotesBadge, { backgroundColor: theme.card, borderColor: theme.border }]}
+						onPress={() =>
+							router.push({
+								pathname: '/(protected)/private-notes/[postId]',
+								params: { postId: post.id },
+							})
+						}
+					>
+						<Feather name='mail' size={16} color={theme.mutedForeground} />
+						<Text style={[styles.privateNotesBadgeText, { color: theme.mutedForeground }]}>
+							{privateNotes.length > 0
+								? `${privateNotes.length} Private Note${privateNotes.length !== 1 ? 's' : ''}`
+								: 'No private notes yet'}
+						</Text>
+						<Feather name='chevron-right' size={14} color={theme.mutedForeground} />
+					</Pressable>
+				) : (
+					<View style={[styles.privateNoteSection, { borderColor: theme.border }]}>
+						<Text style={[styles.privateNoteNudge, { color: theme.mutedForeground }]}>
+							Not feeling like sharing with the group? Tell {author?.firstName ?? 'them'} directly. 💌
+						</Text>
+						<View style={styles.privateNoteInputRow}>
+							<TextInput
+								style={[
+									styles.privateNoteInput,
+									{
+										backgroundColor: theme.card,
+										borderColor: theme.border,
+										color: theme.foreground,
+									},
+								]}
+								placeholder='Write a private note…'
+								placeholderTextColor={theme.mutedForeground}
+								value={privateNoteText}
+								onChangeText={setPrivateNoteText}
+								multiline
+								maxLength={500}
+								editable={!sendingNote}
+							/>
+							<Pressable
+								style={[
+									styles.privateNoteSendButton,
+									{
+										backgroundColor:
+											privateNoteText.trim() && !sendingNote
+												? theme.primary
+												: theme.border,
+									},
+								]}
+								onPress={handleSendPrivateNote}
+								disabled={!privateNoteText.trim() || sendingNote}
+							>
+								<Feather name='send' size={18} color='#FFF' />
+							</Pressable>
+						</View>
+					</View>
+				)}
 			</ScrollView>
 
 			{/* Bottom bar — chat tab + emoji pill */}
@@ -539,6 +627,54 @@ const styles = StyleSheet.create({
 		fontSize: 15,
 		textAlign: 'center',
 		lineHeight: 22,
+	},
+	privateNotesBadge: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 8,
+		marginTop: 20,
+		borderWidth: 1,
+		borderRadius: 12,
+		paddingVertical: 12,
+		paddingHorizontal: 14,
+	},
+	privateNotesBadgeText: {
+		flex: 1,
+		fontSize: 14,
+		fontWeight: '500',
+	},
+	privateNoteSection: {
+		marginTop: 20,
+		borderTopWidth: 1,
+		paddingTop: 16,
+		gap: 10,
+	},
+	privateNoteNudge: {
+		fontSize: 13,
+		lineHeight: 18,
+	},
+	privateNoteInputRow: {
+		flexDirection: 'row',
+		alignItems: 'flex-end',
+		gap: 10,
+	},
+	privateNoteInput: {
+		flex: 1,
+		borderWidth: 1,
+		borderRadius: 12,
+		paddingHorizontal: 14,
+		paddingVertical: 10,
+		fontSize: 14,
+		lineHeight: 20,
+		minHeight: 44,
+		maxHeight: 120,
+	},
+	privateNoteSendButton: {
+		width: 44,
+		height: 44,
+		borderRadius: 22,
+		justifyContent: 'center',
+		alignItems: 'center',
 	},
 });
 

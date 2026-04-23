@@ -121,6 +121,10 @@ export default function ProtectedLayout() {
           />
           <Stack.Screen name="channel-accepted" options={{ headerShown: false }} />
           <Stack.Screen
+            name="private-notes/[postId]"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
             name="tasks"
             options={{
               headerShown: true,

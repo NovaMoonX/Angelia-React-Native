@@ -315,6 +315,22 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Private notes — a visitor sends a private note to the post Host.
+    // Stored at privateNotes/{noteId}.
+    match /privateNotes/{noteId} {
+      // Only the note author may create a note; they cannot write notes to themselves.
+      allow create: if isSignedIn()
+        && request.auth.uid == request.resource.data.authorId
+        && request.resource.data.authorId != request.resource.data.hostId;
+
+      // Only the host (the post author / recipient) may read notes addressed to them.
+      allow read: if isSignedIn()
+        && request.auth.uid == resource.data.hostId;
+
+      // Notes cannot be updated or deleted by clients.
+      allow update, delete: if false;
+    }
+
     // Default: deny all reads and writes not explicitly allowed above.
     // This prevents accidental open-read rules from exposing private data.
     match /{document=**} {

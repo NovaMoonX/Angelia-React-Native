@@ -15,7 +15,7 @@ import {
   arrayUnion,
   arrayRemove,
 } from '@react-native-firebase/firestore';
-import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, AppTask, Comment } from '@/models/types';
+import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, AppTask, Comment, PrivateNote } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX, DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
@@ -705,7 +705,42 @@ export async function submitFeedback(submission: FeedbackSubmission): Promise<vo
   await setDoc(doc(db, 'feedback', submission.id), submission);
 }
 
-// ── Task Operations ─────────────────────────────────────────────────────────
+// ── Private Note Operations ─────────────────────────────────────────────────
+
+/**
+ * Writes a private note to the top-level `privateNotes` collection.
+ * Only the note author can create; only the host (post author) can read.
+ */
+export async function createPrivateNote(note: PrivateNote): Promise<void> {
+  await setDoc(doc(db, 'privateNotes', note.id), note);
+}
+
+/**
+ * Subscribes to all private notes sent to `hostId` for a specific `postId`,
+ * ordered by timestamp ascending.
+ * Only the host (post author) should call this — the Firestore rules enforce it.
+ */
+export function subscribeToPrivateNotesForPost(
+  hostId: string,
+  postId: string,
+  callback: (notes: PrivateNote[]) => void,
+): () => void {
+  return onSnapshot(
+    query(
+      collection(db, 'privateNotes'),
+      where('hostId', '==', hostId),
+      where('postId', '==', postId),
+      orderBy('timestamp', 'asc'),
+    ),
+    (snap) => {
+      callback(snap.docs.map((d) => d.data() as PrivateNote));
+    },
+    (_error) => {
+      callback([]);
+    },
+  );
+}
+
 
 /**
  * Creates a task document in the user's tasks subcollection.
