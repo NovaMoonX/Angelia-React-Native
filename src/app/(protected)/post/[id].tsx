@@ -314,7 +314,7 @@ export default function PostDetailScreen() {
 				) : (
 					<View style={[styles.privateNoteSection, { borderColor: theme.border }]}>
 						<Text style={[styles.privateNoteNudge, { color: theme.mutedForeground }]}>
-							Not feeling like sharing with the group? Tell {author?.firstName ?? 'them'} directly. 💌
+							Want to tell {author?.firstName ?? 'them'} something just between you two? 💌
 						</Text>
 						<View style={styles.privateNoteInputRow}>
 							<TextInput

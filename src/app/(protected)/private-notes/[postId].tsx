@@ -64,7 +64,7 @@ export default function PrivateNotesScreen() {
 							No private notes yet
 						</Text>
 						<Text style={[styles.emptySubtitle, { color: theme.mutedForeground }]}>
-							When someone sends you a private note on this post, it'll show up here. 💌
+							When someone sends you a private note on this post, you'll see it right here. 💌
 						</Text>
 					</View>
 				) : (
