@@ -12,6 +12,7 @@ import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { BellIcon } from '@/components/BellIcon';
@@ -24,10 +25,11 @@ import { formatTimeRemaining } from '@/lib/timeUtils';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { saveStatus, clearStatus } from '@/store/actions/userActions';
 import { selectHasAnyPendingActivity } from '@/store/crossSelectors/activitySelectors';
+import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
-import { POST_TIERS } from '@/models/constants';
-import type { Post, PostTier, UserStatus } from '@/models/types';
+import { POST_TIERS, FEED_LAST_SEEN_TIMESTAMP_KEY } from '@/models/constants';
+import type { Post, PostTier, User, UserStatus } from '@/models/types';
 
 const INITIAL_PAGE = 10;
 const LOAD_MORE = 3;
@@ -47,6 +49,7 @@ export default function FeedScreen() {
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const hasPendingActivity = useAppSelector(selectHasAnyPendingActivity);
   const pendingTasks = useAppSelector((state) => state.tasks.items);
+  const usersMap = useAppSelector(selectAllUsersMapById);
 
   const [channelFilter, setChannelFilter] = useState<ChannelFilterState>({ mode: 'all', specificIds: [] });
   const [channelFilterOpen, setChannelFilterOpen] = useState(false);
@@ -73,6 +76,16 @@ export default function FeedScreen() {
   const headerVisible = useRef(true);
   const headerAnimation = useRef<Animated.CompositeAnimation | null>(null);
   const [scrolledPast, setScrolledPast] = useState(false);
+
+  // ── New-posts pill ────────────────────────────────────────────────────────
+  // Tracks the max post timestamp the user has already acknowledged so we can
+  // surface a pill when fresher posts arrive from other users.
+  const lastSeenTimestampRef = useRef<number>(0);
+  const [lastSeenLoaded, setLastSeenLoaded] = useState(false);
+  const [newPosts, setNewPosts] = useState<Post[]>([]);
+  const hasNewPostsRef = useRef(false);
+  const pillAnimValue = useRef(new Animated.Value(0)).current;
+  const pillAnimRef = useRef<Animated.CompositeAnimation | null>(null);
 
   const channelFilterLabel = useMemo(() => {
     if (channelFilter.mode === 'all') return 'All Circles';
@@ -228,6 +241,109 @@ export default function FeedScreen() {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
+  // ── New-posts pill helpers ─────────────────────────────────────────────────
+
+  /**
+   * Persists the highest post timestamp currently in the store as "seen" and
+   * clears the pill.  Call this whenever the user has effectively acknowledged
+   * the new-post notice (tap or natural scroll to top).
+   */
+  const markPostsSeen = useCallback(() => {
+    const readyPosts = posts.filter((p) => p.status === 'ready');
+    const maxTs =
+      readyPosts.length > 0
+        ? Math.max(...readyPosts.map((p) => p.timestamp))
+        : Date.now();
+    lastSeenTimestampRef.current = maxTs;
+    void AsyncStorage.setItem(FEED_LAST_SEEN_TIMESTAMP_KEY, String(maxTs));
+    setNewPosts([]);
+  }, [posts]);
+
+  // Keep a ref so onScroll (memoized) can call the latest markPostsSeen.
+  const markPostsSeenRef = useRef(markPostsSeen);
+  useEffect(() => {
+    markPostsSeenRef.current = markPostsSeen;
+  }, [markPostsSeen]);
+
+  // Keep hasNewPostsRef in sync so onScroll doesn't need newPosts in its deps.
+  useEffect(() => {
+    hasNewPostsRef.current = newPosts.length > 0;
+  }, [newPosts]);
+
+  // Load the last-seen timestamp from AsyncStorage once on mount.
+  useEffect(() => {
+    AsyncStorage.getItem(FEED_LAST_SEEN_TIMESTAMP_KEY).then((val) => {
+      lastSeenTimestampRef.current = val ? parseInt(val, 10) : 0;
+      setLastSeenLoaded(true);
+    });
+  }, []);
+
+  // Recompute new posts whenever the posts list or current user changes.
+  useEffect(() => {
+    if (!lastSeenLoaded || !postsLoaded || !currentUser) return;
+
+    if (lastSeenTimestampRef.current === 0) {
+      // First visit ever — treat every existing post as already seen so we
+      // don't overwhelm the user with a pill on first open.
+      const readyPosts = posts.filter((p) => p.status === 'ready');
+      if (readyPosts.length > 0) {
+        const maxTs = Math.max(...readyPosts.map((p) => p.timestamp));
+        lastSeenTimestampRef.current = maxTs;
+        void AsyncStorage.setItem(FEED_LAST_SEEN_TIMESTAMP_KEY, String(maxTs));
+      }
+      setNewPosts([]);
+      return;
+    }
+
+    const threshold = lastSeenTimestampRef.current;
+    const incoming = posts.filter(
+      (p) =>
+        p.status === 'ready' &&
+        p.authorId !== currentUser.id &&
+        p.timestamp > threshold,
+    );
+    setNewPosts(incoming);
+  }, [posts, postsLoaded, currentUser, lastSeenLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Animate the pill in/out as newPosts count changes.
+  useEffect(() => {
+    pillAnimRef.current?.stop();
+    if (newPosts.length > 0) {
+      pillAnimRef.current = Animated.timing(pillAnimValue, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      });
+    } else {
+      pillAnimRef.current = Animated.timing(pillAnimValue, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      });
+    }
+    pillAnimRef.current.start();
+  }, [newPosts.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Up to 3 unique authors to show as overlapping avatars in the pill.
+  const pillAuthors = useMemo<User[]>(() => {
+    const seen = new Set<string>();
+    const result: User[] = [];
+    for (const post of newPosts) {
+      if (!seen.has(post.authorId)) {
+        seen.add(post.authorId);
+        const user = usersMap[post.authorId];
+        if (user) result.push(user);
+      }
+      if (result.length >= 3) break;
+    }
+    return result;
+  }, [newPosts, usersMap]);
+
+  const handleNewPostsPillTap = useCallback(() => {
+    markPostsSeenRef.current();
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
+
   const animateHeader = useCallback(
     (toValue: number, duration: number) => {
       headerAnimation.current?.stop();
@@ -256,6 +372,11 @@ export default function FeedScreen() {
       } else if (delta < -5 && !headerVisible.current) {
         headerVisible.current = true;
         animateHeader(0, 200);
+      }
+
+      // Auto-dismiss new-posts pill when the user scrolls back to the top.
+      if (currentY <= 50 && hasNewPostsRef.current) {
+        markPostsSeenRef.current();
       }
 
       setScrolledPast(currentY > 100);
@@ -360,6 +481,54 @@ export default function FeedScreen() {
         <Animated.View style={[styles.filteringDot, { backgroundColor: theme.primary, transform: [{ scale: dot1Scale }] }]} />
         <Animated.View style={[styles.filteringDot, { backgroundColor: theme.primary, transform: [{ scale: dot2Scale }] }]} />
         <Animated.View style={[styles.filteringDot, { backgroundColor: theme.primary, transform: [{ scale: dot3Scale }] }]} />
+      </Animated.View>
+
+      {/* New-posts pill — floats below the header; tapping scrolls to top */}
+      <Animated.View
+        style={[
+          styles.newPostsPillContainer,
+          {
+            top: headerHeight + 10,
+            opacity: pillAnimValue,
+            transform: [
+              {
+                translateY: pillAnimValue.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-12, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+        pointerEvents={newPosts.length > 0 ? 'box-none' : 'none'}
+      >
+        <Pressable
+          onPress={handleNewPostsPillTap}
+          style={[styles.newPostsPill, { backgroundColor: theme.foreground }]}
+        >
+          {pillAuthors.length > 0 && (
+            <View style={styles.pillAvatars}>
+              {pillAuthors.map((author, idx) => (
+                <View
+                  key={author.id}
+                  style={[
+                    styles.pillAvatarWrapper,
+                    {
+                      borderColor: theme.foreground,
+                      marginLeft: idx === 0 ? 0 : -8,
+                    },
+                  ]}
+                >
+                  <Avatar preset={author.avatar} uri={author.avatarUrl} size="sm" />
+                </View>
+              ))}
+            </View>
+          )}
+          <Text style={[styles.pillText, { color: theme.background }]}>
+            {newPosts.length} new {newPosts.length === 1 ? 'post' : 'posts'}
+          </Text>
+          <Feather name="arrow-up" size={13} color={theme.background} />
+        </Pressable>
       </Animated.View>
 
       {/* Animated header — absolute so it slides up without affecting FlashList layout */}
@@ -880,5 +1049,39 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: '600',
+  },
+  newPostsPillContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 11,
+  },
+  newPostsPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingLeft: 10,
+    paddingRight: 14,
+    borderRadius: 100,
+    gap: 8,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+  },
+  pillAvatars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pillAvatarWrapper: {
+    borderRadius: 16,
+    borderWidth: 2,
+    overflow: 'hidden',
+  },
+  pillText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

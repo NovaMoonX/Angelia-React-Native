@@ -16,6 +16,7 @@ import { fetchUserProfile, updateAccountProgress } from '@/store/actions/userAct
 import { ensureDailyChannelExists } from '@/store/actions/channelActions';
 import { resetAllState } from '@/store/actions/globalActions';
 import type { User } from '@/models/types';
+import { FEED_LAST_SEEN_TIMESTAMP_KEY } from '@/models/constants';
 
 const DEMO_MODE_KEY = '@angelia/demo_mode';
 /** Maximum time (ms) to wait for a Firestore profile fetch before giving up. */
@@ -127,7 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const handleSignOut = useCallback(async () => {
     await firebaseSignOut(getAuth());
-    await AsyncStorage.removeItem(DEMO_MODE_KEY);
+    await AsyncStorage.multiRemove([DEMO_MODE_KEY, FEED_LAST_SEEN_TIMESTAMP_KEY]);
     setIsDemoMode(false);
   }, []);
 

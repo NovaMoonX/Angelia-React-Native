@@ -51,3 +51,6 @@ export const POST_TIERS: Array<{ value: PostTier; label: string; emoji: string; 
 ];
 
 export const ALL_POST_TIERS: PostTier[] = POST_TIERS.map((t) => t.value);
+
+/** AsyncStorage key that persists the newest post timestamp the user has acknowledged on the feed. */
+export const FEED_LAST_SEEN_TIMESTAMP_KEY = '@angelia/feed_last_seen_timestamp';
