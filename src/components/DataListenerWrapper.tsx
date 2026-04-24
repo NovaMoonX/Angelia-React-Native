@@ -467,6 +467,19 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
             ? () => router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } })
             : undefined,
         });
+      } else if (type === 'private_note') {
+        const firstName = data?.authorFirstName ?? 'Someone';
+        const lastName = data?.authorLastName ?? '';
+        const name = lastName ? `${firstName} ${lastName}` : firstName;
+        const postId = data?.postId;
+        addToast({
+          type: 'info',
+          title: '🔒 Private Note',
+          description: `${name} sent you a private note — tap to read it`,
+          onPress: postId
+            ? () => router.push({ pathname: '/(protected)/private-notes/[postId]', params: { postId } })
+            : undefined,
+        });
       }
     });
     return () => subscription.remove();

@@ -113,6 +113,11 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 		if (postId) {
 			router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } });
 		}
+	} else if (type === 'private_note') {
+		const postId = data?.postId;
+		if (postId) {
+			router.push({ pathname: '/(protected)/private-notes/[postId]', params: { postId } });
+		}
 	}
 });
 

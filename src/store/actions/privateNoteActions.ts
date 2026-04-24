@@ -1,7 +1,7 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import type { RootState } from '@/store';
-import type { PrivateNote } from '@/models/types';
-import { createPrivateNote } from '@/services/firebase/firestore';
+import type { PrivateNote, PrivateNoteNotification } from '@/models/types';
+import { createPrivateNote, createAppNotification } from '@/services/firebase/firestore';
 import { addPrivateNoteOptimistic, removePrivateNoteOptimistic } from '@/store/slices/privateNotesSlice';
 import { generateId } from '@/utils/generateId';
 import { isDemoActive } from './globalActions';
@@ -40,6 +40,20 @@ export const sendPrivateNote = createAsyncThunk(
 
     try {
       await createPrivateNote(note);
+
+      // Fire-and-forget: notify the host that they received a private note.
+      const notification: PrivateNoteNotification = {
+        id: generateId('nano'),
+        type: 'private_note',
+        actorId: currentUser.id,
+        target: { type: 'user', userId: hostId },
+        createdAt: Date.now(),
+        postId,
+        authorFirstName: currentUser.firstName,
+        authorLastName: currentUser.lastName,
+      };
+      createAppNotification(notification).catch(() => {});
+
       return note;
     } catch (err) {
       dispatch(removePrivateNoteOptimistic({ postId, noteId: note.id }));

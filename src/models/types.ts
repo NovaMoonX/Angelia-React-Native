@@ -200,7 +200,8 @@ export type AppNotificationType =
   | 'connection_accepted'
   | 'big_news_post'
   | 'new_post'        // For post tier subscriptions (future)
-  | 'comment_reply';  // For conversation enrollment (future)
+  | 'comment_reply'   // For conversation enrollment (future)
+  | 'private_note';   // A Circle member sent the post Host a private note
 
 /**
  * Describes where a notification should be delivered.
@@ -276,12 +277,24 @@ export interface BigNewsPostNotification extends BaseAppNotification {
   authorLastName: string;
 }
 
+/** Written when a Circle member sends the post Host a private note — targets the host. */
+export interface PrivateNoteNotification extends BaseAppNotification {
+  type: 'private_note';
+  /** The ID of the post the note is about. Used for deep-linking to the private-notes screen. */
+  postId: string;
+  /** First name of the note author (Circle member). */
+  authorFirstName: string;
+  /** Last name of the note author. */
+  authorLastName: string;
+}
+
 export type AppNotification =
   | JoinChannelRequestNotification
   | JoinChannelAcceptedNotification
   | ConnectionRequestNotification
   | ConnectionAcceptedNotification
-  | BigNewsPostNotification;
+  | BigNewsPostNotification
+  | PrivateNoteNotification;
 
 // ── Tasks ───────────────────────────────────────────────────────────────────
 
