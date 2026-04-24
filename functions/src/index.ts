@@ -17,7 +17,8 @@ type AppNotificationType =
   | 'connection_accepted'
   | 'big_news_post'
   | 'new_post'
-  | 'comment_reply';
+  | 'comment_reply'
+  | 'private_note';
 
 type PostTier = 'everyday' | 'worth-knowing' | 'big-news';
 
@@ -77,12 +78,21 @@ interface BigNewsPostNotification extends BaseAppNotification {
   authorLastName: string;
 }
 
+/** Mirrors PrivateNoteNotification in src/models/types.ts — keep in sync. */
+interface PrivateNoteNotification extends BaseAppNotification {
+  type: 'private_note';
+  postId: string;
+  authorFirstName: string;
+  authorLastName: string;
+}
+
 type AppNotification =
   | JoinChannelRequestNotification
   | JoinChannelAcceptedNotification
   | ConnectionRequestNotification
   | ConnectionAcceptedNotification
-  | BigNewsPostNotification;
+  | BigNewsPostNotification
+  | PrivateNoteNotification;
 
 interface ConnectionRequest {
   id: string;
@@ -188,6 +198,20 @@ function buildFcmPayload(notification: AppNotification): {
         channelId: n.channelId,
         channelName: n.channelName,
         isDaily: String(n.isDaily),
+        authorFirstName: n.authorFirstName,
+        authorLastName: n.authorLastName,
+      },
+    };
+  }
+
+  if (notification.type === 'private_note') {
+    const n = notification as PrivateNoteNotification;
+    return {
+      title: '🔒 Private Note',
+      body: `${n.authorFirstName} ${n.authorLastName} sent you a private note`,
+      data: {
+        type: n.type,
+        postId: n.postId,
         authorFirstName: n.authorFirstName,
         authorLastName: n.authorLastName,
       },
