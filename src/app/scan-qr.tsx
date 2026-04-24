@@ -17,6 +17,7 @@ import {
 } from 'react-native-vision-camera';
 
 const ANGELIA_INVITE_RE = /angelia:\/\/invite\/([^/]+)\/([A-Z0-9]{8})/i;
+const ANGELIA_CONNECT_RE = /angelia:\/\/connect-request\?from=([^&\s]+)/i;
 
 export default function ScanQRScreen() {
   const router = useRouter();
@@ -31,14 +32,28 @@ export default function ScanQRScreen() {
       if (scannedRef.current) return;
       for (const code of codes) {
         if (!code.value) continue;
-        const match = ANGELIA_INVITE_RE.exec(code.value);
-        if (match) {
+
+        // Circle invite QR code: angelia://invite/{channelId}/{inviteCode}
+        const inviteMatch = ANGELIA_INVITE_RE.exec(code.value);
+        if (inviteMatch) {
           scannedRef.current = true;
           setScanned(true);
-          const inviteCode = match[2].toUpperCase();
+          const inviteCode = inviteMatch[2].toUpperCase();
           router.replace({
             pathname: '/join-channel',
             params: { code: inviteCode, autoLookup: '1' },
+          });
+          return;
+        }
+
+        // Connection QR code: angelia://connect-request?from={userId}
+        const connectMatch = ANGELIA_CONNECT_RE.exec(code.value);
+        if (connectMatch) {
+          scannedRef.current = true;
+          setScanned(true);
+          router.replace({
+            pathname: '/connect-request',
+            params: { from: connectMatch[1] },
           });
           return;
         }
@@ -132,7 +147,7 @@ export default function ScanQRScreen() {
       {/* Hint */}
       <View style={[styles.hintRow, { bottom: insets.bottom + 60 }]}>
         <Text style={styles.hintText}>
-          Point your camera at a circle QR code
+          Point your camera at a Circle or connection QR code
         </Text>
         <Pressable
           style={styles.enterCodeLink}
