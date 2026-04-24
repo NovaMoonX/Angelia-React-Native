@@ -317,6 +317,25 @@ export interface AppTask {
   completedAt: number | null;
 }
 
+// ── Private Notes ────────────────────────────────────────────────────────────
+
+/**
+ * A private note sent by a Circle member to the post Host.
+ * Only the Host (post author) can read notes addressed to them.
+ * Stored in the top-level `privateNotes` collection.
+ */
+export interface PrivateNote {
+  id: string;
+  /** The ID of the post this note is about. */
+  postId: string;
+  /** The user who wrote the note (visitor / Circle member). */
+  authorId: string;
+  /** The user who will receive the note (post author / Host). */
+  hostId: string;
+  text: string;
+  timestamp: number;
+}
+
 // ── Feedback & Support ──────────────────────────────────────────────────────
 
 export type FeedbackCategory =
