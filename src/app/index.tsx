@@ -204,10 +204,10 @@ export default function HomeScreen() {
             <Feather name="users" size={24} color={theme.primaryForeground} />
             <View style={styles.joinChannelTextContainer}>
               <Text style={[styles.joinChannelTitle, { color: theme.primaryForeground }]}>
-                Join a Circle
+                Got an Invite?
               </Text>
               <Text style={[styles.joinChannelDesc, { color: theme.primaryForeground }]}>
-                Got an invite code? Hop in and start connecting!
+                Join a Circle or connect directly with someone!
               </Text>
             </View>
             <Feather name="chevron-right" size={20} color={theme.primaryForeground} />
