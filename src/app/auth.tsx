@@ -19,12 +19,12 @@ function getFirebaseAuthErrorMessage(err: unknown): string {
     const code = (err as { code?: string }).code ?? '';
     switch (code) {
       case 'auth/invalid-email':
-        return "That email address doesn't look right. Please check and try again.";
+        return "Hmm, that email doesn't look quite right. Mind double-checking?";
       case 'auth/user-not-found':
-      case 'auth/invalid-credential':
-        return 'Incorrect email or password. Please try again.';
       case 'auth/wrong-password':
-        return "That password isn't right. Give it another try!";
+      case 'auth/invalid-credential':
+        // Intentionally identical — don't reveal whether the email or password was wrong.
+        return 'Incorrect email or password. Please try again.';
       case 'auth/user-disabled':
         return 'This account has been disabled. Please contact support.';
       case 'auth/too-many-requests':

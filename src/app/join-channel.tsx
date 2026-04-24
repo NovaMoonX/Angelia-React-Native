@@ -192,7 +192,7 @@ export default function JoinChannelScreen() {
               Accept an Invite
             </Text>
             <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
-              Enter your 8-character invite code or scan a QR code to join a Circle — or scan someone's connection QR to connect directly.
+              Enter your 8-character invite code or scan a QR code to join a Circle — or scan someone's connection QR to connect directly with them.
             </Text>
 
             {/* QR scan button */}
