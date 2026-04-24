@@ -20,6 +20,7 @@ import { SkeletonPostCard } from '@/components/SkeletonPostCard';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { NowStatusModal } from '@/components/NowStatusModal';
 import { FeedChannelFilterModal, type ChannelFilterState } from '@/components/FeedChannelFilterModal';
+import { NewPostsPill, type NewPostsPillRef } from '@/components/NewPostsPill';
 import { formatTimeRemaining } from '@/lib/timeUtils';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { saveStatus, clearStatus } from '@/store/actions/userActions';
@@ -73,6 +74,9 @@ export default function FeedScreen() {
   const headerVisible = useRef(true);
   const headerAnimation = useRef<Animated.CompositeAnimation | null>(null);
   const [scrolledPast, setScrolledPast] = useState(false);
+
+  // Ref to the new-posts pill so onScroll can notify it of the current Y position.
+  const newPostsPillRef = useRef<NewPostsPillRef>(null);
 
   const channelFilterLabel = useMemo(() => {
     if (channelFilter.mode === 'all') return 'All Circles';
@@ -258,6 +262,10 @@ export default function FeedScreen() {
         animateHeader(0, 200);
       }
 
+      // Notify the new-posts pill of the current scroll position so it can
+      // auto-dismiss when the user scrolls back to the top.
+      newPostsPillRef.current?.notifyScrollY(currentY);
+
       setScrolledPast(currentY > 100);
       prevScrollY.current = currentY;
     },
@@ -361,6 +369,13 @@ export default function FeedScreen() {
         <Animated.View style={[styles.filteringDot, { backgroundColor: theme.primary, transform: [{ scale: dot2Scale }] }]} />
         <Animated.View style={[styles.filteringDot, { backgroundColor: theme.primary, transform: [{ scale: dot3Scale }] }]} />
       </Animated.View>
+
+      {/* New-posts pill — always rendered; the component decides its own visibility */}
+      <NewPostsPill
+        ref={newPostsPillRef}
+        topOffset={headerHeight + 10}
+        onRequestScrollToTop={scrollToTop}
+      />
 
       {/* Animated header — absolute so it slides up without affecting FlashList layout */}
       <Animated.View
