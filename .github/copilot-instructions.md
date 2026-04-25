@@ -27,6 +27,15 @@ Angelia is a warm, playful, and encouraging app. All user-facing copy — placeh
 
 ---
 
+## Firestore field conventions
+
+- **Never** use TypeScript optional (`?`) for fields that are stored in Firestore documents. Instead, use `| null` for nullable fields. Firestore does not natively support `undefined`, and optional fields can lead to subtle bugs or missing fields in documents.
+  - ✅ `note: string | null`
+  - ❌ `note?: string`
+- Always provide an explicit value (including `null`) when writing documents, so the field is always present in Firestore.
+
+---
+
 ## Cloud Functions type sync
 
 The notification types in `functions/src/index.ts` (the Cloud Functions entry point) mirror the types in `src/models/types.ts`. These **must be kept in sync** whenever notification types change.

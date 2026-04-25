@@ -671,6 +671,7 @@ export async function createAppNotification(notification: AppNotification): Prom
 export async function createConnectionRequest(
   fromId: string,
   toId: string,
+  note?: string,
 ): Promise<ConnectionRequest> {
   const id = generateId('nano');
   const request: ConnectionRequest = {
@@ -680,6 +681,7 @@ export async function createConnectionRequest(
     status: 'pending',
     createdAt: Date.now(),
     respondedAt: null,
+    note: note?.trim() || null,
   };
   await setDoc(doc(db, 'connectionRequests', id), request);
   return request;

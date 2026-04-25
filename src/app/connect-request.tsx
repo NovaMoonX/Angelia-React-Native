@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AngeliaLogo } from '@/components/AngeliaLogo';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
+import { Textarea } from '@/components/ui/Textarea';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -46,6 +47,7 @@ export default function ConnectRequestScreen() {
   const [sending, setSending] = useState(false);
   const [alreadyRequested, setAlreadyRequested] = useState(false);
   const [alreadyConnected, setAlreadyConnected] = useState(false);
+  const [note, setNote] = useState('');
 
   const isSignedIn = !!firebaseUser || isDemo;
 
@@ -104,7 +106,7 @@ export default function ConnectRequestScreen() {
 
     setSending(true);
     try {
-      await dispatch(sendConnectionRequest({ toId: from })).unwrap();
+      await dispatch(sendConnectionRequest({ toId: from, note: note.trim() || undefined })).unwrap();
       setAlreadyRequested(true);
       addToast({ type: 'success', title: 'Connection request sent! 🤝' });
     } catch {
@@ -112,7 +114,7 @@ export default function ConnectRequestScreen() {
     } finally {
       setSending(false);
     }
-  }, [from, isSignedIn, currentUser, dispatch, addToast, router]);
+  }, [from, isSignedIn, currentUser, dispatch, addToast, router, note]);
 
   const hostName = hostUser
     ? `${hostUser.firstName} ${hostUser.lastName}`
@@ -186,6 +188,21 @@ export default function ConnectRequestScreen() {
                 <Text style={{ fontWeight: '700', color: theme.primary }}>Daily Circle</Text>
                 {' '}— their everyday updates, just for the people they trust.
               </Text>
+
+              {isSignedIn && (
+                <View style={styles.noteContainer}>
+                  <Text style={[styles.noteLabel, { color: theme.mutedForeground }]}>
+                    Add a note so they know who you are (optional)
+                  </Text>
+                  <Textarea
+                    value={note}
+                    onChangeText={setNote}
+                    placeholder="e.g. Hey! We're cousins 😄 or We met at Jake's party"
+                    maxLength={200}
+                    rows={3}
+                  />
+                </View>
+              )}
 
               <Button
                 onPress={handleConnect}
@@ -287,5 +304,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  noteContainer: {
+    width: '100%',
+    gap: 6,
+  },
+  noteLabel: {
+    fontSize: 13,
+    textAlign: 'center',
   },
 });

@@ -212,6 +212,8 @@ export interface ConnectionRequest {
   status: 'pending' | 'accepted' | 'declined';
   createdAt: number;
   respondedAt: number | null;
+  /** Optional message from the requester so the host knows who they are. */
+  note: string | null;
 }
 
 // ── App Notifications (Firestore-triggered FCM) ────────────────────────────

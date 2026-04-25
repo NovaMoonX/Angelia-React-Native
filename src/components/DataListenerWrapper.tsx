@@ -193,6 +193,8 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   }, [firebaseUser, isDemo, channels, connections, dispatch]);
 
   // Effect 3: User set changes → re-subscribe to channel users
+  // Also includes connected users so their profiles are available in usersMap
+  // even when they share no circles (required by selectMyPeopleData).
   useEffect(() => {
     if (isDemo || !firebaseUser) return;
 
@@ -201,6 +203,8 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       userIds.add(ch.ownerId);
       ch.subscribers.forEach((s) => userIds.add(s));
     });
+    // Include direct connections so My People can resolve their display names.
+    connections.forEach((c) => userIds.add(c.userId));
 
     const uniqueIds = Array.from(userIds);
     if (uniqueIds.length === 0) return;
@@ -222,7 +226,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
         usersUnsubRef.current = null;
       }
     };
-  }, [firebaseUser, isDemo, channels, dispatch]);
+  }, [firebaseUser, isDemo, channels, connections, dispatch]);
 
   // Effect 4: Process pending invite once user is authenticated
   useEffect(() => {

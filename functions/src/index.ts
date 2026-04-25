@@ -101,6 +101,7 @@ interface ConnectionRequest {
   status: 'pending' | 'accepted' | 'declined';
   createdAt: number;
   respondedAt: number | null;
+  note: string | null;
 }
 
 /** Mirrors ChannelJoinRequest in src/models/types.ts — keep in sync. */
