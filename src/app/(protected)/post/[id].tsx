@@ -51,6 +51,8 @@ export default function PostDetailScreen() {
 		hostId: isHost ? post?.authorId : null,
 	});
 
+	const allUsers = useAppSelector((state) => state.users.users);
+
 	const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
 	const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
 	const [profileModalOpen, setProfileModalOpen] = useState(false);
@@ -78,6 +80,7 @@ export default function PostDetailScreen() {
 	const colors = channel ? getColorPair(channel) : { backgroundColor: '#6366F1', textColor: '#FFF' };
 	const authorName = getPostAuthorName(author, currentUser);
 	const hasReacted = post.reactions.some((r) => r.userId === currentUser.id);
+	const canAccessConversation = hasReacted || isHost;
 	const expiryInfo = channel != null
 		? getPostExpiryInfo(post.timestamp, channel.isDaily === true)
 		: null;
@@ -85,25 +88,35 @@ export default function PostDetailScreen() {
 	// Use conversation messages count, falling back to post comments
 	const messageCount = conversationMessages.filter((m) => Boolean(m.isSystem) === false).length || postComments.length;
 
-	// Group reactions by emoji
+	// Group reactions by user
 	const reactionGroups = useMemo(() => {
-		const groups: Record<string, { count: number; isUserReacted: boolean }> = {};
+		const groups: Record<string, { emojis: string[]; displayName: string; isCurrentUser: boolean }> = {};
 		post.reactions.forEach((r) => {
-			if (!groups[r.emoji]) {
-				groups[r.emoji] = { count: 0, isUserReacted: false };
+			if (!groups[r.userId]) {
+				const user = allUsers.find((u) => u.id === r.userId);
+				const firstName = user?.firstName ?? '?';
+				const lastInitial = user?.lastName ? `${user.lastName[0]}.` : '';
+				const displayName =
+					r.userId === currentUser.id
+						? 'You'
+						: `${firstName} ${lastInitial}`.trim();
+				groups[r.userId] = { emojis: [], displayName, isCurrentUser: r.userId === currentUser.id };
 			}
-			groups[r.emoji].count++;
-			if (r.userId === currentUser.id) {
-				groups[r.emoji].isUserReacted = true;
-			}
+			groups[r.userId].emojis.push(r.emoji);
 		});
 		return groups;
-	}, [post.reactions, currentUser.id]);
+	}, [post.reactions, currentUser.id, allUsers]);
+
+	// Emojis the current user has already used (for filtering the quick-react pill)
+	const myReactedEmojis = useMemo(
+		() => new Set(post.reactions.filter((r) => r.userId === currentUser.id).map((r) => r.emoji)),
+		[post.reactions, currentUser.id],
+	);
 
 	// Filter out emojis the user has already reacted with
 	const availableCommonEmojis = useMemo(() => {
-		return COMMON_EMOJIS.filter((emoji) => !reactionGroups[emoji]?.isUserReacted);
-	}, [reactionGroups]);
+		return COMMON_EMOJIS.filter((emoji) => !myReactedEmojis.has(emoji));
+	}, [myReactedEmojis]);
 
 	const triggerTabUnlock = (emoji: string) => {
 		setUnlockEmoji(emoji);
@@ -221,6 +234,7 @@ export default function PostDetailScreen() {
 					>
 						<Avatar
 							preset={author?.avatar || 'moon'}
+							uri={author?.avatarUrl}
 							size='md'
 							statusEmoji={isStatusActive(author?.status) ? author?.status?.emoji : undefined}
 						/>
@@ -280,13 +294,17 @@ export default function PostDetailScreen() {
 				<View style={styles.reactionsSection}>
 					{Object.keys(reactionGroups).length > 0 ? (
 						<View style={styles.reactionGroups}>
-							{Object.entries(reactionGroups).map(([emoji, data]) => (
+							{Object.entries(reactionGroups).map(([userId, data]) => (
 								<ReactionDisplay
-									key={emoji}
-									emoji={emoji}
-									count={data.count}
-									isUserReacted={data.isUserReacted}
-									onClick={() => (data.isUserReacted ? handleRemoveReaction(emoji) : handleReaction(emoji))}
+									key={userId}
+									emojis={data.emojis}
+									displayName={data.displayName}
+									isCurrentUser={data.isCurrentUser}
+									onClick={() => {
+										if (data.isCurrentUser) {
+											data.emojis.forEach((emoji) => handleRemoveReaction(emoji));
+										}
+									}}
 								/>
 							))}
 						</View>
@@ -337,15 +355,15 @@ export default function PostDetailScreen() {
 					style={[
 						styles.chatTab,
 						{
-							backgroundColor: hasReacted ? `${theme.primary}12` : theme.card,
-							borderColor: hasReacted ? theme.primary : theme.border,
+							backgroundColor: canAccessConversation ? `${theme.primary}12` : theme.card,
+							borderColor: canAccessConversation ? theme.primary : theme.border,
 							transform: [{ scale: chatTabScale }],
 						},
 					]}
 				>
 					<Pressable
 						onPress={
-							hasReacted
+							canAccessConversation
 								? () =>
 										router.push({
 											pathname: '/(protected)/conversation',
@@ -353,10 +371,10 @@ export default function PostDetailScreen() {
 										})
 								: undefined
 						}
-						disabled={!hasReacted}
+						disabled={!canAccessConversation}
 						style={styles.chatTabInner}
 					>
-						{!hasReacted ? (
+						{!canAccessConversation ? (
 							<>
 								<Text style={styles.chatTabLockIcon}>🔒</Text>
 								<Text style={[styles.chatTabText, { color: theme.mutedForeground }]}>React to join! 👋</Text>
@@ -367,7 +385,7 @@ export default function PostDetailScreen() {
 								<Text style={[styles.chatTabText, { color: theme.primary }]}>
 									{messageCount > 0
 										? `${messageCount} message${messageCount !== 1 ? 's' : ''}`
-										: 'Start the conversation 💬'}
+										: 'Start the conversation'}
 								</Text>
 								<Feather name='chevron-right' size={14} color={theme.primary} />
 							</>

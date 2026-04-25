@@ -94,6 +94,27 @@ This pattern is already applied to `post/[id]`, `account`, and `share-connection
 
 ---
 
+## User Avatar (`uri` prop)
+
+The `Avatar` component accepts an optional `uri` prop that renders a custom profile photo (stored as `user.avatarUrl`) via `expo-image` instead of the preset emoji.
+
+**Always pass `uri={user.avatarUrl}` whenever rendering an Avatar for a specific user**, including:
+- Post detail screens (the post author's avatar)
+- Conversation / chat headers
+- Profile cards and modals
+- The share-connection screen (current user's avatar)
+- Any other screen that shows a user's identity
+
+```tsx
+// ✅ correct
+<Avatar preset={user.avatar} uri={user.avatarUrl} size="md" />
+
+// ❌ missing the custom photo — falls back to emoji even if user has a photo
+<Avatar preset={user.avatar} size="md" />
+```
+
+---
+
 ## Keeping docs up to date
 
 ### PRODUCT_SUMMARY.md

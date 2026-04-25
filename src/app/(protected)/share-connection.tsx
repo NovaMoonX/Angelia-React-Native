@@ -62,7 +62,7 @@ export default function ShareConnectionScreen() {
 
         {/* Handshake card */}
         <View style={[styles.handshakeCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Avatar preset={currentUser.avatar} size="xl" />
+          <Avatar preset={currentUser.avatar} uri={currentUser.avatarUrl} size="xl" />
           <Text style={[styles.cardName, { color: theme.foreground }]}>{displayName}</Text>
 
           <Pressable

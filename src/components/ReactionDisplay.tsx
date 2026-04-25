@@ -1,46 +1,46 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 
 interface ReactionDisplayProps {
-  emoji: string;
-  count: number;
-  isUserReacted: boolean;
+  emojis: string[];
+  displayName: string;
+  isCurrentUser: boolean;
   onClick: () => void;
 }
 
 export function ReactionDisplay({
-  emoji,
-  count,
-  isUserReacted,
+  emojis,
+  displayName,
+  isCurrentUser,
   onClick,
 }: ReactionDisplayProps) {
   const { theme } = useTheme();
 
   return (
     <Pressable
-      onPress={onClick}
+      onPress={isCurrentUser ? onClick : undefined}
       style={[
         styles.container,
         {
-          borderColor: isUserReacted ? theme.primary : theme.border,
-          backgroundColor: isUserReacted
+          borderColor: isCurrentUser ? theme.primary : theme.border,
+          backgroundColor: isCurrentUser
             ? `${theme.primary}20`
             : theme.card,
         },
       ]}
     >
-      <Text style={styles.emoji}>{emoji}</Text>
+      <Text style={styles.emoji}>{emojis.join('')}</Text>
       <Text
         style={[
-          styles.count,
+          styles.name,
           {
-            color: isUserReacted ? theme.primary : theme.foreground,
-            fontWeight: isUserReacted ? '700' : '500',
+            color: isCurrentUser ? theme.primary : theme.foreground,
+            fontWeight: isCurrentUser ? '700' : '500',
           },
         ]}
       >
-        {count}
+        {displayName}
       </Text>
     </Pressable>
   );
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
   emoji: {
     fontSize: 16,
   },
-  count: {
+  name: {
     fontSize: 12,
   },
 });
