@@ -5,11 +5,10 @@ import {
   updateAccountProgress as firestoreUpdateAccountProgress,
   updateUserProfile as firestoreUpdateUserProfile,
   updateUserStatus as firestoreUpdateUserStatus,
-  updateChannelTierPrefs as firestoreUpdateChannelTierPrefs,
 } from '@/services/firebase/firestore';
 import { uploadUserAvatar } from '@/services/firebase/storage';
-import { setCurrentUser, updateCurrentUser, updateCurrentUserStatus, updateCurrentUserTierPrefs } from '@/store/slices/usersSlice';
-import type { NewUser, UpdateUserProfileData, UserStatus, PostTier, User } from '@/models/types';
+import { setCurrentUser, updateCurrentUser, updateCurrentUserStatus } from '@/store/slices/usersSlice';
+import type { NewUser, UpdateUserProfileData, UserStatus, User } from '@/models/types';
 import type { RootState } from '@/store';
 import { isDemoActive } from './globalActions';
 
@@ -120,31 +119,6 @@ export const clearStatus = createAsyncThunk(
       await firestoreUpdateUserStatus(user.id, null);
       dispatch(updateCurrentUserStatus(null));
       return null;
-    } catch (err) {
-      return rejectWithValue(err instanceof Error ? err.message : err);
-    }
-  },
-);
-
-export const saveTierPrefs = createAsyncThunk(
-  'users/saveTierPrefs',
-  async (
-    prefs: Record<string, PostTier[]>,
-    { getState, dispatch, rejectWithValue },
-  ) => {
-    const state = getState() as RootState;
-    const user = state.users.currentUser;
-    if (!user) return rejectWithValue('User not authenticated');
-
-    dispatch(updateCurrentUserTierPrefs(prefs));
-
-    if (isDemoActive(getState)) {
-      return prefs;
-    }
-
-    try {
-      await firestoreUpdateChannelTierPrefs(user.id, prefs);
-      return prefs;
     } catch (err) {
       return rejectWithValue(err instanceof Error ? err.message : err);
     }

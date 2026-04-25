@@ -7,6 +7,7 @@ const DEMO_USER: User = {
   email: 'demo@angelia.app',
   funFact: 'I love exploring the cosmos!',
   avatar: 'astronaut',
+  avatarUrl: null,
   joinedAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
   accountProgress: {
     signUpComplete: true,
@@ -29,6 +30,7 @@ const DEMO_USER_2: User = {
   email: 'sarah@angelia.app',
   funFact: 'I make the best pancakes!',
   avatar: 'moon',
+  avatarUrl: null,
   joinedAt: Date.now() - 60 * 24 * 60 * 60 * 1000,
   accountProgress: {
     signUpComplete: true,
@@ -51,6 +53,7 @@ const DEMO_USER_3: User = {
   email: 'alex@angelia.app',
   funFact: 'I can juggle five balls!',
   avatar: 'star',
+  avatarUrl: null,
   joinedAt: Date.now() - 45 * 24 * 60 * 60 * 1000,
   accountProgress: {
     signUpComplete: true,

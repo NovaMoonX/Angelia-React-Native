@@ -5,9 +5,9 @@ service cloud.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
-    // Helper: verify a user profile document exists
+    // Helper: verify a user public profile document exists
     function userProfileExists(uid) {
-      return exists(/databases/$(database)/documents/users/$(uid));
+      return exists(/databases/$(database)/documents/usersPublic/$(uid));
     }
 
     // Helper: check if the requesting user is a member (owner or subscriber) of a channel.
@@ -25,26 +25,31 @@ service cloud.firestore {
         );
     }
 
-    // Users collection
-    match /users/{userId} {
-      // A user can always read their own profile.
-      allow get: if isSignedIn() && request.auth.uid == userId;
-
-      // Channel members need to read each other's profiles to display post author
-      // names and avatars (populated via subscribeToChannelUsers). Firestore rules
-      // cannot perform collection queries to find shared channels without a known
-      // channelId, so we permit any authenticated user to read user profiles.
-      // Access scoping is enforced at the data layer: subscribeToChannelUsers only
-      // requests the IDs of owners/subscribers from the requester's accessible channels.
+    // ── User public profiles — readable by any authenticated user ─────────────
+    match /usersPublic/{userId} {
       allow read: if isSignedIn();
-
-      // Users can only write to their own profile
       allow create, update: if isSignedIn() && request.auth.uid == userId;
-
-      // Prevent deletion of user profiles
       allow delete: if false;
     }
-    
+
+    // ── User private profiles — readable by any authenticated user ────────────
+    // Private data (email, fun fact, status) is shared with channel members and
+    // connected users. Access scoping is enforced at the data layer.
+    match /usersPrivate/{userId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    // ── User secret profiles — readable only by the owner ─────────────────────
+    // Secret data (account progress, custom channel count) is never exposed to
+    // other users.
+    match /usersSecret/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
     // Channels collection
     match /channels/{channelId} {
       function isOwner() {
@@ -66,14 +71,14 @@ service cloud.firestore {
       allow read: if isSignedIn();
 
       // Create: only authenticated users can create a channel for themselves.
-      // Require that the creating user has a profile document in `/users/{uid}`.
+      // Require that the creating user has a public profile document in `usersPublic/{uid}`.
       // Additionally enforce a limit on custom (non-daily) channels. Clients
-      // must maintain a `customChannelCount` integer on the user's
-      // document (`users/{uid}.customChannelCount`). Creation of a non-daily
+      // must maintain a `customChannelCount` integer on the user's secret
+      // document (`usersSecret/{uid}.customChannelCount`). Creation of a non-daily
       // channel is allowed only when that count is < 3. Daily channels are
       // exempt from this limit, but the user profile must still exist.
       allow create: if isOwnerOnCreate()
-        // Require the user's profile to exist in `/users/{uid}`
+        // Require the user's public profile to exist
         && userProfileExists(request.auth.uid)
         && (
           // Allow creating daily channels when the user exists
@@ -81,8 +86,8 @@ service cloud.firestore {
           // Or allow creating non-daily channels only when the user's
           // `customChannelCount` exists and is less than 3
           || (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.customChannelCount is int
-            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.customChannelCount < 3
+            get(/databases/$(database)/documents/usersSecret/$(request.auth.uid)).data.customChannelCount is int
+            && get(/databases/$(database)/documents/usersSecret/$(request.auth.uid)).data.customChannelCount < 3
           )
         )
 
