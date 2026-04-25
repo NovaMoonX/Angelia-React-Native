@@ -119,9 +119,6 @@ export const createCustomChannel = createAsyncThunk(
         ownerId: user.id,
         subscribers: [],
       });
-      // Eagerly add the channel to Redux so the UI updates immediately,
-      // without waiting for the Firestore subscription to fire.
-      dispatch(addChannel(channel));
       return channel;
     } catch (err) {
       return rejectWithValue(err instanceof Error ? err.message : err);

@@ -681,7 +681,7 @@ export async function createConnectionRequest(
     status: 'pending',
     createdAt: Date.now(),
     respondedAt: null,
-    ...(note?.trim() ? { note: note.trim() } : {}),
+    note: note?.trim() || null,
   };
   await setDoc(doc(db, 'connectionRequests', id), request);
   return request;

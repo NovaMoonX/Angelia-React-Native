@@ -37,6 +37,7 @@ export const sendConnectionRequest = createAsyncThunk(
         status: 'pending' as const,
         createdAt: Date.now(),
         respondedAt: null,
+        note: null,
       };
     }
 

@@ -169,12 +169,9 @@ export default function ConnectionRequestScreen() {
             </View>
 
             {request.note ? (
-              <View style={[styles.noteBox, { backgroundColor: theme.secondary }]}>
-                <Text style={[styles.noteLabel, { color: theme.mutedForeground }]}>Their note:</Text>
-                <Text style={[styles.noteText, { color: theme.secondaryForeground }]}>
-                  "{request.note}"
-                </Text>
-              </View>
+              <Text style={[styles.noteText, { color: theme.mutedForeground }]}>
+                "{request.note}"
+              </Text>
             ) : null}
 
             <View style={[styles.explainBox, { backgroundColor: theme.secondary }]}>
@@ -252,16 +249,6 @@ const styles = StyleSheet.create({
   explainText: {
     fontSize: 14,
     lineHeight: 20,
-  },
-  noteBox: {
-    borderRadius: 10,
-    padding: 12,
-    gap: 4,
-  },
-  noteLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
   },
   noteText: {
     fontSize: 14,
