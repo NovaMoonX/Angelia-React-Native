@@ -95,11 +95,13 @@ Always use `useSafeAreaInsets()` to account for home-bar / system-navigation-bar
 - Prefer `ScrollView` over a plain `View` for any screen whose content could exceed the viewport, so users can always reach every button/action.
 
 ### Demo-mode header gap
-In demo mode the `DemoModeBanner` is rendered **above** the `Stack` navigator in `_layout.tsx`. This means the Stack's header should not add an additional status-bar-height offset. For every screen that has `headerShown: true`, add:
+In demo mode the `DemoModeBanner` is rendered **above** the `Stack` navigator in `_layout.tsx`. This means the Stack's header should not add an additional status-bar-height offset. For **every** screen that has `headerShown: true` (the default when a `title` is provided), add:
 ```tsx
 ...(isDemo ? { headerStatusBarHeight: 0 } : {})
 ```
-This pattern is already applied to `post/[id]`, `account`, and `share-connection`. Apply it to every new screen that uses a Stack header.
+This applies whether the screen options are set in `_layout.tsx` or inline via `<Stack.Screen options={…} />` inside the component itself. **Always add this whenever you add or modify a screen with a Stack header.**
+
+This pattern is currently applied to: `post/[id]`, `account`, `notification-settings`, `share-connection`, `tasks`, `error-fallback`, `my-people`, and `private-notes/[postId]`.
 
 ---
 

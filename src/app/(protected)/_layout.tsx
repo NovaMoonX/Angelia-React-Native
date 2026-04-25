@@ -137,7 +137,11 @@ export default function ProtectedLayout() {
           />
           <Stack.Screen
             name="error-fallback"
-            options={{ title: 'Error', headerBackVisible: false }}
+            options={{
+              title: 'Error',
+              headerBackVisible: false,
+              ...(isDemo ? { headerStatusBarHeight: 0 } : {}),
+            }}
           />
         </Stack>
       </View>
