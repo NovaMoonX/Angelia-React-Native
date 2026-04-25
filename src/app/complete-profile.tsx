@@ -29,10 +29,9 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { createUserProfile } from '@/store/actions/userActions';
 import { createDailyChannel, createCustomChannel } from '@/store/actions/channelActions';
 import { saveNotificationSettings } from '@/store/actions/notificationActions';
-import { createInviteCircleTask, createSetFunFactTask, createSetStatusTask, createCustomCircleTask } from '@/store/actions/taskActions';
-import { uploadPost } from '@/store/actions/postActions';
+import { createInviteCircleTask, createSetFunFactTask, createSetStatusTask, createCustomCircleTask, createMakeFirstPostTask } from '@/store/actions/taskActions';
 import { uploadUserAvatar } from '@/services/firebase/storage';
-import { AVATAR_PRESETS, CHANNEL_COLORS, DAILY_CHANNEL_SUFFIX } from '@/models/constants';
+import { AVATAR_PRESETS, CHANNEL_COLORS } from '@/models/constants';
 import type { AvatarPreset } from '@/models/types';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 
@@ -99,14 +98,13 @@ function to12(h24: number): { hour: number; ampm: 'AM' | 'PM' } {
   return { hour: h24 - 12, ampm: 'PM' };
 }
 
-function midpoint(startH: number, startM: number, endH: number, endM: number) {
+function oneThirdPoint(startH: number, startM: number, endH: number, endM: number) {
   const startTotal = startH * 60 + startM;
   let endTotal = endH * 60 + endM;
   if (endTotal <= startTotal) endTotal += 24 * 60;
-  const mid = Math.round((startTotal + endTotal) / 2);
-  const roundedMinute = Math.round((mid % 60) / 15) * 15;
-  const extraHour = roundedMinute >= 60 ? 1 : 0;
-  return { hour: (Math.floor(mid / 60) + extraHour) % 24, minute: roundedMinute % 60 };
+  const third = startTotal + Math.floor((endTotal - startTotal) / 3);
+  const minute = Math.floor((third % 60) / 30) * 30; // round down to nearest 30 min
+  return { hour: Math.floor(third / 60) % 24, minute };
 }
 
 function addMinutes(h: number, m: number, add: number) {
@@ -170,12 +168,12 @@ export default function CompleteProfileScreen() {
   const [circleNameOverrides, setCircleNameOverrides] = useState<Record<string, string>>({});
 
   // Step 4
-  const [busyFromHour, setBusyFromHour] = useState(9);
-  const [busyFromMinute, setBusyFromMinute] = useState(0);
-  const [busyFromAmPm, setBusyFromAmPm] = useState<'AM' | 'PM'>('AM');
-  const [busyUntilHour, setBusyUntilHour] = useState(5);
-  const [busyUntilMinute, setBusyUntilMinute] = useState(0);
-  const [busyUntilAmPm, setBusyUntilAmPm] = useState<'AM' | 'PM'>('PM');
+  const [activeFromHour, setActiveFromHour] = useState(8);
+  const [activeFromMinute, setActiveFromMinute] = useState(0);
+  const [activeFromAmPm, setActiveFromAmPm] = useState<'AM' | 'PM'>('AM');
+  const [activeUntilHour, setActiveUntilHour] = useState(10);
+  const [activeUntilMinute, setActiveUntilMinute] = useState(0);
+  const [activeUntilAmPm, setActiveUntilAmPm] = useState<'AM' | 'PM'>('PM');
 
   // Step 4 — allow skipping with noon/6 PM defaults
   const [notifSkipped, setNotifSkipped] = useState(false);
@@ -276,10 +274,10 @@ export default function CompleteProfileScreen() {
 
   // ── Derived values for Step 4 ───────────────────────────────────────────
 
-  const busyStart24 = to24(busyFromHour, busyFromAmPm);
-  const busyEnd24 = to24(busyUntilHour, busyUntilAmPm);
-  const midCheckIn = midpoint(busyStart24, busyFromMinute, busyEnd24, busyUntilMinute);
-  const windDown = addMinutes(busyEnd24, busyUntilMinute, 30);
+  const activeStart24 = to24(activeFromHour, activeFromAmPm);
+  const activeEnd24 = to24(activeUntilHour, activeUntilAmPm);
+  const midCheckIn = oneThirdPoint(activeStart24, activeFromMinute, activeEnd24, activeUntilMinute);
+  const windDown = addMinutes(activeEnd24, activeUntilMinute, -60);
 
   // ── Derived circle count ────────────────────────────────────────────────
 
@@ -390,25 +388,9 @@ export default function CompleteProfileScreen() {
 
       // 3 — Create daily Circle
       setLoadingMessage('Building your Daily Circle 🌙');
-      const dailyChannelId = `${firebaseUser.uid}${DAILY_CHANNEL_SUFFIX}`;
       await Promise.all([dispatch(createDailyChannel(firebaseUser.uid)).unwrap(), sleep(MIN_STEP_MS)]);
 
-      // 4 — Upload first post to Daily Circle (non-fatal)
-      const firstPostText = firstPost.trim();
-      if (firstPostText) {
-        setLoadingMessage('Saving your first post 📝');
-        try {
-          await Promise.all([
-            dispatch(uploadPost({ channelId: dailyChannelId, text: firstPostText, media: [] })).unwrap(),
-            sleep(MIN_STEP_MS),
-          ]);
-        } catch {
-          // Non-fatal: the user can post later
-          await sleep(MIN_STEP_MS);
-        }
-      }
-
-      // 5 — Create custom Circles (up to 3, from Step 3 selections)
+      // 4 — Create custom Circles (up to 3, from Step 3 selections)
       const pendingCircles = getPendingCircles();
       if (pendingCircles.length > 0) {
         setLoadingMessage('Setting up your custom Circles 💫');
@@ -431,14 +413,12 @@ export default function CompleteProfileScreen() {
         }
       }
 
-      // 6 — Create nudge tasks (non-fatal, all in parallel)
+      // 5 — Create nudge tasks (non-fatal, all in parallel)
       setLoadingMessage('Setting up your to-do list 📋');
       await Promise.all([
         sleep(MIN_STEP_MS),
-        // Nudge to fill in their bio/fun fact if they skipped the first-post step.
-        // The first post content is also stored as their profile fun fact, so if they
-        // didn't write anything there they haven't set one yet.
-        !firstPostText
+        // Nudge to fill in their fun fact if they skipped it during onboarding
+        !firstPost.trim()
           ? dispatch(createSetFunFactTask()).unwrap().catch(() => null)
           : Promise.resolve(null),
         // Nudge to set first status — everyone starts without one
@@ -447,13 +427,16 @@ export default function CompleteProfileScreen() {
         pendingCircles.length === 0
           ? dispatch(createCustomCircleTask()).unwrap().catch(() => null)
           : Promise.resolve(null),
+        // Task to make their first post — always created for new users
+        dispatch(createMakeFirstPostTask()).unwrap().catch(() => null),
       ]);
 
-      // 7 — Save notification settings
+      // 6 — Save notification settings
       try {
+        // If skipped, default to 12:30 PM (1/3 of way through an 8am–10pm day) and 9 PM (1hr before 10pm)
         const dailyHour = notifSkipped ? 12 : midCheckIn.hour;
-        const dailyMinute = notifSkipped ? 0 : midCheckIn.minute;
-        const windDownHour = notifSkipped ? 18 : windDown.hour;
+        const dailyMinute = notifSkipped ? 30 : midCheckIn.minute;
+        const windDownHour = notifSkipped ? 21 : windDown.hour;
         const windDownMinute = notifSkipped ? 0 : windDown.minute;
         await dispatch(
           saveNotificationSettings({
@@ -465,7 +448,7 @@ export default function CompleteProfileScreen() {
         // Non-fatal: defaults will apply
       }
 
-      // 8 — Verification email
+      // 7 — Verification email
       setLoadingMessage('Almost there — sending your verification email 💌');
       await Promise.all([sendVerificationEmail(), sleep(MIN_STEP_MS)]);
 
@@ -1380,7 +1363,7 @@ export default function CompleteProfileScreen() {
   const renderStep4 = () => (
     <>
       <StepHeader
-        title="When are you normally busy? ⏰"
+        title="When are you normally active? ⏰"
         subtitle="We'll schedule gentle nudges around your day — one mid-day check-in, one evening wind-down."
       />
 
@@ -1399,23 +1382,23 @@ export default function CompleteProfileScreen() {
       </View>
 
       <TimePicker
-        label="Busy from"
-        hour={busyFromHour}
-        minute={busyFromMinute}
-        ampm={busyFromAmPm}
-        onHourChange={setBusyFromHour}
-        onMinuteChange={setBusyFromMinute}
-        onAmPmChange={setBusyFromAmPm}
+        label="Active from"
+        hour={activeFromHour}
+        minute={activeFromMinute}
+        ampm={activeFromAmPm}
+        onHourChange={setActiveFromHour}
+        onMinuteChange={setActiveFromMinute}
+        onAmPmChange={setActiveFromAmPm}
       />
 
       <TimePicker
-        label="Busy until"
-        hour={busyUntilHour}
-        minute={busyUntilMinute}
-        ampm={busyUntilAmPm}
-        onHourChange={setBusyUntilHour}
-        onMinuteChange={setBusyUntilMinute}
-        onAmPmChange={setBusyUntilAmPm}
+        label="Active until"
+        hour={activeUntilHour}
+        minute={activeUntilMinute}
+        ampm={activeUntilAmPm}
+        onHourChange={setActiveUntilHour}
+        onMinuteChange={setActiveUntilMinute}
+        onAmPmChange={setActiveUntilAmPm}
       />
 
       <View
@@ -1441,7 +1424,7 @@ export default function CompleteProfileScreen() {
           }}
           style={{ flex: 1 }}
         >
-          Skip (noon & 6 PM)
+          Skip
         </Button>
         <Button
           onPress={() => {
@@ -1455,7 +1438,7 @@ export default function CompleteProfileScreen() {
       </View>
 
       <Text style={[styles.reassurance, { color: theme.mutedForeground }, { marginTop: 10}]}>
-        If you skip, we'll default to noon & 6 PM. You can always change this in{' '}
+        If you skip, we'll default to 12:30 PM & 9 PM. You can always change this in{' '}
         <Text style={{ fontWeight: '700' }}>Notifications → Settings</Text>.
       </Text>
     </>
@@ -1561,36 +1544,23 @@ export default function CompleteProfileScreen() {
   const renderStep6 = () => (
     <>
       <StepHeader
-        title="You're all set. Let's break the ice! 🎉"
-        subtitle="Share a 'Now' status for your Daily Circle. Even if no one is here yet, your post will be waiting for them when they arrive."
+        title="Almost there! Let's make it personal. 🌟"
+        subtitle="Share a fun fact about yourself — something most people probably don't know."
       />
 
-      {/* Daily Circle explanation */}
-      <View
-        style={[
-          styles.infoCallout,
-          { backgroundColor: theme.secondary, borderColor: theme.border },
-        ]}
-      >
-        <Text style={[styles.infoCalloutText, { color: theme.foreground }]}>
-          ☀️ <Text style={{ fontWeight: '700', color: theme.primary }}>What's your Daily Circle?</Text>
-          {' '}It's your default space for everyday updates — the small stuff, the funny moments, the "you had to be there" things. Everyone amongst your Circles will see it here.
-        </Text>
-      </View>
-
       <View style={styles.section}>
-        <Label>Share your first update ✍️</Label>
+        <Label>Your fun fact ✍️</Label>
         <Textarea
           value={firstPost}
           onChangeText={setFirstPost}
-          placeholder="What's happening right now? A coffee? A sunset? A messy desk? 🤷‍♀️"
+          placeholder="Something surprising, quirky, or totally unexpected about you 🤔"
           rows={4}
           maxLength={300}
         />
       </View>
 
       <Text style={[styles.reassurance, { color: theme.mutedForeground }]}>
-        Remember: it doesn't have to be perfect. If it matters to you, it's worth knowing for them. 💛
+        This shows up on your profile and is a great conversation starter. 💛
       </Text>
 
       <Button
@@ -1606,25 +1576,23 @@ export default function CompleteProfileScreen() {
         onPress={() => setShowSkipPostModal(true)}
         style={{ marginTop: 12 }}
       >
-        Skip first post
+        Skip fun fact
       </Button>
 
-      {/* Skip first post confirmation modal */}
+      {/* Skip fun fact confirmation modal */}
       <Modal
         isOpen={showSkipPostModal}
         onClose={() => setShowSkipPostModal(false)}
-        title="Skip your first post?"
+        title="Skip your fun fact?"
       >
         <Text style={[styles.infoCalloutText, { color: theme.foreground, marginBottom: 16 }]}>
-          Your first post is a great way to say "I'm here!" — even something small like a quick hello goes a long way. The people in your{' '}
-          <Text style={{ fontWeight: '700', color: theme.primary }}>Daily Circle</Text>
-          {' '}will love knowing you've arrived. 🌟
+          A fun fact is a great way to let people get to know the real you — something they'd never guess! It's a small touch that makes your profile feel personal and memorable. 🌟
         </Text>
         <Text style={[styles.infoCalloutText, { color: theme.mutedForeground, marginBottom: 20 }]}>
-          No pressure though — you can always post later from your feed.
+          No worries — you can always add one later from your profile.
         </Text>
         <Button onPress={() => setShowSkipPostModal(false)} style={{ marginBottom: 12 }}>
-          Make the post
+          Add a fun fact
         </Button>
         <Button
           variant="tertiary"

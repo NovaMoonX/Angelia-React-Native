@@ -19,8 +19,8 @@ export const COMMON_EMOJIS = ['❤️', '👀', '😊', '🎉', '😮', '😢', 
 /** Default values for the wind-down prompt settings. */
 export const DEFAULT_WIND_DOWN_PROMPT: NotificationSettings['windDownPrompt'] = {
   enabled: true,
-  hour: 17,
-  minute: 30,
+  hour: 21,
+  minute: 0,
 };
 
 export const AVATAR_PRESETS: AvatarPreset[] = [

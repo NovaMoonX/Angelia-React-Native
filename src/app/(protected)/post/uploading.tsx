@@ -11,11 +11,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Notifications from 'expo-notifications';
-import { useAppDispatch } from '@/store/hooks';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { uploadPost } from '@/store/actions/postActions';
 import { saveStatus } from '@/store/actions/userActions';
+import { completeTask } from '@/store/actions/taskActions';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 import type { PostTier, UserStatus } from '@/models/types';
 
@@ -41,6 +42,13 @@ export default function PostUploadingScreen() {
   const dispatch = useAppDispatch();
   const { addToast } = useToast();
   const { theme } = useTheme();
+
+  // Capture the make_first_post task ID at mount time. Using a ref ensures
+  // the value is stable inside the one-shot upload effect.
+  const tasks = useAppSelector((state) => state.tasks.items);
+  const makeFirstPostTaskIdRef = useRef(
+    tasks.find((t) => t.type === 'make_first_post')?.id ?? null,
+  );
 
   const params = useLocalSearchParams<{
     channelId: string;
@@ -187,6 +195,17 @@ export default function PostUploadingScreen() {
         // Save pending status
         if (pendingStatus) {
           try { await dispatch(saveStatus(pendingStatus)).unwrap(); } catch { /* ignore */ }
+        }
+
+        // Auto-complete the make_first_post task on the first successful post.
+        // The congratulatory toast is delayed so it appears after the upload
+        // confirmation UI/toast has had time to show and fade (~5 s).
+        if (makeFirstPostTaskIdRef.current) {
+          dispatch(completeTask(makeFirstPostTaskIdRef.current));
+          makeFirstPostTaskIdRef.current = null; // prevent double-fire
+          setTimeout(() => {
+            addToast({ type: 'success', title: "You made your first post! 🎉 Your people can see it." });
+          }, 5000);
         }
 
         if (phaseRef.current === 'background') {

@@ -17,6 +17,7 @@ import {
   refreshChannelInviteCode,
   removeChannelSubscriber,
 } from '@/store/actions/channelActions';
+import { completeTask } from '@/store/actions/taskActions';
 import { CUSTOM_CHANNEL_LIMIT } from '@/models/constants';
 import type { Channel } from '@/models/types';
 
@@ -32,6 +33,7 @@ export function MyChannelsTab() {
   const myChannels = useAppSelector((state) =>
     selectUserChannels(state, state.users.currentUser?.id || '')
   );
+  const tasks = useAppSelector((state) => state.tasks.items);
 
   const customChannelCount = useMemo(
     () => myChannels.filter((c) => !c.isDaily).length,
@@ -59,10 +61,19 @@ export function MyChannelsTab() {
     description: string;
     color: string;
   }) => {
+    const createCustomCircleTaskId = tasks.find((t) => t.type === 'create_custom_circle')?.id ?? null;
     try {
       await dispatch(createCustomChannel(data)).unwrap();
       addToast({ type: 'success', title: 'Circle created!' });
       setChannelFormOpen(false);
+
+      // Auto-complete the create_custom_circle task the first time a circle is created.
+      if (createCustomCircleTaskId) {
+        dispatch(completeTask(createCustomCircleTaskId));
+        setTimeout(() => {
+          addToast({ type: 'success', title: "You created your first Circle! 🎉 Time to invite people." });
+        }, 5000);
+      }
     } catch {
       addToast({ type: 'error', title: 'Failed to create circle' });
     }

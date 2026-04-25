@@ -74,8 +74,8 @@ export interface NotificationSettings {
     minute: number;
   };
   /**
-   * Evening wind-down prompt. Fires after the user's busy period ends.
-   * Defaults to 30 minutes after the busyEnd hour (e.g. 17:30 for a 9–17 schedule).
+   * Evening wind-down prompt. Fires 1 hour before the user's active period ends.
+   * Defaults to 1 hour before the activeEnd hour (e.g. 21:00 for an 8–22 schedule).
    */
   windDownPrompt: {
     enabled: boolean;
@@ -327,12 +327,14 @@ export type AppNotification =
  * - `set_fun_fact`: prompt user to fill in their profile bio.
  * - `set_status`: prompt user to set their first status.
  * - `create_custom_circle`: prompt user to create their first custom Circle.
+ * - `make_first_post`: prompt user to make their first post to their Daily Circle.
  */
 export type TaskType =
   | 'invite_to_circle'
   | 'set_fun_fact'
   | 'set_status'
-  | 'create_custom_circle';
+  | 'create_custom_circle'
+  | 'make_first_post';
 
 /**
  * A lightweight to-do item owned by a single user.

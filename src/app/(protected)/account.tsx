@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { AccountTab } from '@/components/account/AccountTab';
 import { MyChannelsTab } from '@/components/account/MyChannelsTab';
@@ -17,6 +18,8 @@ import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout'
 export default function AccountScreen() {
   const { theme } = useTheme();
   const currentUser = useAppSelector((state) => state.users.currentUser);
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const initialTab = params.tab ?? 'account';
 
   if (!currentUser) {
     return (
@@ -37,7 +40,7 @@ export default function AccountScreen() {
         contentContainerStyle={[styles.content, { paddingTop: 8 }]}
         keyboardShouldPersistTaps="handled"
       >
-        <Tabs defaultValue="account">
+        <Tabs defaultValue={initialTab}>
           <TabsList style={{ marginBottom: 16 }}>
             <TabsTrigger value="account">Account</TabsTrigger>
             <TabsTrigger value="my-channels">My Circles</TabsTrigger>

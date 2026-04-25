@@ -24,6 +24,7 @@ import { NewPostsPill, type NewPostsPillRef } from '@/components/NewPostsPill';
 import { formatTimeRemaining } from '@/lib/timeUtils';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { saveStatus, clearStatus } from '@/store/actions/userActions';
+import { completeTask } from '@/store/actions/taskActions';
 import { selectHasAnyPendingActivity } from '@/store/crossSelectors/activitySelectors';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
@@ -255,15 +256,27 @@ export default function FeedScreen() {
 
   const handleSaveStatus = useCallback(
     async (status: UserStatus) => {
+      // Capture the set_status task ID before dispatching so the closure
+      // always has the correct value even if the component re-renders.
+      const setStatusTaskId = pendingTasks.find((t) => t.type === 'set_status')?.id ?? null;
       try {
         await dispatch(saveStatus(status)).unwrap();
         addToast({ type: 'success', title: 'Status updated!' });
         setStatusModalOpen(false);
+
+        // Auto-complete the set_status task (if it still exists) and show a
+        // congratulatory toast after the action toast has faded away (~4.3s lifecycle).
+        if (setStatusTaskId) {
+          dispatch(completeTask(setStatusTaskId));
+          setTimeout(() => {
+            addToast({ type: 'success', title: "You set your first status! 🎉 Your people can see it." });
+          }, 5000);
+        }
       } catch {
         addToast({ type: 'error', title: 'Failed to set status' });
       }
     },
-    [dispatch, addToast],
+    [dispatch, addToast, pendingTasks],
   );
 
   const handleClearStatus = useCallback(async () => {
