@@ -116,6 +116,7 @@ export default function ScanQRScreen() {
         device={device}
         isActive={!scanned}
         codeScanner={codeScanner}
+        pixelFormat="yuv"
       />
 
       {/* Dimmed overlay with cut-out */}

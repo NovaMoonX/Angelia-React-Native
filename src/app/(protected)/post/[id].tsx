@@ -14,6 +14,7 @@ import { MediaViewerModal } from '@/components/MediaViewerModal';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { selectMessages } from '@/store/slices/conversationSlice';
+import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { usePostComments } from '@/hooks/usePostComments';
 import { usePrivateNotes } from '@/hooks/usePrivateNotes';
 import { useTheme } from '@/hooks/useTheme';
@@ -21,6 +22,7 @@ import { useToast } from '@/hooks/useToast';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
+import { getUserDisplayName } from '@/lib/user/user.utils';
 import { COMMON_EMOJIS } from '@/models/constants';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { AddReactionIcon } from '@/components/AddReactionIcon';
@@ -42,6 +44,7 @@ export default function PostDetailScreen() {
 	const currentUser = useAppSelector((state) => state.users.currentUser);
 	const isDemo = useAppSelector((state) => state.demo.isActive);
 	const conversationMessages = useAppSelector((state) => selectMessages(state, id || ''));
+	const usersMap = useAppSelector(selectAllUsersMapById);
 	const { comments: postComments } = usePostComments({ postId: id });
 
 	// Determine host role before hook calls (hooks must be unconditional)
@@ -78,6 +81,7 @@ export default function PostDetailScreen() {
 	const colors = channel ? getColorPair(channel) : { backgroundColor: '#6366F1', textColor: '#FFF' };
 	const authorName = getPostAuthorName(author, currentUser);
 	const hasReacted = post.reactions.some((r) => r.userId === currentUser.id);
+	const canAccessConversation = hasReacted || isHost;
 	const expiryInfo = channel != null
 		? getPostExpiryInfo(post.timestamp, channel.isDaily === true)
 		: null;
@@ -85,25 +89,28 @@ export default function PostDetailScreen() {
 	// Use conversation messages count, falling back to post comments
 	const messageCount = conversationMessages.filter((m) => Boolean(m.isSystem) === false).length || postComments.length;
 
-	// Group reactions by emoji
+	// Group reactions by user
 	const reactionGroups = useMemo(() => {
-		const groups: Record<string, { count: number; isUserReacted: boolean }> = {};
+		const groups: Record<string, { emojis: string[]; displayName: string; isCurrentUser: boolean }> = {};
 		post.reactions.forEach((r) => {
-			if (!groups[r.emoji]) {
-				groups[r.emoji] = { count: 0, isUserReacted: false };
+			if (!groups[r.userId]) {
+				const reactingUser = usersMap[r.userId];
+				groups[r.userId] = {
+					emojis: [],
+					displayName: getUserDisplayName(reactingUser, currentUser.id, r.userId),
+					isCurrentUser: r.userId === currentUser.id,
+				};
 			}
-			groups[r.emoji].count++;
-			if (r.userId === currentUser.id) {
-				groups[r.emoji].isUserReacted = true;
-			}
+			groups[r.userId].emojis.push(r.emoji);
 		});
 		return groups;
-	}, [post.reactions, currentUser.id]);
+	}, [post.reactions, currentUser.id, usersMap]);
 
-	// Filter out emojis the user has already reacted with
+	// Filter out emojis the current user has already used
 	const availableCommonEmojis = useMemo(() => {
-		return COMMON_EMOJIS.filter((emoji) => !reactionGroups[emoji]?.isUserReacted);
-	}, [reactionGroups]);
+		const myEmojis = new Set(reactionGroups[currentUser.id]?.emojis ?? []);
+		return COMMON_EMOJIS.filter((emoji) => !myEmojis.has(emoji));
+	}, [reactionGroups, currentUser.id]);
 
 	const triggerTabUnlock = (emoji: string) => {
 		setUnlockEmoji(emoji);
@@ -220,7 +227,7 @@ export default function PostDetailScreen() {
 						}
 					>
 						<Avatar
-							preset={author?.avatar || 'moon'}
+							user={author}
 							size='md'
 							statusEmoji={isStatusActive(author?.status) ? author?.status?.emoji : undefined}
 						/>
@@ -280,13 +287,17 @@ export default function PostDetailScreen() {
 				<View style={styles.reactionsSection}>
 					{Object.keys(reactionGroups).length > 0 ? (
 						<View style={styles.reactionGroups}>
-							{Object.entries(reactionGroups).map(([emoji, data]) => (
+							{Object.entries(reactionGroups).map(([userId, data]) => (
 								<ReactionDisplay
-									key={emoji}
-									emoji={emoji}
-									count={data.count}
-									isUserReacted={data.isUserReacted}
-									onClick={() => (data.isUserReacted ? handleRemoveReaction(emoji) : handleReaction(emoji))}
+									key={userId}
+									emojis={data.emojis}
+									displayName={data.displayName}
+									isCurrentUser={data.isCurrentUser}
+									onClick={() => {
+										if (data.isCurrentUser) {
+											data.emojis.forEach((emoji) => handleRemoveReaction(emoji));
+										}
+									}}
 								/>
 							))}
 						</View>
@@ -337,15 +348,15 @@ export default function PostDetailScreen() {
 					style={[
 						styles.chatTab,
 						{
-							backgroundColor: hasReacted ? `${theme.primary}12` : theme.card,
-							borderColor: hasReacted ? theme.primary : theme.border,
+							backgroundColor: canAccessConversation ? `${theme.primary}12` : theme.card,
+							borderColor: canAccessConversation ? theme.primary : theme.border,
 							transform: [{ scale: chatTabScale }],
 						},
 					]}
 				>
 					<Pressable
 						onPress={
-							hasReacted
+							canAccessConversation
 								? () =>
 										router.push({
 											pathname: '/(protected)/conversation',
@@ -353,10 +364,10 @@ export default function PostDetailScreen() {
 										})
 								: undefined
 						}
-						disabled={!hasReacted}
+						disabled={!canAccessConversation}
 						style={styles.chatTabInner}
 					>
-						{!hasReacted ? (
+						{!canAccessConversation ? (
 							<>
 								<Text style={styles.chatTabLockIcon}>🔒</Text>
 								<Text style={[styles.chatTabText, { color: theme.mutedForeground }]}>React to join! 👋</Text>
@@ -367,7 +378,7 @@ export default function PostDetailScreen() {
 								<Text style={[styles.chatTabText, { color: theme.primary }]}>
 									{messageCount > 0
 										? `${messageCount} message${messageCount !== 1 ? 's' : ''}`
-										: 'Start the conversation 💬'}
+										: 'Start the conversation'}
 								</Text>
 								<Feather name='chevron-right' size={14} color={theme.primary} />
 							</>

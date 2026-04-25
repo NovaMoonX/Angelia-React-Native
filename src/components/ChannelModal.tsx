@@ -139,7 +139,7 @@ export function ChannelModal({
           ) : (
             subscribers.map((sub) => (
               <View key={sub.id} style={styles.subscriberRow}>
-                <Avatar preset={sub.avatar} uri={sub.avatarUrl} size="sm" />
+                <Avatar user={sub} size="sm" />
                 <Text
                   style={[styles.subscriberName, { color: theme.foreground }]}
                 >

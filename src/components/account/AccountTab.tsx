@@ -169,7 +169,7 @@ export function AccountTab() {
     <>
       <Card style={styles.profileCard}>
         <View style={styles.profileHeader}>
-          <Avatar preset={currentUser.avatar} uri={currentUser.avatarUrl} size="xl" />
+          <Avatar user={currentUser} size="xl" />
           <Text style={[styles.profileName, { color: theme.foreground }]}>
             {currentUser.firstName} {currentUser.lastName}
           </Text>

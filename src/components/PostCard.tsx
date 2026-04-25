@@ -83,8 +83,7 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
               onPress={isOtherUser ? () => setProfileModalOpen(true) : undefined}
             >
               <Avatar
-                preset={author?.avatar || 'moon'}
-                uri={author?.avatarUrl}
+                user={author}
                 size="sm"
                 statusEmoji={isStatusActive(author?.status) ? author?.status?.emoji : undefined}
               />

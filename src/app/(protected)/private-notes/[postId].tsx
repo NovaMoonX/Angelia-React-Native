@@ -83,9 +83,8 @@ export default function PrivateNotesScreen() {
 							]}
 						>
 							<Avatar
-								preset={author?.avatar ?? 'moon'}
+								user={author}
 								size='sm'
-								uri={author?.avatarUrl ?? undefined}
 								statusEmoji={
 									isStatusActive(author?.status) ? author?.status?.emoji : undefined
 								}

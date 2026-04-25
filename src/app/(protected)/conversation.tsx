@@ -85,7 +85,9 @@ export default function ConversationScreen() {
   }));
 
   // Access control
+  const isHost = post?.authorId === currentUser?.id;
   const hasReacted = post?.reactions.some((r) => r.userId === currentUser?.id) ?? false;
+  const canAccessConversation = hasReacted || isHost;
   const isInConversation = post?.conversationEnrollees.includes(currentUser?.id ?? '') ?? false;
 
   // Subscribe to messages
@@ -101,7 +103,7 @@ export default function ConversationScreen() {
 
   // Entry animation for Big News and Worth Knowing tiers
   useEffect(() => {
-    if (!hasReacted || !isInConversation || hasPlayedEntry) return;
+    if (!canAccessConversation || !isInConversation || hasPlayedEntry) return;
 
     if (post?.tier === 'big-news') {
       setHasPlayedEntry(true);
@@ -126,7 +128,7 @@ export default function ConversationScreen() {
         withTiming(0, { duration: 600 }),
       );
     }
-  }, [post?.tier, hasReacted, isInConversation, hasPlayedEntry, entryScale, confettiOpacity, glowOpacity]);
+  }, [post?.tier, canAccessConversation, isInConversation, hasPlayedEntry, entryScale, confettiOpacity, glowOpacity]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -237,8 +239,7 @@ export default function ConversationScreen() {
         </Pressable>
 
         <Avatar
-          preset={author?.avatar ?? 'moon'}
-          uri={author?.avatarUrl}
+          user={author}
           size="sm"
           statusEmoji={isStatusActive(author?.status) ? author?.status?.emoji : undefined}
         />
@@ -301,7 +302,7 @@ export default function ConversationScreen() {
       {/* Message list area */}
       <View style={styles.listContainer}>
         {messages.length === 0 ? (
-          <ConversationEmptyState />
+          <ConversationEmptyState isHost={isHost} />
         ) : (
           <FlashList
             ref={listRef}
@@ -313,8 +314,8 @@ export default function ConversationScreen() {
         )}
       </View>
 
-      {/* Join CTA for users who reacted but haven't joined */}
-      {hasReacted && !isInConversation && (
+      {/* Join CTA for users who can access but haven't joined */}
+      {canAccessConversation && !isInConversation && (
         <View style={[styles.joinBar, { borderTopColor: theme.border, backgroundColor: theme.background, paddingBottom: Math.max(insets.bottom, 16) }]}>
           <Button onPress={handleJoinConversation}>
             Join Conversation
@@ -323,7 +324,7 @@ export default function ConversationScreen() {
       )}
 
       {/* Input bar */}
-      {hasReacted && isInConversation && (
+      {canAccessConversation && isInConversation && (
         <View
           style={[
             styles.inputBar,
