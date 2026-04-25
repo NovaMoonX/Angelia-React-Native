@@ -1,16 +1,23 @@
 import React from 'react';
 import { View, Text, StyleSheet, type ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
-import type { AvatarPreset } from '@/models/types';
+import type { AvatarPreset, User } from '@/models/types';
 
 interface AvatarProps {
-  preset: AvatarPreset;
+  /**
+   * Provide a User (or partial User with `avatar` and `avatarUrl`) to automatically
+   * resolve the preset emoji and custom photo URL. When set, `preset` and `uri` are
+   * ignored. Falls back to the 'moon' preset when the user has no avatarUrl.
+   */
+  user?: Pick<User, 'avatar' | 'avatarUrl'> | null;
+  /** Required when `user` is not provided. */
+  preset?: AvatarPreset;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   shape?: 'circle' | 'square';
   style?: ViewStyle;
   /** When provided, renders a small emoji badge at the bottom-right of the avatar. */
   statusEmoji?: string;
-  /** Firebase Storage download URL for a custom profile photo. When set, renders the photo instead of the preset emoji. */
+  /** Firebase Storage download URL for a custom profile photo. Used only when `user` is not provided. */
   uri?: string | null;
 }
 
@@ -65,7 +72,10 @@ const PRESET_COLORS: Record<AvatarPreset, string> = {
   'black-hole': '#18181B',
 };
 
-export function Avatar({ preset, size = 'md', shape = 'circle', style, statusEmoji, uri }: AvatarProps) {
+export function Avatar({ user, preset, size = 'md', shape = 'circle', style, statusEmoji, uri }: AvatarProps) {
+  const resolvedPreset: AvatarPreset = user?.avatar ?? preset ?? 'moon';
+  const resolvedUri: string | null | undefined = user !== undefined && user !== null ? user.avatarUrl : uri;
+
   const dimension = SIZE_MAP[size];
   const borderRadius = shape === 'circle' ? dimension / 2 : 8;
   const fontSize = dimension * 0.5;
@@ -74,9 +84,9 @@ export function Avatar({ preset, size = 'md', shape = 'circle', style, statusEmo
 
   return (
     <View style={[{ width: dimension, height: dimension }, style]}>
-      {uri ? (
+      {resolvedUri ? (
         <Image
-          source={{ uri }}
+          source={{ uri: resolvedUri }}
           style={[styles.container, { width: dimension, height: dimension, borderRadius }]}
           contentFit="cover"
         />
@@ -88,11 +98,11 @@ export function Avatar({ preset, size = 'md', shape = 'circle', style, statusEmo
               width: dimension,
               height: dimension,
               borderRadius,
-              backgroundColor: PRESET_COLORS[preset] || '#6366F1',
+              backgroundColor: PRESET_COLORS[resolvedPreset] || '#6366F1',
             },
           ]}
         >
-          <Text style={{ fontSize }}>{PRESET_EMOJIS[preset] || '🌙'}</Text>
+          <Text style={{ fontSize }}>{PRESET_EMOJIS[resolvedPreset] || '🌙'}</Text>
         </View>
       )}
       {statusEmoji ? (

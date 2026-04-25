@@ -57,7 +57,7 @@ export function UserProfileModal({ visible, onClose, user }: UserProfileModalPro
           >
             {/* Avatar + Name */}
             <View style={styles.profileHeader}>
-              <Avatar preset={user.avatar} uri={user.avatarUrl} size="xl" />
+              <Avatar user={user} size="xl" />
               <Text style={[styles.name, { color: theme.foreground }]}>
                 {user.firstName} {user.lastName}
               </Text>
