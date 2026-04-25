@@ -11,7 +11,6 @@ import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { respondToJoinRequest } from '@/store/actions/inviteActions';
-import { respondToConnectionRequest } from '@/store/actions/connectionsActions';
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -42,18 +41,6 @@ export default function NotificationsScreen() {
       addToast({
         type: 'success',
         title: accept ? 'Request accepted' : 'Request declined',
-      });
-    } catch {
-      addToast({ type: 'error', title: 'Failed to respond' });
-    }
-  };
-
-  const handleRespondToConnection = async (requestId: string, accept: boolean) => {
-    try {
-      await dispatch(respondToConnectionRequest({ requestId, accept })).unwrap();
-      addToast({
-        type: 'success',
-        title: accept ? 'Connected! 🤝' : 'Request declined',
       });
     } catch {
       addToast({ type: 'error', title: 'Failed to respond' });
@@ -144,19 +131,20 @@ export default function NotificationsScreen() {
                           </Text>
                         </View>
                       </View>
+                      {req.note ? (
+                        <Text style={[styles.requestMessage, { color: theme.foreground }]}>
+                          &quot;{req.note}&quot;
+                        </Text>
+                      ) : null}
                       <View style={styles.requestActions}>
                         <Button
-                          variant="destructive"
                           size="sm"
-                          onPress={() => handleRespondToConnection(req.id, false)}
+                          onPress={() => router.push({
+                            pathname: '/(protected)/connection-request/[id]',
+                            params: { id: req.id },
+                          })}
                         >
-                          Decline
-                        </Button>
-                        <Button
-                          size="sm"
-                          onPress={() => handleRespondToConnection(req.id, true)}
-                        >
-                          Accept
+                          View Request
                         </Button>
                       </View>
                     </Card>

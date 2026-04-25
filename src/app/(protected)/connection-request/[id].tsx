@@ -168,6 +168,15 @@ export default function ConnectionRequestScreen() {
               </View>
             </View>
 
+            {request.note ? (
+              <View style={[styles.noteBox, { backgroundColor: theme.secondary }]}>
+                <Text style={[styles.noteLabel, { color: theme.mutedForeground }]}>Their note:</Text>
+                <Text style={[styles.noteText, { color: theme.secondaryForeground }]}>
+                  "{request.note}"
+                </Text>
+              </View>
+            ) : null}
+
             <View style={[styles.explainBox, { backgroundColor: theme.secondary }]}>
               <Text style={[styles.explainText, { color: theme.secondaryForeground }]}>
                 💡 Accepting means you'll both be able to see each other's{' '}
@@ -243,6 +252,22 @@ const styles = StyleSheet.create({
   explainText: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  noteBox: {
+    borderRadius: 10,
+    padding: 12,
+    gap: 4,
+  },
+  noteLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  noteText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontStyle: 'italic',
   },
   ctaRow: {
     flexDirection: 'row',

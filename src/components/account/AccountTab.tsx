@@ -280,6 +280,12 @@ export function AccountTab() {
 
       <Separator style={{ marginVertical: 16 }} />
       <View style={styles.bottomSection}>
+        <Button
+          variant="outline"
+          onPress={() => router.push('/(protected)/share-connection')}
+        >
+          🔗 Share Connection Link
+        </Button>
         {!isDemo && (
           <Button
             variant="outline"

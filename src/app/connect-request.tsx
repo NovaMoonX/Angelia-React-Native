@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AngeliaLogo } from '@/components/AngeliaLogo';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
+import { Textarea } from '@/components/ui/Textarea';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -46,6 +49,7 @@ export default function ConnectRequestScreen() {
   const [sending, setSending] = useState(false);
   const [alreadyRequested, setAlreadyRequested] = useState(false);
   const [alreadyConnected, setAlreadyConnected] = useState(false);
+  const [note, setNote] = useState('');
 
   const isSignedIn = !!firebaseUser || isDemo;
 
@@ -104,7 +108,7 @@ export default function ConnectRequestScreen() {
 
     setSending(true);
     try {
-      await dispatch(sendConnectionRequest({ toId: from })).unwrap();
+      await dispatch(sendConnectionRequest({ toId: from, note: note.trim() || undefined })).unwrap();
       setAlreadyRequested(true);
       addToast({ type: 'success', title: 'Connection request sent! 🤝' });
     } catch {
@@ -119,101 +123,121 @@ export default function ConnectRequestScreen() {
     : 'Someone on Angelia';
 
   return (
-    <ScrollView
+    <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: theme.background }}
-      contentContainerStyle={[
-        styles.content,
-        { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 },
-      ]}
-      keyboardShouldPersistTaps="handled"
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.logoRow}>
-        <AngeliaLogo size={40} />
-      </View>
-
-      {loadingHost ? (
-        <ActivityIndicator color={theme.primary} style={{ marginTop: 48 }} />
-      ) : !from ? (
-        <View style={styles.centered}>
-          <Text style={[styles.emoji]}>🤔</Text>
-          <Text style={[styles.heading, { color: theme.foreground }]}>Invalid link</Text>
-          <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
-            This connection link doesn't look right. Ask the person to share it again.
-          </Text>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 },
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.logoRow}>
+          <AngeliaLogo size={40} />
         </View>
-      ) : (
-        <>
-          {/* Host card */}
-          <View style={[styles.hostCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Avatar preset={hostUser?.avatar ?? 'moon'} uri={hostUser?.avatarUrl} size="xl" />
-            <Text style={[styles.hostName, { color: theme.foreground }]}>{hostName}</Text>
-            {hostUser?.funFact ? (
-              <Text style={[styles.hostFact, { color: theme.mutedForeground }]}>
-                "{hostUser.funFact}"
-              </Text>
-            ) : null}
+
+        {loadingHost ? (
+          <ActivityIndicator color={theme.primary} style={{ marginTop: 48 }} />
+        ) : !from ? (
+          <View style={styles.centered}>
+            <Text style={[styles.emoji]}>🤔</Text>
+            <Text style={[styles.heading, { color: theme.foreground }]}>Invalid link</Text>
+            <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
+              This connection link doesn't look right. Ask the person to share it again.
+            </Text>
           </View>
-
-          {alreadyConnected ? (
-            <>
-              <View style={[styles.statusCard, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
-                <Text style={[styles.statusText, { color: theme.foreground }]}>
-                  ✅ You're already connected with {hostUser?.firstName ?? 'this person'}!
+        ) : (
+          <>
+            {/* Host card */}
+            <View style={[styles.hostCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+              <Avatar preset={hostUser?.avatar ?? 'moon'} uri={hostUser?.avatarUrl} size="xl" />
+              <Text style={[styles.hostName, { color: theme.foreground }]}>{hostName}</Text>
+              {hostUser?.funFact ? (
+                <Text style={[styles.hostFact, { color: theme.mutedForeground }]}>
+                  "{hostUser.funFact}"
                 </Text>
-              </View>
-              <Button onPress={() => router.replace('/(protected)/feed')} style={styles.cta}>
-                Go to Feed
-              </Button>
-            </>
-          ) : alreadyRequested ? (
-            <>
-              <View style={[styles.statusCard, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
-                <Text style={[styles.statusText, { color: theme.foreground }]}>
-                  🕐 Your connection request to {hostUser?.firstName ?? 'this person'} is pending their approval.
+              ) : null}
+            </View>
+
+            {alreadyConnected ? (
+              <>
+                <View style={[styles.statusCard, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
+                  <Text style={[styles.statusText, { color: theme.foreground }]}>
+                    ✅ You're already connected with {hostUser?.firstName ?? 'this person'}!
+                  </Text>
+                </View>
+                <Button onPress={() => router.replace('/(protected)/feed')} style={styles.cta}>
+                  Go to Feed
+                </Button>
+              </>
+            ) : alreadyRequested ? (
+              <>
+                <View style={[styles.statusCard, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
+                  <Text style={[styles.statusText, { color: theme.foreground }]}>
+                    🕐 Your connection request to {hostUser?.firstName ?? 'this person'} is pending their approval.
+                  </Text>
+                </View>
+                <Button onPress={() => router.replace('/(protected)/feed')} style={styles.cta}>
+                  Go to Feed
+                </Button>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.headline, { color: theme.foreground }]}>
+                  Connect with {hostUser?.firstName ?? 'this person'}?
                 </Text>
-              </View>
-              <Button onPress={() => router.replace('/(protected)/feed')} style={styles.cta}>
-                Go to Feed
-              </Button>
-            </>
-          ) : (
-            <>
-              <Text style={[styles.headline, { color: theme.foreground }]}>
-                Connect with {hostUser?.firstName ?? 'this person'}?
-              </Text>
-              <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
-                When {hostUser?.firstName ?? 'they'} approves, you'll both see each other's{' '}
-                <Text style={{ fontWeight: '700', color: theme.primary }}>Daily Circle</Text>
-                {' '}— their everyday updates, just for the people they trust.
-              </Text>
-
-              <Button
-                onPress={handleConnect}
-                loading={sending}
-                size="lg"
-                style={styles.cta}
-              >
-                {isSignedIn ? 'Send Connection Request' : 'Sign in to Connect'}
-              </Button>
-
-              {!isSignedIn && (
-                <Text style={[styles.hint, { color: theme.mutedForeground }]}>
-                  You'll sign in or create a free account, then your request will be sent automatically.
+                <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
+                  When {hostUser?.firstName ?? 'they'} approves, you'll both see each other's{' '}
+                  <Text style={{ fontWeight: '700', color: theme.primary }}>Daily Circle</Text>
+                  {' '}— their everyday updates, just for the people they trust.
                 </Text>
-              )}
 
-              <Button
-                variant="tertiary"
-                onPress={() => router.canGoBack() ? router.back() : router.replace('/auth')}
-                style={{ marginTop: 8 }}
-              >
-                Maybe later
-              </Button>
-            </>
-          )}
-        </>
-      )}
-    </ScrollView>
+                {isSignedIn && (
+                  <View style={styles.noteContainer}>
+                    <Text style={[styles.noteLabel, { color: theme.mutedForeground }]}>
+                      Add a note so they know who you are (optional)
+                    </Text>
+                    <Textarea
+                      value={note}
+                      onChangeText={setNote}
+                      placeholder="Hey! We met at the conference last week 👋"
+                      maxLength={200}
+                      rows={3}
+                    />
+                  </View>
+                )}
+
+                <Button
+                  onPress={handleConnect}
+                  loading={sending}
+                  size="lg"
+                  style={styles.cta}
+                >
+                  {isSignedIn ? 'Send Connection Request' : 'Sign in to Connect'}
+                </Button>
+
+                {!isSignedIn && (
+                  <Text style={[styles.hint, { color: theme.mutedForeground }]}>
+                    You'll sign in or create a free account, then your request will be sent automatically.
+                  </Text>
+                )}
+
+                <Button
+                  variant="tertiary"
+                  onPress={() => router.canGoBack() ? router.back() : router.replace('/auth')}
+                  style={{ marginTop: 8 }}
+                >
+                  Maybe later
+                </Button>
+              </>
+            )}
+          </>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -287,5 +311,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  noteContainer: {
+    width: '100%',
+    gap: 6,
+  },
+  noteLabel: {
+    fontSize: 13,
+    textAlign: 'center',
   },
 });

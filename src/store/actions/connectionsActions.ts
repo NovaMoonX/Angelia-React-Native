@@ -16,7 +16,7 @@ import { generateId } from '@/utils/generateId';
 export const sendConnectionRequest = createAsyncThunk(
   'connections/send',
   async (
-    { toId }: { toId: string },
+    { toId, note }: { toId: string; note?: string },
     { getState, rejectWithValue },
   ) => {
     const state = getState() as RootState;
@@ -41,7 +41,7 @@ export const sendConnectionRequest = createAsyncThunk(
     }
 
     try {
-      const request = await firestoreCreateConnectionRequest(user.id, toId);
+      const request = await firestoreCreateConnectionRequest(user.id, toId, note);
 
       const notification: ConnectionRequestNotification = {
         id: generateId('nano'),
