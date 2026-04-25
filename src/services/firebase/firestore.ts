@@ -97,10 +97,14 @@ export async function createUserProfile(userData: NewUser): Promise<void> {
 
 export async function updateUserProfile(uid: string, data: UpdateUserProfileData): Promise<void> {
   const { funFact, ...publicFields } = data;
-  await Promise.all([
+  const updates: Promise<void>[] = [
     updateDoc(doc(db, 'usersPublic', uid), publicFields),
-    updateDoc(doc(db, 'usersPrivate', uid), { funFact }),
-  ]);
+  ];
+  // Only write to usersPrivate when funFact is explicitly provided.
+  if (funFact !== undefined) {
+    updates.push(updateDoc(doc(db, 'usersPrivate', uid), { funFact }));
+  }
+  await Promise.all(updates);
 }
 
 export async function updateAccountProgress(
@@ -450,7 +454,12 @@ export function subscribeToCurrentUser(
   let privateData: UserPrivate | null = null;
   let secretData: UserSecret | null = null;
 
+  // Track which sub-documents have had their first snapshot; only emit once all
+  // three have fired to avoid dispatching an incomplete User during initial load.
+  const ready = { public: false, private: false, secret: false };
+
   function emit() {
+    if (!ready.public || !ready.private || !ready.secret) return;
     if (!publicData) {
       callback(null);
       return;
@@ -460,16 +469,19 @@ export function subscribeToCurrentUser(
 
   const unsubPublic = onSnapshot(doc(db, 'usersPublic', uid), (snap) => {
     publicData = snap.exists ? (snap.data() as UserPublic) : null;
+    ready.public = true;
     emit();
   });
 
   const unsubPrivate = onSnapshot(doc(db, 'usersPrivate', uid), (snap) => {
     privateData = snap.exists ? (snap.data() as UserPrivate) : null;
+    ready.private = true;
     emit();
   });
 
   const unsubSecret = onSnapshot(doc(db, 'usersSecret', uid), (snap) => {
     secretData = snap.exists ? (snap.data() as UserSecret) : null;
+    ready.secret = true;
     emit();
   });
 

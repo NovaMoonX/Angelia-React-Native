@@ -33,8 +33,11 @@ service cloud.firestore {
     }
 
     // ── User private profiles — readable by any authenticated user ────────────
-    // Private data (email, fun fact, status) is shared with channel members and
-    // connected users. Access scoping is enforced at the data layer.
+    // Contains per-user social context: email, fun fact, and presence status.
+    // Any signed-in user may read another user's private profile so that
+    // channel members and connected users can display fun facts and status
+    // badges. Access scoping is enforced at the data layer: the app only
+    // requests IDs of channel members/connections, not arbitrary user IDs.
     match /usersPrivate/{userId} {
       allow read: if isSignedIn();
       allow create, update: if isSignedIn() && request.auth.uid == userId;
