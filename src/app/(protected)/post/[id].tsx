@@ -14,6 +14,7 @@ import { MediaViewerModal } from '@/components/MediaViewerModal';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { selectMessages } from '@/store/slices/conversationSlice';
+import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { usePostComments } from '@/hooks/usePostComments';
 import { usePrivateNotes } from '@/hooks/usePrivateNotes';
 import { useTheme } from '@/hooks/useTheme';
@@ -21,6 +22,7 @@ import { useToast } from '@/hooks/useToast';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
+import { getUserDisplayName } from '@/lib/user/user.utils';
 import { COMMON_EMOJIS } from '@/models/constants';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { AddReactionIcon } from '@/components/AddReactionIcon';
@@ -42,6 +44,7 @@ export default function PostDetailScreen() {
 	const currentUser = useAppSelector((state) => state.users.currentUser);
 	const isDemo = useAppSelector((state) => state.demo.isActive);
 	const conversationMessages = useAppSelector((state) => selectMessages(state, id || ''));
+	const usersMap = useAppSelector(selectAllUsersMapById);
 	const { comments: postComments } = usePostComments({ postId: id });
 
 	// Determine host role before hook calls (hooks must be unconditional)
@@ -50,8 +53,6 @@ export default function PostDetailScreen() {
 		postId: isHost ? id : null,
 		hostId: isHost ? post?.authorId : null,
 	});
-
-	const allUsers = useAppSelector((state) => state.users.users);
 
 	const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
 	const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
@@ -91,33 +92,25 @@ export default function PostDetailScreen() {
 	// Group reactions by user
 	const reactionGroups = useMemo(() => {
 		const groups: Record<string, { emojis: string[]; displayName: string; isCurrentUser: boolean }> = {};
-		const userMap = new Map(allUsers.map((u) => [u.id, u]));
 		post.reactions.forEach((r) => {
 			if (!groups[r.userId]) {
-				const user = userMap.get(r.userId);
-				const firstName = user?.firstName ?? '?';
-				const lastInitial = user?.lastName ? `${user.lastName[0]}.` : '';
-				const displayName =
-					r.userId === currentUser.id
-						? 'You'
-						: `${firstName} ${lastInitial}`.trim();
-				groups[r.userId] = { emojis: [], displayName, isCurrentUser: r.userId === currentUser.id };
+				const user = usersMap[r.userId];
+				groups[r.userId] = {
+					emojis: [],
+					displayName: getUserDisplayName(user, currentUser.id, r.userId),
+					isCurrentUser: r.userId === currentUser.id,
+				};
 			}
 			groups[r.userId].emojis.push(r.emoji);
 		});
 		return groups;
-	}, [post.reactions, currentUser.id, allUsers]);
+	}, [post.reactions, currentUser.id, usersMap]);
 
-	// Emojis the current user has already used (for filtering the quick-react pill)
-	const myReactedEmojis = useMemo(
-		() => new Set(post.reactions.filter((r) => r.userId === currentUser.id).map((r) => r.emoji)),
-		[post.reactions, currentUser.id],
-	);
-
-	// Filter out emojis the user has already reacted with
+	// Filter out emojis the current user has already used
 	const availableCommonEmojis = useMemo(() => {
-		return COMMON_EMOJIS.filter((emoji) => !myReactedEmojis.has(emoji));
-	}, [myReactedEmojis]);
+		const myEmojis = new Set(reactionGroups[currentUser.id]?.emojis ?? []);
+		return COMMON_EMOJIS.filter((emoji) => !myEmojis.has(emoji));
+	}, [reactionGroups, currentUser.id]);
 
 	const triggerTabUnlock = (emoji: string) => {
 		setUnlockEmoji(emoji);
@@ -234,8 +227,7 @@ export default function PostDetailScreen() {
 						}
 					>
 						<Avatar
-							preset={author?.avatar || 'moon'}
-							uri={author?.avatarUrl}
+							user={author}
 							size='md'
 							statusEmoji={isStatusActive(author?.status) ? author?.status?.emoji : undefined}
 						/>

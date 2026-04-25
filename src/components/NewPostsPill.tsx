@@ -220,7 +220,7 @@ export const NewPostsPill = forwardRef<NewPostsPillRef, NewPostsPillProps>(
                     },
                   ]}
                 >
-                  <Avatar preset={author.avatar} uri={author.avatarUrl} size="sm" />
+                  <Avatar user={author} size="sm" />
                 </View>
               ))}
             </View>

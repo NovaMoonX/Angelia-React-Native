@@ -94,11 +94,11 @@ This pattern is already applied to `post/[id]`, `account`, and `share-connection
 
 ---
 
-## User Avatar (`uri` prop)
+## User Avatar (`user` prop)
 
-The `Avatar` component accepts an optional `uri` prop that renders a custom profile photo (stored as `user.avatarUrl`) via `expo-image` instead of the preset emoji.
+The `Avatar` component accepts a `user` prop (`Pick<User, 'avatar' | 'avatarUrl'> | null`) that automatically resolves both the preset emoji and any custom profile photo. When `user` is provided, `preset` and `uri` are ignored.
 
-**Always pass `uri={user.avatarUrl}` whenever rendering an Avatar for a specific user**, including:
+**Always pass `user={user}` whenever rendering an Avatar for a specific user**, including:
 - Post detail screens (the post author's avatar)
 - Conversation / chat headers
 - Profile cards and modals
@@ -106,12 +106,14 @@ The `Avatar` component accepts an optional `uri` prop that renders a custom prof
 - Any other screen that shows a user's identity
 
 ```tsx
-// ✅ correct
-<Avatar preset={user.avatar} uri={user.avatarUrl} size="md" />
+// ✅ correct — automatically uses avatarUrl if set, falls back to avatar preset
+<Avatar user={user} size="md" />
 
-// ❌ missing the custom photo — falls back to emoji even if user has a photo
-<Avatar preset={user.avatar} size="md" />
+// ❌ old pattern — do not use for User objects
+<Avatar preset={user.avatar} uri={user.avatarUrl} size="md" />
 ```
+
+The individual `preset` and `uri` props are only for non-User contexts, such as avatar edit previews (e.g. `AccountTab`, `complete-profile.tsx`) where the values come from local state rather than a `User` object.
 
 ---
 

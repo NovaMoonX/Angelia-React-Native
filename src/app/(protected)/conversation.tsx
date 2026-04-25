@@ -239,8 +239,7 @@ export default function ConversationScreen() {
         </Pressable>
 
         <Avatar
-          preset={author?.avatar ?? 'moon'}
-          uri={author?.avatarUrl}
+          user={author}
           size="sm"
           statusEmoji={isStatusActive(author?.status) ? author?.status?.emoji : undefined}
         />
