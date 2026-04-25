@@ -9,6 +9,7 @@ import { saveNotificationSettings } from '@/store/actions/notificationActions';
 import { getDeviceTimeZone } from '@/services/notifications';
 import { NOTIFICATION_TIMEZONES } from '@/constants/notifications.constants';
 import { Select } from '@/components/ui/Select';
+import { ScreenHeader } from '@/components/ScreenHeader';
 
 export default function NotificationSettingsScreen() {
   const router = useRouter();
@@ -59,10 +60,12 @@ export default function NotificationSettingsScreen() {
     NOTIFICATION_TIMEZONES.find((o) => o.value === notifTZ)?.text ?? notifTZ;
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.background }}
-      contentContainerStyle={styles.container}
-    >
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
+      <ScreenHeader title="Notification Settings" />
+      <ScrollView
+        style={{ flex: 1, backgroundColor: theme.background }}
+        contentContainerStyle={styles.container}
+      >
       {/* Hero */}
       <View style={styles.hero}>
         <Text style={styles.heroEmoji}>⚙️</Text>
@@ -168,6 +171,7 @@ export default function NotificationSettingsScreen() {
         More notification types coming soon — stay tuned! 🚀
       </Text>
     </ScrollView>
+    </View>
   );
 }
 

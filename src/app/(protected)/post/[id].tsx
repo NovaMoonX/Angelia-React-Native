@@ -27,6 +27,7 @@ import { COMMON_EMOJIS } from '@/models/constants';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { AddReactionIcon } from '@/components/AddReactionIcon';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { updatePostReactions, removePostReaction } from '@/store/actions/postActions';
 import { sendPrivateNote } from '@/store/actions/privateNoteActions';
 import type { Reaction, MediaItem } from '@/models/types';
@@ -203,11 +204,13 @@ export default function PostDetailScreen() {
 	}, []);
 
 	return (
-		<KeyboardAvoidingView
-			style={{ flex: 1 }}
-			behavior={KEYBOARD_BEHAVIOR}
-			keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
-		>
+		<View style={{ flex: 1 }}>
+			<ScreenHeader title="Post" />
+			<KeyboardAvoidingView
+				style={{ flex: 1 }}
+				behavior={KEYBOARD_BEHAVIOR}
+				keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
+			>
 			<ScrollView
 				style={{ flex: 1, backgroundColor: theme.background }}
 				contentContainerStyle={[
@@ -540,6 +543,7 @@ export default function PostDetailScreen() {
 				/>
 			)}
 		</KeyboardAvoidingView>
+		</View>
 	);
 }
 

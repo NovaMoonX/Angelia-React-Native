@@ -16,6 +16,7 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { completeTask } from '@/store/actions/taskActions';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import type { AppTask } from '@/models/types';
 
 /** Returns icon name, title, description and optional primary CTA label for a task. */
@@ -136,9 +137,11 @@ export default function TasksScreen() {
   );
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.background }]}
-      contentContainerStyle={[
+    <View style={{ flex: 1 }}>
+      <ScreenHeader title="My Tasks" />
+      <ScrollView
+        style={[styles.container, { backgroundColor: theme.background }]}
+        contentContainerStyle={[
         styles.content,
         { paddingBottom: insets.bottom + 24 },
       ]}
@@ -208,6 +211,7 @@ export default function TasksScreen() {
         </>
       )}
     </ScrollView>
+    </View>
   );
 }
 

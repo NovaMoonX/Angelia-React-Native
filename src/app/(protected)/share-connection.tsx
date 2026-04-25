@@ -9,6 +9,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { useAppSelector } from '@/store/hooks';
 import * as Clipboard from 'expo-clipboard';
+import { ScreenHeader } from '@/components/ScreenHeader';
 
 /** Returns the deep-link URL for a given user's connection request page. */
 function getConnectionLink(userId: string): string {
@@ -47,7 +48,8 @@ export default function ShareConnectionScreen() {
   };
 
   return (
-    <>
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
+      <ScreenHeader title="Share Connection Link" />
       <ScrollView
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={[
@@ -133,7 +135,7 @@ export default function ShareConnectionScreen() {
           </View>
         </Pressable>
       </Modal>
-    </>
+    </View>
   );
 }
 

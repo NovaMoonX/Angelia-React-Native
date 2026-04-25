@@ -1,8 +1,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -11,15 +10,13 @@ import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { respondToJoinRequest } from '@/store/actions/inviteActions';
+import { ScreenHeader } from '@/components/ScreenHeader';
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { addToast } = useToast();
   const { theme } = useTheme();
-  const insets = useSafeAreaInsets();
-
-  const isDemo = useAppSelector((state) => state.demo.isActive);
   const channels = useAppSelector((state) => state.channels.items);
   const incoming = useAppSelector((state) => state.invites.incoming);
   const incomingConnRequests = useAppSelector((state) => state.connections.incomingRequests);
@@ -48,30 +45,24 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: 'Notifications',
-          headerStyle: { backgroundColor: theme.background },
-          headerTintColor: theme.foreground,
-          headerTitleStyle: { fontWeight: '700' },
-          headerRight: () => (
-            <Pressable
-              onPress={() => router.push('/(protected)/notification-settings')}
-              hitSlop={8}
-              style={{ marginRight: 4 }}
-            >
-              <Feather name="settings" size={22} color={theme.foreground} />
-            </Pressable>
-          ),
-        }}
+    <View style={{ flex: 1 }}>
+      <ScreenHeader
+        title="Notifications"
+        rightAction={
+          <Pressable
+            onPress={() => router.push('/(protected)/notification-settings')}
+            hitSlop={8}
+            style={{ marginRight: 4 }}
+          >
+            <Feather name="settings" size={22} color={theme.foreground} />
+          </Pressable>
+        }
       />
       <ScrollView
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: isDemo ? 12 : 12 }
+          { paddingTop: 12 }
         ]}
       >
         {/* Settings entry point */}
@@ -224,7 +215,7 @@ export default function NotificationsScreen() {
           </>
         )}
       </ScrollView>
-    </>
+    </View>
   );
 }
 

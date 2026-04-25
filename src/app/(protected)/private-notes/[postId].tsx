@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/Avatar';
 import { useAppSelector } from '@/store/hooks';
@@ -10,13 +10,13 @@ import { useTheme } from '@/hooks/useTheme';
 import { usePrivateNotes } from '@/hooks/usePrivateNotes';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { isStatusActive } from '@/components/NowStatusBadge';
+import { ScreenHeader } from '@/components/ScreenHeader';
 
 export default function PrivateNotesScreen() {
 	const { postId } = useLocalSearchParams<{ postId: string }>();
 	const { theme } = useTheme();
 	const insets = useSafeAreaInsets();
 	const router = useRouter();
-	const isDemo = useAppSelector((state) => state.demo.isActive);
 
 	const post = useAppSelector((state) => selectPostById(state, postId ?? ''));
 	const currentUser = useAppSelector((state) => state.users.currentUser);
@@ -47,17 +47,8 @@ export default function PrivateNotesScreen() {
 	}
 
 	return (
-		<>
-			<Stack.Screen
-				options={{
-					headerShown: true,
-					title: 'Private Notes',
-					headerStyle: { backgroundColor: theme.background },
-					headerTintColor: theme.foreground,
-					headerTitleStyle: { fontWeight: '600' },
-					...(isDemo ? { headerStatusBarHeight: 0 } : {}),
-				}}
-			/>
+		<View style={{ flex: 1, backgroundColor: theme.background }}>
+			<ScreenHeader title="Private Notes" />
 			<ScrollView
 				style={{ flex: 1, backgroundColor: theme.background }}
 				contentContainerStyle={[
@@ -106,7 +97,7 @@ export default function PrivateNotesScreen() {
 					);
 				})}
 			</ScrollView>
-		</>
+		</View>
 	);
 }
 
