@@ -94,10 +94,10 @@ export default function PostDetailScreen() {
 		const groups: Record<string, { emojis: string[]; displayName: string; isCurrentUser: boolean }> = {};
 		post.reactions.forEach((r) => {
 			if (!groups[r.userId]) {
-				const user = usersMap[r.userId];
+				const reactingUser = usersMap[r.userId];
 				groups[r.userId] = {
 					emojis: [],
-					displayName: getUserDisplayName(user, currentUser.id, r.userId),
+					displayName: getUserDisplayName(reactingUser, currentUser.id, r.userId),
 					isCurrentUser: r.userId === currentUser.id,
 				};
 			}

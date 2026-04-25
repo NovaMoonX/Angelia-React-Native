@@ -30,7 +30,10 @@ export function getUserDisplayName(
       return `${firstName} ${lastName}`.trim();
     case 'first-last-initial':
       return lastName ? `${firstName} ${lastName[0]}.` : firstName;
-    case 'initials':
-      return `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase() || '?';
+    case 'initials': {
+      const f = firstName.length > 0 ? firstName[0] : '';
+      const l = lastName.length > 0 ? lastName[0] : '';
+      return `${f}${l}`.toUpperCase() || '?';
+    }
   }
 }

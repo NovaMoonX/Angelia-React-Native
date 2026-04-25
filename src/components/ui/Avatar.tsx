@@ -74,7 +74,7 @@ const PRESET_COLORS: Record<AvatarPreset, string> = {
 
 export function Avatar({ user, preset, size = 'md', shape = 'circle', style, statusEmoji, uri }: AvatarProps) {
   const resolvedPreset: AvatarPreset = user?.avatar ?? preset ?? 'moon';
-  const resolvedUri: string | null | undefined = user != null ? user.avatarUrl : uri;
+  const resolvedUri: string | null | undefined = user !== undefined && user !== null ? user.avatarUrl : uri;
 
   const dimension = SIZE_MAP[size];
   const borderRadius = shape === 'circle' ? dimension / 2 : 8;
