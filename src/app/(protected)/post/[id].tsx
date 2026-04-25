@@ -91,9 +91,10 @@ export default function PostDetailScreen() {
 	// Group reactions by user
 	const reactionGroups = useMemo(() => {
 		const groups: Record<string, { emojis: string[]; displayName: string; isCurrentUser: boolean }> = {};
+		const userMap = new Map(allUsers.map((u) => [u.id, u]));
 		post.reactions.forEach((r) => {
 			if (!groups[r.userId]) {
-				const user = allUsers.find((u) => u.id === r.userId);
+				const user = userMap.get(r.userId);
 				const firstName = user?.firstName ?? '?';
 				const lastInitial = user?.lastName ? `${user.lastName[0]}.` : '';
 				const displayName =
