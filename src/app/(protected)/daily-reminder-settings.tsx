@@ -47,12 +47,12 @@ export default function DailyReminderSettingsScreen() {
   // Mid-day prompt
   const midDayEnabled = notificationSettings?.dailyPrompt?.enabled ?? true;
   const midDayHour = notificationSettings?.dailyPrompt?.hour ?? 12;
-  const midDayMinute = notificationSettings?.dailyPrompt?.minute ?? 0;
+  const midDayMinute = notificationSettings?.dailyPrompt?.minute ?? 30;
 
   // Wind-down prompt
   const windDownEnabled = notificationSettings?.windDownPrompt?.enabled ?? true;
-  const windDownHour = notificationSettings?.windDownPrompt?.hour ?? 17;
-  const windDownMinute = notificationSettings?.windDownPrompt?.minute ?? 30;
+  const windDownHour = notificationSettings?.windDownPrompt?.hour ?? 21;
+  const windDownMinute = notificationSettings?.windDownPrompt?.minute ?? 0;
 
   // Active picker state: which prompt's time are we editing?
   type PickerTarget = 'midday' | 'winddown';

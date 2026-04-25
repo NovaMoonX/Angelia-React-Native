@@ -51,8 +51,15 @@ function taskMeta(task: AppTask): {
       return {
         icon: 'circle',
         title: 'Create a custom Circle',
-        desc: "Custom Circles let you share specific updates with specific people. Head to your profile to create one whenever you're ready.",
-        ctaLabel: 'Go to Profile',
+        desc: "Custom Circles let you share specific updates with specific people. Head to My Circles to create one whenever you're ready.",
+        ctaLabel: 'My Circles',
+      };
+    case 'make_first_post':
+      return {
+        icon: 'edit-2',
+        title: 'Make your first post! 🚀',
+        desc: "You're all set — now share something with your Daily Circle! It doesn't have to be perfect. Even a quick hello goes a long way. 💛",
+        ctaLabel: 'Write a Post',
       };
   }
 }
@@ -110,11 +117,16 @@ export default function TasksScreen() {
     async (task: AppTask) => {
       switch (task.type) {
         case 'set_fun_fact':
-        case 'create_custom_circle':
           router.push('/(protected)/account');
+          break;
+        case 'create_custom_circle':
+          router.push({ pathname: '/(protected)/account', params: { tab: 'my-channels' } });
           break;
         case 'set_status':
           router.push('/(protected)/feed');
+          break;
+        case 'make_first_post':
+          router.push('/(protected)/post/new');
           break;
         default:
           break;
@@ -178,15 +190,17 @@ export default function TasksScreen() {
                       {meta.ctaLabel}
                     </Button>
                   )}
-                  <Pressable
-                    onPress={() => handleComplete(task)}
-                    style={[styles.dismissButton, { borderColor: theme.border }]}
-                    disabled={loadingId === task.id}
-                  >
-                    <Text style={[styles.dismissText, { color: theme.mutedForeground }]}>
-                      {loadingId === task.id ? '…' : 'Dismiss'}
-                    </Text>
-                  </Pressable>
+                  {task.type !== 'make_first_post' && (
+                    <Pressable
+                      onPress={() => handleComplete(task)}
+                      style={[styles.dismissButton, { borderColor: theme.border }]}
+                      disabled={loadingId === task.id}
+                    >
+                      <Text style={[styles.dismissText, { color: theme.mutedForeground }]}>
+                        {loadingId === task.id ? '…' : 'Dismiss'}
+                      </Text>
+                    </Pressable>
+                  )}
                 </View>
               </Card>
             );

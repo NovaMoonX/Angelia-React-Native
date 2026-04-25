@@ -89,6 +89,19 @@ export const createCustomCircleTask = createAsyncThunk(
   },
 );
 
+/** Creates a "make your first post" task. No-ops in demo mode. */
+export const createMakeFirstPostTask = createAsyncThunk(
+  'tasks/createMakeFirstPost',
+  async (_: void, { getState, rejectWithValue }) => {
+    if (isDemoActive(getState)) return null;
+    try {
+      return await makeTask(getState, 'make_first_post');
+    } catch (err) {
+      return rejectWithValue(err instanceof Error ? err.message : err);
+    }
+  },
+);
+
 /**
  * Marks a task as completed (removes it from the active task list).
  */

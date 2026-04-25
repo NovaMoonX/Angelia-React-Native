@@ -18,6 +18,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { exitDemoMode } from '@/store/actions/demoActions';
 import { saveProfile, saveStatus, clearStatus, uploadAndSaveAvatar } from '@/store/actions/userActions';
+import { completeTask } from '@/store/actions/taskActions';
 import { AVATAR_PRESETS } from '@/models/constants';
 import type { AvatarPreset, UserStatus } from '@/models/types';
 import { formatExactExpiry } from '@/lib/timeUtils';
@@ -31,6 +32,7 @@ export function AccountTab() {
 
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const currentUser = useAppSelector((state) => state.users.currentUser);
+  const tasks = useAppSelector((state) => state.tasks.items);
 
   const [editingProfile, setEditingProfile] = useState(false);
   const [editFirstName, setEditFirstName] = useState(currentUser?.firstName || '');
@@ -90,17 +92,31 @@ export function AccountTab() {
         }
       }
 
+      const hadFunFact = !!currentUser.funFact?.trim();
+      const newFunFact = editFunFact.trim();
+
       await dispatch(
         saveProfile({
           firstName: editFirstName.trim(),
           lastName: editLastName.trim(),
-          funFact: editFunFact.trim(),
+          funFact: newFunFact,
           avatar: editAvatar,
           avatarUrl: resolvedAvatarUrl || null,
         })
       ).unwrap();
       addToast({ type: 'success', title: 'Profile updated!' });
       setEditingProfile(false);
+
+      // Auto-complete the set_fun_fact task the first time the user sets a fun fact.
+      if (!hadFunFact && newFunFact) {
+        const setFunFactTaskId = tasks.find((t) => t.type === 'set_fun_fact')?.id ?? null;
+        if (setFunFactTaskId) {
+          dispatch(completeTask(setFunFactTaskId));
+          setTimeout(() => {
+            addToast({ type: 'success', title: "Fun fact added! 🎉 People will love knowing this about you." });
+          }, 5000);
+        }
+      }
     } catch {
       addToast({ type: 'error', title: 'Failed to update profile' });
     }
@@ -122,10 +138,18 @@ export function AccountTab() {
   };
 
   const handleSaveStatus = async (status: UserStatus) => {
+    const setStatusTaskId = tasks.find((t) => t.type === 'set_status')?.id ?? null;
     try {
       await dispatch(saveStatus(status)).unwrap();
       addToast({ type: 'success', title: 'Status updated!' });
       setStatusModalOpen(false);
+
+      if (setStatusTaskId) {
+        dispatch(completeTask(setStatusTaskId));
+        setTimeout(() => {
+          addToast({ type: 'success', title: "You set your first status! 🎉 Your people can see it." });
+        }, 5000);
+      }
     } catch {
       addToast({ type: 'error', title: 'Failed to set status' });
     }
