@@ -204,7 +204,7 @@ export default function PostUploadingScreen() {
           dispatch(completeTask(makeFirstPostTaskIdRef.current));
           makeFirstPostTaskIdRef.current = null; // prevent double-fire
           setTimeout(() => {
-            addToast({ type: 'success', title: "You made your first post! 🎉 Your crew can see it." });
+            addToast({ type: 'success', title: "You made your first post! 🎉 Your people can see it." });
           }, 5000);
         }
 

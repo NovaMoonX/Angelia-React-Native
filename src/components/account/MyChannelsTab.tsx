@@ -71,7 +71,7 @@ export function MyChannelsTab() {
       if (createCustomCircleTaskId) {
         dispatch(completeTask(createCustomCircleTaskId));
         setTimeout(() => {
-          addToast({ type: 'success', title: "You created your first custom Circle! 🎉 Time to invite people." });
+          addToast({ type: 'success', title: "You created your first Circle! 🎉 Time to invite people." });
         }, 5000);
       }
     } catch {

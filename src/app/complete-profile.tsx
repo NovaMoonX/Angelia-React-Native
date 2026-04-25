@@ -103,7 +103,7 @@ function oneThirdPoint(startH: number, startM: number, endH: number, endM: numbe
   let endTotal = endH * 60 + endM;
   if (endTotal <= startTotal) endTotal += 24 * 60;
   const third = startTotal + Math.floor((endTotal - startTotal) / 3);
-  const minute = Math.floor((third % 60) / 30) * 30; // round DOWN to nearest 30 min
+  const minute = Math.floor((third % 60) / 30) * 30; // round down to nearest 30 min
   return { hour: Math.floor(third / 60) % 24, minute };
 }
 
@@ -433,6 +433,7 @@ export default function CompleteProfileScreen() {
 
       // 6 — Save notification settings
       try {
+        // If skipped, default to 12:30 PM (1/3 of way through an 8am–10pm day) and 9 PM (1hr before 10pm)
         const dailyHour = notifSkipped ? 12 : midCheckIn.hour;
         const dailyMinute = notifSkipped ? 30 : midCheckIn.minute;
         const windDownHour = notifSkipped ? 21 : windDown.hour;
