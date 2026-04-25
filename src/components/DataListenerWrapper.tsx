@@ -72,6 +72,8 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const pendingInviteChannel = useAppSelector((state) => state.pendingInvite.channel);
   const pendingFromUserId = useAppSelector((state) => state.connections.pendingFromUserId);
   const connections = useAppSelector((state) => state.connections.connections);
+  const incomingConnRequests = useAppSelector((state) => state.connections.incomingRequests);
+  const outgoingConnRequests = useAppSelector((state) => state.connections.outgoingRequests);
   const posts = useAppSelector((state) => state.posts.items);
 
   // Refs used by Effect 10 so the listener isn't re-created on every post change.
@@ -193,8 +195,10 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   }, [firebaseUser, isDemo, channels, connections, dispatch]);
 
   // Effect 3: User set changes → re-subscribe to channel users
-  // Also includes connected users so their profiles are available in usersMap
-  // even when they share no circles (required by selectMyPeopleData).
+  // Also includes connected users and users from accepted connection requests
+  // so their profiles are available in usersMap even when they share no circles
+  // and even when the Cloud Function hasn't yet written the connections subcollection
+  // (required by selectMyPeopleData).
   useEffect(() => {
     if (isDemo || !firebaseUser) return;
 
@@ -205,6 +209,10 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
     });
     // Include direct connections so My People can resolve their display names.
     connections.forEach((c) => userIds.add(c.userId));
+    // Also include users from accepted connection requests in case the Cloud
+    // Function hasn't yet written to the connections subcollection.
+    incomingConnRequests.forEach((r) => { if (r.status === 'accepted') userIds.add(r.fromId); });
+    outgoingConnRequests.forEach((r) => { if (r.status === 'accepted') userIds.add(r.toId); });
 
     const uniqueIds = Array.from(userIds);
     if (uniqueIds.length === 0) return;
@@ -226,7 +234,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
         usersUnsubRef.current = null;
       }
     };
-  }, [firebaseUser, isDemo, channels, connections, dispatch]);
+  }, [firebaseUser, isDemo, channels, connections, incomingConnRequests, outgoingConnRequests, dispatch]);
 
   // Effect 4: Process pending invite once user is authenticated
   useEffect(() => {

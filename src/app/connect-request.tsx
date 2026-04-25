@@ -41,6 +41,7 @@ export default function ConnectRequestScreen() {
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const connections = useAppSelector((state) => state.connections.connections);
+  const incomingConnRequests = useAppSelector((state) => state.connections.incomingRequests);
 
   const [hostUser, setHostUser] = useState<User | null>(null);
   const [loadingHost, setLoadingHost] = useState(true);
@@ -74,6 +75,12 @@ export default function ConnectRequestScreen() {
       return;
     }
 
+    // Also check accepted incoming requests (reverse direction: `from` sent to current user)
+    if (incomingConnRequests.some((r) => r.fromId === from && r.status === 'accepted')) {
+      setAlreadyConnected(true);
+      return;
+    }
+
     getExistingConnectionRequest(currentUser.id, from)
       .then((req) => {
         if (req) {
@@ -82,7 +89,7 @@ export default function ConnectRequestScreen() {
         }
       })
       .catch(() => {});
-  }, [from, currentUser, connections]);
+  }, [from, currentUser, connections, incomingConnRequests]);
 
   const handleConnect = useCallback(async () => {
     if (!from) return;

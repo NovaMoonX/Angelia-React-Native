@@ -6,10 +6,12 @@ import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 /**
  * Derives the people list for the My People screen.
  *
- * Every entry is a direct connection (written by `onConnectionRequestAccepted`
- * or `onJoinRequestAccepted` Cloud Functions). Because joining a circle
- * automatically creates a mutual connection between the member and the circle
- * host, it is no longer possible to have circle-only members.
+ * The primary source of connections is the `connections` subcollection written
+ * by the `onConnectionRequestAccepted` or `onJoinRequestAccepted` Cloud
+ * Functions.  As a fallback — for when the Cloud Function is delayed or has not
+ * yet run — this selector also treats any *accepted* connection request
+ * (incoming or outgoing) as a connection, so the person shows up immediately
+ * after acceptance without waiting for the Cloud Function.
  *
  * Each entry includes an `inCircle` flag that is `true` when the person also
  * shares at least one circle with the current user:
@@ -21,13 +23,24 @@ import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 export const selectMyPeopleData = createSelector(
   [
     (state: RootState) => state.connections.connections,
+    (state: RootState) => state.connections.incomingRequests,
+    (state: RootState) => state.connections.outgoingRequests,
     (state: RootState) => state.channels.items,
     selectAllUsersMapById,
     (state: RootState) => state.users.currentUser?.id ?? '',
   ],
-  (connections, channels, usersMap, currentUserId) => {
+  (connections, incomingRequests, outgoingRequests, channels, usersMap, currentUserId) => {
     // ── Direct connections ────────────────────────────────────────────────
     const directIds = new Set(connections.map((c) => c.userId));
+
+    // Include users from accepted requests as a fallback for when the Cloud
+    // Function hasn't yet written to the connections subcollection.
+    for (const req of outgoingRequests) {
+      if (req.status === 'accepted') directIds.add(req.toId);
+    }
+    for (const req of incomingRequests) {
+      if (req.status === 'accepted') directIds.add(req.fromId);
+    }
 
     // ── Build the set of users who also share a circle ────────────────────
     const sharedCircleIds = new Set<string>();
