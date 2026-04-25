@@ -133,7 +133,7 @@ export default function NotificationsScreen() {
                       </View>
                       {req.note ? (
                         <Text style={[styles.requestMessage, { color: theme.foreground }]}>
-                          &quot;{req.note}&quot;
+                          "{req.note}"
                         </Text>
                       ) : null}
                       <View style={styles.requestActions}>
