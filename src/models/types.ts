@@ -10,25 +10,48 @@ export interface UserStatus {
   expiresAt: number;
 }
 
-export interface User {
+/**
+ * Public profile — readable by any authenticated user.
+ * Stored at `usersPublic/{uid}`.
+ */
+export interface UserPublic {
   id: string;
   firstName: string;
   lastName: string;
-  email: string;
-  funFact: string;
   avatar: AvatarPreset;
   /** Firebase Storage download URL for a custom profile photo. When set, takes precedence over `avatar`. */
   avatarUrl: string | null;
   joinedAt: number;
+}
+
+/**
+ * Private profile — readable by other users (e.g. connected users / channel members).
+ * Stored at `usersPrivate/{uid}`.
+ */
+export interface UserPrivate {
+  email: string;
+  funFact: string;
+  status: UserStatus | null;
+}
+
+/**
+ * Secret profile — readable only by the user themselves.
+ * Stored at `usersSecret/{uid}`.
+ */
+export interface UserSecret {
   accountProgress: {
     signUpComplete: boolean;
     emailVerified: boolean;
     dailyChannelCreated: boolean;
   };
   customChannelCount: number;
-  status: UserStatus | null;
-  channelTierPrefs?: Record<string, PostTier[]>;
 }
+
+/**
+ * Merged user type used internally in Redux state.
+ * Combines all three Firestore sub-documents into a single in-memory shape.
+ */
+export interface User extends UserPublic, UserPrivate, UserSecret {}
 
 export type NewUser = Omit<User, 'joinedAt' | 'accountProgress' | 'customChannelCount' | 'status'>;
 
@@ -70,7 +93,7 @@ export interface NotificationSettings {
    */
   autoDetectTimeZone: boolean;
 }
-export type UpdateUserProfileData = Pick<User, 'firstName' | 'lastName' | 'funFact' | 'avatar' | 'avatarUrl'>
+export type UpdateUserProfileData = Pick<UserPublic, 'firstName' | 'lastName' | 'avatar' | 'avatarUrl'> & Pick<UserPrivate, 'funFact'>
 
 /**
  * Partial update shape for notification settings.  The `dailyPrompt` sub-object

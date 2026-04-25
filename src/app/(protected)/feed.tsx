@@ -127,16 +127,6 @@ export default function FeedScreen() {
       result = result.filter((p) => allowedChannelIds.has(p.channelId));
     }
 
-    // Apply per-channel tier preferences
-    const tierPrefs = currentUser?.channelTierPrefs;
-    if (tierPrefs) {
-      result = result.filter((p) => {
-        const prefs = tierPrefs[p.channelId];
-        if (!prefs || prefs.length === 0) return true;
-        return prefs.includes(p.tier ?? 'everyday');
-      });
-    }
-
     // Apply feed-level priority filter
     result = result.filter(matchesPriorityFilter);
 
@@ -147,26 +137,17 @@ export default function FeedScreen() {
     );
 
     return result.slice(0, displayCount);
-  }, [posts, allowedChannelIds, sortOrder, displayCount, currentUser?.channelTierPrefs, priorityFilter, matchesPriorityFilter]);
+  }, [posts, allowedChannelIds, sortOrder, displayCount, priorityFilter, matchesPriorityFilter]);
 
   const hasMore = useMemo(() => {
-    const tierPrefs = currentUser?.channelTierPrefs;
-    const matchesTier = (p: (typeof posts)[0]) => {
-      if (!tierPrefs) return true;
-      const prefs = tierPrefs[p.channelId];
-      if (!prefs || prefs.length === 0) return true;
-      return prefs.includes(p.tier ?? 'everyday');
-    };
-
     const total = posts.filter(
       (p) =>
         p.status === 'ready' &&
         (allowedChannelIds === null || allowedChannelIds.has(p.channelId)) &&
-        matchesTier(p) &&
         matchesPriorityFilter(p),
     ).length;
     return displayCount < total;
-  }, [posts, allowedChannelIds, displayCount, currentUser?.channelTierPrefs, priorityFilter, matchesPriorityFilter]);
+  }, [posts, allowedChannelIds, displayCount, priorityFilter, matchesPriorityFilter]);
 
   const loadMore = useCallback(() => {
     if (hasMore) {
