@@ -14,6 +14,7 @@ import { SubscribedTab } from '@/components/account/SubscribedTab';
 import { useAppSelector } from '@/store/hooks';
 import { useTheme } from '@/hooks/useTheme';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
+import { ScreenHeader } from '@/components/ScreenHeader';
 
 export default function AccountScreen() {
   const { theme } = useTheme();
@@ -30,11 +31,13 @@ export default function AccountScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={KEYBOARD_BEHAVIOR}
-      keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
-    >
+    <View style={{ flex: 1 }}>
+      <ScreenHeader title="Account" />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={KEYBOARD_BEHAVIOR}
+        keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
+      >
       <ScrollView
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={[styles.content, { paddingTop: 8 }]}
@@ -61,6 +64,7 @@ export default function AccountScreen() {
         </Tabs>
       </ScrollView>
     </KeyboardAvoidingView>
+    </View>
   );
 }
 

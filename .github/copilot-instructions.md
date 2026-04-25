@@ -95,11 +95,42 @@ Always use `useSafeAreaInsets()` to account for home-bar / system-navigation-bar
 - Prefer `ScrollView` over a plain `View` for any screen whose content could exceed the viewport, so users can always reach every button/action.
 
 ### Demo-mode header gap
-In demo mode the `DemoModeBanner` is rendered **above** the `Stack` navigator in `_layout.tsx`. This means the Stack's header should not add an additional status-bar-height offset. For every screen that has `headerShown: true`, add:
+
+In demo mode the `DemoModeBanner` is rendered **above** the `Stack` navigator in `_layout.tsx`, consuming the status-bar area. Expo Router uses `@react-navigation/native-stack` (NativeStack), which reads `useSafeAreaInsets().top` internally — meaning any NativeStack-managed header would double-count that gap.
+
+**The fix: always use `headerShown: false` + `<ScreenHeader>` for any screen that needs a back button or title.**
+
+> ⚠️ **Do NOT use NativeStack's built-in header** (`headerShown: true`) for screens inside this layout. NativeStack ignores `headerStatusBarHeight` (a JS Stack-only prop) and always adds its own top-inset padding regardless.
+> ⚠️ **Do NOT use `SafeAreaInsetsContext.Provider`** to override top insets for the Stack — it does not work with NativeStack.
+
+**`ScreenHeader` component** lives at `src/components/ScreenHeader.tsx`:
 ```tsx
-...(isDemo ? { headerStatusBarHeight: 0 } : {})
+<ScreenHeader title="My Screen" />
+// Optional props:
+// showBack?: boolean  (default: true)
+// onBack?: () => void (default: router.back())
 ```
-This pattern is already applied to `post/[id]`, `account`, and `share-connection`. Apply it to every new screen that uses a Stack header.
+It reads `isDemo` from Redux and handles `paddingTop` automatically:
+- demo mode → `paddingTop: 10`
+- normal → `paddingTop: insets.top + 10`
+
+**Pattern for screens with a header:**
+```tsx
+// In _layout.tsx:
+<Stack.Screen name="my-screen" options={{ headerShown: false }} />
+
+// In my-screen.tsx:
+return (
+  <View style={{ flex: 1 }}>
+    <ScreenHeader title="My Screen" />
+    {/* rest of content, e.g. ScrollView or KeyboardAvoidingView */}
+  </View>
+);
+```
+
+Place `<ScreenHeader>` **outside** any `<KeyboardAvoidingView>` so the existing `KEYBOARD_VERTICAL_OFFSET = 90` constant remains valid (the header height approximately matches the old native header height).
+
+For screens that use a fully custom animated header (e.g. `conversation.tsx`), handle `paddingTop` manually: `paddingTop: isDemo ? 10 : insets.top + 10`.
 
 ---
 

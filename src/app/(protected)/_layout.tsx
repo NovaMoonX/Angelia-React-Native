@@ -8,6 +8,7 @@ import { DemoModeBanner } from '@/components/DemoModeBanner';
 import { DataListenerWrapper } from '@/components/DataListenerWrapper';
 import { View } from 'react-native';
 
+
 export default function ProtectedLayout() {
   const { firebaseUser, loading } = useAuth();
   const isDemo = useAppSelector((state) => state.demo.isActive);
@@ -65,13 +66,7 @@ export default function ProtectedLayout() {
           />
           <Stack.Screen
             name="post/[id]"
-            options={{ 
-              headerShown: true, 
-              title: 'Post',
-              headerStyle: { backgroundColor: theme.background },
-              headerTintColor: theme.foreground,
-              ...(isDemo ? { headerStatusBarHeight: 0 } : {}),
-            }}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="conversation"
@@ -82,23 +77,12 @@ export default function ProtectedLayout() {
           />
           <Stack.Screen
             name="account"
-            options={{
-              headerShown: true,
-              title: 'Account',
-              ...(isDemo ? { headerStatusBarHeight: 0 } : {}),
-            }}
+            options={{ headerShown: false }}
           />
           <Stack.Screen name="notifications" options={{ headerShown: false }} />
           <Stack.Screen
             name="notification-settings"
-            options={{
-              headerShown: true,
-              title: 'Notification Settings',
-              headerStyle: { backgroundColor: theme.background },
-              headerTintColor: theme.foreground,
-              headerTitleStyle: { fontWeight: '600' },
-              ...(isDemo ? { headerStatusBarHeight: 0 } : {}),
-            }}
+            options={{ headerShown: false }}
           />
           <Stack.Screen name="daily-reminder-settings" options={{ headerShown: false }} />
           <Stack.Screen
@@ -110,14 +94,7 @@ export default function ProtectedLayout() {
           <Stack.Screen name="my-people" options={{ headerShown: false }} />
           <Stack.Screen
             name="share-connection"
-            options={{
-              headerShown: true,
-              title: 'Share Connection Link',
-              headerStyle: { backgroundColor: theme.background },
-              headerTintColor: theme.foreground,
-              headerTitleStyle: { fontWeight: '600' },
-              ...(isDemo ? { headerStatusBarHeight: 0 } : {}),
-            }}
+            options={{ headerShown: false }}
           />
           <Stack.Screen name="channel-accepted" options={{ headerShown: false }} />
           <Stack.Screen
@@ -126,18 +103,11 @@ export default function ProtectedLayout() {
           />
           <Stack.Screen
             name="tasks"
-            options={{
-              headerShown: true,
-              title: 'My Tasks',
-              headerStyle: { backgroundColor: theme.background },
-              headerTintColor: theme.foreground,
-              headerTitleStyle: { fontWeight: '600' },
-              ...(isDemo ? { headerStatusBarHeight: 0 } : {}),
-            }}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="error-fallback"
-            options={{ title: 'Error', headerBackVisible: false }}
+            options={{ headerShown: false }}
           />
         </Stack>
       </View>
