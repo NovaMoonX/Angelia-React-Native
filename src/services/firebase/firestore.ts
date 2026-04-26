@@ -494,17 +494,49 @@ export function subscribeToCurrentUser(
 
 export function subscribeToChannels(
   uid: string,
-  callback: (channels: Channel[]) => void
+  callback: (channels: Channel[]) => void,
 ): () => void {
-  return onSnapshot(
-    query(collection(db, 'channels'), where('markedForDeletionAt', '==', null)),
+  // Use two targeted queries instead of a global collection scan to avoid
+  // client-side filtering bugs (e.g. channels with missing `subscribers` fields
+  // causing Array.prototype.includes() to throw and silently drop all results).
+  const ownedMap = new Map<string, Channel>();
+  const subscribedMap = new Map<string, Channel>();
+
+  function emit() {
+    // Merge maps; owned takes precedence over subscribed for the same channel id.
+    const merged = new Map<string, Channel>(ownedMap);
+    for (const [id, ch] of subscribedMap) {
+      if (!merged.has(id)) merged.set(id, ch);
+    }
+    callback(
+      Array.from(merged.values()).filter((ch) => ch.markedForDeletionAt == null),
+    );
+  }
+
+  const unsubOwned = onSnapshot(
+    query(collection(db, 'channels'), where('ownerId', '==', uid)),
     (snap) => {
-      const channels = snap.docs
-        .map((d) => d.data() as Channel)
-        .filter((ch) => ch.ownerId === uid || ch.subscribers.includes(uid));
-      callback(channels);
+      ownedMap.clear();
+      for (const d of snap.docs) ownedMap.set(d.id, d.data() as Channel);
+      emit();
     },
+    (_err) => { emit(); },
   );
+
+  const unsubSubscribed = onSnapshot(
+    query(collection(db, 'channels'), where('subscribers', 'array-contains', uid)),
+    (snap) => {
+      subscribedMap.clear();
+      for (const d of snap.docs) subscribedMap.set(d.id, d.data() as Channel);
+      emit();
+    },
+    (_err) => { emit(); },
+  );
+
+  return () => {
+    unsubOwned();
+    unsubSubscribed();
+  };
 }
 
 export function subscribeToPosts(
@@ -534,9 +566,14 @@ export function subscribeToPosts(
         where('markedForDeletionAt', '==', null),
       ),
       (snap) => {
+        if (!snap) return;
         for (const d of snap.docs) {
           allPosts.set(d.id, d.data() as Post);
         }
+        callback(Array.from(allPosts.values()));
+      },
+      (_error) => {
+        // Query failed (missing index or rules denial) — return what we have so far
         callback(Array.from(allPosts.values()));
       },
     );

@@ -11,6 +11,7 @@
     "prefs",
     "Pressable",
     "Schedulable",
+    "subcollection",
     "unsub",
     "unsubs",
     "viewability",

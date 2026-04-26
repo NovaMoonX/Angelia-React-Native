@@ -27,6 +27,29 @@ Angelia is a warm, playful, and encouraging app. All user-facing copy — placeh
 
 ---
 
+## Firestore indexes (`firestore.indexes.json`)
+
+`firestore.indexes.json` is the source of truth for composite Firestore indexes. Any query that combines filters on **two or more different fields** (including `in` with a second equality/inequality filter) requires a composite index. Missing indexes cause queries to fail silently on the client — the `onSnapshot` callback simply never fires.
+
+**Keep `firestore.indexes.json` up to date whenever:**
+- A new collection query is added in `src/services/firebase/firestore.ts` that uses more than one `where()` clause on different fields.
+- An existing query gains a new filter.
+- A query is removed (remove its index entry to keep the file clean).
+
+**Current required indexes:**
+| Collection | Fields | Reason |
+|---|---|---|
+| `posts` | `channelId ASC`, `markedForDeletionAt ASC` | `subscribeToPosts` uses `in` + `== null` |
+| `connectionRequests` | `fromId ASC`, `toId ASC`, `status ASC` | `getExistingConnectionRequest` uses three filters |
+| `channels` | `inviteCode ASC`, `markedForDeletionAt ASC` | `getChannelByInviteCode` uses two filters |
+
+After updating `firestore.indexes.json`, deploy with:
+```bash
+npm run deploy:indexes
+```
+
+---
+
 ## Firestore field conventions
 
 - **Never** use TypeScript optional (`?`) for fields that are stored in Firestore documents. Instead, use `| null` for nullable fields. Firestore does not natively support `undefined`, and optional fields can lead to subtle bugs or missing fields in documents.

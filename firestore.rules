@@ -315,9 +315,12 @@ service cloud.firestore {
     }
 
     // Connections — mutual connections written by Cloud Function on acceptance.
-    // Each user can only read their own connections list.
+    // The owner of a connections list may read it (to see who they're connected to).
+    // The person named in a connection entry may also read it — this is required so
+    // that the `isConnectedToAuthorDailyChannel()` exists() call in the posts rule
+    // can succeed when user B reads a post in user A's daily channel.
     match /connections/{userId}/people/{personId} {
-      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow read: if isSignedIn() && (request.auth.uid == userId || request.auth.uid == personId);
       // Writes are handled exclusively by the Admin SDK (Cloud Function).
       allow create, update, delete: if false;
     }
