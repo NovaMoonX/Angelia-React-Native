@@ -217,6 +217,7 @@ export default function ConversationScreen() {
   const colors = channel
     ? getColorPair(channel)
     : { backgroundColor: '#6366F1', textColor: '#FFF' };
+  const channelBadgeLabel = channel?.isDaily ? 'Daily' : channel?.name;
   const authorName = getPostAuthorName(author, currentUser);
   const expiryInfo = channel != null
     ? getPostExpiryInfo(post.timestamp, channel.isDaily === true)
@@ -268,7 +269,7 @@ export default function ConversationScreen() {
             style={{ backgroundColor: colors.backgroundColor, borderColor: colors.backgroundColor }}
             textStyle={{ color: colors.textColor, fontSize: 11 }}
           >
-            {channel.name}
+            {channelBadgeLabel}
           </Badge>
         )}
 

@@ -36,6 +36,8 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const { theme } = useTheme();
 
+  const channelBadgeLabel = channel?.isDaily ? 'Daily' : channel?.name;
+
   const colors = channel
     ? getColorPair(channel)
     : { backgroundColor: '#6366F1', textColor: '#FFF' };
@@ -111,7 +113,7 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
                 }}
                 textStyle={{ color: colors.textColor, fontSize: 11 }}
               >
-                {channel.name}
+                {channelBadgeLabel}
               </Badge>
             )}
           </View>

@@ -80,6 +80,7 @@ export default function PostDetailScreen() {
 	}
 
 	const colors = channel ? getColorPair(channel) : { backgroundColor: '#6366F1', textColor: '#FFF' };
+	const channelBadgeLabel = channel?.isDaily ? 'Daily' : channel?.name;
 	const authorName = getPostAuthorName(author, currentUser);
 	const hasReacted = post.reactions.some((r) => r.userId === currentUser.id);
 	const canAccessConversation = hasReacted || isHost;
@@ -256,7 +257,7 @@ export default function PostDetailScreen() {
 							}}
 							textStyle={{ color: colors.textColor }}
 						>
-							{channel.name}
+							{channelBadgeLabel}
 						</Badge>
 					)}
 				</View>
