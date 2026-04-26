@@ -1,4 +1,30 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "channelId", "order": "ASCENDING" },
+        { "fieldPath": "markedForDeletionAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "connectionRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fromId", "order": "ASCENDING" },
+        { "fieldPath": "toId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "channels",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "inviteCode", "order": "ASCENDING" },
+        { "fieldPath": "markedForDeletionAt", "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

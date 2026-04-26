@@ -18,6 +18,7 @@ import {
   setIncomingConnectionRequests,
   setOutgoingConnectionRequests,
 } from '@/store/slices/connectionsSlice';
+import { selectAllChannels } from '@/store/slices/channelsSlice';
 import { processPendingInvite } from '@/store/actions/inviteActions';
 import { processPendingConnection } from '@/store/actions/connectionsActions';
 import { initNotifications } from '@/store/actions/notificationActions';
@@ -42,7 +43,6 @@ import {
   getFollowUpForPrompt,
 } from '@/services/notifications';
 import type { AppNotificationType, Channel, ChannelJoinRequest, Connection, ConnectionRequest, NotificationSettings, Post, User } from '@/models/types';
-import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
 
 /** AsyncStorage key that tracks the calendar date when the daily in-app notice was last shown. */
 const DAILY_PROMPT_SHOWN_DATE_KEY = '@angelia/daily_prompt_shown_date';
@@ -67,7 +67,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const { firebaseUser } = useAuth();
   const { addToast } = useToast();
   const isDemo = useAppSelector((state) => state.demo.isActive);
-  const channels = useAppSelector((state) => state.channels.items);
+  const channels = useAppSelector(selectAllChannels);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const pendingInviteChannel = useAppSelector((state) => state.pendingInvite.channel);
   const pendingFromUserId = useAppSelector((state) => state.connections.pendingFromUserId);
@@ -158,17 +158,14 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
     };
   }, [firebaseUser, isDemo, dispatch]);
 
-  // Effect 2: Channel changes → re-subscribe to posts
-  // Includes connected users' daily channel IDs so their posts appear in the feed.
+  // Effect 2: Channel changes → re-subscribe to posts.
+  // `channels` (from selectAllChannels) already includes both owned/subscribed channels
+  // and connected users' daily channels, so we subscribe to all of them directly.
   useEffect(() => {
     if (isDemo || !firebaseUser) return;
 
     const uid = firebaseUser.uid;
-    const ownChannelIds = channels.map((c) => c.id);
-    const connectedDailyIds = connections
-      .map((c) => `${c.userId}${DAILY_CHANNEL_SUFFIX}`)
-      .filter((id) => !ownChannelIds.includes(id));
-    const channelIds = [...ownChannelIds, ...connectedDailyIds];
+    const channelIds = channels.map((c) => c.id);
 
     if (channelIds.length === 0) return;
 
@@ -190,7 +187,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
         postsUnsubRef.current = null;
       }
     };
-  }, [firebaseUser, isDemo, channels, connections, dispatch]);
+  }, [firebaseUser, isDemo, channels, dispatch]);
 
   // Effect 3: User set changes → re-subscribe to channel users
   // Also includes connected users so their profiles are available in usersMap

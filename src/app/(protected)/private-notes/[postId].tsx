@@ -25,22 +25,22 @@ export default function PrivateNotesScreen() {
 	// Only the host (post author) should be viewing this screen
 	const isHost = currentUser?.id === post?.authorId;
 
-	const { notes } = usePrivateNotes({
+	const { notes, loaded, subscriptionFailed } = usePrivateNotes({
 		postId: isHost ? postId : null,
 		hostId: isHost ? post?.authorId : null,
 	});
 
-	// Guard: redirect back if not the host, or notes are empty
-	// (badge on the post screen is only shown when notes > 0, so this protects
-	// against direct deep-links and race conditions)
+	// Guard: redirect back if not the host, or notes are genuinely empty after loading.
+	// `subscriptionFailed` prevents a false redirect when Firestore denies the read —
+	// in that case we stay on-screen so the error is visible in logs.
 	useEffect(() => {
 		if (!post || !currentUser) return;
-		if (!isHost || notes.length === 0) {
+		if (!isHost || (loaded && !subscriptionFailed && notes.length === 0)) {
 			router.back();
 		}
-	}, [isHost, notes.length, post, currentUser, router]);
+	}, [isHost, loaded, subscriptionFailed, notes.length, post, currentUser, router]);
 
-	if (!post || !currentUser || !isHost || notes.length === 0) {
+	if (!post || !currentUser || !isHost || (loaded && !subscriptionFailed && notes.length === 0)) {
 		return (
 			<View style={[styles.centered, { backgroundColor: theme.background }]} />
 		);

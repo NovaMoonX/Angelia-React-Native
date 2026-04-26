@@ -28,8 +28,9 @@
 		"deploy:rules:firestore": "firebase deploy --only firestore:rules",
 		"deploy:rules:storage": "firebase deploy --only storage",
 		"deploy:rules": "firebase deploy --only firestore:rules,storage",
+		"deploy:indexes": "firebase deploy --only firestore:indexes",
 		"deploy:functions": "cd functions && npm run build && firebase deploy --only functions",
-		"deploy:all": "cd functions && npm run build && cd .. && firebase deploy --only firestore:rules,storage,functions"
+		"deploy:all": "cd functions && npm run build && cd .. && firebase deploy --only firestore:rules,firestore:indexes,storage,functions"
 	},
 	"dependencies": {
 		"@expo/vector-icons": "^15.0.2",

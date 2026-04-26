@@ -244,7 +244,7 @@ async function sendFcmToTokens(
   if (tokens.length === 0) return;
   const { title, body, data } = payload;
   try {
-    await messaging.sendEachForMulticast({
+    const res = await messaging.sendEachForMulticast({
       tokens,
       notification: { title, body },
       data,
@@ -263,8 +263,17 @@ async function sendFcmToTokens(
         },
       },
     });
-  } catch {
-    // Delivery failure is best-effort
+    if (res.failureCount > 0) {
+      res.responses.forEach((r, idx) => {
+        if (!r.success) {
+          console.error(`Failed to send FCM to token ${tokens[idx]}:`, r.error);
+        }
+      });
+    } else {
+      console.log(`Successfully sent FCM to ${tokens.length} tokens`);
+    }
+  } catch (err) {
+    console.error('FCM send error:', err);
   }
 }
 
@@ -285,7 +294,7 @@ async function getTokensForUser(userId: string): Promise<string[]> {
  * push notification to all registered devices, then deletes the notification document.
  *
  * Supported targets:
- *   - `user`         — a single specific user (existing behaviour)
+ *   - `user`         — a single specific user (existing behavior)
  *   - `channel_tier` — all subscribers of a channel, e.g. for big-news posts
  */
 export const sendAppNotification = onDocumentCreated(
@@ -325,7 +334,7 @@ export const sendAppNotification = onDocumentCreated(
       const allTokens = tokenArrays.flat();
       await sendFcmToTokens(allTokens, payload);
     } else {
-      // `thread` targets and any future unrecognised target types are not yet
+      // `thread` targets and any future unrecognized target types are not yet
       // supported.  Fall through to deletion so the document is cleaned up.
     }
 

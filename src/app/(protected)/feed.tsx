@@ -26,6 +26,7 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { saveStatus, clearStatus } from '@/store/actions/userActions';
 import { completeTask } from '@/store/actions/taskActions';
 import { selectHasAnyPendingActivity } from '@/store/crossSelectors/activitySelectors';
+import { selectAllChannels } from '@/store/slices/channelsSlice';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { POST_TIERS } from '@/models/constants';
@@ -44,7 +45,7 @@ export default function FeedScreen() {
 
   const posts = useAppSelector((state) => state.posts.items);
   const postsLoaded = useAppSelector((state) => state.posts.loaded);
-  const channels = useAppSelector((state) => state.channels.items);
+  const channels = useAppSelector(selectAllChannels);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const hasPendingActivity = useAppSelector(selectHasAnyPendingActivity);
