@@ -55,7 +55,7 @@ export default function AuthScreen() {
     mode?: string;
     redirect?: string;
   }>();
-  const { signIn, signUp, enterDemo, loading: authLoading, firebaseUser } = useAuth();
+  const { signIn, signUp, enterDemo, loading: authLoading, firebaseUser, sendPasswordReset } = useAuth();
   const { addToast } = useToast();
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
@@ -93,7 +93,6 @@ export default function AuthScreen() {
       if (action === 'signup') {
         signUpInProgress.current = true;
         await signUp(data.email, data.password);
-        addToast({ type: 'success', title: 'Account created!' });
         router.replace('/complete-profile');
       } else {
         await signIn(data.email, data.password);
@@ -105,6 +104,10 @@ export default function AuthScreen() {
       const message = getFirebaseAuthErrorMessage(err);
       return { error: { message } };
     }
+  };
+
+  const handleForgotPassword = async (email: string) => {
+    await sendPasswordReset(email);
   };
 
   const handleDemoMode = async () => {
@@ -143,6 +146,7 @@ export default function AuthScreen() {
           action="both"
           onActionChange={(newMode) => setAuthMode(newMode)}
           onEmailSubmit={handleEmailSubmit}
+          onForgotPassword={handleForgotPassword}
           defaultMethod="email"
           onBack={() => router.replace('/')}
         />

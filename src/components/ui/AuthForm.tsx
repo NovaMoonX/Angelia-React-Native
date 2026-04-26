@@ -71,11 +71,12 @@ interface AuthFormProps {
   onActionChange: (newMode: 'login' | 'sign up') => void;
   onEmailSubmit: AuthFormOnEmailSubmit;
   onGoogleSignIn?: () => Promise<{ error?: { message: string } }>;
+  onForgotPassword?: (email: string) => Promise<void>;
   defaultMethod?: 'email';
   onBack?: () => void;
 }
 
-export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoogleSignIn, defaultMethod, onBack }: AuthFormProps) {
+export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoogleSignIn, onForgotPassword, defaultMethod, onBack }: AuthFormProps) {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [selectedMethod, setSelectedMethod] = useState<'email' | null>(defaultMethod ?? null);
   const [email, setEmail] = useState('');
@@ -86,6 +87,10 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
+  const [isForgotSending, setIsForgotSending] = useState(false);
   const { theme } = useTheme();
 
   const handleToggle = () => {
@@ -127,9 +132,6 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
         setError('Password must include at least one symbol (e.g. !@#$%).');
         return;
       }
-    } else if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
-      return;
     }
 
     setIsSubmitting(true);
@@ -152,6 +154,21 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!forgotEmail.trim()) return;
+    if (!onForgotPassword) return;
+    setIsForgotSending(true);
+    try {
+      await onForgotPassword(forgotEmail.trim());
+      setForgotSent(true);
+    } catch {
+      // Show a generic message so we don't reveal whether the email is registered
+      setForgotSent(true);
+    } finally {
+      setIsForgotSending(false);
+    }
+  };
+
   const handleBackToMethods = () => {
     if (defaultMethod && onBack) {
       onBack();
@@ -160,6 +177,55 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
       setError('');
     }
   };
+
+  // ---- Forgot password screen ----
+  if (showForgotPassword) {
+    return (
+      <View style={styles.container}>
+        <Pressable onPress={() => { setShowForgotPassword(false); setForgotSent(false); setForgotEmail(''); }} style={styles.backRow}>
+          <Feather name="arrow-left" size={18} color={theme.primary} />
+          <Text style={[styles.backText, { color: theme.primary }]}>Back to sign in</Text>
+        </Pressable>
+
+        <Text style={[styles.heading, { color: theme.foreground }]}>Reset your password</Text>
+
+        {forgotSent ? (
+          <View style={styles.form}>
+            <Text style={[styles.forgotSuccess, { color: theme.foreground }]}>
+              ✅ If an account exists for that email, you'll receive a reset link shortly. Check your inbox (and spam folder)!
+            </Text>
+            <Button onPress={() => { setShowForgotPassword(false); setForgotSent(false); setForgotEmail(''); }}>
+              Back to Sign In
+            </Button>
+          </View>
+        ) : (
+          <View style={styles.form}>
+            <Text style={[styles.forgotHint, { color: theme.mutedForeground }]}>
+              Enter the email address you used to sign up and we'll send you a reset link.
+            </Text>
+            <View>
+              <Label>Email</Label>
+              <Input
+                value={forgotEmail}
+                onChangeText={setForgotEmail}
+                placeholder="you@example.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+              />
+            </View>
+            <Button
+              onPress={handleForgotPassword}
+              loading={isForgotSending}
+              disabled={isForgotSending || !forgotEmail.trim()}
+            >
+              Send Reset Link
+            </Button>
+          </View>
+        )}
+      </View>
+    );
+  }
 
   // ---- Method picker (initial view) ----
   if (!selectedMethod) {
@@ -275,6 +341,14 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
                 />
               </Pressable>
             </View>
+            {confirmPassword.length > 0 && (
+              <Text style={[
+                styles.passwordMatchHint,
+                { color: confirmPassword === password ? '#16A34A' : '#DC2626' },
+              ]}>
+                {confirmPassword === password ? '✓ Passwords match' : '✗ Passwords do not match'}
+              </Text>
+            )}
           </View>
         )}
 
@@ -289,6 +363,12 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
         >
           {mode === 'login' ? 'Sign In' : 'Sign Up'}
         </Button>
+
+        {mode === 'login' && onForgotPassword && (
+          <Pressable onPress={() => { setShowForgotPassword(true); setForgotEmail(email); }} style={styles.forgotRow}>
+            <Text style={[styles.forgotText, { color: theme.primary }]}>Forgot your password?</Text>
+          </Pressable>
+        )}
       </View>
 
       <View style={styles.toggleRow}>
@@ -347,5 +427,27 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     justifyContent: 'center',
+  },
+  passwordMatchHint: {
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  forgotRow: {
+    alignItems: 'center',
+    marginTop: -4,
+  },
+  forgotText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  forgotHint: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  forgotSuccess: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
   },
 });

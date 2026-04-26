@@ -39,7 +39,7 @@ import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout'
 
 const TOTAL_STEPS = 6;
 
-type Category = 'family' | 'hobbies' | 'lifelog';
+type Category = 'family' | 'hobbies' | 'lifelog' | 'business';
 
 type FamilyStyle = 'new-parent' | 'grandparent' | 'long-distance' | 'immediate-family' | 'inner-circle';
 
@@ -73,6 +73,16 @@ const LIFELOG_EMOJI: Record<string, string> = {
 };
 
 const DEFAULT_LIFELOG_EMOJI = '📓';
+
+type BusinessStyle = 'small-business' | 'organization' | 'club' | 'creator' | 'side-hustle';
+
+const BUSINESS_STYLES: { id: BusinessStyle; title: string; label: string; desc: string }[] = [
+  { id: 'small-business', title: '🏪 Small Business', label: 'Small Business', desc: 'I run a business and want to keep my community updated.' },
+  { id: 'organization', title: '🏛️ Organization / Nonprofit', label: 'Organization', desc: 'I lead an organization and want to share what we're working on.' },
+  { id: 'club', title: '🤝 Club / Group', label: 'Club or Group', desc: 'I run a club or recurring group and want to keep members in the loop.' },
+  { id: 'creator', title: '🎙️ Creator / Maker', label: 'Creator', desc: 'I create things and want to share my process and updates.' },
+  { id: 'side-hustle', title: '🚀 Side Hustle', label: 'Side Hustle', desc: 'I have a project on the side that I want to document and share.' },
+];
 
 const CIRCLE_LIMIT_WARNING = "You've hit the 3-circle limit. Remove an existing one to add a different one.";
 
@@ -117,6 +127,97 @@ function formatTime(h: number, m: number) {
   return `${hour}:${String(m).padStart(2, '0')} ${ampm}`;
 }
 
+// ── Time Picker (module-level to preserve ScrollView scroll position) ────────
+
+interface TimePickerProps {
+  label: string;
+  hour: number;
+  minute: number;
+  ampm: 'AM' | 'PM';
+  onHourChange: (h: number) => void;
+  onMinuteChange: (m: number) => void;
+  onAmPmChange: (v: 'AM' | 'PM') => void;
+}
+
+function TimePicker({ label, hour, minute, ampm, onHourChange, onMinuteChange, onAmPmChange }: TimePickerProps) {
+  const { theme } = useTheme();
+  return (
+    <View style={styles.section}>
+      <View style={styles.timePickerHeader}>
+        <Label>{label}</Label>
+        <Text style={[styles.selectedTimeDisplay, { color: theme.primary }]}>
+          {hour}:{String(minute).padStart(2, '0')} {ampm}
+        </Text>
+      </View>
+      <View style={styles.timeRow}>
+        {/* Hour selector */}
+        <View style={styles.timeGroup}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.timePills}
+          >
+            {HOURS_12.map((h) => (
+              <Pressable
+                key={h}
+                onPress={() => onHourChange(h)}
+                style={[
+                  styles.timePill,
+                  { backgroundColor: hour === h ? theme.primary : theme.secondary },
+                ]}
+              >
+                <Text style={[styles.timePillText, { color: hour === h ? theme.primaryForeground : theme.secondaryForeground }]}>
+                  {h}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Minute selector */}
+        <View style={[styles.timeGroup, { flex: 0 }]}>
+          <View style={styles.timePills}>
+            {MINUTES_VALUES.map((m, idx) => (
+              <Pressable
+                key={m}
+                onPress={() => onMinuteChange(m)}
+                style={[
+                  styles.timePill,
+                  { backgroundColor: minute === m ? theme.primary : theme.secondary },
+                ]}
+              >
+                <Text style={[styles.timePillText, { color: minute === m ? theme.primaryForeground : theme.secondaryForeground }]}>
+                  :{MINUTES_DISPLAY[idx]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* AM / PM toggle */}
+        <View style={[styles.timeGroup, { flex: 0 }]}>
+          <View style={styles.timePills}>
+            {(['AM', 'PM'] as const).map((v) => (
+              <Pressable
+                key={v}
+                onPress={() => onAmPmChange(v)}
+                style={[
+                  styles.timePill,
+                  { backgroundColor: ampm === v ? theme.primary : theme.secondary },
+                ]}
+              >
+                <Text style={[styles.timePillText, { color: ampm === v ? theme.primaryForeground : theme.secondaryForeground }]}>
+                  {v}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function CompleteProfileScreen() {
@@ -156,9 +257,13 @@ export default function CompleteProfileScreen() {
     pendingInviteChannel ? 2 : 1,
   );
 
+  // Step 2 — "What's a Circle?" callout collapsed by default
+  const [whatsACircleExpanded, setWhatsACircleExpanded] = useState(false);
+
   // Step 3
   const [categories, setCategories] = useState<Category[]>([]);
   const [familyStyle, setFamilyStyle] = useState<FamilyStyle | null>(null);
+  const [businessStyle, setBusinessStyle] = useState<BusinessStyle | null>(null);
   const [selectedHobbies, setSelectedHobbies] = useState<string[]>([]);
   const [customHobbies, setCustomHobbies] = useState<string[]>([]);
   const [customHobbyInput, setCustomHobbyInput] = useState('');
@@ -283,6 +388,7 @@ export default function CompleteProfileScreen() {
 
   const totalPendingCircles =
     (categories.includes('family') && familyStyle ? 1 : 0) +
+    (categories.includes('business') && businessStyle ? 1 : 0) +
     selectedHobbies.length +
     customHobbies.length +
     selectedLifelogs.length +
@@ -306,6 +412,16 @@ export default function CompleteProfileScreen() {
         key: `family:${familyStyle}`,
         name: style?.label ?? 'Family Circle',
         emoji: '💛',
+        color: randomChannelColor(),
+        description: style?.desc ?? '',
+      });
+    }
+    if (categories.includes('business') && businessStyle) {
+      const style = BUSINESS_STYLES.find((s) => s.id === businessStyle);
+      circles.push({
+        key: `business:${businessStyle}`,
+        name: style?.label ?? 'My Circle',
+        emoji: '🏪',
         color: randomChannelColor(),
         description: style?.desc ?? '',
       });
@@ -481,6 +597,8 @@ export default function CompleteProfileScreen() {
   const removePendingCircle = useCallback((key: string) => {
     if (key.startsWith('family:')) {
       setFamilyStyle(null);
+    } else if (key.startsWith('business:')) {
+      setBusinessStyle(null);
     } else if (key.startsWith('hobby:')) {
       const h = key.slice('hobby:'.length);
       setSelectedHobbies((prev) => prev.filter((x) => x !== h));
@@ -584,120 +702,6 @@ export default function CompleteProfileScreen() {
         </Text>
       ) : null}
     </Pressable>
-  );
-
-  // Simple time-picker row (hour, minute, AM/PM) with selected time display
-  const TimePicker = ({
-    label,
-    hour,
-    minute,
-    ampm,
-    onHourChange,
-    onMinuteChange,
-    onAmPmChange,
-  }: {
-    label: string;
-    hour: number;
-    minute: number;
-    ampm: 'AM' | 'PM';
-    onHourChange: (h: number) => void;
-    onMinuteChange: (m: number) => void;
-    onAmPmChange: (v: 'AM' | 'PM') => void;
-  }) => (
-    <View style={styles.section}>
-      <View style={styles.timePickerHeader}>
-        <Label>{label}</Label>
-        <Text style={[styles.selectedTimeDisplay, { color: theme.primary }]}>
-          {hour}:{String(minute).padStart(2, '0')} {ampm}
-        </Text>
-      </View>
-      <View style={styles.timeRow}>
-        {/* Hour selector */}
-        <View style={styles.timeGroup}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.timePills}
-          >
-            {HOURS_12.map((h) => (
-              <Pressable
-                key={h}
-                onPress={() => onHourChange(h)}
-                style={[
-                  styles.timePill,
-                  {
-                    backgroundColor: hour === h ? theme.primary : theme.secondary,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.timePillText,
-                    { color: hour === h ? theme.primaryForeground : theme.secondaryForeground },
-                  ]}
-                >
-                  {h}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Minute selector */}
-        <View style={[styles.timeGroup, { flex: 0 }]}>
-          <View style={styles.timePills}>
-            {MINUTES_VALUES.map((m, idx) => (
-              <Pressable
-                key={m}
-                onPress={() => onMinuteChange(m)}
-                style={[
-                  styles.timePill,
-                  {
-                    backgroundColor: minute === m ? theme.primary : theme.secondary,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.timePillText,
-                    { color: minute === m ? theme.primaryForeground : theme.secondaryForeground },
-                  ]}
-                >
-                  :{MINUTES_DISPLAY[idx]}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        {/* AM / PM toggle */}
-        <View style={[styles.timeGroup, { flex: 0 }]}>
-          <View style={styles.timePills}>
-            {(['AM', 'PM'] as const).map((v) => (
-              <Pressable
-                key={v}
-                onPress={() => onAmPmChange(v)}
-                style={[
-                  styles.timePill,
-                  {
-                    backgroundColor: ampm === v ? theme.primary : theme.secondary,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.timePillText,
-                    { color: ampm === v ? theme.primaryForeground : theme.secondaryForeground },
-                  ]}
-                >
-                  {v}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-      </View>
-    </View>
   );
 
   // ── Step renderers ──────────────────────────────────────────────────────
@@ -849,7 +853,7 @@ export default function CompleteProfileScreen() {
             </Text>
           </>
         )
-        : ' to join a Circle on Angelia';
+        : ' to connect on Angelia';
 
       return (
         <View style={styles.invitedHero}>
@@ -858,7 +862,7 @@ export default function CompleteProfileScreen() {
             You're in!
           </Text>
           <Text style={[styles.invitedHeroBody, { color: theme.mutedForeground }]}>
-            You've been invited{circleRef}.{' '}
+            Someone invited you{circleRef}.{' '}
             <Text style={{ fontWeight: '700', color: theme.foreground }}>
               Once you finish setting up your profile, you'll be taken right to it.
             </Text>
@@ -888,7 +892,7 @@ export default function CompleteProfileScreen() {
             onPress={() => setShowSkipSpaceModal(true)}
             style={styles.invitedHeroSkip}
           >
-            Skip — take me to join their Circle
+            Skip — take me right there
           </Button>
 
           <Modal
@@ -954,13 +958,20 @@ export default function CompleteProfileScreen() {
           </Button>
         </View>
 
-        {/* What's a Circle? — anchored at the bottom */}
-        <View style={[styles.bridgeCard, styles.spaceSetupFooter, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
-          <Text style={[styles.bridgeText, { color: theme.mutedForeground }]}>
-            💬 <Text style={{ fontWeight: '700', color: theme.foreground }}>What's a Circle?</Text>
-            {' '}A small, private group where you share updates with people who actually care — family, friends, or whoever you choose. No feeds, no strangers.
+        {/* What's a Circle? — collapsible callout at the bottom */}
+        <Pressable
+          onPress={() => setWhatsACircleExpanded((v) => !v)}
+          style={[styles.bridgeCard, styles.spaceSetupFooter, { backgroundColor: theme.secondary, borderColor: theme.border }]}
+        >
+          <Text style={[styles.bridgeText, { color: theme.foreground, fontWeight: '700' }]}>
+            💬 What's a Circle? {whatsACircleExpanded ? '▲' : '▼'}
           </Text>
-        </View>
+          {whatsACircleExpanded && (
+            <Text style={[styles.bridgeText, { color: theme.mutedForeground, marginTop: 6 }]}>
+              A small, private group where you share updates with people who actually care — family, friends, or whoever you choose. No feeds, no strangers.
+            </Text>
+          )}
+        </Pressable>
       </View>
     );
   };
