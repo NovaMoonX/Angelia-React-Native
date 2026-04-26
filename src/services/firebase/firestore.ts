@@ -555,6 +555,8 @@ export function subscribeToPosts(
     batches.push(channelIds.slice(i, i + 30));
   }
 
+  console.log('[subscribeToPosts] subscribing', { total: channelIds.length, batches: batches.length, ids: channelIds });
+
   const allPosts: Map<string, Post> = new Map();
   const unsubscribes: Array<() => void> = [];
 
@@ -567,12 +569,14 @@ export function subscribeToPosts(
       ),
       (snap) => {
         if (!snap) return;
+        console.log('[subscribeToPosts] snapshot received', { batchIndex: batches.indexOf(batch), docsCount: snap.docs.length, ids: batch });
         for (const d of snap.docs) {
           allPosts.set(d.id, d.data() as Post);
         }
         callback(Array.from(allPosts.values()));
       },
-      (_error) => {
+      (error) => {
+        console.error('[subscribeToPosts] query error', { ids: batch, code: (error as any)?.code, message: (error as any)?.message });
         // Query failed (missing index or rules denial) — return what we have so far
         callback(Array.from(allPosts.values()));
       },

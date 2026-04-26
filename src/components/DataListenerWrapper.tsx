@@ -166,6 +166,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
 
     const uid = firebaseUser.uid;
     const channelIds = channels.map((c) => c.id);
+    console.log('[DataListenerWrapper Effect2] channel ids', channelIds);
 
     if (channelIds.length === 0) return;
 
