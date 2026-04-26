@@ -555,8 +555,6 @@ export function subscribeToPosts(
     batches.push(channelIds.slice(i, i + 30));
   }
 
-  console.log('[subscribeToPosts] subscribing', { total: channelIds.length, batches: batches.length, ids: channelIds });
-
   const allPosts: Map<string, Post> = new Map();
   const unsubscribes: Array<() => void> = [];
 
@@ -569,14 +567,12 @@ export function subscribeToPosts(
       ),
       (snap) => {
         if (!snap) return;
-        console.log('[subscribeToPosts] snapshot received', { batchIndex: batches.indexOf(batch), docsCount: snap.docs.length, ids: batch });
         for (const d of snap.docs) {
           allPosts.set(d.id, d.data() as Post);
         }
         callback(Array.from(allPosts.values()));
       },
       (error) => {
-        console.error('[subscribeToPosts] query error', { ids: batch, code: (error as any)?.code, message: (error as any)?.message });
         // Query failed (missing index or rules denial) — return what we have so far
         callback(Array.from(allPosts.values()));
       },
@@ -880,6 +876,7 @@ export async function createPrivateNote(note: PrivateNote): Promise<void> {
 export function subscribeToPrivateNotesForPost(
   postId: string,
   callback: (notes: PrivateNote[]) => void,
+  onError?: () => void,
 ): () => void {
   return onSnapshot(
     query(
@@ -890,7 +887,7 @@ export function subscribeToPrivateNotesForPost(
       callback(snap.docs.map((d) => d.data() as PrivateNote));
     },
     (_error) => {
-      callback([]);
+      onError?.();
     },
   );
 }
