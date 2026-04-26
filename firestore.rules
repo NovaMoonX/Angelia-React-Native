@@ -129,13 +129,15 @@ service cloud.firestore {
       function isAuthorOnCreate() {
         return isSignedIn() && request.auth.uid == request.resource.data.authorId;
       }
-      // Returns true when the requesting user is in the post author's connections list.
-      // Only applicable to daily channels so that stand-alone connections grant Daily Circle access.
+      // Returns true when the requesting user is connected to the daily channel's owner.
+      // Uses ch.data.ownerId (derived from channelId, which IS constrained by the query)
+      // instead of resource.data.authorId (unconstrained), so Firestore can evaluate this
+      // at query level without rejecting the in-query with permission-denied.
       function isConnectedToAuthorDailyChannel() {
         let ch = get(/databases/$(database)/documents/channels/$(resource.data.channelId));
         return isSignedIn()
           && ch.data.isDaily == true
-          && exists(/databases/$(database)/documents/connections/$(resource.data.authorId)/people/$(request.auth.uid));
+          && exists(/databases/$(database)/documents/connections/$(ch.data.ownerId)/people/$(request.auth.uid));
       }
 
       // Channel owners and subscribers may read posts in their channel.
