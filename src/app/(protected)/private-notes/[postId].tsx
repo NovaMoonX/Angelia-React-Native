@@ -43,11 +43,13 @@ export default function PrivateNotesScreen() {
 		}
 	}, [isHost, loaded, subscriptionFailed, notes.length, post, currentUser, router]);
 
-	// Mark notes as seen so the unread indicator on the post detail clears.
+	// Mark notes as seen when the host opens the screen, so the unread indicator clears.
+	// Runs once per screen mount (postId/isHost are stable during screen lifetime).
 	useEffect(() => {
-		if (!postId || !isHost || notes.length === 0) return;
+		if (!postId || !isHost) return;
 		void AsyncStorage.setItem(PRIVATE_NOTES_SEEN_KEY(postId), String(Date.now()));
-	}, [postId, isHost, notes.length]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [postId, isHost]);
 
 	if (!post || !currentUser || !isHost || (loaded && !subscriptionFailed && notes.length === 0)) {
 		return (

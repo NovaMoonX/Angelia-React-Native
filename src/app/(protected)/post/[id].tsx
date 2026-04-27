@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { Animated, KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -74,20 +74,25 @@ export default function PostDetailScreen() {
 	const chatTabUnlockOpacity = useRef(new Animated.Value(0)).current;
 	const unlockEmojiY = useRef(new Animated.Value(0)).current;
 
+	// Memoize the latest note timestamp to avoid AsyncStorage reads on every render
+	const latestNoteTimestamp = useMemo(
+		() => (privateNotes.length > 0 ? Math.max(...privateNotes.map((n) => n.timestamp)) : 0),
+		[privateNotes],
+	);
+
 	// Load the "last seen" timestamp for private notes and compare to newest note
 	useEffect(() => {
-		if (!isHost || !id || privateNotes.length === 0) {
+		if (!isHost || !id || latestNoteTimestamp === 0) {
 			setHasUnreadPrivateNotes(false);
 			return;
 		}
 		AsyncStorage.getItem(PRIVATE_NOTES_SEEN_KEY(id))
 			.then((val) => {
 				const lastSeen = val ? parseInt(val, 10) : 0;
-				const latestNote = Math.max(...privateNotes.map((n) => n.timestamp));
-				setHasUnreadPrivateNotes(latestNote > lastSeen);
+				setHasUnreadPrivateNotes(latestNoteTimestamp > lastSeen);
 			})
-			.catch(() => setHasUnreadPrivateNotes(true));
-	}, [isHost, id, privateNotes]);
+			.catch(() => setHasUnreadPrivateNotes(false));
+	}, [isHost, id, latestNoteTimestamp]);
 
 	const handleCarouselIndexChange = (index: number) => {
 		setActiveCarouselIndex(index);
@@ -503,7 +508,7 @@ export default function PostDetailScreen() {
 				>
 					<KeyboardAvoidingView
 						style={{ flex: 1 }}
-						behavior='padding'
+						behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
 					>
 						<Pressable style={styles.noteModalBackdrop} onPress={handleCloseNoteModal}>
 							<View
