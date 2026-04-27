@@ -894,6 +894,36 @@ export function subscribeToPrivateNotesForPost(
 
 
 /**
+ * Subscribes to the private notes written by `authorId` under
+ * `posts/{postId}/privateNotes`, filtered to only their own notes.
+ * Results are sorted by timestamp ascending (client-side, no composite index needed).
+ *
+ * Should only be called by the note's author (visitor) — the Firestore rules enforce it.
+ */
+export function subscribeToMyPrivateNotesForPost(
+  postId: string,
+  authorId: string,
+  callback: (notes: PrivateNote[]) => void,
+  onError?: () => void,
+): () => void {
+  return onSnapshot(
+    query(
+      collection(db, 'posts', postId, 'privateNotes'),
+      where('authorId', '==', authorId),
+    ),
+    (snap) => {
+      const notes = snap.docs.map((d) => d.data() as PrivateNote);
+      notes.sort((a, b) => a.timestamp - b.timestamp);
+      callback(notes);
+    },
+    (_error) => {
+      onError?.();
+    },
+  );
+}
+
+
+/**
  * Creates a task document in the user's tasks subcollection.
  * Stored at `tasks/{userId}/items/{taskId}`.
  */

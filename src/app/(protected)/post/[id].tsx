@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
@@ -17,6 +18,7 @@ import { selectMessages } from '@/store/slices/conversationSlice';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { usePostComments } from '@/hooks/usePostComments';
 import { usePrivateNotes } from '@/hooks/usePrivateNotes';
+import { useSentPrivateNotes } from '@/hooks/useSentPrivateNotes';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { getRelativeTime } from '@/lib/timeUtils';
@@ -31,6 +33,8 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { updatePostReactions, removePostReaction } from '@/store/actions/postActions';
 import { sendPrivateNote } from '@/store/actions/privateNoteActions';
 import type { Reaction, MediaItem } from '@/models/types';
+
+const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_notes_seen_${postId}`;
 
 export default function PostDetailScreen() {
 	const { id } = useLocalSearchParams<{ id: string }>();
@@ -54,6 +58,7 @@ export default function PostDetailScreen() {
 		postId: isHost ? id : null,
 		hostId: isHost ? post?.authorId : null,
 	});
+	const { sentNotes } = useSentPrivateNotes({ postId: isHost ? null : id });
 
 	const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
 	const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
@@ -63,9 +68,26 @@ export default function PostDetailScreen() {
 	const [noteModalVisible, setNoteModalVisible] = useState(false);
 	const [privateNoteText, setPrivateNoteText] = useState('');
 	const [sendingNote, setSendingNote] = useState(false);
+	// Tracks whether the host has unseen private notes (persisted in AsyncStorage)
+	const [hasUnreadPrivateNotes, setHasUnreadPrivateNotes] = useState(false);
 	const chatTabScale = useRef(new Animated.Value(1)).current;
 	const chatTabUnlockOpacity = useRef(new Animated.Value(0)).current;
 	const unlockEmojiY = useRef(new Animated.Value(0)).current;
+
+	// Load the "last seen" timestamp for private notes and compare to newest note
+	useEffect(() => {
+		if (!isHost || !id || privateNotes.length === 0) {
+			setHasUnreadPrivateNotes(false);
+			return;
+		}
+		AsyncStorage.getItem(PRIVATE_NOTES_SEEN_KEY(id))
+			.then((val) => {
+				const lastSeen = val ? parseInt(val, 10) : 0;
+				const latestNote = Math.max(...privateNotes.map((n) => n.timestamp));
+				setHasUnreadPrivateNotes(latestNote > lastSeen);
+			})
+			.catch(() => setHasUnreadPrivateNotes(true));
+	}, [isHost, id, privateNotes]);
 
 	const handleCarouselIndexChange = (index: number) => {
 		setActiveCarouselIndex(index);
@@ -325,28 +347,54 @@ export default function PostDetailScreen() {
 							})
 						}
 					>
-						<Feather name='mail' size={16} color={theme.primary} />
+						<View style={styles.privateNotesBadgeLeft}>
+							<Feather name='mail' size={16} color={theme.primary} />
+							{hasUnreadPrivateNotes && <View style={[styles.unreadDot, { backgroundColor: theme.primary }]} />}
+						</View>
 						<Text style={[styles.privateNotesBadgeText, { color: theme.primary }]}>
 							{`${privateNotes.length} Private Note${privateNotes.length !== 1 ? 's' : ''}`}
 						</Text>
 						<Feather name='chevron-right' size={14} color={theme.primary} />
 					</Pressable>
 				)}
+
+				{/* Visitor: send private note + view sent notes */}
+				{!isHost && (
+					<View style={[styles.visitorNoteSection, { borderTopColor: theme.border }]}>
+						<Pressable
+							style={[styles.sendNoteButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+							onPress={() => setNoteModalVisible(true)}
+						>
+							<Feather name='mail' size={15} color={theme.primary} />
+							<Text style={[styles.sendNoteButtonText, { color: theme.primary }]}>
+								Send a private note to {author?.firstName ?? 'them'} 💌
+							</Text>
+						</Pressable>
+
+						{sentNotes.length > 0 && (
+							<View style={styles.sentNotesSection}>
+								<Text style={[styles.sentNotesSectionLabel, { color: theme.mutedForeground }]}>
+									Your notes
+								</Text>
+								{sentNotes.map((note) => (
+									<View
+										key={note.id}
+										style={[styles.sentNoteCard, { backgroundColor: theme.card, borderColor: theme.border }]}
+									>
+										<Text style={[styles.sentNoteText, { color: theme.foreground }]}>{note.text}</Text>
+										<Text style={[styles.sentNoteTimestamp, { color: theme.mutedForeground }]}>
+											{getRelativeTime(note.timestamp)}
+										</Text>
+									</View>
+								))}
+							</View>
+						)}
+					</View>
+				)}
 			</ScrollView>
 
 			{/* Bottom bar — chat tab + emoji pill */}
 			<View style={styles.bottomBarContainer}>
-				{/* Visitor: minimal private note trigger above the pill */}
-				{!isHost && (
-					<Pressable
-						style={styles.privateNoteTrigger}
-						onPress={() => setNoteModalVisible(true)}
-					>
-						<Feather name='mail' size={13} color={theme.mutedForeground} />
-						<Text style={[styles.privateNoteTriggerText, { color: theme.mutedForeground }]}>
-							Send private note to {author?.firstName ?? 'host'}</Text>
-					</Pressable>
-				)}
 				{/* Chat tab — attached to top of pill */}
 				<Animated.View
 					style={[
@@ -455,7 +503,7 @@ export default function PostDetailScreen() {
 				>
 					<KeyboardAvoidingView
 						style={{ flex: 1 }}
-						behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+						behavior='padding'
 					>
 						<Pressable style={styles.noteModalBackdrop} onPress={handleCloseNoteModal}>
 							<View
@@ -707,22 +755,65 @@ const styles = StyleSheet.create({
 		paddingVertical: 12,
 		paddingHorizontal: 14,
 	},
+	privateNotesBadgeLeft: {
+		position: 'relative',
+	},
+	unreadDot: {
+		position: 'absolute',
+		top: -3,
+		right: -3,
+		width: 8,
+		height: 8,
+		borderRadius: 4,
+	},
 	privateNotesBadgeText: {
 		flex: 1,
 		fontSize: 14,
 		fontWeight: '500',
 	},
-	// ── Visitor private note trigger (above the pill) ───────────────────────────
-	privateNoteTrigger: {
+	// ── Visitor: send private note + sent notes (in scroll area) ────────────────
+	visitorNoteSection: {
+		marginTop: 20,
+		paddingTop: 20,
+		borderTopWidth: StyleSheet.hairlineWidth,
+		gap: 12,
+	},
+	sendNoteButton: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		justifyContent: 'center',
-		gap: 5,
-		paddingVertical: 7,
+		gap: 8,
+		borderWidth: 1,
+		borderRadius: 12,
+		paddingVertical: 12,
+		paddingHorizontal: 14,
 	},
-	privateNoteTriggerText: {
-		fontSize: 12,
+	sendNoteButtonText: {
+		flex: 1,
+		fontSize: 14,
 		fontWeight: '500',
+	},
+	sentNotesSection: {
+		gap: 8,
+	},
+	sentNotesSectionLabel: {
+		fontSize: 11,
+		fontWeight: '600',
+		textTransform: 'uppercase',
+		letterSpacing: 0.5,
+	},
+	sentNoteCard: {
+		borderWidth: 1,
+		borderRadius: 10,
+		paddingHorizontal: 14,
+		paddingVertical: 10,
+		gap: 4,
+	},
+	sentNoteText: {
+		fontSize: 14,
+		lineHeight: 20,
+	},
+	sentNoteTimestamp: {
+		fontSize: 12,
 	},
 	// ── Private note bottom-sheet modal ─────────────────────────────────────────
 	noteModalBackdrop: {

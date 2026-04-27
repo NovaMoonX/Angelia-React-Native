@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/Avatar';
@@ -11,6 +12,8 @@ import { usePrivateNotes } from '@/hooks/usePrivateNotes';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { ScreenHeader } from '@/components/ScreenHeader';
+
+const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_notes_seen_${postId}`;
 
 export default function PrivateNotesScreen() {
 	const { postId } = useLocalSearchParams<{ postId: string }>();
@@ -39,6 +42,12 @@ export default function PrivateNotesScreen() {
 			router.back();
 		}
 	}, [isHost, loaded, subscriptionFailed, notes.length, post, currentUser, router]);
+
+	// Mark notes as seen so the unread indicator on the post detail clears.
+	useEffect(() => {
+		if (!postId || !isHost || notes.length === 0) return;
+		void AsyncStorage.setItem(PRIVATE_NOTES_SEEN_KEY(postId), String(Date.now()));
+	}, [postId, isHost, notes.length]);
 
 	if (!post || !currentUser || !isHost || (loaded && !subscriptionFailed && notes.length === 0)) {
 		return (

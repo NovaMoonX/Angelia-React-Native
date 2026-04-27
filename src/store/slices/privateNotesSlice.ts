@@ -6,10 +6,13 @@ import { resetAllState } from '../actions/globalActions';
 interface PrivateNotesState {
   /** Private notes keyed by postId. Only populated for posts the current user hosts. */
   notesByPost: Record<string, PrivateNote[]>;
+  /** Private notes sent BY the current user, keyed by postId. Only populated when the user is a visitor. */
+  sentNotesByPost: Record<string, PrivateNote[]>;
 }
 
 const initialState: PrivateNotesState = {
   notesByPost: {},
+  sentNotesByPost: {},
 };
 
 const privateNotesSlice = createSlice({
@@ -51,6 +54,16 @@ const privateNotesSlice = createSlice({
     loadDemoPrivateNotes(state, action: PayloadAction<Record<string, PrivateNote[]>>) {
       state.notesByPost = { ...state.notesByPost, ...action.payload };
     },
+    /** Replaces the current user's sent notes for a post (used by the visitor subscription). */
+    setSentPrivateNotes(
+      state,
+      action: PayloadAction<{ postId: string; notes: PrivateNote[] }>,
+    ) {
+      state.sentNotesByPost[action.payload.postId] = action.payload.notes;
+    },
+    clearSentPrivateNotes(state, action: PayloadAction<string>) {
+      delete state.sentNotesByPost[action.payload];
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(resetAllState, () => initialState);
@@ -63,6 +76,8 @@ export const {
   removePrivateNoteOptimistic,
   clearPrivateNotes,
   loadDemoPrivateNotes,
+  setSentPrivateNotes,
+  clearSentPrivateNotes,
 } = privateNotesSlice.actions;
 
 // Selectors
@@ -74,6 +89,14 @@ export const selectPrivateNotesForPost = createSelector(
     (_state: RootState, postId: string) => postId,
   ],
   (notesByPost, postId) => notesByPost[postId] ?? EMPTY_NOTES,
+);
+
+export const selectSentPrivateNotesForPost = createSelector(
+  [
+    (state: RootState) => state.privateNotes.sentNotesByPost,
+    (_state: RootState, postId: string) => postId,
+  ],
+  (sentNotesByPost, postId) => sentNotesByPost[postId] ?? EMPTY_NOTES,
 );
 
 export default privateNotesSlice.reducer;

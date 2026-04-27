@@ -240,13 +240,13 @@ service cloud.firestore {
           && request.auth.uid == request.resource.data.authorId
           && request.resource.data.authorId != request.resource.data.hostId;
 
-        // Only the post author (Host) may read notes addressed to them.
-        // Uses the parent post's authorId rather than resource.data.hostId so that
-        // Firestore can evaluate the predicate at query level (it is the same for every
-        // document in the subcollection) instead of needing a per-document field check,
-        // which would require the query to include a matching where() filter.
+        // The post author (Host) may read all notes addressed to them.
+        // The note's own author may read notes they have sent (so visitors can view
+        // their sent notes). The visitor query uses where('authorId','==',uid) so
+        // Firestore can verify the authorId == request.auth.uid predicate at query level.
         allow read: if isSignedIn()
-          && request.auth.uid == get(/databases/$(database)/documents/posts/$(postId)).data.authorId;
+          && (request.auth.uid == get(/databases/$(database)/documents/posts/$(postId)).data.authorId
+            || request.auth.uid == resource.data.authorId);
 
         // Notes cannot be updated or deleted by clients.
         allow update, delete: if false;

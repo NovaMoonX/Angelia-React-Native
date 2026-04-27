@@ -47,6 +47,20 @@ export default function PostCreateScreen() {
     selectUserChannels(state, state.users.currentUser?.id || '')
   );
 
+  // Sort channels: daily circle always first, then rest in original order
+  const sortedUserChannels = useMemo(() => {
+    return [...userChannels].sort((a, b) => {
+      if (a.isDaily && !b.isDaily) return -1;
+      if (!a.isDaily && b.isDaily) return 1;
+      return 0;
+    });
+  }, [userChannels]);
+
+  const dailyChannelId = useMemo(
+    () => userChannels.find((ch) => ch.isDaily)?.id ?? '',
+    [userChannels],
+  );
+
   const initialMedia = useMemo<MediaFile[]>(() => {
     if (!params.capturedMedia) return [];
     try {
@@ -57,8 +71,17 @@ export default function PostCreateScreen() {
   }, [params.capturedMedia]);
 
   const [selectedChannel, setSelectedChannel] = useState(
-    params.existingChannel || userChannels[0]?.id || ''
+    params.existingChannel || dailyChannelId || sortedUserChannels[0]?.id || ''
   );
+
+  // Once channels load (and no explicit selection was passed in), default to daily circle
+  useEffect(() => {
+    if (params.existingChannel) return; // already set from navigation params
+    if (selectedChannel) return;        // already resolved on mount
+    if (sortedUserChannels.length === 0) return;
+    setSelectedChannel(dailyChannelId || sortedUserChannels[0].id);
+  }, [dailyChannelId, sortedUserChannels, params.existingChannel, selectedChannel]);
+
   const [text, setText] = useState(params.existingText || '');
   const [selectedTier, setSelectedTier] = useState<PostTier>('everyday');
   const [media, setMedia] = useState<MediaFile[]>(initialMedia);
@@ -93,7 +116,7 @@ export default function PostCreateScreen() {
     'big-news': "Heads up! What's happening? 🚨",
   };
 
-  const canPublish = (text.trim().length > 0 || media.length > 0) && !!selectedChannel;
+  const canPublish = text.trim().length > 0 && !!selectedChannel;
 
   const removeMedia = (index: number) => {
     setMedia((prev) => prev.filter((_, i) => i !== index));
@@ -111,10 +134,10 @@ export default function PostCreateScreen() {
       addToast({ type: 'warning', title: 'Please select a circle' });
       return;
     }
-    if (!text.trim() && media.length === 0) {
+    if (!text.trim()) {
       addToast({
         type: 'warning',
-        title: 'Please add some text or media',
+        title: "Don't forget to add some text! ✍️",
       });
       return;
     }
@@ -176,7 +199,7 @@ export default function PostCreateScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.channelRow}
         >
-          {userChannels.map((ch) => {
+          {sortedUserChannels.map((ch) => {
             const colors = getColorPair(ch);
             const isSelected = selectedChannel === ch.id;
             return (

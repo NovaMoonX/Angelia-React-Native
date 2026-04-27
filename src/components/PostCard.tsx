@@ -43,11 +43,11 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
     : { backgroundColor: '#6366F1', textColor: '#FFF' };
   const authorName = getPostAuthorName(author, currentUser);
   const hasMultipleMedia = post.media && post.media.length > 1;
-  const isOtherUser = author && currentUser && author.id !== currentUser.id;
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
 
   const hasTierBadge = post.tier === 'worth-knowing' || post.tier === 'big-news';
+
   const tierBadgeConfig = post.tier ? POST_TIERS.find((t) => t.value === post.tier) ?? null : null;
 
   const expiryInfo = channel != null
@@ -65,7 +65,7 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
       .map(([emoji]) => emoji);
   }, [post.reactions]);
 
-  const hasFooter = topReactions.length > 0 || !!isOtherUser;
+  const hasFooter = topReactions.length > 0;
 
   return (
     <View style={[styles.cardWrapper, hasTierBadge && styles.cardWrapperBadged]}>
@@ -154,30 +154,24 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
       {hasFooter && (
         <Pressable onPress={onNavigate}>
           <View style={styles.footer}>
-            {topReactions.length > 0 ? (
-              <View style={styles.reactionStack}>
-                {topReactions.map((emoji, i) => (
-                  <View
-                    key={emoji}
-                    style={[
-                      styles.reactionBubble,
-                      {
-                        marginLeft: i === 0 ? 0 : -8,
-                        zIndex: topReactions.length - i,
-                        backgroundColor: theme.card,
-                        borderColor: theme.background,
-                      },
-                    ]}
-                  >
-                    <Text style={styles.reactionBubbleEmoji}>{emoji}</Text>
-                  </View>
-                ))}
-              </View>
-            ) : isOtherUser ? (
-              <Text style={[styles.firstReactText, { color: theme.mutedForeground }]}>
-                Be the first to react! 🎉
-              </Text>
-            ) : null}
+            <View style={styles.reactionStack}>
+              {topReactions.map((emoji, i) => (
+                <View
+                  key={emoji}
+                  style={[
+                    styles.reactionBubble,
+                    {
+                      marginLeft: i === 0 ? 0 : -8,
+                      zIndex: topReactions.length - i,
+                      backgroundColor: theme.card,
+                      borderColor: theme.background,
+                    },
+                  ]}
+                >
+                  <Text style={styles.reactionBubbleEmoji}>{emoji}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         </Pressable>
       )}
@@ -357,9 +351,5 @@ const styles = StyleSheet.create({
   reactionBubbleEmoji: {
     fontSize: 14,
     lineHeight: 16,
-  },
-  firstReactText: {
-    fontSize: 12,
-    fontStyle: 'italic',
   },
 });
