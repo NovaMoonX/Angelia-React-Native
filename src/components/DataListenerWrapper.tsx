@@ -69,6 +69,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const channels = useAppSelector(selectAllChannels);
   const currentUser = useAppSelector((state) => state.users.currentUser);
+  const allUsers = useAppSelector((state) => state.users.users);
   const pendingInviteChannel = useAppSelector((state) => state.pendingInvite.channel);
   const pendingFromUserId = useAppSelector((state) => state.connections.pendingFromUserId);
   const connections = useAppSelector((state) => state.connections.connections);
@@ -252,7 +253,9 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       .unwrap()
       .then((result) => {
         if (result) {
-          addToast({ type: 'success', title: 'Connection request sent! 🤝' });
+          const recipient = allUsers.find((u) => u.id === result.toId);
+          const toName = recipient ? ` to ${recipient.firstName}` : '';
+          addToast({ type: 'success', title: `Connection request sent${toName}! 🤝` });
         }
       })
       .catch(() => {

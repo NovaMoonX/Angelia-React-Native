@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   KeyboardAvoidingView,
@@ -31,6 +31,7 @@ import { createDailyChannel, createCustomChannel } from '@/store/actions/channel
 import { saveNotificationSettings } from '@/store/actions/notificationActions';
 import { createInviteCircleTask, createSetFunFactTask, createSetStatusTask, createCustomCircleTask, createMakeFirstPostTask } from '@/store/actions/taskActions';
 import { uploadUserAvatar } from '@/services/firebase/storage';
+import { savePublicProfile } from '@/services/firebase/firestore';
 import { AVATAR_PRESETS, CHANNEL_COLORS } from '@/models/constants';
 import type { AvatarPreset } from '@/models/types';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
@@ -78,7 +79,7 @@ type BusinessStyle = 'small-business' | 'organization' | 'club' | 'creator' | 's
 
 const BUSINESS_STYLES: { id: BusinessStyle; title: string; label: string; desc: string }[] = [
   { id: 'small-business', title: '🏪 Small Business', label: 'Small Business', desc: 'I run a business and want to keep my community updated.' },
-  { id: 'organization', title: '🏛️ Organization / Nonprofit', label: 'Organization', desc: 'I lead an organization and want to share what we're working on.' },
+  { id: 'organization', title: '🏛️ Organization / Nonprofit', label: 'Organization', desc: "I lead an organization and want to share what we're working on." },
   { id: 'club', title: '🤝 Club / Group', label: 'Club or Group', desc: 'I run a club or recurring group and want to keep members in the loop.' },
   { id: 'creator', title: '🎙️ Creator / Maker', label: 'Creator', desc: 'I create things and want to share my process and updates.' },
   { id: 'side-hustle', title: '🚀 Side Hustle', label: 'Side Hustle', desc: 'I have a project on the side that I want to document and share.' },
@@ -239,6 +240,21 @@ export default function CompleteProfileScreen() {
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Pulse animation for the loading overlay
+  useEffect(() => {
+    if (loading) {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.35, duration: 700, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+        ]),
+      );
+      loop.start();
+      return () => loop.stop();
+    }
+  }, [loading, pulseAnim]);
 
   // Step 1
   const [firstName, setFirstName] = useState('');
@@ -464,7 +480,7 @@ export default function CompleteProfileScreen() {
     });
 
     return circles.slice(0, 3);
-  }, [categories, familyStyle, selectedHobbies, customHobbies, selectedLifelogs, customLifelogs]);
+  }, [categories, familyStyle, businessStyle, selectedHobbies, customHobbies, selectedLifelogs, customLifelogs]);
 
   // ── Final submit ────────────────────────────────────────────────────────
 
@@ -472,8 +488,9 @@ export default function CompleteProfileScreen() {
   const MIN_STEP_MS = 800;
   const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-  const handleFinish = async () => {
+  const handleFinish = async (overrideFunFact?: string) => {
     if (!firebaseUser) return;
+    const funFact = overrideFunFact !== undefined ? overrideFunFact : firstPost.trim();
 
     setLoading(true);
     setLoadingMessage('Getting everything ready for you ✨');
@@ -496,7 +513,7 @@ export default function CompleteProfileScreen() {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
           email: firebaseUser.email ?? '',
-          funFact: firstPost.trim(),
+          funFact,
           avatar,
           avatarUrl: uploadedAvatarUrl ?? null,
         }),
@@ -534,7 +551,7 @@ export default function CompleteProfileScreen() {
       await Promise.all([
         sleep(MIN_STEP_MS),
         // Nudge to fill in their fun fact if they skipped it during onboarding
-        !firstPost.trim()
+        !funFact
           ? dispatch(createSetFunFactTask()).unwrap().catch(() => null)
           : Promise.resolve(null),
         // Nudge to set first status — everyone starts without one
@@ -785,6 +802,17 @@ export default function CompleteProfileScreen() {
             addToast({ type: 'warning', title: 'We need your name to continue 💫' });
             return;
           }
+          // Fire-and-forget: save basic public profile so the QR code on
+          // step 5 shows the user's real name/avatar when scanned.
+          if (firebaseUser) {
+            savePublicProfile(firebaseUser.uid, {
+              id: firebaseUser.uid,
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              avatar,
+              avatarUrl: null,
+            }).catch(() => {});
+          }
           goNext();
         }}
         style={styles.cta}
@@ -980,6 +1008,7 @@ export default function CompleteProfileScreen() {
     const showFamilySub = categories.includes('family');
     const showHobbySub = categories.includes('hobbies');
     const showLifelogSub = categories.includes('lifelog');
+    const showBusinessSub = categories.includes('business');
     const pendingCircles = getPendingCircles();
 
     const toggleHobby = (h: string) => {
@@ -1078,6 +1107,7 @@ export default function CompleteProfileScreen() {
               { id: 'family' as Category, label: '💛 Family & Friends' },
               { id: 'hobbies' as Category, label: '🎯 Hobbies' },
               { id: 'lifelog' as Category, label: '✨ Life Log' },
+              { id: 'business' as Category, label: '🏢 I Run Things' },
             ] as const
           ).map(({ id, label }) => {
             const active = categories.includes(id);
@@ -1229,17 +1259,72 @@ export default function CompleteProfileScreen() {
                 placeholder="Add a custom hobby…"
                 autoCapitalize="words"
                 onSubmitEditing={addCustomHobby}
-                style={{ flex: 1 }}
+                editable={!circlesAtMax}
+                style={{ flex: 1, opacity: circlesAtMax ? 0.4 : 1 }}
               />
               <Button
-                size="sm"
                 onPress={addCustomHobby}
-                disabled={!customHobbyInput.trim()}
-                style={{ marginLeft: 8 }}
+                disabled={!customHobbyInput.trim() || circlesAtMax}
+                style={[{ marginLeft: 8 }, styles.addButton]}
               >
                 Add
               </Button>
             </View>
+          </View>
+        )}
+
+        {/* Business sub-options */}
+        {showBusinessSub && (
+          <View style={styles.subSection}>
+            <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>
+              I RUN THINGS
+            </Text>
+            <Text style={[styles.subHeader, { color: theme.foreground }]}>
+              What best describes what you run?
+            </Text>
+            {BUSINESS_STYLES.map((s) => {
+              const isSelected = businessStyle === s.id;
+              const isDisabled = !isSelected && circlesAtMax;
+              return (
+                <Pressable
+                  key={s.id}
+                  onPress={() => {
+                    if (isSelected) {
+                      setBusinessStyle(null);
+                    } else if (isDisabled) {
+                      addToast({ type: 'warning', title: CIRCLE_LIMIT_WARNING });
+                    } else {
+                      setBusinessStyle(s.id);
+                    }
+                  }}
+                  style={[
+                    styles.optionCard,
+                    {
+                      backgroundColor: isSelected ? theme.primary : theme.card,
+                      borderColor: isSelected ? theme.primary : theme.border,
+                      opacity: isDisabled ? 0.4 : 1,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.optionCardTitle,
+                      { color: isSelected ? theme.primaryForeground : theme.foreground },
+                    ]}
+                  >
+                    {s.title}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.optionCardDesc,
+                      { color: isSelected ? theme.primaryForeground : theme.mutedForeground },
+                    ]}
+                  >
+                    {s.desc}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         )}
 
@@ -1316,13 +1401,13 @@ export default function CompleteProfileScreen() {
                 placeholder="Add a custom log…"
                 autoCapitalize="words"
                 onSubmitEditing={addCustomLifelog}
-                style={{ flex: 1 }}
+                editable={!circlesAtMax}
+                style={{ flex: 1, opacity: circlesAtMax ? 0.4 : 1 }}
               />
               <Button
-                size="sm"
                 onPress={addCustomLifelog}
-                disabled={!customLifelogInput.trim()}
-                style={{ marginLeft: 8 }}
+                disabled={!customLifelogInput.trim() || circlesAtMax}
+                style={[{ marginLeft: 8 }, styles.addButton]}
               >
                 Add
               </Button>
@@ -1609,7 +1694,7 @@ export default function CompleteProfileScreen() {
           variant="tertiary"
           onPress={() => {
             setShowSkipPostModal(false);
-            handleFinish();
+            handleFinish('');
           }}
         >
           Skip for now
@@ -1633,7 +1718,9 @@ export default function CompleteProfileScreen() {
   if (loading && loadingMessage) {
     return (
       <View style={[styles.loadingOverlay, { backgroundColor: theme.background }]}>
-        <Text style={styles.loadingEmoji}>✨</Text>
+        <Animated.Text style={[styles.loadingEmoji, { transform: [{ scale: pulseAnim }] }]}>
+          ✨
+        </Animated.Text>
         <Text style={[styles.loadingHeading, { color: theme.foreground }]}>
           Prepping your space…
         </Text>
@@ -1989,8 +2076,11 @@ const styles = StyleSheet.create({
   // Input + Add button row (custom entries)
   customInputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     marginTop: 8,
+  },
+  addButton: {
+    alignSelf: 'stretch',
   },
 
   // Circles preview panel (Step 3 bottom)

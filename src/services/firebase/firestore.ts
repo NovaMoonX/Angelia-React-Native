@@ -95,6 +95,10 @@ export async function createUserProfile(userData: NewUser): Promise<void> {
   ]);
 }
 
+export async function savePublicProfile(uid: string, data: Pick<UserPublic, 'id' | 'firstName' | 'lastName' | 'avatar' | 'avatarUrl'>): Promise<void> {
+  await setDoc(doc(db, 'usersPublic', uid), { ...data, joinedAt: Date.now() }, { merge: true });
+}
+
 export async function updateUserProfile(uid: string, data: UpdateUserProfileData): Promise<void> {
   const { funFact, ...publicFields } = data;
   const updates: Promise<void>[] = [
