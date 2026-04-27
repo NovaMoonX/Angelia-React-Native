@@ -86,6 +86,7 @@ const BUSINESS_STYLES: { id: BusinessStyle; title: string; label: string; desc: 
 ];
 
 const CIRCLE_LIMIT_WARNING = "You've hit the 3-circle limit. Remove an existing one to add a different one.";
+const DISABLED_INPUT_OPACITY = 0.4;
 
 const HOURS_12 = Array.from({ length: 12 }, (_, i) => i + 1);
 const MINUTES_DISPLAY = ['00', '15', '30', '45'];
@@ -1260,7 +1261,7 @@ export default function CompleteProfileScreen() {
                 autoCapitalize="words"
                 onSubmitEditing={addCustomHobby}
                 editable={!circlesAtMax}
-                style={{ flex: 1, opacity: circlesAtMax ? 0.4 : 1 }}
+                style={{ flex: 1, opacity: circlesAtMax ? DISABLED_INPUT_OPACITY : 1 }}
               />
               <Button
                 onPress={addCustomHobby}
@@ -1402,7 +1403,7 @@ export default function CompleteProfileScreen() {
                 autoCapitalize="words"
                 onSubmitEditing={addCustomLifelog}
                 editable={!circlesAtMax}
-                style={{ flex: 1, opacity: circlesAtMax ? 0.4 : 1 }}
+                style={{ flex: 1, opacity: circlesAtMax ? DISABLED_INPUT_OPACITY : 1 }}
               />
               <Button
                 onPress={addCustomLifelog}
