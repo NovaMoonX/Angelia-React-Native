@@ -165,7 +165,13 @@ function InfoCallout({ children, title, defaultExpanded = false, style }: InfoCa
 
   if (title) {
     return (
-      <Pressable onPress={() => setExpanded((v) => !v)} style={containerStyle}>
+      <Pressable
+        onPress={() => setExpanded((v) => !v)}
+        style={containerStyle}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityHint="Double tap to expand or collapse"
+      >
         <Text style={[calloutStyles.text, { color: theme.foreground, fontWeight: '700' }]}>
           {title} {expanded ? '▲' : '▼'}
         </Text>
@@ -177,7 +183,7 @@ function InfoCallout({ children, title, defaultExpanded = false, style }: InfoCa
   }
 
   return (
-    <View style={containerStyle}>
+    <View style={containerStyle} accessible>
       {children}
     </View>
   );
