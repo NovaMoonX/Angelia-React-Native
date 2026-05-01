@@ -9,6 +9,7 @@ import {
   Share,
   StyleSheet,
   Text,
+  type ViewStyle,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -127,6 +128,59 @@ function addMinutes(h: number, m: number, add: number) {
 function formatTime(h: number, m: number) {
   const { hour, ampm } = to12(h);
   return `${hour}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+// ── Info Callout (module-level to avoid re-creating on every render) ─────────
+
+interface InfoCalloutProps {
+  children: React.ReactNode;
+  /** When provided the callout becomes a collapsible section with this header. */
+  title?: string;
+  /** Initial expanded state — only used for collapsible variants. Default: false. */
+  defaultExpanded?: boolean;
+  style?: ViewStyle;
+}
+
+const calloutStyles = StyleSheet.create({
+  container: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+  },
+  text: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+});
+
+function InfoCallout({ children, title, defaultExpanded = false, style }: InfoCalloutProps) {
+  const { theme } = useTheme();
+  const [expanded, setExpanded] = useState(defaultExpanded);
+
+  const containerStyle = [
+    calloutStyles.container,
+    { backgroundColor: theme.secondary, borderColor: theme.border },
+    style,
+  ];
+
+  if (title) {
+    return (
+      <Pressable onPress={() => setExpanded((v) => !v)} style={containerStyle}>
+        <Text style={[calloutStyles.text, { color: theme.foreground, fontWeight: '700' }]}>
+          {title} {expanded ? '▲' : '▼'}
+        </Text>
+        {expanded && (
+          <View style={{ marginTop: 6 }}>{children}</View>
+        )}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={containerStyle}>
+      {children}
+    </View>
+  );
 }
 
 // ── Time Picker (module-level to preserve ScrollView scroll position) ────────
@@ -275,7 +329,7 @@ export default function CompleteProfileScreen() {
   );
 
   // Step 2 — "What's a Circle?" callout collapsed by default
-  const [whatsACircleExpanded, setWhatsACircleExpanded] = useState(false);
+  // (expansion state lives inside InfoCallout component)
 
   // Step 3
   const [categories, setCategories] = useState<Category[]>([]);
@@ -897,16 +951,11 @@ export default function CompleteProfileScreen() {
             </Text>
           </Text>
 
-          <View
-            style={[
-              styles.invitedHeroCallout,
-              { backgroundColor: theme.secondary, borderColor: theme.border },
-            ]}
-          >
-            <Text style={[styles.bridgeText, { color: theme.foreground }]}>
+          <InfoCallout style={{ borderRadius: 14, padding: 16, width: '100%' }}>
+            <Text style={[calloutStyles.text, { color: theme.foreground }]}>
               💡 Your space is separate from theirs — it's yours to own and share with whoever you choose.
             </Text>
-          </View>
+          </InfoCallout>
 
           <Button
             onPress={() => animateTransition(() => setStep2Phase(3))}
@@ -929,12 +978,12 @@ export default function CompleteProfileScreen() {
             onClose={() => setShowSkipSpaceModal(false)}
             title="Skip setting up your space?"
           >
-            <Text style={[styles.infoCalloutText, { color: theme.foreground, marginBottom: 16 }]}>
+            <Text style={[calloutStyles.text, { color: theme.foreground, marginBottom: 16 }]}>
               Your{' '}
               <Text style={{ fontWeight: '700', color: theme.primary }}>Daily Circle</Text>
               {' '}will still be created automatically — but you won't set up any custom Circles right now. You can always do that later from the app.
             </Text>
-            <Text style={[styles.infoCalloutText, { color: theme.mutedForeground, marginBottom: 20 }]}>
+            <Text style={[calloutStyles.text, { color: theme.mutedForeground, marginBottom: 20 }]}>
               We'll take you straight to the Circle you were invited to after the last step. 🎉
             </Text>
             <Button
@@ -987,20 +1036,11 @@ export default function CompleteProfileScreen() {
           </Button>
         </View>
 
-        {/* What's a Circle? — collapsible callout at the bottom */}
-        <Pressable
-          onPress={() => setWhatsACircleExpanded((v) => !v)}
-          style={[styles.bridgeCard, styles.spaceSetupFooter, { backgroundColor: theme.secondary, borderColor: theme.border }]}
-        >
-          <Text style={[styles.bridgeText, { color: theme.foreground, fontWeight: '700' }]}>
-            💬 What's a Circle? {whatsACircleExpanded ? '▲' : '▼'}
+        <InfoCallout title="💬 What's a Circle?" style={styles.spaceSetupFooter}>
+          <Text style={[calloutStyles.text, { color: theme.mutedForeground }]}>
+            A small, private group where you share updates with people who actually care — family, friends, or whoever you choose. No feeds, no strangers.
           </Text>
-          {whatsACircleExpanded && (
-            <Text style={[styles.bridgeText, { color: theme.mutedForeground, marginTop: 6 }]}>
-              A small, private group where you share updates with people who actually care — family, friends, or whoever you choose. No feeds, no strangers.
-            </Text>
-          )}
-        </Pressable>
+        </InfoCallout>
       </View>
     );
   };
@@ -1081,11 +1121,11 @@ export default function CompleteProfileScreen() {
 
         {/* 3-circle max indicator */}
         {circlesAtMax && (
-          <View style={[styles.infoCallout, { backgroundColor: theme.secondary, borderColor: theme.border, marginBottom: 12 }]}>
-            <Text style={[styles.infoCalloutText, { color: theme.foreground }]}>
+          <InfoCallout style={{ marginBottom: 12 }}>
+            <Text style={[calloutStyles.text, { color: theme.foreground }]}>
               ✅ You've reached the 3-circle max. Remove a selection to add a different one.
             </Text>
-          </View>
+          </InfoCallout>
         )}
 
         {/* Categories section header */}
@@ -1465,18 +1505,13 @@ export default function CompleteProfileScreen() {
       />
 
       {/* Why we ask */}
-      <View
-        style={[
-          styles.infoCallout,
-          { backgroundColor: theme.secondary, borderColor: theme.border },
-        ]}
-      >
-        <Text style={[styles.infoCalloutText, { color: theme.foreground }]}>
+      <InfoCallout style={{ marginBottom: 20 }}>
+        <Text style={[calloutStyles.text, { color: theme.foreground }]}>
           💡 <Text style={{ fontWeight: '700' }}>Why do we ask?</Text>
           {' '}Angelia sends two gentle nudges a day so the people in your Circle know what you're up to — and because people want to know! We schedule them around your day so they feel natural, not intrusive. You can always turn them off later in{' '}
           <Text style={{ fontWeight: '700' }}>Notifications → Settings</Text>.
         </Text>
-      </View>
+      </InfoCallout>
 
       <TimePicker
         label="Active from"
@@ -1498,19 +1533,14 @@ export default function CompleteProfileScreen() {
         onAmPmChange={setActiveUntilAmPm}
       />
 
-      <View
-        style={[
-          styles.bridgeCard,
-          { backgroundColor: theme.secondary, borderColor: theme.border },
-        ]}
-      >
-        <Text style={[styles.bridgeText, { color: theme.foreground }]}>
+      <InfoCallout style={{ marginTop: 12, marginBottom: 4 }}>
+        <Text style={[calloutStyles.text, { color: theme.foreground }]}>
           🔔 We'll check in around{' '}
           <Text style={{ fontWeight: '700' }}>{formatTime(midCheckIn.hour, midCheckIn.minute)}</Text>
           {' '}and nudge you to wind down at{' '}
           <Text style={{ fontWeight: '700' }}>{formatTime(windDown.hour, windDown.minute)}</Text>.
         </Text>
-      </View>
+      </InfoCallout>
 
       <View style={styles.ctaRow}>
         <Button
@@ -1682,10 +1712,10 @@ export default function CompleteProfileScreen() {
         onClose={() => setShowSkipPostModal(false)}
         title="Skip your fun fact?"
       >
-        <Text style={[styles.infoCalloutText, { color: theme.foreground, marginBottom: 16 }]}>
+        <Text style={[calloutStyles.text, { color: theme.foreground, marginBottom: 16 }]}>
           A fun fact is a great way to let people get to know the real you — something they'd never guess! It's a small touch that makes your profile feel personal and memorable. 🌟
         </Text>
-        <Text style={[styles.infoCalloutText, { color: theme.mutedForeground, marginBottom: 20 }]}>
+        <Text style={[calloutStyles.text, { color: theme.mutedForeground, marginBottom: 20 }]}>
           No worries — you can always add one later from your profile.
         </Text>
         <Button onPress={() => setShowSkipPostModal(false)} style={{ marginBottom: 12 }}>
@@ -1894,19 +1924,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // Bridge card
-  bridgeCard: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  bridgeText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-
   // Category pills (Step 3)
   pillRow: {
     flexDirection: 'row',
@@ -2022,17 +2039,6 @@ const styles = StyleSheet.create({
   },
 
   // Info callout (Step 4 & 5)
-  infoCallout: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 20,
-  },
-  infoCalloutText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-
   // CTA
   cta: {
     marginTop: 20,
@@ -2177,12 +2183,6 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     textAlign: 'center',
     marginBottom: 24,
-  },
-  invitedHeroCallout: {
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 16,
-    width: '100%',
   },
   invitedHeroCta: {
     marginTop: 32,

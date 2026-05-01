@@ -178,11 +178,17 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
     }
   };
 
+  const resetForgotPassword = () => {
+    setShowForgotPassword(false);
+    setForgotSent(false);
+    setForgotEmail('');
+  };
+
   // ---- Forgot password screen ----
   if (showForgotPassword) {
     return (
       <View style={styles.container}>
-        <Pressable onPress={() => { setShowForgotPassword(false); setForgotSent(false); setForgotEmail(''); }} style={styles.backRow}>
+        <Pressable onPress={resetForgotPassword} style={styles.backRow}>
           <Feather name="arrow-left" size={18} color={theme.primary} />
           <Text style={[styles.backText, { color: theme.primary }]}>Back to sign in</Text>
         </Pressable>
@@ -194,7 +200,7 @@ export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoo
             <Text style={[styles.forgotSuccess, { color: theme.foreground }]}>
               ✅ If an account exists for that email, you'll receive a reset link shortly. Check your inbox (and spam folder)!
             </Text>
-            <Button onPress={() => { setShowForgotPassword(false); setForgotSent(false); setForgotEmail(''); }}>
+            <Button onPress={resetForgotPassword}>
               Back to Sign In
             </Button>
           </View>
