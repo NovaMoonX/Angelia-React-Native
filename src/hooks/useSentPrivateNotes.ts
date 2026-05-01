@@ -33,7 +33,7 @@ export function useSentPrivateNotes({
     selectPrivateNotesForPost(state, postId ?? ''),
   );
   const demoSentNotes = useMemo(
-    () => (isDemo && currentUser ? allNotesForPost.filter((n) => n.authorId === currentUser.id) : []),
+    () => (isDemo && currentUser ? allNotesForPost.filter((n) => { return n.authorId === currentUser.id; }) : []),
     [isDemo, currentUser, allNotesForPost],
   );
 

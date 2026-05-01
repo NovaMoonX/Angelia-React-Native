@@ -12,8 +12,7 @@ import { usePrivateNotes } from '@/hooks/usePrivateNotes';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { ScreenHeader } from '@/components/ScreenHeader';
-
-const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_notes_seen_${postId}`;
+import { PRIVATE_NOTES_SEEN_KEY } from '@/models/constants';
 
 export default function PrivateNotesScreen() {
 	const { postId } = useLocalSearchParams<{ postId: string }>();

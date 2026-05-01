@@ -102,6 +102,10 @@ export default function ProtectedLayout() {
             options={{ headerShown: false }}
           />
           <Stack.Screen
+            name="my-notes/[postId]"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
             name="tasks"
             options={{ headerShown: false }}
           />

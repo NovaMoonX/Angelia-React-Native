@@ -205,3 +205,45 @@ Do **not** clutter the README with:
 - Every minor dependency update
 - Internal implementation details that don't affect the dev workflow
 - Speculative or forward-looking notes
+
+---
+
+## Code style conventions
+
+### AsyncStorage keys
+
+All `@angelia/…` AsyncStorage keys **must** be declared once as named exports in `src/models/constants.ts` and imported wherever they are used. Never define the same key string in more than one file. If a key is parameterised (e.g. per-post), export it as a function:
+
+```ts
+// ✅ correct — declared once, exported, imported elsewhere
+export const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_notes_seen_${postId}`;
+
+// ❌ wrong — local constant repeated across files
+const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_notes_seen_${postId}`;
+```
+
+### `Number()` vs `parseInt`
+
+Always use `Number()` to convert strings to numbers. Never use `parseInt` or `parseFloat`:
+
+```ts
+// ✅
+const lastSeen = val ? Number(val) : 0;
+
+// ❌
+const lastSeen = val ? parseInt(val, 10) : 0;
+```
+
+### Arrow function return values
+
+Arrow functions must always use an **explicit `return`** statement inside a block body `{ }`. Do not rely on implicit expression returns:
+
+```ts
+// ✅
+allNotes.filter((n) => { return n.authorId === uid; })
+
+// ❌
+allNotes.filter((n) => n.authorId === uid)
+```
+
+This applies to all callbacks, `filter`, `map`, `find`, `sort`, etc.

@@ -43,6 +43,7 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
     : { backgroundColor: '#6366F1', textColor: '#FFF' };
   const authorName = getPostAuthorName(author, currentUser);
   const hasMultipleMedia = post.media && post.media.length > 1;
+  const isOtherUser = author && currentUser && author.id !== currentUser.id;
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
 
@@ -65,7 +66,9 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
       .map(([emoji]) => emoji);
   }, [post.reactions]);
 
-  const hasFooter = topReactions.length > 0;
+  // Show footer when there are reactions, or when this is another user's post (to prompt engagement).
+  // No footer when viewing own posts with no reactions (avoids dead space at the bottom of the card).
+  const hasFooter = topReactions.length > 0 || !!isOtherUser;
 
   return (
     <View style={[styles.cardWrapper, hasTierBadge && styles.cardWrapperBadged]}>
@@ -154,24 +157,30 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
       {hasFooter && (
         <Pressable onPress={onNavigate}>
           <View style={styles.footer}>
-            <View style={styles.reactionStack}>
-              {topReactions.map((emoji, i) => (
-                <View
-                  key={emoji}
-                  style={[
-                    styles.reactionBubble,
-                    {
-                      marginLeft: i === 0 ? 0 : -8,
-                      zIndex: topReactions.length - i,
-                      backgroundColor: theme.card,
-                      borderColor: theme.background,
-                    },
-                  ]}
-                >
-                  <Text style={styles.reactionBubbleEmoji}>{emoji}</Text>
-                </View>
-              ))}
-            </View>
+            {topReactions.length > 0 ? (
+              <View style={styles.reactionStack}>
+                {topReactions.map((emoji, i) => (
+                  <View
+                    key={emoji}
+                    style={[
+                      styles.reactionBubble,
+                      {
+                        marginLeft: i === 0 ? 0 : -8,
+                        zIndex: topReactions.length - i,
+                        backgroundColor: theme.card,
+                        borderColor: theme.background,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.reactionBubbleEmoji}>{emoji}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : isOtherUser ? (
+              <Text style={[styles.firstReactText, { color: theme.mutedForeground }]}>
+                Be the first to react! 🎉
+              </Text>
+            ) : null}
           </View>
         </Pressable>
       )}
@@ -351,5 +360,8 @@ const styles = StyleSheet.create({
   reactionBubbleEmoji: {
     fontSize: 14,
     lineHeight: 16,
+  },
+  firstReactText: {
+    fontSize: 13,
   },
 });

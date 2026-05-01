@@ -25,7 +25,7 @@ import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { getUserDisplayName } from '@/lib/user/user.utils';
-import { COMMON_EMOJIS } from '@/models/constants';
+import { COMMON_EMOJIS, PRIVATE_NOTES_SEEN_KEY } from '@/models/constants';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { AddReactionIcon } from '@/components/AddReactionIcon';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
@@ -33,8 +33,6 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { updatePostReactions, removePostReaction } from '@/store/actions/postActions';
 import { sendPrivateNote } from '@/store/actions/privateNoteActions';
 import type { Reaction, MediaItem } from '@/models/types';
-
-const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_notes_seen_${postId}`;
 
 export default function PostDetailScreen() {
 	const { id } = useLocalSearchParams<{ id: string }>();
@@ -88,7 +86,7 @@ export default function PostDetailScreen() {
 		}
 		AsyncStorage.getItem(PRIVATE_NOTES_SEEN_KEY(id))
 			.then((val) => {
-				const lastSeen = val ? parseInt(val, 10) : 0;
+				const lastSeen = val ? Number(val) : 0;
 				setHasUnreadPrivateNotes(latestNoteTimestamp > lastSeen);
 			})
 			.catch(() => setHasUnreadPrivateNotes(false));
@@ -245,7 +243,7 @@ export default function PostDetailScreen() {
 					styles.content,
 					{
 						paddingTop: 0,
-						paddingBottom: insets.bottom + 80,
+						paddingBottom: insets.bottom + 160,
 					},
 				]}
 				keyboardShouldPersistTaps='handled'
@@ -363,40 +361,45 @@ export default function PostDetailScreen() {
 					</Pressable>
 				)}
 
-				{/* Visitor: send private note + view sent notes */}
-				{!isHost && (
-					<View style={[styles.visitorNoteSection, { borderTopColor: theme.border }]}>
-						<Pressable
-							style={[styles.sendNoteButton, { backgroundColor: theme.card, borderColor: theme.border }]}
-							onPress={() => setNoteModalVisible(true)}
-						>
-							<Feather name='mail' size={15} color={theme.primary} />
-							<Text style={[styles.sendNoteButtonText, { color: theme.primary }]}>
-								Send a private note to {author?.firstName ?? 'them'} 💌
-							</Text>
-						</Pressable>
-
-						{sentNotes.length > 0 && (
-							<View style={styles.sentNotesSection}>
-								<Text style={[styles.sentNotesSectionLabel, { color: theme.mutedForeground }]}>
-									Your notes
-								</Text>
-								{sentNotes.map((note) => (
-									<View
-										key={note.id}
-										style={[styles.sentNoteCard, { backgroundColor: theme.card, borderColor: theme.border }]}
-									>
-										<Text style={[styles.sentNoteText, { color: theme.foreground }]}>{note.text}</Text>
-										<Text style={[styles.sentNoteTimestamp, { color: theme.mutedForeground }]}>
-											{getRelativeTime(note.timestamp)}
-										</Text>
-									</View>
-								))}
-							</View>
-						)}
-					</View>
+				{/* Visitor: sent notes badge — navigates to sent notes screen */}
+				{!isHost && sentNotes.length > 0 && (
+					<Pressable
+						style={[styles.sentNotesBadge, { backgroundColor: theme.card, borderColor: theme.border }]}
+						onPress={() =>
+							router.push({
+								pathname: '/(protected)/my-notes/[postId]',
+								params: { postId: post.id },
+							})
+						}
+					>
+						<Feather name='mail' size={16} color={theme.mutedForeground} />
+						<Text style={[styles.sentNotesBadgeText, { color: theme.mutedForeground }]}>
+							{`Your ${sentNotes.length} note${sentNotes.length !== 1 ? 's' : ''}`}
+						</Text>
+						<Feather name='chevron-right' size={14} color={theme.mutedForeground} />
+					</Pressable>
 				)}
 			</ScrollView>
+
+			{/* Visitor: private note trigger — absolutely positioned above the chat tab */}
+			{!isHost && (
+				<Pressable
+					style={[
+						styles.privateNoteTrigger,
+						{
+							bottom: insets.bottom + 112,
+							backgroundColor: theme.card,
+							borderColor: theme.border,
+						},
+					]}
+					onPress={() => setNoteModalVisible(true)}
+				>
+					<Feather name='mail' size={15} color={theme.primary} />
+					<Text style={[styles.privateNoteTriggerText, { color: theme.primary }]}>
+						Send {author?.firstName ?? 'them'} a private note 💌
+					</Text>
+				</Pressable>
+			)}
 
 			{/* Bottom bar — chat tab + emoji pill */}
 			<View style={styles.bottomBarContainer}>
@@ -776,49 +779,45 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		fontWeight: '500',
 	},
-	// ── Visitor: send private note + sent notes (in scroll area) ────────────────
-	visitorNoteSection: {
-		marginTop: 20,
-		paddingTop: 20,
-		borderTopWidth: StyleSheet.hairlineWidth,
-		gap: 12,
-	},
-	sendNoteButton: {
+	// ── Visitor: sent notes badge (in scroll area) ───────────────────────────────
+	sentNotesBadge: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		gap: 8,
+		marginTop: 20,
 		borderWidth: 1,
 		borderRadius: 12,
 		paddingVertical: 12,
 		paddingHorizontal: 14,
 	},
-	sendNoteButtonText: {
+	sentNotesBadgeText: {
 		flex: 1,
 		fontSize: 14,
 		fontWeight: '500',
 	},
-	sentNotesSection: {
+	// ── Visitor: absolutely positioned note trigger above the bottom pill ────────
+	privateNoteTrigger: {
+		position: 'absolute',
+		left: 16,
+		right: 16,
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
 		gap: 8,
-	},
-	sentNotesSectionLabel: {
-		fontSize: 11,
-		fontWeight: '600',
-		textTransform: 'uppercase',
-		letterSpacing: 0.5,
-	},
-	sentNoteCard: {
 		borderWidth: 1,
-		borderRadius: 10,
-		paddingHorizontal: 14,
+		borderRadius: 20,
 		paddingVertical: 10,
-		gap: 4,
+		paddingHorizontal: 16,
+		zIndex: 10,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.08,
+		shadowRadius: 8,
+		elevation: 4,
 	},
-	sentNoteText: {
+	privateNoteTriggerText: {
 		fontSize: 14,
-		lineHeight: 20,
-	},
-	sentNoteTimestamp: {
-		fontSize: 12,
+		fontWeight: '500',
 	},
 	// ── Private note bottom-sheet modal ─────────────────────────────────────────
 	noteModalBackdrop: {
