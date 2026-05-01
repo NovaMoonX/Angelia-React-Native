@@ -31,7 +31,7 @@ export default function MyPrivateNotesScreen() {
 	}, [isHost, post, currentUser, router]);
 
 	if (!post || !currentUser || isHost) {
-		return <View style={[styles.centered, { backgroundColor: theme.background }]} />;
+		return null;
 	}
 
 	return (
@@ -72,9 +72,6 @@ export default function MyPrivateNotesScreen() {
 }
 
 const styles = StyleSheet.create({
-	centered: {
-		flex: 1,
-	},
 	content: {
 		paddingHorizontal: 20,
 		paddingTop: 16,
