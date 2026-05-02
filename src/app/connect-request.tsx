@@ -108,7 +108,7 @@ export default function ConnectRequestScreen() {
     try {
       await dispatch(sendConnectionRequest({ toId: from, note: note.trim() || undefined })).unwrap();
       setAlreadyRequested(true);
-      addToast({ type: 'success', title: 'Connection request sent! 🤝' });
+      addToast({ type: 'success', title: `Connection request sent to ${hostUser?.firstName ?? 'them'}! 🤝` });
     } catch {
       addToast({ type: 'error', title: 'Failed to send request — please try again.' });
     } finally {
