@@ -60,6 +60,7 @@ export default function AuthScreen() {
   const { theme } = useTheme();
   const dispatch = useAppDispatch();
   const signUpInProgress = useRef(false);
+  const initialAuthMode = params.mode === 'signup' ? 'signup' : 'login' as const;
   const [, setAuthMode] = useState<'login' | 'sign up'>(
     params.mode === 'signup' ? 'sign up' : 'login'
   );
@@ -148,6 +149,7 @@ export default function AuthScreen() {
           onEmailSubmit={handleEmailSubmit}
           onForgotPassword={handleForgotPassword}
           defaultMethod="email"
+          initialMode={initialAuthMode}
           onBack={() => router.replace('/')}
         />
 

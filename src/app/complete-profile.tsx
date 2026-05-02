@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import QRCode from 'react-native-qrcode-svg';
+import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -27,7 +28,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { createUserProfile } from '@/store/actions/userActions';
+import { createUserProfile, updateAccountProgress } from '@/store/actions/userActions';
 import { createDailyChannel, createCustomChannel } from '@/store/actions/channelActions';
 import { saveNotificationSettings } from '@/store/actions/notificationActions';
 import { createInviteCircleTask, createSetFunFactTask, createSetStatusTask, createCustomCircleTask, createMakeFirstPostTask } from '@/store/actions/taskActions';
@@ -147,6 +148,11 @@ const calloutStyles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   text: {
     fontSize: 14,
     lineHeight: 20,
@@ -172,9 +178,16 @@ function InfoCallout({ children, title, defaultExpanded = false, style }: InfoCa
         accessibilityState={{ expanded }}
         accessibilityHint="Double tap to expand or collapse"
       >
-        <Text style={[calloutStyles.text, { color: theme.foreground, fontWeight: '700' }]}>
-          {title} {expanded ? '▲' : '▼'}
-        </Text>
+        <View style={calloutStyles.titleRow}>
+          <Text style={[calloutStyles.text, { color: theme.foreground, fontWeight: '700', flex: 1 }]}>
+            {title}
+          </Text>
+          <Feather
+            name={expanded ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={theme.mutedForeground}
+          />
+        </View>
         {expanded && (
           <View style={{ marginTop: 6 }}>{children}</View>
         )}
@@ -295,6 +308,11 @@ export default function CompleteProfileScreen() {
   // pending invite channel will be in Redux.  We use this to skip the
   // YES/NO invited question and go straight to the acknowledgement screen.
   const pendingInviteChannel = useAppSelector((state) => state.pendingInvite.channel);
+  // If the user arrived from a connection invite screen (e.g. "Sign up to Connect"),
+  // a pending connection user ID will be in Redux.  In that case we know they
+  // were NOT invited to a circle, so we skip the YES/NO question and go straight
+  // to the space-setup screen.
+  const pendingConnectionUserId = useAppSelector((state) => state.connections.pendingFromUserId);
 
   // ── Wizard state ────────────────────────────────────────────────────────
   const [step, setStep] = useState(1);
@@ -324,14 +342,16 @@ export default function CompleteProfileScreen() {
   /** Local file URI of a custom photo picked during sign-up. Uploaded in handleFinish. */
   const [avatarPhotoUri, setAvatarPhotoUri] = useState<string | null>(null);
 
-  // Step 2 — if a pending invite exists we already know the answer is "yes"
+  // Step 2 — if a pending circle invite exists we already know the answer is "yes";
+  // if a pending connection invite exists we already know the answer is "no" (not a circle invite).
   const [invitedAnswer, setInvitedAnswer] = useState<'yes' | 'no' | null>(
-    pendingInviteChannel ? 'yes' : null,
+    pendingInviteChannel ? 'yes' : pendingConnectionUserId ? 'no' : null,
   );
-  // When there's a pending invite we skip phase 1 (the YES/NO question) and
+  // When there's a pending circle invite we skip phase 1 (the YES/NO question) and
   // go directly to phase 2 (the "you'll be added after setup" acknowledgement).
+  // When there's a pending connection invite we skip to phase 3 (space-setup screen).
   const [step2Phase, setStep2Phase] = useState<1 | 2 | 3>(
-    pendingInviteChannel ? 2 : 1,
+    pendingInviteChannel ? 2 : pendingConnectionUserId ? 3 : 1,
   );
 
   // Step 2 — "What's a Circle?" callout collapsed by default
@@ -645,6 +665,13 @@ export default function CompleteProfileScreen() {
       // 7 — Verification email
       setLoadingMessage('Almost there — sending your verification email 💌');
       await Promise.all([sendVerificationEmail(), sleep(MIN_STEP_MS)]);
+
+      // 8 — Mark onboarding complete (non-fatal: layout will re-check on next load)
+      try {
+        await dispatch(updateAccountProgress({ uid: firebaseUser.uid, field: 'onboardingComplete', value: true })).unwrap();
+      } catch {
+        // Non-fatal
+      }
 
       addToast({ type: 'success', title: "You're all set! 🎉" });
       if (invitedAnswer === 'yes') {
@@ -1143,7 +1170,7 @@ export default function CompleteProfileScreen() {
             Which of these resonates with you?
           </Text>
           <Text style={[styles.infoText, { color: theme.mutedForeground }]}>
-            Choose what feels applicable to you. You can select all 3 categories if they all align with who you are.
+            Choose what feels applicable to you. You can select all 4 categories if they all align with who you are.
           </Text>
         </View>
 
@@ -1511,10 +1538,9 @@ export default function CompleteProfileScreen() {
       />
 
       {/* Why we ask */}
-      <InfoCallout style={{ marginBottom: 20 }}>
+      <InfoCallout title="💡 Why do we ask?" style={{ marginBottom: 20 }}>
         <Text style={[calloutStyles.text, { color: theme.foreground }]}>
-          💡 <Text style={{ fontWeight: '700' }}>Why do we ask?</Text>
-          {' '}Angelia sends two gentle nudges a day so the people in your Circle know what you're up to — and because people want to know! We schedule them around your day so they feel natural, not intrusive. You can always turn them off later in{' '}
+          Angelia sends two gentle nudges a day so the people in your Circle know what you're up to — and because people want to know! We schedule them around your day so they feel natural, not intrusive. You can always turn them off later in{' '}
           <Text style={{ fontWeight: '700' }}>Notifications → Settings</Text>.
         </Text>
       </InfoCallout>

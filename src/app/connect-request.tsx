@@ -87,15 +87,6 @@ export default function ConnectRequestScreen() {
   const handleConnect = useCallback(async () => {
     if (!from) return;
 
-    if (!isSignedIn) {
-      dispatch(setPendingFromUserId(from));
-      router.push({
-        pathname: '/auth',
-        params: { redirect: '/(protected)/feed' },
-      });
-      return;
-    }
-
     if (!currentUser) return;
 
     // Can't connect to yourself
@@ -114,7 +105,19 @@ export default function ConnectRequestScreen() {
     } finally {
       setSending(false);
     }
-  }, [from, isSignedIn, currentUser, dispatch, addToast, router, note]);
+  }, [from, currentUser, dispatch, addToast, note, hostUser]);
+
+  const handleSignIn = useCallback(() => {
+    if (!from) return;
+    dispatch(setPendingFromUserId(from));
+    router.push({ pathname: '/auth', params: { mode: 'login', redirect: '/(protected)/feed' } });
+  }, [from, dispatch, router]);
+
+  const handleSignUp = useCallback(() => {
+    if (!from) return;
+    dispatch(setPendingFromUserId(from));
+    router.push({ pathname: '/auth', params: { mode: 'signup', redirect: '/(protected)/feed' } });
+  }, [from, dispatch, router]);
 
   const hostName = hostUser
     ? `${hostUser.firstName} ${hostUser.lastName}`
@@ -204,19 +207,38 @@ export default function ConnectRequestScreen() {
                 </View>
               )}
 
-              <Button
-                onPress={handleConnect}
-                loading={sending}
-                size="lg"
-                style={styles.cta}
-              >
-                {isSignedIn ? 'Send Connection Request' : 'Sign in to Connect'}
-              </Button>
-
-              {!isSignedIn && (
-                <Text style={[styles.hint, { color: theme.mutedForeground }]}>
-                  You'll sign in or create a free account, then your request will be sent automatically.
-                </Text>
+              {isSignedIn ? (
+                <Button
+                  onPress={handleConnect}
+                  loading={sending}
+                  size="lg"
+                  style={styles.cta}
+                >
+                  Send Connection Request
+                </Button>
+              ) : (
+                <>
+                  <View style={styles.authButtonRow}>
+                    <Button
+                      onPress={handleSignIn}
+                      variant="outline"
+                      size="lg"
+                      style={styles.authButton}
+                    >
+                      Sign In
+                    </Button>
+                    <Button
+                      onPress={handleSignUp}
+                      size="lg"
+                      style={styles.authButton}
+                    >
+                      Sign Up
+                    </Button>
+                  </View>
+                  <Text style={[styles.hint, { color: theme.mutedForeground }]}>
+                    Sign in or create a free account — your connection request will be sent automatically once you're in.
+                  </Text>
+                </>
               )}
 
               <Button
@@ -299,6 +321,14 @@ const styles = StyleSheet.create({
   },
   cta: {
     width: '100%',
+  },
+  authButtonRow: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 10,
+  },
+  authButton: {
+    flex: 1,
   },
   hint: {
     fontSize: 13,

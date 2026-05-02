@@ -32,6 +32,7 @@ const DEFAULT_USER_SECRET: UserSecret = {
     signUpComplete: true,
     emailVerified: true,
     dailyChannelCreated: true,
+    onboardingComplete: true,
   },
   customChannelCount: 0,
 };
@@ -85,6 +86,7 @@ export async function createUserProfile(userData: NewUser): Promise<void> {
       signUpComplete: true,
       emailVerified: false,
       dailyChannelCreated: false,
+      onboardingComplete: false,
     },
     customChannelCount: 0,
   };
