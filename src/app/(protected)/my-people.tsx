@@ -7,6 +7,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { UserProfileModal } from '@/components/UserProfileModal';
+import { isStatusActive } from '@/components/NowStatusBadge';
 import { useAppSelector } from '@/store/hooks';
 import { useTheme } from '@/hooks/useTheme';
 import { selectMyPeopleData } from '@/store/crossSelectors/myPeopleSelectors';
@@ -29,7 +30,7 @@ function PersonRow({ user, tag, onPress }: PersonRowProps) {
         { backgroundColor: theme.card, borderColor: theme.border, opacity: pressed ? 0.8 : 1 },
       ]}
     >
-      <Avatar user={user} size="sm" />
+      <Avatar user={user} size="sm" statusEmoji={isStatusActive(user.status) ? user.status.emoji : undefined} />
       <View style={{ flex: 1, marginLeft: 12 }}>
         <Text style={[styles.personName, { color: theme.foreground }]}>
           {user.firstName} {user.lastName}

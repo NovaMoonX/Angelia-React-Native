@@ -14,7 +14,7 @@ import {
   selectPostAuthor,
   selectPostChannel,
 } from '@/store/slices/postsSlice';
-import { getRelativeTime } from '@/lib/timeUtils';
+import { useRelativeTime } from '@/hooks/useRelativeTime';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { POST_TIERS } from '@/models/constants';
@@ -42,6 +42,7 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
     ? getColorPair(channel)
     : { backgroundColor: '#6366F1', textColor: '#FFF' };
   const authorName = getPostAuthorName(author, currentUser);
+  const relativeTime = useRelativeTime(post.timestamp);
   const hasMultipleMedia = post.media && post.media.length > 1;
   const isOtherUser = author && currentUser && author.id !== currentUser.id;
   const [profileModalOpen, setProfileModalOpen] = useState(false);
@@ -99,7 +100,7 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
               </Text>
               <View style={styles.headerMeta}>
                 <Text style={[styles.time, { color: theme.mutedForeground }]}>
-                  {getRelativeTime(post.timestamp)}
+                  {relativeTime}
                 </Text>
                 {expiryInfo != null && (
                   <Text style={styles.expiryBadge}>

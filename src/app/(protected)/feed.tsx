@@ -45,6 +45,7 @@ export default function FeedScreen() {
 
   const posts = useAppSelector((state) => state.posts.items);
   const postsLoaded = useAppSelector((state) => state.posts.loaded);
+  const tasksLoaded = useAppSelector((state) => state.tasks.loaded);
   const channels = useAppSelector(selectAllChannels);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const isDemo = useAppSelector((state) => state.demo.isActive);
@@ -180,6 +181,25 @@ export default function FeedScreen() {
     const timer = setTimeout(() => setIsFiltering(false), FILTERING_INDICATOR_DURATION);
     return () => clearTimeout(timer);
   }, [channelFilter, priorityFilter, sortOrder]);
+
+  // Once posts and tasks are both loaded, auto-complete any tasks whose
+  // completion condition is already satisfied (e.g. user already has posts).
+  useEffect(() => {
+    if (!postsLoaded || !tasksLoaded || pendingTasks.length === 0) return;
+
+    const readyPosts = posts.filter((p) => { return p.status === 'ready'; });
+    const currentUserId = currentUser?.id;
+
+    pendingTasks.forEach((task) => {
+      if (task.type === 'make_first_post') {
+        const hasOwnPost = readyPosts.some((p) => { return p.authorId === currentUserId; });
+        if (hasOwnPost) {
+          dispatch(completeTask(task.id));
+        }
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postsLoaded, tasksLoaded]);
 
   // Animated bouncing dots for filter loading indicator
   useEffect(() => {
