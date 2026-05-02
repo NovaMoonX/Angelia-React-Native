@@ -198,8 +198,7 @@ export default function FeedScreen() {
         }
       }
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [postsLoaded, tasksLoaded]);
+  }, [postsLoaded, tasksLoaded, posts, pendingTasks, currentUser, dispatch]);
 
   // Animated bouncing dots for filter loading indicator
   useEffect(() => {
