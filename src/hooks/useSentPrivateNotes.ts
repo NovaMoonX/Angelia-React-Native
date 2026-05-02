@@ -4,7 +4,6 @@ import {
   selectSentPrivateNotesForPost,
   selectPrivateNotesForPost,
   setSentPrivateNotes,
-  clearSentPrivateNotes,
 } from '@/store/slices/privateNotesSlice';
 import { subscribeToMyPrivateNotesForPost } from '@/services/firebase/firestore';
 import type { PrivateNote } from '@/models/types';
@@ -16,6 +15,11 @@ import type { PrivateNote } from '@/models/types';
  * Should only be called when the current user is NOT the post host (visitor).
  * In demo mode the Firestore subscription is skipped; optimistically-added
  * notes already in `notesByPost` are surfaced directly instead.
+ *
+ * Intentionally does NOT clear `sentNotesByPost` on unmount — the data is keyed
+ * by `postId` so stale entries for other posts are harmless, and clearing on
+ * unmount would cause the badge in `post/[id].tsx` to disappear when navigating
+ * to/from the sender notes screen while `post/[id].tsx` is still mounted.
  */
 export function useSentPrivateNotes({
   postId,
@@ -50,7 +54,6 @@ export function useSentPrivateNotes({
 
     return () => {
       unsub();
-      dispatch(clearSentPrivateNotes(postId));
     };
   }, [postId, currentUser, isDemo, dispatch]);
 

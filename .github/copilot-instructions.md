@@ -247,3 +247,35 @@ allNotes.filter((n) => n.authorId === uid)
 ```
 
 This applies to all callbacks, `filter`, `map`, `find`, `sort`, etc.
+
+### Icon + emoji: no duplicates
+
+When a UI element already uses a vector icon (e.g. `<Feather name='mail' />`), do **not** also append a redundant emoji (e.g. `💌`) to the adjacent label. The icon and the emoji convey the same meaning — showing both is visually noisy.
+
+```tsx
+// ✅ icon-only with clean label
+<Feather name='mail' size={15} color={theme.primary} />
+<Text>or send {name} a private note</Text>
+
+// ❌ icon + emoji duplicate
+<Feather name='mail' size={15} color={theme.primary} />
+<Text>Send {name} a private note 💌</Text>
+```
+
+### React Native: bottom-sheet modal keyboard-dismiss jump (Android)
+
+**Symptom:** When a keyboard is dismissed *inside* a bottom-sheet `<Modal>` on Android, the sheet jumps between bottom-aligned and padded positions.
+
+**Cause:** Using `behavior='height'` on the `<KeyboardAvoidingView>` inside a Modal causes the KAV container *height* to animate when the keyboard hides. Because the backdrop uses `justifyContent: 'flex-end'`, restoring the KAV height forces the sheet to re-anchor, producing a visible snap/jump.
+
+**Fix:** Always use `behavior='padding'` (on **both** iOS and Android) for `<KeyboardAvoidingView>` inside a bottom-sheet `<Modal>`. `padding` adjusts only the internal spacing — the container height stays stable and the jump disappears.
+
+```tsx
+// ✅ — no jump on keyboard dismiss
+<KeyboardAvoidingView style={{ flex: 1 }} behavior='padding'>
+
+// ❌ — jumps on Android when keyboard closes
+<KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+```
+
+See `src/components/PrivateNoteModal.tsx` for the canonical implementation.

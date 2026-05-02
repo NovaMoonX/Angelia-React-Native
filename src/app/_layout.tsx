@@ -116,7 +116,7 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 	} else if (type === 'private_note') {
 		const postId = data?.postId;
 		if (postId) {
-			router.push({ pathname: '/(protected)/private-notes/[postId]', params: { postId } });
+			router.push({ pathname: '/(protected)/private-notes-host/[postId]', params: { postId } });
 		}
 	}
 });
