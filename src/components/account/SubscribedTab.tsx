@@ -25,26 +25,31 @@ export function SubscribedTab() {
 
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const channels = useAppSelector((state) => state.channels.items);
+  const connectionChannels = useAppSelector((state) => state.channels.connectionChannels);
   const usersMap = useAppSelector(selectAllUsersMapById);
 
-  const subscribedChannels = useMemo(
-    () =>
-      channels.filter(
-        (ch) =>
-          ch.ownerId !== currentUser?.id &&
-          ch.subscribers.includes(currentUser?.id || ''),
-      ),
-    [channels, currentUser?.id],
-  );
+  const subscribedChannels = useMemo(() => {
+    const explicitlySubscribed = channels.filter(
+      (ch) =>
+        ch.ownerId !== currentUser?.id &&
+        ch.subscribers.includes(currentUser?.id || ''),
+    );
+    // De-duplicate: connection channels are daily channels of connected users.
+    // They may already appear in items if the user also subscribed explicitly.
+    const subscribedIds = new Set(explicitlySubscribed.map((ch) => ch.id));
+    const connDaily = connectionChannels.filter((ch) => { return !subscribedIds.has(ch.id); });
+    return [...explicitlySubscribed, ...connDaily];
+  }, [channels, connectionChannels, currentUser?.id]);
 
   const [channelDetailOpen, setChannelDetailOpen] = useState(false);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [removingSubscriberId, setRemovingSubscriberId] = useState<string | null>(null);
 
-  const selectedChannel = useMemo(
-    () => channels.find((c: Channel) => c.id === selectedChannelId) ?? null,
-    [channels, selectedChannelId],
-  );
+  const selectedChannel = useMemo(() => {
+    const inItems = channels.find((c: Channel) => c.id === selectedChannelId);
+    if (inItems) return inItems;
+    return connectionChannels.find((c: Channel) => c.id === selectedChannelId) ?? null;
+  }, [channels, connectionChannels, selectedChannelId]);
 
   if (!currentUser) return null;
 
@@ -79,7 +84,7 @@ export function SubscribedTab() {
           key={ch.id}
           channel={ch}
           owner={usersMap[ch.ownerId]}
-          onUnsubscribe={() => handleUnsubscribe(ch.id)}
+          onUnsubscribe={!ch.isDaily ? () => handleUnsubscribe(ch.id) : undefined}
           onClick={() => {
             setSelectedChannelId(ch.id);
             setChannelDetailOpen(true);

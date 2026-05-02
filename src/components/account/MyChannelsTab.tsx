@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { ChannelCard } from '@/components/ChannelCard';
 import { ChannelFormModal } from '@/components/ChannelFormModal';
@@ -34,11 +34,17 @@ export function MyChannelsTab() {
     selectUserChannels(state, state.users.currentUser?.id || '')
   );
   const tasks = useAppSelector((state) => state.tasks.items);
+  const connections = useAppSelector((state) => state.connections.connections);
 
-  const customChannelCount = useMemo(
-    () => myChannels.filter((c) => !c.isDaily).length,
+  const dailyChannels = useMemo(
+    () => myChannels.filter((c) => c.isDaily),
     [myChannels],
   );
+  const customChannels = useMemo(
+    () => myChannels.filter((c) => !c.isDaily),
+    [myChannels],
+  );
+  const customChannelCount = customChannels.length;
   const canCreateChannel = (currentUser?.customChannelCount || 0) < CUSTOM_CHANNEL_LIMIT;
   const existingNames = myChannels.map((ch) => ch.name);
 
@@ -112,7 +118,7 @@ export function MyChannelsTab() {
 
   return (
     <>
-      {canCreateChannel && (
+      {canCreateChannel ? (
         <Button
           onPress={() => {
             setChannelFormMode('create');
@@ -123,9 +129,36 @@ export function MyChannelsTab() {
         >
           {`+ New Circle (${customChannelCount}/${CUSTOM_CHANNEL_LIMIT})`}
         </Button>
+      ) : (
+        <Text style={[styles.limitText, { color: theme.mutedForeground }]}>
+          {`You've reached the maximum of ${CUSTOM_CHANNEL_LIMIT} custom circles.`}
+        </Text>
       )}
 
-      {myChannels.map((ch) => (
+      {dailyChannels.map((ch) => (
+        <ChannelCard
+          key={ch.id}
+          channel={ch}
+          isOwner
+          memberCountOverride={connections.length} // Daily circles: members are connections, not subscribers
+          onEdit={() => {
+            setChannelFormMode('edit');
+            setEditingChannel(ch);
+            setChannelFormOpen(true);
+          }}
+          onDelete={() => handleDeleteChannel(ch.id)}
+          onClick={() => {
+            setSelectedChannelId(ch.id);
+            setChannelDetailOpen(true);
+          }}
+        />
+      ))}
+
+      {dailyChannels.length > 0 && customChannels.length > 0 && (
+        <View style={[styles.separator, { borderColor: theme.border }]} />
+      )}
+
+      {customChannels.map((ch) => (
         <ChannelCard
           key={ch.id}
           channel={ch}
@@ -214,5 +247,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingTop: 24,
     fontStyle: 'italic',
+  },
+  limitText: {
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 16,
+    fontStyle: 'italic',
+  },
+  separator: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    marginVertical: 12,
   },
 });
