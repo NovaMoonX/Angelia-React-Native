@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useEffect, useState } from 'react';
 import {
   getAuth,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithCredential,
@@ -35,6 +36,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<FirebaseAuthTypes.User>;
   signOut: () => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
   isDemoMode: boolean;
   enterDemo: () => Promise<void>;
   exitDemo: () => Promise<void>;
@@ -48,6 +50,7 @@ export const AuthContext = createContext<AuthContextType>({
   signInWithGoogle: () => Promise.reject(new Error('AuthProvider not initialized')),
   signOut: () => Promise.reject(new Error('AuthProvider not initialized')),
   sendVerificationEmail: () => Promise.reject(new Error('AuthProvider not initialized')),
+  sendPasswordReset: () => Promise.reject(new Error('AuthProvider not initialized')),
   isDemoMode: false,
   enterDemo: () => Promise.reject(new Error('AuthProvider not initialized')),
   exitDemo: () => Promise.reject(new Error('AuthProvider not initialized')),
@@ -136,6 +139,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await getAuth().currentUser?.sendEmailVerification();
   }, []);
 
+  const handleSendPasswordReset = useCallback(async (email: string) => {
+    await sendPasswordResetEmail(getAuth(), email);
+  }, []);
+
   const enterDemo = useCallback(async () => {
     setIsDemoMode(true);
     await AsyncStorage.setItem(DEMO_MODE_KEY, 'true');
@@ -156,6 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signInWithGoogle,
         signOut: handleSignOut,
         sendVerificationEmail: handleSendVerificationEmail,
+        sendPasswordReset: handleSendPasswordReset,
         isDemoMode,
         enterDemo,
         exitDemo,
