@@ -322,6 +322,7 @@ const styles = StyleSheet.create({
   },
   profileHeader: {
     alignItems: 'center',
+    alignSelf: 'stretch',
     gap: 4,
   },
   profileName: {
@@ -336,6 +337,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontStyle: 'italic',
     marginTop: 4,
+    alignSelf: 'stretch',
+    textAlign: 'center',
   },
   statusButton: {
     flexDirection: 'row',

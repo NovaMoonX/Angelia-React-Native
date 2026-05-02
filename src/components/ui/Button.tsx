@@ -101,6 +101,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    alignSelf: 'stretch',
   },
   linkButton: {
     borderRadius: 0,
@@ -110,5 +111,6 @@ const styles = StyleSheet.create({
   text: {
     fontWeight: '600',
     textAlign: 'center',
+    flex: 1,
   },
 });
