@@ -4,6 +4,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import Animated, {
@@ -20,7 +21,6 @@ import { Feather } from '@expo/vector-icons';
 
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
-import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { ConversationMessage } from '@/components/conversation/ConversationMessage';
 import { ConversationEmptyState } from '@/components/conversation/ConversationEmptyState';
@@ -40,7 +40,7 @@ import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { POST_TIERS } from '@/models/constants';
-import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
+import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import type { Message } from '@/models/types';
 
 export default function ConversationScreen() {
@@ -228,12 +228,8 @@ export default function ConversationScreen() {
     : theme.card;
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: theme.background }}
-      behavior={KEYBOARD_BEHAVIOR}
-      keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
-    >
-      {/* Header */}
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
+      {/* Header — lives outside KeyboardAvoidingView so it stays fixed */}
       <Animated.View style={[styles.header, { backgroundColor: headerBg, borderBottomColor: theme.border, paddingTop: isDemo ? 10 : insets.top + 10 }, entryAnimatedStyle]}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Feather name="arrow-left" size={22} color={theme.foreground} />
@@ -300,75 +296,94 @@ export default function ConversationScreen() {
         </Animated.View>
       )}
 
-      {/* Message list area */}
-      <View style={styles.listContainer}>
-        {messages.length === 0 ? (
-          <ConversationEmptyState isHost={isHost} />
-        ) : (
-          <FlashList
-            ref={listRef}
-            data={messages}
-            renderItem={renderMessage}
-            keyExtractor={keyExtractor}
-            contentContainerStyle={{ paddingBottom: 8 }}
-          />
-        )}
-      </View>
-
-      {/* Join CTA for users who can access but haven't joined */}
-      {canAccessConversation && !isInConversation && (
-        <View style={[styles.joinBar, { borderTopColor: theme.border, backgroundColor: theme.background, paddingBottom: Math.max(insets.bottom, 16) }]}>
-          <Button onPress={handleJoinConversation}>
-            Join Conversation
-          </Button>
-        </View>
-      )}
-
-      {/* Input bar */}
-      {canAccessConversation && isInConversation && (
-        <View
-          style={[
-            styles.inputBar,
-            {
-              borderTopColor: theme.border,
-              backgroundColor: theme.background,
-              paddingBottom: Math.max(insets.bottom, 12),
-              borderColor: tierTheme.inputBorderColor !== 'transparent'
-                ? tierTheme.inputBorderColor
-                : theme.border,
-            },
-          ]}
-        >
-          {replyingTo && (
-            <View style={styles.replyBanner}>
-              <Text style={[styles.replyText, { color: theme.mutedForeground }]}>
-                Replying to {replyAuthor?.firstName ?? 'someone'}…
-              </Text>
-              <Pressable onPress={() => setReplyingTo(null)}>
-                <Feather name="x" size={16} color={theme.mutedForeground} />
-              </Pressable>
-            </View>
-          )}
-
-          <View style={styles.inputRow}>
-            <Input
-              value={messageText}
-              onChangeText={setMessageText}
-              placeholder="Say something sweet…"
-              style={styles.textInput}
-              onSubmitEditing={handleSend}
+      {/* KeyboardAvoidingView wraps only the chat area so the header stays fixed */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={KEYBOARD_BEHAVIOR}
+        keyboardVerticalOffset={0}
+      >
+        {/* Message list area */}
+        <View style={styles.listContainer}>
+          {messages.length === 0 ? (
+            <ConversationEmptyState isHost={isHost} />
+          ) : (
+            <FlashList
+              ref={listRef}
+              data={messages}
+              renderItem={renderMessage}
+              keyExtractor={keyExtractor}
+              contentContainerStyle={{ paddingBottom: 8 }}
             />
-            <Button
-              onPress={handleSend}
-              size="sm"
-              disabled={!messageText.trim()}
-            >
-              Send
+          )}
+        </View>
+
+        {/* Join CTA for users who can access but haven't joined */}
+        {canAccessConversation && !isInConversation && (
+          <View style={[styles.joinBar, { borderTopColor: theme.border, backgroundColor: theme.background, paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <Button onPress={handleJoinConversation}>
+              Join Conversation
             </Button>
           </View>
-        </View>
-      )}
-    </KeyboardAvoidingView>
+        )}
+
+        {/* Input bar */}
+        {canAccessConversation && isInConversation && (
+          <View
+            style={[
+              styles.inputBar,
+              {
+                borderTopColor: theme.border,
+                backgroundColor: theme.background,
+                paddingBottom: Math.max(insets.bottom, 12),
+                borderColor: tierTheme.inputBorderColor !== 'transparent'
+                  ? tierTheme.inputBorderColor
+                  : theme.border,
+              },
+            ]}
+          >
+            {replyingTo && (
+              <View style={styles.replyBanner}>
+                <Text style={[styles.replyText, { color: theme.mutedForeground }]}>
+                  Replying to {replyAuthor?.firstName ?? 'someone'}…
+                </Text>
+                <Pressable onPress={() => setReplyingTo(null)}>
+                  <Feather name="x" size={16} color={theme.mutedForeground} />
+                </Pressable>
+              </View>
+            )}
+
+            <View style={styles.inputRow}>
+              <TextInput
+                value={messageText}
+                onChangeText={setMessageText}
+                placeholder="Say something sweet…"
+                placeholderTextColor={theme.mutedForeground}
+                multiline
+                blurOnSubmit={false}
+                style={[
+                  styles.textInput,
+                  {
+                    color: theme.foreground,
+                    backgroundColor: theme.background,
+                    borderColor: theme.border,
+                  },
+                ]}
+              />
+              <Pressable
+                onPress={handleSend}
+                disabled={!messageText.trim()}
+                style={({ pressed }) => [
+                  styles.sendButton,
+                  { backgroundColor: theme.primary, opacity: !messageText.trim() ? 0.4 : pressed ? 0.75 : 1 },
+                ]}
+              >
+                <Feather name="send" size={18} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          </View>
+        )}
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -469,10 +484,25 @@ const styles = StyleSheet.create({
   },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     gap: 8,
   },
   textInput: {
     flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    maxHeight: 120,
+    textAlignVertical: 'top',
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
 });
