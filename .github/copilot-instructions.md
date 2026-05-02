@@ -262,20 +262,50 @@ When a UI element already uses a vector icon (e.g. `<Feather name='mail' />`), d
 <Text>Send {name} a private note 💌</Text>
 ```
 
-### React Native: bottom-sheet modal keyboard-dismiss jump (Android)
+### React Native: bottom-sheet modal keyboard handling
 
-**Symptom:** When a keyboard is dismissed *inside* a bottom-sheet `<Modal>` on Android, the sheet jumps between bottom-aligned and padded positions.
+**Always use `ModalKeyboardView` + `useModalSheetPadding`** for any bottom-sheet `<Modal>` that contains a `TextInput`. These two exports live in `src/components/ModalKeyboardView.tsx` and centralise the cross-platform keyboard-avoidance pattern.
 
-**Cause:** Using `behavior='height'` on the `<KeyboardAvoidingView>` inside a Modal causes the KAV container *height* to animate when the keyboard hides. Because the backdrop uses `justifyContent: 'flex-end'`, restoring the KAV height forces the sheet to re-anchor, producing a visible snap/jump.
+**Why a custom component instead of `KeyboardAvoidingView` alone:**
 
-**Fix:** Always use `behavior='padding'` (on **both** iOS and Android) for `<KeyboardAvoidingView>` inside a bottom-sheet `<Modal>`. `padding` adjusts only the internal spacing — the container height stays stable and the jump disappears.
+- **iOS:** `KeyboardAvoidingView behavior='padding'` works correctly inside a Modal and is used by `ModalKeyboardView` internally.
+- **Android:** `KeyboardAvoidingView` inside a Modal is unreliable. The Modal is rendered outside the normal layout tree, so Android's `adjustPan`/`adjustResize` window soft-input modes don't apply. KAV's `paddingBottom` may leave a permanent gap below the sheet after the keyboard dismisses. The fix is to bypass KAV on Android entirely and instead track keyboard height via `Keyboard` event listeners (`keyboardDidShow` / `keyboardDidHide`), then apply it as `paddingBottom` on the sheet itself.
+
+**Usage pattern:**
 
 ```tsx
-// ✅ — no jump on keyboard dismiss
-<KeyboardAvoidingView style={{ flex: 1 }} behavior='padding'>
+import { ModalKeyboardView, useModalSheetPadding } from '@/components/ModalKeyboardView';
 
-// ❌ — jumps on Android when keyboard closes
-<KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+// Inside the component:
+const sheetBottomPadding = useModalSheetPadding(insets.bottom + 16);
+
+return (
+  <Modal visible={visible} transparent animationType='slide'>
+    <ModalKeyboardView>
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        <View style={[styles.sheet, { paddingBottom: sheetBottomPadding }]}>
+          {/* sheet content */}
+        </View>
+      </Pressable>
+    </ModalKeyboardView>
+  </Modal>
+);
 ```
 
-See `src/components/PrivateNoteModal.tsx` for the canonical implementation.
+See `src/components/PrivateNoteModal.tsx` and `src/components/FeedbackSupportModal.tsx` for canonical implementations.
+
+---
+
+## React Native: Known Issues & Solutions
+
+> **Policy:** Whenever a React Native-specific bug is encountered and resolved during development, add an entry here. Include the symptom, root cause, and fix with a file reference. This section is intentionally self-contained so it can be copied between React Native projects.
+
+### Keyboard gap / flicker below a bottom-sheet Modal (Android)
+
+**Symptom:** After a `TextInput` inside a bottom-sheet `<Modal>` is used and the keyboard is dismissed, a visible gap appears between the bottom of the modal sheet and the bottom of the screen. Earlier versions of the same bug caused the sheet to flicker or jump.
+
+**Root cause:** On Android, `<Modal>` renders outside the normal React Native view hierarchy. This means Android's `windowSoftInputMode` (`adjustPan` / `adjustResize`) does not apply, and `KeyboardAvoidingView`'s internal `paddingBottom` can get stuck at a non-zero value after the keyboard hides — producing either a jump (with `behavior='height'`) or a residual gap (with `behavior='padding'`).
+
+**Fix:** Bypass `KeyboardAvoidingView` on Android entirely. Use `Keyboard.addListener('keyboardDidShow')` and `'keyboardDidHide'` to track keyboard height in state, and apply that height directly as `paddingBottom` on the sheet `View`. On iOS, `KeyboardAvoidingView behavior='padding'` still works correctly and is kept.
+
+**Canonical implementation:** `src/components/ModalKeyboardView.tsx` — exposes `ModalKeyboardView` (wrapper component) and `useModalSheetPadding` (hook). Used by `PrivateNoteModal.tsx` and `FeedbackSupportModal.tsx`.

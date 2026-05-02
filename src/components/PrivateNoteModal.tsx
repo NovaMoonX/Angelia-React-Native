@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppDispatch } from '@/store/hooks';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { sendPrivateNote } from '@/store/actions/privateNoteActions';
+import { ModalKeyboardView, useModalSheetPadding } from '@/components/ModalKeyboardView';
 
 interface PrivateNoteModalProps {
 	visible: boolean;
@@ -18,10 +19,8 @@ interface PrivateNoteModalProps {
  * Bottom-sheet modal that lets a visitor compose and send a private note to
  * the post author.
  *
- * NOTE (Android keyboard):
- * Matches the FeedbackSupportModal pattern: track keyboard height via
- * keyboardDidShow/keyboardDidHide and expand the sheet's paddingBottom
- * instead of using KAV or Animated.Value. KAV is only used on iOS.
+ * Uses ModalKeyboardView + useModalSheetPadding for cross-platform keyboard
+ * handling. See src/components/ModalKeyboardView.tsx for the full explanation.
  */
 export function PrivateNoteModal({
 	visible,
@@ -37,26 +36,7 @@ export function PrivateNoteModal({
 
 	const [text, setText] = useState('');
 	const [sending, setSending] = useState(false);
-	const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
-
-	useEffect(() => {
-		if (Platform.OS !== 'android') { return; }
-		const show = Keyboard.addListener('keyboardDidShow', (e) => {
-			setAndroidKeyboardHeight(e.endCoordinates.height);
-		});
-		const hide = Keyboard.addListener('keyboardDidHide', () => {
-			setAndroidKeyboardHeight(0);
-		});
-		return () => {
-			show.remove();
-			hide.remove();
-		};
-	}, []);
-
-	const sheetBottomPadding =
-		Platform.OS === 'android' && androidKeyboardHeight > 0
-			? androidKeyboardHeight + 16
-			: insets.bottom + 16;
+	const sheetBottomPadding = useModalSheetPadding(insets.bottom + 16);
 
 	const handleClose = useCallback(() => {
 		onClose();
@@ -142,11 +122,9 @@ export function PrivateNoteModal({
 
 	return (
 		<Modal visible={visible} transparent animationType='slide' onRequestClose={handleClose}>
-			{Platform.OS === 'ios' ? (
-				<KeyboardAvoidingView style={{ flex: 1 }} behavior='padding'>
-					{sheetContent}
-				</KeyboardAvoidingView>
-			) : sheetContent}
+			<ModalKeyboardView>
+				{sheetContent}
+			</ModalKeyboardView>
 		</Modal>
 	);
 }
