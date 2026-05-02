@@ -481,7 +481,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
           title: '🔒 Private Note',
           description: `${name} sent you a private note — tap to read it`,
           onPress: postId
-            ? () => router.push({ pathname: '/(protected)/private-notes/[postId]', params: { postId } })
+            ? () => router.push({ pathname: '/(protected)/private-notes-host/[postId]', params: { postId } })
             : undefined,
         });
       }

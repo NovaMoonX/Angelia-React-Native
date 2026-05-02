@@ -205,3 +205,107 @@ Do **not** clutter the README with:
 - Every minor dependency update
 - Internal implementation details that don't affect the dev workflow
 - Speculative or forward-looking notes
+
+---
+
+## Code style conventions
+
+### AsyncStorage keys
+
+All `@angelia/…` AsyncStorage keys **must** be declared once as named exports in `src/models/constants.ts` and imported wherever they are used. Never define the same key string in more than one file. If a key is parameterised (e.g. per-post), export it as a function:
+
+```ts
+// ✅ correct — declared once, exported, imported elsewhere
+export const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_notes_seen_${postId}`;
+
+// ❌ wrong — local constant repeated across files
+const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_notes_seen_${postId}`;
+```
+
+### `Number()` vs `parseInt`
+
+Always use `Number()` to convert strings to numbers. Never use `parseInt` or `parseFloat`:
+
+```ts
+// ✅
+const lastSeen = val ? Number(val) : 0;
+
+// ❌
+const lastSeen = val ? parseInt(val, 10) : 0;
+```
+
+### Arrow function return values
+
+Arrow functions must always use an **explicit `return`** statement inside a block body `{ }`. Do not rely on implicit expression returns:
+
+```ts
+// ✅
+allNotes.filter((n) => { return n.authorId === uid; })
+
+// ❌
+allNotes.filter((n) => n.authorId === uid)
+```
+
+This applies to all callbacks, `filter`, `map`, `find`, `sort`, etc.
+
+### Icon + emoji: no duplicates
+
+When a UI element already uses a vector icon (e.g. `<Feather name='mail' />`), do **not** also append a redundant emoji (e.g. `💌`) to the adjacent label. The icon and the emoji convey the same meaning — showing both is visually noisy.
+
+```tsx
+// ✅ icon-only with clean label
+<Feather name='mail' size={15} color={theme.primary} />
+<Text>or send {name} a private note</Text>
+
+// ❌ icon + emoji duplicate
+<Feather name='mail' size={15} color={theme.primary} />
+<Text>Send {name} a private note 💌</Text>
+```
+
+### React Native: bottom-sheet modal keyboard handling
+
+**Always use `ModalKeyboardView` + `useModalSheetPadding`** for any bottom-sheet `<Modal>` that contains a `TextInput`. These two exports live in `src/components/ModalKeyboardView.tsx` and centralise the cross-platform keyboard-avoidance pattern.
+
+**Why a custom component instead of `KeyboardAvoidingView` alone:**
+
+- **iOS:** `KeyboardAvoidingView behavior='padding'` works correctly inside a Modal and is used by `ModalKeyboardView` internally.
+- **Android:** `KeyboardAvoidingView` inside a Modal is unreliable. The Modal is rendered outside the normal layout tree, so Android's `adjustPan`/`adjustResize` window soft-input modes don't apply. KAV's `paddingBottom` may leave a permanent gap below the sheet after the keyboard dismisses. The fix is to bypass KAV on Android entirely and instead track keyboard height via `Keyboard` event listeners (`keyboardDidShow` / `keyboardDidHide`), then apply it as `paddingBottom` on the sheet itself.
+
+**Usage pattern:**
+
+```tsx
+import { ModalKeyboardView, useModalSheetPadding } from '@/components/ModalKeyboardView';
+
+// Inside the component:
+const sheetBottomPadding = useModalSheetPadding(insets.bottom + 16);
+
+return (
+  <Modal visible={visible} transparent animationType='slide'>
+    <ModalKeyboardView>
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        <View style={[styles.sheet, { paddingBottom: sheetBottomPadding }]}>
+          {/* sheet content */}
+        </View>
+      </Pressable>
+    </ModalKeyboardView>
+  </Modal>
+);
+```
+
+See `src/components/PrivateNoteModal.tsx` and `src/components/FeedbackSupportModal.tsx` for canonical implementations.
+
+---
+
+## React Native: Known Issues & Solutions
+
+> **Policy:** Whenever a React Native-specific bug is encountered and resolved during development, add an entry here. Include the symptom, root cause, and fix with a file reference. This section is intentionally self-contained so it can be copied between React Native projects.
+
+### Keyboard gap / flicker below a bottom-sheet Modal (Android)
+
+**Symptom:** After a `TextInput` inside a bottom-sheet `<Modal>` is used and the keyboard is dismissed, a visible gap appears between the bottom of the modal sheet and the bottom of the screen. Earlier versions of the same bug caused the sheet to flicker or jump.
+
+**Root cause:** On Android, `<Modal>` renders outside the normal React Native view hierarchy. This means Android's `windowSoftInputMode` (`adjustPan` / `adjustResize`) does not apply, and `KeyboardAvoidingView`'s internal `paddingBottom` can get stuck at a non-zero value after the keyboard hides — producing either a jump (with `behavior='height'`) or a residual gap (with `behavior='padding'`).
+
+**Fix:** Bypass `KeyboardAvoidingView` on Android entirely. Use `Keyboard.addListener('keyboardDidShow')` and `'keyboardDidHide'` to track keyboard height in state, and apply that height directly as `paddingBottom` on the sheet `View`. On iOS, `KeyboardAvoidingView behavior='padding'` still works correctly and is kept.
+
+**Canonical implementation:** `src/components/ModalKeyboardView.tsx` — exposes `ModalKeyboardView` (wrapper component) and `useModalSheetPadding` (hook). Used by `PrivateNoteModal.tsx` and `FeedbackSupportModal.tsx`.

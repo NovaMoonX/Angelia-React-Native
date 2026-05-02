@@ -1,11 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   ActivityIndicator,
-  Keyboard,
-  KeyboardAvoidingView,
   Linking,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,6 +17,7 @@ import { useAppSelector } from '@/store/hooks';
 import { submitFeedback } from '@/services/firebase/firestore';
 import { generateId } from '@/utils/generateId';
 import { CopyButton } from '@/components/ui/CopyButton';
+import { ModalKeyboardView, useModalSheetPadding } from '@/components/ModalKeyboardView';
 import type { FeedbackCategory } from '@/models/types';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -138,22 +136,7 @@ export function FeedbackSupportModal({ visible, onClose }: FeedbackSupportModalP
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [androidKeyboardHeight, setAndroidKeyboardHeight] = useState(0);
-
-  // Track keyboard height on Android (modals are exempt from adjustPan)
-  useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    const show = Keyboard.addListener('keyboardDidShow', (e) => {
-      setAndroidKeyboardHeight(e.endCoordinates.height);
-    });
-    const hide = Keyboard.addListener('keyboardDidHide', () => {
-      setAndroidKeyboardHeight(0);
-    });
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
+  const sheetBottomPadding = useModalSheetPadding(insets.bottom + 16);
 
   // Reset whenever modal opens
   useEffect(() => {
@@ -492,11 +475,6 @@ export function FeedbackSupportModal({ visible, onClose }: FeedbackSupportModalP
     }
   };
 
-  const sheetBottomPadding =
-    Platform.OS === 'android' && androidKeyboardHeight > 0
-      ? androidKeyboardHeight + 16
-      : insets.bottom + 16;
-
   const sheet = (
     <Pressable
       style={styles.backdrop}
@@ -524,11 +502,9 @@ export function FeedbackSupportModal({ visible, onClose }: FeedbackSupportModalP
       animationType="slide"
       onRequestClose={handleClose}
     >
-      {Platform.OS === 'ios' ? (
-        <KeyboardAvoidingView style={styles.keyboardAvoid} behavior="padding">
-          {sheet}
-        </KeyboardAvoidingView>
-      ) : sheet}
+      <ModalKeyboardView style={styles.keyboardAvoid}>
+        {sheet}
+      </ModalKeyboardView>
     </Modal>
   );
 }

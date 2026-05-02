@@ -48,6 +48,7 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
   const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
 
   const hasTierBadge = post.tier === 'worth-knowing' || post.tier === 'big-news';
+
   const tierBadgeConfig = post.tier ? POST_TIERS.find((t) => t.value === post.tier) ?? null : null;
 
   const expiryInfo = channel != null
@@ -65,6 +66,8 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
       .map(([emoji]) => emoji);
   }, [post.reactions]);
 
+  // Show footer when there are reactions, or when this is another user's post (to prompt engagement).
+  // No footer when viewing own posts with no reactions (avoids dead space at the bottom of the card).
   const hasFooter = topReactions.length > 0 || !!isOtherUser;
 
   return (
@@ -359,7 +362,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   firstReactText: {
-    fontSize: 12,
-    fontStyle: 'italic',
+    fontSize: 13,
   },
 });

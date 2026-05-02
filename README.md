@@ -156,3 +156,13 @@ See [NOTIFICATION_TESTING.md](./NOTIFICATION_TESTING.md) for a step-by-step guid
 **Cause:** `expo-notifications` and `expo` each bundle their own copy of `expo-modules-core`, and the hoisted type doesn't match the runtime import.
 
 **Fix:** Cast the status check using `Notifications.PermissionStatus.GRANTED` directly on the `expo-notifications` import rather than importing from `expo-modules-core`. See `src/services/notifications.ts`.
+
+---
+
+#### Android bottom-sheet modal jumps when keyboard is dismissed
+
+**Symptom:** On Android, when a keyboard is dismissed *inside* a bottom-sheet `<Modal>` (e.g. the private-note composer), the sheet snaps/jumps between its bottom-aligned position and a padded-from-bottom position.
+
+**Cause:** Using `behavior='height'` on the `<KeyboardAvoidingView>` inside a Modal animates the KAV container height on keyboard hide. Because the backdrop uses `justifyContent: 'flex-end'`, the height restoration re-triggers flex layout and the sheet visibly snaps.
+
+**Fix:** Use `behavior='padding'` on both iOS and Android for `<KeyboardAvoidingView>` inside a bottom-sheet Modal. `padding` adjusts only internal spacing and never changes the container height, eliminating the snap. See `src/components/PrivateNoteModal.tsx`.

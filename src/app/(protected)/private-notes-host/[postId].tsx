@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/Avatar';
@@ -11,6 +12,7 @@ import { usePrivateNotes } from '@/hooks/usePrivateNotes';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { PRIVATE_NOTES_SEEN_KEY } from '@/models/constants';
 
 export default function PrivateNotesScreen() {
 	const { postId } = useLocalSearchParams<{ postId: string }>();
@@ -39,6 +41,14 @@ export default function PrivateNotesScreen() {
 			router.back();
 		}
 	}, [isHost, loaded, subscriptionFailed, notes.length, post, currentUser, router]);
+
+	// Mark notes as seen when the host opens the screen, so the unread indicator clears.
+	// Runs once per screen mount (postId/isHost are stable during screen lifetime).
+	useEffect(() => {
+		if (!postId || !isHost) return;
+		void AsyncStorage.setItem(PRIVATE_NOTES_SEEN_KEY(postId), String(Date.now()));
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [postId, isHost]);
 
 	if (!post || !currentUser || !isHost || (loaded && !subscriptionFailed && notes.length === 0)) {
 		return (

@@ -54,3 +54,9 @@ export const ALL_POST_TIERS: PostTier[] = POST_TIERS.map((t) => t.value);
 
 /** AsyncStorage key that persists the newest post timestamp the user has acknowledged on the feed. */
 export const FEED_LAST_SEEN_TIMESTAMP_KEY = '@angelia/feed_last_seen_timestamp';
+
+/**
+ * AsyncStorage key that records when a post host last opened the private notes screen for a post.
+ * Used to drive the unread indicator on the host's private-notes badge.
+ */
+export const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_notes_seen_${postId}`;
