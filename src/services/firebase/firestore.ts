@@ -26,12 +26,18 @@ const db = getFirestore();
 /**
  * Safe defaults for UserSecret fields when the secret document is unavailable
  * (e.g. when loading another user's public/private data only).
+ *
+ * accountProgress fields default to false so that a missing secret document
+ * (e.g. mid-onboarding, before createUserProfile writes the secret doc) is
+ * treated as "not yet onboarded" and correctly redirects to complete-profile.
+ * For other users' profiles these fields are never surfaced in the UI.
  */
 const DEFAULT_USER_SECRET: UserSecret = {
   accountProgress: {
-    signUpComplete: true,
-    emailVerified: true,
-    dailyChannelCreated: true,
+    signUpComplete: false,
+    emailVerified: false,
+    dailyChannelCreated: false,
+    onboardingComplete: false,
   },
   customChannelCount: 0,
 };
@@ -85,6 +91,7 @@ export async function createUserProfile(userData: NewUser): Promise<void> {
       signUpComplete: true,
       emailVerified: false,
       dailyChannelCreated: false,
+      onboardingComplete: false,
     },
     customChannelCount: 0,
   };

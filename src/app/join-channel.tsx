@@ -201,14 +201,19 @@ export default function JoinChannelScreen() {
               onPress={() => router.push('/scan-qr')}
             >
               <Feather name="maximize" size={22} color={theme.secondaryForeground} />
-              <Text style={[styles.scanQrText, { color: theme.secondaryForeground }]}>
-                Scan QR Code
-              </Text>
+              <View>
+                <Text style={[styles.scanQrText, { color: theme.secondaryForeground }]}>
+                  Scan QR Code
+                </Text>
+                <Text style={[styles.scanQrSubtext, { color: theme.mutedForeground }]}>
+                  Works for Circles and connections
+                </Text>
+              </View>
             </Pressable>
 
             <View style={styles.dividerRow}>
               <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
-              <Text style={[styles.dividerLabel, { color: theme.mutedForeground }]}>or enter code</Text>
+              <Text style={[styles.dividerLabel, { color: theme.mutedForeground }]}>or enter a Circle invite code</Text>
               <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
             </View>
 
@@ -440,6 +445,10 @@ const styles = StyleSheet.create({
   scanQrText: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  scanQrSubtext: {
+    fontSize: 12,
+    marginTop: 1,
   },
   dividerRow: {
     flexDirection: 'row',

@@ -73,11 +73,12 @@ interface AuthFormProps {
   onGoogleSignIn?: () => Promise<{ error?: { message: string } }>;
   onForgotPassword?: (email: string) => Promise<void>;
   defaultMethod?: 'email';
+  initialMode?: 'login' | 'signup';
   onBack?: () => void;
 }
 
-export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoogleSignIn, onForgotPassword, defaultMethod, onBack }: AuthFormProps) {
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+export function AuthForm({ methods, action, onActionChange, onEmailSubmit, onGoogleSignIn, onForgotPassword, defaultMethod, initialMode, onBack }: AuthFormProps) {
+  const [mode, setMode] = useState<'login' | 'signup'>(initialMode ?? 'login');
   const [selectedMethod, setSelectedMethod] = useState<'email' | null>(defaultMethod ?? null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

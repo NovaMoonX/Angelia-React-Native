@@ -43,6 +43,7 @@ export interface UserSecret {
     signUpComplete: boolean;
     emailVerified: boolean;
     dailyChannelCreated: boolean;
+    onboardingComplete: boolean;
   };
   customChannelCount: number;
 }
