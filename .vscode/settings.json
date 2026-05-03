@@ -16,5 +16,8 @@
     "unsubs",
     "viewability",
     "winddown"
-  ]
+  ],
+  "chat.tools.terminal.autoApprove": {
+    "gh": true
+  }
 }
