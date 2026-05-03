@@ -1,21 +1,25 @@
 import React from 'react';
 import { View, Text, StyleSheet, type ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
-import type { AvatarPreset, User } from '@/models/types';
+import type { AvatarPreset, User, UserStatus } from '@/models/types';
 
 interface AvatarProps {
   /**
-   * Provide a User (or partial User with `avatar` and `avatarUrl`) to automatically
-   * resolve the preset emoji and custom photo URL. When set, `preset` and `uri` are
-   * ignored. Falls back to the 'moon' preset when the user has no avatarUrl.
+   * Provide a User (or partial User with `avatar`, `avatarUrl`, and optionally `status`) to
+   * automatically resolve the preset emoji, custom photo URL, and status badge.
+   * When set, `preset`, `uri`, and `statusEmoji` are ignored.
+   * Falls back to the 'moon' preset when the user has no avatarUrl.
    */
-  user?: Pick<User, 'avatar' | 'avatarUrl'> | null;
+  user?: Pick<User, 'avatar' | 'avatarUrl'> & { status?: UserStatus | null } | null;
   /** Required when `user` is not provided. */
   preset?: AvatarPreset;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   shape?: 'circle' | 'square';
   style?: ViewStyle;
-  /** When provided, renders a small emoji badge at the bottom-right of the avatar. */
+  /**
+   * Override emoji badge when `user` is not provided.
+   * When `user` is provided, the status emoji is resolved automatically.
+   */
   statusEmoji?: string;
   /** Firebase Storage download URL for a custom profile photo. Used only when `user` is not provided. */
   uri?: string | null;
@@ -76,6 +80,11 @@ export function Avatar({ user, preset, size = 'md', shape = 'circle', style, sta
   const resolvedPreset: AvatarPreset = user?.avatar ?? preset ?? 'moon';
   const resolvedUri: string | null | undefined = user !== undefined && user !== null ? user.avatarUrl : uri;
 
+  // Auto-resolve status emoji from user.status when user prop is provided
+  const resolvedStatusEmoji: string | undefined = user !== undefined && user !== null
+    ? (user.status && Date.now() < user.status.expiresAt ? user.status.emoji : undefined)
+    : statusEmoji;
+
   const dimension = SIZE_MAP[size];
   const borderRadius = shape === 'circle' ? dimension / 2 : 8;
   const fontSize = dimension * 0.5;
@@ -105,7 +114,7 @@ export function Avatar({ user, preset, size = 'md', shape = 'circle', style, sta
           <Text style={{ fontSize }}>{PRESET_EMOJIS[resolvedPreset] || '🌙'}</Text>
         </View>
       )}
-      {statusEmoji ? (
+      {resolvedStatusEmoji ? (
         <View
           style={[
             styles.badge,
@@ -116,7 +125,7 @@ export function Avatar({ user, preset, size = 'md', shape = 'circle', style, sta
             },
           ]}
         >
-          <Text style={{ fontSize: badgeFontSize, lineHeight: badgeSize }}>{statusEmoji}</Text>
+          <Text style={{ fontSize: badgeFontSize, lineHeight: badgeSize }}>{resolvedStatusEmoji}</Text>
         </View>
       ) : null}
     </View>

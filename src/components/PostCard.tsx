@@ -6,7 +6,6 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { Carousel } from '@/components/ui/Carousel';
-import { isStatusActive } from '@/components/NowStatusBadge';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { MediaViewerModal } from '@/components/MediaViewerModal';
 import { useAppSelector } from '@/store/hooks';
@@ -91,7 +90,6 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
               <Avatar
                 user={author}
                 size="sm"
-                statusEmoji={isStatusActive(author?.status) ? author?.status?.emoji : undefined}
               />
             </Pressable>
             <View style={styles.headerText}>

@@ -10,7 +10,6 @@ import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { useTheme } from '@/hooks/useTheme';
 import { usePrivateNotes } from '@/hooks/usePrivateNotes';
 import { getRelativeTime } from '@/lib/timeUtils';
-import { isStatusActive } from '@/components/NowStatusBadge';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { PRIVATE_NOTES_SEEN_KEY } from '@/models/constants';
 
@@ -86,9 +85,6 @@ export default function PrivateNotesScreen() {
 							<Avatar
 								user={author}
 								size='sm'
-								statusEmoji={
-									isStatusActive(author?.status) ? author?.status?.emoji : undefined
-								}
 							/>
 							<View style={styles.noteContent}>
 								<View style={styles.noteHeader}>
