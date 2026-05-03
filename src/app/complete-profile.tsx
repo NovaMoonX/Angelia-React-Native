@@ -369,7 +369,7 @@ export default function CompleteProfileScreen() {
   // Step 3
   const [categories, setCategories] = useState<Category[]>([]);
   const [familyStyle, setFamilyStyle] = useState<FamilyStyle | null>(null);
-  const [businessStyle, setBusinessStyle] = useState<BusinessStyle | null>(null);
+  const [businessStyles, setBusinessStyles] = useState<BusinessStyle[]>([]);
   const [selectedHobbies, setSelectedHobbies] = useState<string[]>([]);
   const [customHobbies, setCustomHobbies] = useState<string[]>([]);
   const [customHobbyInput, setCustomHobbyInput] = useState('');
@@ -494,7 +494,7 @@ export default function CompleteProfileScreen() {
 
   const totalPendingCircles =
     (categories.includes('family') && familyStyle ? 1 : 0) +
-    (categories.includes('business') && businessStyle ? 1 : 0) +
+    (categories.includes('business') ? businessStyles.length : 0) +
     selectedHobbies.length +
     customHobbies.length +
     selectedLifelogs.length +
@@ -522,10 +522,10 @@ export default function CompleteProfileScreen() {
         description: style?.desc ?? '',
       });
     }
-    if (categories.includes('business') && businessStyle) {
-      const style = BUSINESS_STYLES.find((s) => s.id === businessStyle);
+    for (const bs of (categories.includes('business') ? businessStyles : [])) {
+      const style = BUSINESS_STYLES.find((s) => s.id === bs);
       circles.push({
-        key: `business:${businessStyle}`,
+        key: `business:${bs}`,
         name: style?.label ?? 'My Circle',
         emoji: '🏪',
         color: randomChannelColor(),
@@ -570,7 +570,7 @@ export default function CompleteProfileScreen() {
     });
 
     return circles.slice(0, 3);
-  }, [categories, familyStyle, businessStyle, selectedHobbies, customHobbies, selectedLifelogs, customLifelogs]);
+  }, [categories, familyStyle, businessStyles, selectedHobbies, customHobbies, selectedLifelogs, customLifelogs]);
 
   // ── Final submit ────────────────────────────────────────────────────────
 
@@ -712,7 +712,8 @@ export default function CompleteProfileScreen() {
     if (key.startsWith('family:')) {
       setFamilyStyle(null);
     } else if (key.startsWith('business:')) {
-      setBusinessStyle(null);
+      const bs = key.slice('business:'.length) as BusinessStyle;
+      setBusinessStyles((prev) => prev.filter((x) => x !== bs));
     } else if (key.startsWith('hobby:')) {
       const h = key.slice('hobby:'.length);
       setSelectedHobbies((prev) => prev.filter((x) => x !== h));
@@ -1348,7 +1349,7 @@ export default function CompleteProfileScreen() {
               <Button
                 onPress={addCustomHobby}
                 disabled={!customHobbyInput.trim() || circlesAtMax}
-                style={[{ marginLeft: 8 }, styles.addButton]}
+                style={{ marginLeft: 8, alignSelf: 'stretch' }}
               >
                 Add
               </Button>
@@ -1366,18 +1367,18 @@ export default function CompleteProfileScreen() {
               What best describes what you run?
             </Text>
             {BUSINESS_STYLES.map((s) => {
-              const isSelected = businessStyle === s.id;
+              const isSelected = businessStyles.includes(s.id);
               const isDisabled = !isSelected && circlesAtMax;
               return (
                 <Pressable
                   key={s.id}
                   onPress={() => {
                     if (isSelected) {
-                      setBusinessStyle(null);
+                      setBusinessStyles((prev) => prev.filter((x) => x !== s.id));
                     } else if (isDisabled) {
                       addToast({ type: 'warning', title: CIRCLE_LIMIT_WARNING });
                     } else {
-                      setBusinessStyle(s.id);
+                      setBusinessStyles((prev) => [...prev, s.id]);
                     }
                   }}
                   style={[
@@ -1490,7 +1491,7 @@ export default function CompleteProfileScreen() {
               <Button
                 onPress={addCustomLifelog}
                 disabled={!customLifelogInput.trim() || circlesAtMax}
-                style={[{ marginLeft: 8 }, styles.addButton]}
+                style={{ marginLeft: 8, alignSelf: 'stretch' }}
               >
                 Add
               </Button>
@@ -2032,6 +2033,7 @@ const styles = StyleSheet.create({
   hobbyChipText: {
     fontSize: 13,
     fontWeight: '600',
+    flex: 1,
   },
 
   // Suggestion text
