@@ -18,6 +18,8 @@
     "winddown"
   ],
   "chat.tools.terminal.autoApprove": {
-    "gh": true
+    "gh": true,
+    "git add": true,
+    "git commit": true
   }
 }
