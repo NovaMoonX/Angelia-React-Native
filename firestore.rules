@@ -391,6 +391,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Disconnect requests — written by a user to trigger a server-side disconnect.
+    // The Cloud Function processes the request (removes connections and circle memberships)
+    // then deletes the document.  Clients only need create access.
+    match /disconnectRequests/{requestId} {
+      allow create: if isSignedIn()
+        && request.resource.data.requesterId == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+
     // Default: deny all reads and writes not explicitly allowed above.
     // This prevents accidental open-read rules from exposing private data.
     match /{document=**} {

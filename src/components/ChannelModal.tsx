@@ -23,6 +23,8 @@ interface ChannelModalProps {
   onRefreshInviteCode?: () => void;
   onRemoveSubscriber?: (subscriberId: string) => void;
   removingSubscriberId?: string | null;
+  /** Label for the per-subscriber action button. Defaults to "Remove". */
+  removeSubscriberLabel?: string;
 }
 
 export function ChannelModal({
@@ -33,6 +35,7 @@ export function ChannelModal({
   onRefreshInviteCode,
   onRemoveSubscriber,
   removingSubscriberId,
+  removeSubscriberLabel = 'Remove',
 }: ChannelModalProps) {
   const { theme } = useTheme();
   const colors = getColorPair(channel);
@@ -152,7 +155,7 @@ export function ChannelModal({
                     onPress={() => onRemoveSubscriber(sub.id)}
                     loading={removingSubscriberId === sub.id}
                   >
-                    Remove
+                    {removeSubscriberLabel}
                   </Button>
                 )}
               </View>

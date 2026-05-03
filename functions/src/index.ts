@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { FieldValue } from 'firebase-admin/firestore';
 
 admin.initializeApp();
 
@@ -429,6 +430,73 @@ export const onJoinRequestAccepted = onDocumentUpdated(
       db.collection('connections').doc(channelOwnerId).collection('people').doc(requesterId),
       { userId: requesterId, connectedAt },
     );
+
+    await batch.commit();
+  },
+);
+
+// ── Cloud Function: Disconnect two users ──────────────────────────────────
+
+/**
+ * Written by the client to `disconnectRequests/{requestId}` to kick off a
+ * server-side disconnect.  Firestore rules ensure only the requester can create
+ * the document.
+ */
+interface DisconnectRequest {
+  requesterId: string;
+  targetUserId: string;
+  createdAt: number;
+}
+
+/**
+ * Triggered when a `disconnectRequests` document is created.
+ *
+ * In a single Firestore batch it:
+ *   1. Deletes the mutual connection documents for both parties.
+ *   2. Removes the target user from every channel owned by the requester
+ *      where the target is currently a subscriber.
+ *
+ * Using a single batch keeps costs low (one Admin SDK round-trip) and makes
+ * the operation atomic from the Cloud Function's perspective.
+ */
+export const onDisconnectRequest = onDocumentCreated(
+  'disconnectRequests/{requestId}',
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
+    const { requesterId, targetUserId } = snap.data() as DisconnectRequest;
+    if (!requesterId || !targetUserId) {
+      await snap.ref.delete();
+      return;
+    }
+
+    const batch = db.batch();
+
+    // 1. Remove both sides of the connection.
+    batch.delete(
+      db.collection('connections').doc(requesterId).collection('people').doc(targetUserId),
+    );
+    batch.delete(
+      db.collection('connections').doc(targetUserId).collection('people').doc(requesterId),
+    );
+
+    // 2. Remove the target from every channel owned by the requester where
+    //    they are listed as a subscriber.
+    const channelsSnap = await db
+      .collection('channels')
+      .where('ownerId', '==', requesterId)
+      .where('subscribers', 'array-contains', targetUserId)
+      .get();
+
+    for (const channelDoc of channelsSnap.docs) {
+      batch.update(channelDoc.ref, {
+        subscribers: FieldValue.arrayRemove(targetUserId),
+      });
+    }
+
+    // 3. Clean up the request document.
+    batch.delete(snap.ref);
 
     await batch.commit();
   },

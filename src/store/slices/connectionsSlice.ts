@@ -49,6 +49,9 @@ const connectionsSlice = createSlice({
     clearConnectionsPendingState(state) {
       state.pendingFromUserId = null;
     },
+    removeConnection(state, action: PayloadAction<string>) {
+      state.connections = state.connections.filter((c) => { return c.userId !== action.payload; });
+    },
     loadDemoConnections(state, action: PayloadAction<Connection[]>) {
       state.connections = action.payload;
       state.loaded = true;
@@ -66,6 +69,7 @@ export const {
   updateConnectionRequest,
   setPendingFromUserId,
   clearConnectionsPendingState,
+  removeConnection,
   loadDemoConnections,
 } = connectionsSlice.actions;
 

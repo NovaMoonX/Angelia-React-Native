@@ -16,6 +16,7 @@ import {
   refreshChannelInviteCode,
   removeChannelSubscriber,
 } from '@/store/actions/channelActions';
+import { disconnectUser } from '@/store/actions/connectionsActions';
 import { completeTask } from '@/store/actions/taskActions';
 import { CUSTOM_CHANNEL_LIMIT } from '@/models/constants';
 import {
@@ -112,6 +113,44 @@ export function MyChannelsTab() {
     }
   };
 
+  const handleDisconnectSubscriber = async (subscriberId: string) => {
+    const ok = await confirm({
+      title: 'Disconnect',
+      message: 'This will remove them from your Daily Circle and all other circles, and disconnect you. Continue?',
+      destructive: true,
+    });
+    if (!ok) return;
+    setRemovingSubscriberId(subscriberId);
+    try {
+      await dispatch(disconnectUser(subscriberId)).unwrap();
+      addToast({ type: 'success', title: 'Disconnected' });
+    } catch {
+      addToast({ type: 'error', title: 'Failed to disconnect' });
+    } finally {
+      setRemovingSubscriberId(null);
+    }
+  };
+
+  const handleRemoveSubscriber = async (subscriberId: string) => {
+    setRemovingSubscriberId(subscriberId);
+    try {
+      if (!selectedChannel) return;
+      await dispatch(
+        removeChannelSubscriber({ channelId: selectedChannel.id, subscriberId })
+      ).unwrap();
+      addToast({ type: 'success', title: 'Member removed' });
+    } catch {
+      addToast({ type: 'error', title: 'Failed to remove member' });
+    } finally {
+      setRemovingSubscriberId(null);
+    }
+  };
+
+  const getRemoveSubscriberHandler = (channel: typeof selectedChannel) => {
+    if (!channel || channel.ownerId !== currentUser.id) return undefined;
+    return channel.isDaily ? handleDisconnectSubscriber : handleRemoveSubscriber;
+  };
+
   return (
     <>
       {canCreateChannel ? (
@@ -205,23 +244,8 @@ export function MyChannelsTab() {
                 }
               : undefined
           }
-          onRemoveSubscriber={
-            selectedChannel.ownerId === currentUser.id
-              ? async (subscriberId: string) => {
-                  setRemovingSubscriberId(subscriberId);
-                  try {
-                    await dispatch(
-                      removeChannelSubscriber({ channelId: selectedChannel.id, subscriberId })
-                    ).unwrap();
-                    addToast({ type: 'success', title: 'Member removed' });
-                  } catch {
-                    addToast({ type: 'error', title: 'Failed to remove member' });
-                  } finally {
-                    setRemovingSubscriberId(null);
-                  }
-                }
-              : undefined
-          }
+          onRemoveSubscriber={getRemoveSubscriberHandler(selectedChannel)}
+          removeSubscriberLabel={selectedChannel.isDaily ? 'Disconnect' : 'Remove'}
           removingSubscriberId={removingSubscriberId}
         />
       )}
