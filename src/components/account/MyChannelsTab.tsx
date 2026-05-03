@@ -243,7 +243,8 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   separator: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    marginVertical: 12,
+    borderTopWidth: 1,
+    marginTop: 6,
+    marginBottom: 12,
   },
 });
