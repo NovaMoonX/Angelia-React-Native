@@ -314,7 +314,7 @@ export default function PostDetailScreen() {
 						<View style={styles.emptyReactionsContainer}>
 							<Text style={[styles.emptyReactionsText, { color: theme.mutedForeground }]}>
 								{isHost
-									? 'No reactions yet — share this post to get some! ✨'
+									? 'No reactions just yet!'
 									: 'No reactions yet — be the first to react! 🎉'}
 							</Text>
 						</View>
