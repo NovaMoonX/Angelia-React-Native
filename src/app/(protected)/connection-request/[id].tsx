@@ -157,7 +157,7 @@ export default function ConnectionRequestScreen() {
 
           <Card style={styles.requestCard}>
             <View style={styles.requesterRow}>
-              <Avatar preset={requester?.avatar ?? 'moon'} uri={requester?.avatarUrl} size="md" />
+              <Avatar user={requester} size="md" />
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={[styles.requesterName, { color: theme.foreground }]}>
                   {requester?.firstName ?? 'Unknown'} {requester?.lastName ?? 'User'}
@@ -167,6 +167,12 @@ export default function ConnectionRequestScreen() {
                 </Text>
               </View>
             </View>
+
+            {request.note ? (
+              <Text style={[styles.noteText, { color: theme.mutedForeground }]}>
+                "{request.note}"
+              </Text>
+            ) : null}
 
             <View style={[styles.explainBox, { backgroundColor: theme.secondary }]}>
               <Text style={[styles.explainText, { color: theme.secondaryForeground }]}>
@@ -243,6 +249,11 @@ const styles = StyleSheet.create({
   explainText: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  noteText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontStyle: 'italic',
   },
   ctaRow: {
     flexDirection: 'row',

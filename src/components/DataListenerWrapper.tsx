@@ -6,7 +6,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { setPosts } from '@/store/slices/postsSlice';
-import { setChannels, setConnectionChannels } from '@/store/slices/channelsSlice';
+import { setChannels, setConnectionChannels, syncDailyChannelMembers } from '@/store/slices/channelsSlice';
 import { setCurrentUser, setUsers, setCurrentUserNotificationSettings } from '@/store/slices/usersSlice';
 import {
   setIncomingRequests,
@@ -18,6 +18,7 @@ import {
   setIncomingConnectionRequests,
   setOutgoingConnectionRequests,
 } from '@/store/slices/connectionsSlice';
+import { selectAllChannels, selectUserDailyChannel } from '@/store/slices/channelsSlice';
 import { processPendingInvite } from '@/store/actions/inviteActions';
 import { processPendingConnection } from '@/store/actions/connectionsActions';
 import { initNotifications } from '@/store/actions/notificationActions';
@@ -42,7 +43,6 @@ import {
   getFollowUpForPrompt,
 } from '@/services/notifications';
 import type { AppNotificationType, Channel, ChannelJoinRequest, Connection, ConnectionRequest, NotificationSettings, Post, User } from '@/models/types';
-import { DAILY_CHANNEL_SUFFIX } from '@/models/constants';
 
 /** AsyncStorage key that tracks the calendar date when the daily in-app notice was last shown. */
 const DAILY_PROMPT_SHOWN_DATE_KEY = '@angelia/daily_prompt_shown_date';
@@ -67,12 +67,20 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const { firebaseUser } = useAuth();
   const { addToast } = useToast();
   const isDemo = useAppSelector((state) => state.demo.isActive);
-  const channels = useAppSelector((state) => state.channels.items);
+  const channels = useAppSelector(selectAllChannels);
   const currentUser = useAppSelector((state) => state.users.currentUser);
+  const allUsers = useAppSelector((state) => state.users.users);
   const pendingInviteChannel = useAppSelector((state) => state.pendingInvite.channel);
   const pendingFromUserId = useAppSelector((state) => state.connections.pendingFromUserId);
   const connections = useAppSelector((state) => state.connections.connections);
   const posts = useAppSelector((state) => state.posts.items);
+
+  // Whether the current user's daily channel is loaded — used to trigger the member sync
+  // when channels arrive after connections (race-condition safety).
+  const uid = firebaseUser?.uid ?? '';
+  const myDailyChannelId = useAppSelector(
+    (state) => selectUserDailyChannel(state, uid)?.id ?? null,
+  );
 
   // Refs used by Effect 10 so the listener isn't re-created on every post change.
   const currentUserRef = useRef(currentUser);
@@ -158,17 +166,14 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
     };
   }, [firebaseUser, isDemo, dispatch]);
 
-  // Effect 2: Channel changes → re-subscribe to posts
-  // Includes connected users' daily channel IDs so their posts appear in the feed.
+  // Effect 2: Channel changes → re-subscribe to posts.
+  // `channels` (from selectAllChannels) already includes both owned/subscribed channels
+  // and connected users' daily channels, so we subscribe to all of them directly.
   useEffect(() => {
     if (isDemo || !firebaseUser) return;
 
     const uid = firebaseUser.uid;
-    const ownChannelIds = channels.map((c) => c.id);
-    const connectedDailyIds = connections
-      .map((c) => `${c.userId}${DAILY_CHANNEL_SUFFIX}`)
-      .filter((id) => !ownChannelIds.includes(id));
-    const channelIds = [...ownChannelIds, ...connectedDailyIds];
+    const channelIds = channels.map((c) => c.id);
 
     if (channelIds.length === 0) return;
 
@@ -190,9 +195,11 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
         postsUnsubRef.current = null;
       }
     };
-  }, [firebaseUser, isDemo, channels, connections, dispatch]);
+  }, [firebaseUser, isDemo, channels, dispatch]);
 
   // Effect 3: User set changes → re-subscribe to channel users
+  // Also includes connected users so their profiles are available in usersMap
+  // even when they share no circles (required by selectMyPeopleData).
   useEffect(() => {
     if (isDemo || !firebaseUser) return;
 
@@ -201,6 +208,8 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       userIds.add(ch.ownerId);
       ch.subscribers.forEach((s) => userIds.add(s));
     });
+    // Include direct connections so My People can resolve their display names.
+    connections.forEach((c) => userIds.add(c.userId));
 
     const uniqueIds = Array.from(userIds);
     if (uniqueIds.length === 0) return;
@@ -222,7 +231,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
         usersUnsubRef.current = null;
       }
     };
-  }, [firebaseUser, isDemo, channels, dispatch]);
+  }, [firebaseUser, isDemo, channels, connections, dispatch]);
 
   // Effect 4: Process pending invite once user is authenticated
   useEffect(() => {
@@ -251,7 +260,9 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       .unwrap()
       .then((result) => {
         if (result) {
-          addToast({ type: 'success', title: 'Connection request sent! 🤝' });
+          const recipient = allUsers.find((u) => u.id === result.toId);
+          const toName = recipient ? ` to ${recipient.firstName}` : '';
+          addToast({ type: 'success', title: `Connection request sent${toName}! 🤝` });
         }
       })
       .catch(() => {
@@ -294,6 +305,19 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firebaseUser, isDemo, connections.length,
     // Stable key: only changes when the set of connected user IDs changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    connections.map((c) => c.userId).sort().join(',')]);
+
+  // Effect 4d: Sync the daily channel's subscriber list with connections.
+  // Runs whenever the connections set changes OR when the daily channel first loads,
+  // so the member count is always accurate regardless of load order.
+  useEffect(() => {
+    if (isDemo || !firebaseUser || !myDailyChannelId) return;
+    const memberIds = connections.map((c) => c.userId);
+    dispatch(syncDailyChannelMembers({ channelId: myDailyChannelId, memberIds }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDemo, firebaseUser, myDailyChannelId, dispatch,
+    // Stable key: only re-runs when the set of connected user IDs actually changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     connections.map((c) => c.userId).sort().join(',')]);
 
@@ -465,6 +489,19 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
           description: `Tap to see the update in ${circleDescription}`,
           onPress: postId
             ? () => router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } })
+            : undefined,
+        });
+      } else if (type === 'private_note') {
+        const firstName = data?.authorFirstName ?? 'Someone';
+        const lastName = data?.authorLastName ?? '';
+        const name = lastName ? `${firstName} ${lastName}` : firstName;
+        const postId = data?.postId;
+        addToast({
+          type: 'info',
+          title: '🔒 Private Note',
+          description: `${name} sent you a private note — tap to read it`,
+          onPress: postId
+            ? () => router.push({ pathname: '/(protected)/private-notes-host/[postId]', params: { postId } })
             : undefined,
         });
       }

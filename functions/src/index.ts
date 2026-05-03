@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { FieldValue } from 'firebase-admin/firestore';
 
 admin.initializeApp();
 
@@ -17,7 +18,8 @@ type AppNotificationType =
   | 'connection_accepted'
   | 'big_news_post'
   | 'new_post'
-  | 'comment_reply';
+  | 'comment_reply'
+  | 'private_note';
 
 type PostTier = 'everyday' | 'worth-knowing' | 'big-news';
 
@@ -77,12 +79,21 @@ interface BigNewsPostNotification extends BaseAppNotification {
   authorLastName: string;
 }
 
+/** Mirrors PrivateNoteNotification in src/models/types.ts — keep in sync. */
+interface PrivateNoteNotification extends BaseAppNotification {
+  type: 'private_note';
+  postId: string;
+  authorFirstName: string;
+  authorLastName: string;
+}
+
 type AppNotification =
   | JoinChannelRequestNotification
   | JoinChannelAcceptedNotification
   | ConnectionRequestNotification
   | ConnectionAcceptedNotification
-  | BigNewsPostNotification;
+  | BigNewsPostNotification
+  | PrivateNoteNotification;
 
 interface ConnectionRequest {
   id: string;
@@ -91,6 +102,7 @@ interface ConnectionRequest {
   status: 'pending' | 'accepted' | 'declined';
   createdAt: number;
   respondedAt: number | null;
+  note: string | null;
 }
 
 /** Mirrors ChannelJoinRequest in src/models/types.ts — keep in sync. */
@@ -194,6 +206,20 @@ function buildFcmPayload(notification: AppNotification): {
     };
   }
 
+  if (notification.type === 'private_note') {
+    const n = notification as PrivateNoteNotification;
+    return {
+      title: '🔒 Private Note',
+      body: `${n.authorFirstName} ${n.authorLastName} sent you a private note`,
+      data: {
+        type: n.type,
+        postId: n.postId,
+        authorFirstName: n.authorFirstName,
+        authorLastName: n.authorLastName,
+      },
+    };
+  }
+
   // connection_accepted
   const n = notification as ConnectionAcceptedNotification;
   return {
@@ -219,7 +245,7 @@ async function sendFcmToTokens(
   if (tokens.length === 0) return;
   const { title, body, data } = payload;
   try {
-    await messaging.sendEachForMulticast({
+    const res = await messaging.sendEachForMulticast({
       tokens,
       notification: { title, body },
       data,
@@ -238,8 +264,17 @@ async function sendFcmToTokens(
         },
       },
     });
-  } catch {
-    // Delivery failure is best-effort
+    if (res.failureCount > 0) {
+      res.responses.forEach((r, idx) => {
+        if (!r.success) {
+          console.error(`Failed to send FCM to token ${tokens[idx]}:`, r.error);
+        }
+      });
+    } else {
+      console.log(`Successfully sent FCM to ${tokens.length} tokens`);
+    }
+  } catch (err) {
+    console.error('FCM send error:', err);
   }
 }
 
@@ -260,7 +295,7 @@ async function getTokensForUser(userId: string): Promise<string[]> {
  * push notification to all registered devices, then deletes the notification document.
  *
  * Supported targets:
- *   - `user`         — a single specific user (existing behaviour)
+ *   - `user`         — a single specific user (existing behavior)
  *   - `channel_tier` — all subscribers of a channel, e.g. for big-news posts
  */
 export const sendAppNotification = onDocumentCreated(
@@ -300,7 +335,7 @@ export const sendAppNotification = onDocumentCreated(
       const allTokens = tokenArrays.flat();
       await sendFcmToTokens(allTokens, payload);
     } else {
-      // `thread` targets and any future unrecognised target types are not yet
+      // `thread` targets and any future unrecognized target types are not yet
       // supported.  Fall through to deletion so the document is cleaned up.
     }
 
@@ -399,6 +434,167 @@ export const onJoinRequestAccepted = onDocumentUpdated(
     await batch.commit();
   },
 );
+
+// ── Cloud Function: Disconnect two users ──────────────────────────────────
+
+/**
+ * Written by the client to `disconnectRequests/{requestId}` to kick off a
+ * server-side disconnect.  Firestore rules ensure only the requester can create
+ * the document.
+ */
+interface DisconnectRequest {
+  requesterId: string;
+  targetUserId: string;
+  createdAt: number;
+}
+
+/**
+ * Triggered when a `disconnectRequests` document is created.
+ *
+ * In a single Firestore batch it:
+ *   1. Deletes the mutual connection documents for both parties.
+ *   2. Removes the target user from every channel owned by the requester
+ *      where the target is currently a subscriber.
+ *
+ * Using a single batch keeps costs low (one Admin SDK round-trip) and makes
+ * the operation atomic from the Cloud Function's perspective.
+ */
+export const onDisconnectRequest = onDocumentCreated(
+  'disconnectRequests/{requestId}',
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
+    const { requesterId, targetUserId } = snap.data() as DisconnectRequest;
+    if (!requesterId || !targetUserId) {
+      await snap.ref.delete();
+      return;
+    }
+
+    const batch = db.batch();
+
+    // 1. Remove both sides of the connection.
+    batch.delete(
+      db.collection('connections').doc(requesterId).collection('people').doc(targetUserId),
+    );
+    batch.delete(
+      db.collection('connections').doc(targetUserId).collection('people').doc(requesterId),
+    );
+
+    // 2. Remove the target from every channel owned by the requester where
+    //    they are listed as a subscriber.
+    const channelsSnap = await db
+      .collection('channels')
+      .where('ownerId', '==', requesterId)
+      .where('subscribers', 'array-contains', targetUserId)
+      .get();
+
+    for (const channelDoc of channelsSnap.docs) {
+      batch.update(channelDoc.ref, {
+        subscribers: FieldValue.arrayRemove(targetUserId),
+      });
+    }
+
+    // 3. Clean up the request document.
+    batch.delete(snap.ref);
+
+    await batch.commit();
+  },
+);
+
+// ── Cloud Function: Cascade-delete circles marked for deletion ─────────────
+
+/**
+ * Runs once every 24 hours (UTC midnight) and permanently removes any circle
+ * (custom channel) that has been marked for deletion by its owner.
+ *
+ * Deletion order (to satisfy the constraint that a circle is only removed once
+ * all related data is gone):
+ *   1. Delete Firebase Storage media files for every post in the channel.
+ *   2. Recursively delete every post document (which also removes the
+ *      `messages`, `comments`, and `privateNotes` subcollections).
+ *   3. Delete all `channelJoinRequests` documents for the channel.
+ *   4. Delete the channel document itself.
+ *
+ * Each channel is processed independently so a failure on one does not block
+ * the others.
+ */
+const DELETE_BATCH_SIZE = 500;
+
+export const deleteMarkedChannels = onSchedule('every 24 hours', async () => {
+  const channelsSnap = await db
+    .collection('channels')
+    .where('markedForDeletionAt', '!=', null)
+    .get();
+
+  if (channelsSnap.empty) return;
+
+  const bucket = admin.storage().bucket();
+
+  for (const channelDoc of channelsSnap.docs) {
+    const channelId = channelDoc.id;
+    console.log(`deleteMarkedChannels: starting cleanup for channel ${channelId}`);
+
+    try {
+      // ── Step 1 & 2: Collect all posts, delete Storage media, then delete docs ─
+      const postsSnap = await db
+        .collection('posts')
+        .where('channelId', '==', channelId)
+        .get();
+
+      // Delete Storage files for all posts in parallel (best-effort).
+      await Promise.all(
+        postsSnap.docs.map(async (postDoc) => {
+          try {
+            await bucket.deleteFiles({ prefix: `posts/${postDoc.id}/` });
+          } catch (err) {
+            console.error(
+              `deleteMarkedChannels: failed to delete Storage files for post ${postDoc.id}:`,
+              err,
+            );
+          }
+        }),
+      );
+
+      // Recursively delete each post document (removes messages/comments/privateNotes subcollections).
+      for (const postDoc of postsSnap.docs) {
+        try {
+          await db.recursiveDelete(postDoc.ref);
+        } catch (err) {
+          console.error(
+            `deleteMarkedChannels: failed to recursively delete post ${postDoc.id}:`,
+            err,
+          );
+        }
+      }
+
+      // ── Step 3: Delete channelJoinRequests for this channel ───────────────────
+      const joinRequestsSnap = await db
+        .collection('channelJoinRequests')
+        .where('channelId', '==', channelId)
+        .get();
+
+      const joinRequestRefs = joinRequestsSnap.docs.map((d) => d.ref);
+      for (let i = 0; i < joinRequestRefs.length; i += DELETE_BATCH_SIZE) {
+        const batch = db.batch();
+        for (const ref of joinRequestRefs.slice(i, i + DELETE_BATCH_SIZE)) {
+          batch.delete(ref);
+        }
+        await batch.commit();
+      }
+
+      // ── Step 4: Delete the channel document itself ────────────────────────────
+      await channelDoc.ref.delete();
+
+      console.log(
+        `deleteMarkedChannels: successfully deleted channel ${channelId} ` +
+        `(${postsSnap.size} posts, ${joinRequestsSnap.size} join requests)`,
+      );
+    } catch (err) {
+      console.error(`deleteMarkedChannels: unexpected error processing channel ${channelId}:`, err);
+    }
+  }
+});
 
 // ── Cloud Function: Delete expired posts every 24 hours ────────────────────
 

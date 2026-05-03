@@ -11,9 +11,15 @@
     "prefs",
     "Pressable",
     "Schedulable",
+    "subcollection",
     "unsub",
     "unsubs",
     "viewability",
     "winddown"
-  ]
+  ],
+  "chat.tools.terminal.autoApprove": {
+    "gh": true,
+    "git add": true,
+    "git commit": true
+  }
 }

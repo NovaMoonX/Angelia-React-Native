@@ -2,7 +2,11 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 
-export function ConversationEmptyState() {
+interface ConversationEmptyStateProps {
+  isHost?: boolean;
+}
+
+export function ConversationEmptyState({ isHost }: ConversationEmptyStateProps) {
   const { theme } = useTheme();
 
   return (
@@ -16,7 +20,9 @@ export function ConversationEmptyState() {
         No messages yet!
       </Text>
       <Text style={[styles.body, { color: theme.mutedForeground }]}>
-        Be the first to say something — every great conversation starts with one message. ✨
+        {isHost
+          ? 'Once someone reacts to your post, they can join the conversation here. ✨'
+          : 'Be the first to say something — every great conversation starts with one message. ✨'}
       </Text>
     </View>
   );

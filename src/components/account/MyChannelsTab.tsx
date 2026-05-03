@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { ChannelCard } from '@/components/ChannelCard';
 import { ChannelFormModal } from '@/components/ChannelFormModal';
@@ -8,7 +8,6 @@ import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { useActionModal } from '@/hooks/useActionModal';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
-import { selectUserChannels } from '@/store/slices/channelsSlice';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import {
   createCustomChannel,
@@ -17,7 +16,13 @@ import {
   refreshChannelInviteCode,
   removeChannelSubscriber,
 } from '@/store/actions/channelActions';
+import { disconnectUser } from '@/store/actions/connectionsActions';
+import { completeTask } from '@/store/actions/taskActions';
 import { CUSTOM_CHANNEL_LIMIT } from '@/models/constants';
+import {
+  selectCurrentUserDailyChannel,
+  selectCurrentUserCustomChannels,
+} from '@/store/crossSelectors/channelSelectors';
 import type { Channel } from '@/models/types';
 
 export function MyChannelsTab() {
@@ -29,16 +34,16 @@ export function MyChannelsTab() {
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const channels = useAppSelector((state) => state.channels.items);
   const usersMap = useAppSelector(selectAllUsersMapById);
-  const myChannels = useAppSelector((state) =>
-    selectUserChannels(state, state.users.currentUser?.id || '')
-  );
+  const dailyChannel = useAppSelector(selectCurrentUserDailyChannel);
+  const customChannels = useAppSelector(selectCurrentUserCustomChannels);
+  const tasks = useAppSelector((state) => state.tasks.items);
 
-  const customChannelCount = useMemo(
-    () => myChannels.filter((c) => !c.isDaily).length,
-    [myChannels],
-  );
+  const customChannelCount = customChannels.length;
   const canCreateChannel = (currentUser?.customChannelCount || 0) < CUSTOM_CHANNEL_LIMIT;
-  const existingNames = myChannels.map((ch) => ch.name);
+  const existingNames = [
+    ...(dailyChannel ? [dailyChannel.name] : []),
+    ...customChannels.map((ch) => ch.name),
+  ];
 
   const [channelFormOpen, setChannelFormOpen] = useState(false);
   const [channelFormMode, setChannelFormMode] = useState<'create' | 'edit'>('create');
@@ -59,10 +64,19 @@ export function MyChannelsTab() {
     description: string;
     color: string;
   }) => {
+    const createCustomCircleTaskId = tasks.find((t) => t.type === 'create_custom_circle')?.id ?? null;
     try {
       await dispatch(createCustomChannel(data)).unwrap();
       addToast({ type: 'success', title: 'Circle created!' });
       setChannelFormOpen(false);
+
+      // Auto-complete the create_custom_circle task the first time a circle is created.
+      if (createCustomCircleTaskId) {
+        dispatch(completeTask(createCustomCircleTaskId));
+        setTimeout(() => {
+          addToast({ type: 'success', title: "You created your first Circle! 🎉 Time to invite people." });
+        }, 5000);
+      }
     } catch {
       addToast({ type: 'error', title: 'Failed to create circle' });
     }
@@ -99,9 +113,47 @@ export function MyChannelsTab() {
     }
   };
 
+  const handleDisconnectSubscriber = async (subscriberId: string) => {
+    const ok = await confirm({
+      title: 'Disconnect',
+      message: 'This will remove them from your Daily Circle and all other circles, and disconnect you. Continue?',
+      destructive: true,
+    });
+    if (!ok) return;
+    setRemovingSubscriberId(subscriberId);
+    try {
+      await dispatch(disconnectUser(subscriberId)).unwrap();
+      addToast({ type: 'success', title: 'Disconnected' });
+    } catch {
+      addToast({ type: 'error', title: 'Failed to disconnect' });
+    } finally {
+      setRemovingSubscriberId(null);
+    }
+  };
+
+  const handleRemoveSubscriber = async (subscriberId: string) => {
+    setRemovingSubscriberId(subscriberId);
+    try {
+      if (!selectedChannel) return;
+      await dispatch(
+        removeChannelSubscriber({ channelId: selectedChannel.id, subscriberId })
+      ).unwrap();
+      addToast({ type: 'success', title: 'Member removed' });
+    } catch {
+      addToast({ type: 'error', title: 'Failed to remove member' });
+    } finally {
+      setRemovingSubscriberId(null);
+    }
+  };
+
+  const getRemoveSubscriberHandler = (channel: typeof selectedChannel) => {
+    if (!channel || channel.ownerId !== currentUser.id) return undefined;
+    return channel.isDaily ? handleDisconnectSubscriber : handleRemoveSubscriber;
+  };
+
   return (
     <>
-      {canCreateChannel && (
+      {canCreateChannel ? (
         <Button
           onPress={() => {
             setChannelFormMode('create');
@@ -112,9 +164,28 @@ export function MyChannelsTab() {
         >
           {`+ New Circle (${customChannelCount}/${CUSTOM_CHANNEL_LIMIT})`}
         </Button>
+      ) : (
+        <Text style={[styles.limitText, { color: theme.mutedForeground }]}>
+          {`You've reached the maximum of ${CUSTOM_CHANNEL_LIMIT} custom circles.`}
+        </Text>
       )}
 
-      {myChannels.map((ch) => (
+      {dailyChannel && (
+        <ChannelCard
+          channel={dailyChannel}
+          isOwner
+          onClick={() => {
+            setSelectedChannelId(dailyChannel.id);
+            setChannelDetailOpen(true);
+          }}
+        />
+      )}
+
+      {dailyChannel && customChannels.length > 0 && (
+        <View style={[styles.separator, { borderColor: theme.border }]} />
+      )}
+
+      {customChannels.map((ch) => (
         <ChannelCard
           key={ch.id}
           channel={ch}
@@ -132,7 +203,7 @@ export function MyChannelsTab() {
         />
       ))}
 
-      {myChannels.length === 0 && (
+      {!dailyChannel && customChannels.length === 0 && (
         <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>
           You don't have any circles yet.
         </Text>
@@ -173,23 +244,8 @@ export function MyChannelsTab() {
                 }
               : undefined
           }
-          onRemoveSubscriber={
-            selectedChannel.ownerId === currentUser.id
-              ? async (subscriberId: string) => {
-                  setRemovingSubscriberId(subscriberId);
-                  try {
-                    await dispatch(
-                      removeChannelSubscriber({ channelId: selectedChannel.id, subscriberId })
-                    ).unwrap();
-                    addToast({ type: 'success', title: 'Member removed' });
-                  } catch {
-                    addToast({ type: 'error', title: 'Failed to remove member' });
-                  } finally {
-                    setRemovingSubscriberId(null);
-                  }
-                }
-              : undefined
-          }
+          onRemoveSubscriber={getRemoveSubscriberHandler(selectedChannel)}
+          removeSubscriberLabel={selectedChannel.isDaily ? 'Disconnect' : 'Remove'}
           removingSubscriberId={removingSubscriberId}
         />
       )}
@@ -203,5 +259,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingTop: 24,
     fontStyle: 'italic',
+  },
+  limitText: {
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 16,
+    fontStyle: 'italic',
+  },
+  separator: {
+    borderTopWidth: 1,
+    marginTop: 6,
+    marginBottom: 12,
   },
 });

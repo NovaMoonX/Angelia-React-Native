@@ -1,6 +1,8 @@
 import React from 'react';
 import {
+  KeyboardAvoidingView,
   Modal as RNModal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -27,32 +29,40 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
       animationType="slide"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <View
-          style={[styles.content, { backgroundColor: theme.card }]}
-          onStartShouldSetResponder={() => true}
-        >
-          <View style={[styles.header, { borderBottomColor: theme.border }]}>
-            <Text style={[styles.title, { color: theme.foreground }]}>{title}</Text>
-            <Pressable onPress={onClose} hitSlop={8}>
-              <Text style={[styles.closeButton, { color: theme.mutedForeground }]}>✕</Text>
-            </Pressable>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <Pressable style={styles.backdrop} onPress={onClose}>
+          <View
+            style={[styles.content, { backgroundColor: theme.card }]}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={[styles.header, { borderBottomColor: theme.border }]}>
+              <Text style={[styles.title, { color: theme.foreground }]}>{title}</Text>
+              <Pressable onPress={onClose} hitSlop={8}>
+                <Text style={[styles.closeButton, { color: theme.mutedForeground }]}>✕</Text>
+              </Pressable>
+            </View>
+            <SafeAreaView edges={['bottom']} style={styles.body}>
+              <ScrollView
+                contentContainerStyle={styles.bodyContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {children}
+              </ScrollView>
+            </SafeAreaView>
           </View>
-          <SafeAreaView edges={['bottom']} style={styles.body}>
-            <ScrollView
-              contentContainerStyle={styles.bodyContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {children}
-            </ScrollView>
-          </SafeAreaView>
-        </View>
-      </Pressable>
+        </Pressable>
+      </KeyboardAvoidingView>
     </RNModal>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardView: {
+    flex: 1,
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

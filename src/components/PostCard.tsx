@@ -6,7 +6,6 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { Carousel } from '@/components/ui/Carousel';
-import { isStatusActive } from '@/components/NowStatusBadge';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { MediaViewerModal } from '@/components/MediaViewerModal';
 import { useAppSelector } from '@/store/hooks';
@@ -14,7 +13,7 @@ import {
   selectPostAuthor,
   selectPostChannel,
 } from '@/store/slices/postsSlice';
-import { getRelativeTime } from '@/lib/timeUtils';
+import { useRelativeTime } from '@/hooks/useRelativeTime';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { POST_TIERS } from '@/models/constants';
@@ -36,16 +35,20 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const { theme } = useTheme();
 
+  const channelBadgeLabel = channel?.isDaily ? 'Daily' : channel?.name;
+
   const colors = channel
     ? getColorPair(channel)
     : { backgroundColor: '#6366F1', textColor: '#FFF' };
   const authorName = getPostAuthorName(author, currentUser);
+  const relativeTime = useRelativeTime(post.timestamp);
   const hasMultipleMedia = post.media && post.media.length > 1;
   const isOtherUser = author && currentUser && author.id !== currentUser.id;
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
 
   const hasTierBadge = post.tier === 'worth-knowing' || post.tier === 'big-news';
+
   const tierBadgeConfig = post.tier ? POST_TIERS.find((t) => t.value === post.tier) ?? null : null;
 
   const expiryInfo = channel != null
@@ -63,6 +66,8 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
       .map(([emoji]) => emoji);
   }, [post.reactions]);
 
+  // Show footer when there are reactions, or when this is another user's post (to prompt engagement).
+  // No footer when viewing own posts with no reactions (avoids dead space at the bottom of the card).
   const hasFooter = topReactions.length > 0 || !!isOtherUser;
 
   return (
@@ -83,10 +88,8 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
               onPress={isOtherUser ? () => setProfileModalOpen(true) : undefined}
             >
               <Avatar
-                preset={author?.avatar || 'moon'}
-                uri={author?.avatarUrl}
+                user={author}
                 size="sm"
-                statusEmoji={isStatusActive(author?.status) ? author?.status?.emoji : undefined}
               />
             </Pressable>
             <View style={styles.headerText}>
@@ -95,7 +98,7 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
               </Text>
               <View style={styles.headerMeta}>
                 <Text style={[styles.time, { color: theme.mutedForeground }]}>
-                  {getRelativeTime(post.timestamp)}
+                  {relativeTime}
                 </Text>
                 {expiryInfo != null && (
                   <Text style={styles.expiryBadge}>
@@ -112,7 +115,7 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
                 }}
                 textStyle={{ color: colors.textColor, fontSize: 11 }}
               >
-                {channel.name}
+                {channelBadgeLabel}
               </Badge>
             )}
           </View>
@@ -176,6 +179,7 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
               <Text style={[styles.firstReactText, { color: theme.mutedForeground }]}>
                 Be the first to react! 🎉
               </Text>
+
             ) : null}
           </View>
         </Pressable>
@@ -358,7 +362,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   firstReactText: {
-    fontSize: 12,
-    fontStyle: 'italic',
+    fontSize: 11,
+    opacity: 0.55,
   },
 });

@@ -1,30 +1,37 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { Animated, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Carousel } from '@/components/ui/Carousel';
 import { ReactionDisplay } from '@/components/ReactionDisplay';
-import { isStatusActive } from '@/components/NowStatusBadge';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { MediaViewerModal } from '@/components/MediaViewerModal';
+import { PrivateNoteModal } from '@/components/PrivateNoteModal';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
-import { selectMessages } from '@/store/slices/conversationSlice';
+import { selectMessages, setMessages } from '@/store/slices/conversationSlice';
+import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { usePostComments } from '@/hooks/usePostComments';
+import { usePrivateNotes } from '@/hooks/usePrivateNotes';
+import { useSentPrivateNotes } from '@/hooks/useSentPrivateNotes';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
-import { COMMON_EMOJIS } from '@/models/constants';
+import { getUserDisplayName } from '@/lib/user/user.utils';
+import { COMMON_EMOJIS, PRIVATE_NOTES_SEEN_KEY, CONVERSATION_LAST_SEEN_KEY } from '@/models/constants';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { AddReactionIcon } from '@/components/AddReactionIcon';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { updatePostReactions, removePostReaction } from '@/store/actions/postActions';
+import { subscribeToMessages } from '@/services/firebase/firestore';
 import type { Reaction, MediaItem } from '@/models/types';
 
 export default function PostDetailScreen() {
@@ -40,16 +47,89 @@ export default function PostDetailScreen() {
 	const currentUser = useAppSelector((state) => state.users.currentUser);
 	const isDemo = useAppSelector((state) => state.demo.isActive);
 	const conversationMessages = useAppSelector((state) => selectMessages(state, id || ''));
+	const usersMap = useAppSelector(selectAllUsersMapById);
 	const { comments: postComments } = usePostComments({ postId: id });
+
+	// Determine host role before hook calls (hooks must be unconditional)
+	const isHost = currentUser?.id === post?.authorId;
+	const { notes: privateNotes } = usePrivateNotes({
+		postId: isHost ? id : null,
+		hostId: isHost ? post?.authorId : null,
+	});
+	const { sentNotes } = useSentPrivateNotes({ postId: isHost ? null : id });
 
 	const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
 	const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
 	const [profileModalOpen, setProfileModalOpen] = useState(false);
 	const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
 	const [unlockEmoji, setUnlockEmoji] = useState<string | null>(null);
+	const [noteModalVisible, setNoteModalVisible] = useState(false);
+	// Tracks whether the host has unseen private notes (persisted in AsyncStorage)
+	const [hasUnreadPrivateNotes, setHasUnreadPrivateNotes] = useState(false);
+	// Tracks whether there are new conversation messages the user hasn't seen
+	const [hasUnreadConversation, setHasUnreadConversation] = useState(false);
 	const chatTabScale = useRef(new Animated.Value(1)).current;
 	const chatTabUnlockOpacity = useRef(new Animated.Value(0)).current;
 	const unlockEmojiY = useRef(new Animated.Value(0)).current;
+
+	// Memoize the latest note timestamp to avoid AsyncStorage reads on every render
+	const latestNoteTimestamp = useMemo(
+		() => (privateNotes.length > 0 ? Math.max(...privateNotes.map((n) => n.timestamp)) : 0),
+		[privateNotes],
+	);
+
+	// Memoize the latest non-system message timestamp
+	const latestMessageTimestamp = useMemo(
+		() => {
+			const nonSystem = conversationMessages.filter((m) => { return Boolean(m.isSystem) === false; });
+			return nonSystem.length > 0 ? Math.max(...nonSystem.map((m) => m.timestamp)) : 0;
+		},
+		[conversationMessages],
+	);
+
+	// Subscribe to conversation messages so the unread indicator works without
+	// the user needing to open the conversation screen first
+	useEffect(() => {
+		if (!id || isDemo) return;
+		const unsub = subscribeToMessages(id, (msgs) => {
+			dispatch(setMessages({ postId: id, messages: msgs }));
+		});
+		return unsub;
+	}, [id, dispatch, isDemo]);
+
+	// Re-check the unread dot every time this screen comes into focus (e.g. after
+	// returning from the private-notes-host screen, where PRIVATE_NOTES_SEEN_KEY
+	// gets written). Using useFocusEffect ensures the dot clears on return.
+	useFocusEffect(
+		useCallback(() => {
+			if (!isHost || !id || latestNoteTimestamp === 0) {
+				setHasUnreadPrivateNotes(false);
+				return;
+			}
+			AsyncStorage.getItem(PRIVATE_NOTES_SEEN_KEY(id))
+				.then((val) => {
+					const lastSeen = val ? Number(val) : 0;
+					setHasUnreadPrivateNotes(latestNoteTimestamp > lastSeen);
+				})
+				.catch(() => setHasUnreadPrivateNotes(false));
+		}, [isHost, id, latestNoteTimestamp]),
+	);
+
+	// Re-check conversation unread dot on focus (clears after the user visits conversation screen)
+	useFocusEffect(
+		useCallback(() => {
+			if (!id || latestMessageTimestamp === 0) {
+				setHasUnreadConversation(false);
+				return;
+			}
+			AsyncStorage.getItem(CONVERSATION_LAST_SEEN_KEY(id))
+				.then((val) => {
+					const lastSeen = val ? Number(val) : 0;
+					setHasUnreadConversation(latestMessageTimestamp > lastSeen);
+				})
+				.catch(() => setHasUnreadConversation(false));
+		}, [id, latestMessageTimestamp]),
+	);
 
 	const handleCarouselIndexChange = (index: number) => {
 		setActiveCarouselIndex(index);
@@ -64,8 +144,10 @@ export default function PostDetailScreen() {
 	}
 
 	const colors = channel ? getColorPair(channel) : { backgroundColor: '#6366F1', textColor: '#FFF' };
+	const channelBadgeLabel = channel?.isDaily ? 'Daily' : channel?.name;
 	const authorName = getPostAuthorName(author, currentUser);
 	const hasReacted = post.reactions.some((r) => r.userId === currentUser.id);
+	const canAccessConversation = hasReacted || isHost;
 	const expiryInfo = channel != null
 		? getPostExpiryInfo(post.timestamp, channel.isDaily === true)
 		: null;
@@ -73,25 +155,28 @@ export default function PostDetailScreen() {
 	// Use conversation messages count, falling back to post comments
 	const messageCount = conversationMessages.filter((m) => Boolean(m.isSystem) === false).length || postComments.length;
 
-	// Group reactions by emoji
+	// Group reactions by user
 	const reactionGroups = useMemo(() => {
-		const groups: Record<string, { count: number; isUserReacted: boolean }> = {};
+		const groups: Record<string, { emojis: string[]; displayName: string; isCurrentUser: boolean }> = {};
 		post.reactions.forEach((r) => {
-			if (!groups[r.emoji]) {
-				groups[r.emoji] = { count: 0, isUserReacted: false };
+			if (!groups[r.userId]) {
+				const reactingUser = usersMap[r.userId];
+				groups[r.userId] = {
+					emojis: [],
+					displayName: getUserDisplayName(reactingUser, currentUser.id, r.userId),
+					isCurrentUser: r.userId === currentUser.id,
+				};
 			}
-			groups[r.emoji].count++;
-			if (r.userId === currentUser.id) {
-				groups[r.emoji].isUserReacted = true;
-			}
+			groups[r.userId].emojis.push(r.emoji);
 		});
 		return groups;
-	}, [post.reactions, currentUser.id]);
+	}, [post.reactions, currentUser.id, usersMap]);
 
-	// Filter out emojis the user has already reacted with
+	// Filter out emojis the current user has already used
 	const availableCommonEmojis = useMemo(() => {
-		return COMMON_EMOJIS.filter((emoji) => !reactionGroups[emoji]?.isUserReacted);
-	}, [reactionGroups]);
+		const myEmojis = new Set(reactionGroups[currentUser.id]?.emojis ?? []);
+		return COMMON_EMOJIS.filter((emoji) => !myEmojis.has(emoji));
+	}, [reactionGroups, currentUser.id]);
 
 	const triggerTabUnlock = (emoji: string) => {
 		setUnlockEmoji(emoji);
@@ -162,18 +247,20 @@ export default function PostDetailScreen() {
 	};
 
 	return (
-		<KeyboardAvoidingView
-			style={{ flex: 1 }}
-			behavior={KEYBOARD_BEHAVIOR}
-			keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
-		>
+		<View style={{ flex: 1 }}>
+			<ScreenHeader title="Post" />
+			<KeyboardAvoidingView
+				style={{ flex: 1 }}
+				behavior={KEYBOARD_BEHAVIOR}
+				keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
+			>
 			<ScrollView
 				style={{ flex: 1, backgroundColor: theme.background }}
 				contentContainerStyle={[
 					styles.content,
 					{
 						paddingTop: 0,
-						paddingBottom: insets.bottom + 80,
+						paddingBottom: insets.bottom + 160,
 					},
 				]}
 				keyboardShouldPersistTaps='handled'
@@ -186,9 +273,8 @@ export default function PostDetailScreen() {
 						}
 					>
 						<Avatar
-							preset={author?.avatar || 'moon'}
+							user={author}
 							size='md'
-							statusEmoji={isStatusActive(author?.status) ? author?.status?.emoji : undefined}
 						/>
 					</Pressable>
 					<View style={styles.headerText}>
@@ -212,7 +298,7 @@ export default function PostDetailScreen() {
 							}}
 							textStyle={{ color: colors.textColor }}
 						>
-							{channel.name}
+							{channelBadgeLabel}
 						</Badge>
 					)}
 				</View>
@@ -246,24 +332,71 @@ export default function PostDetailScreen() {
 				<View style={styles.reactionsSection}>
 					{Object.keys(reactionGroups).length > 0 ? (
 						<View style={styles.reactionGroups}>
-							{Object.entries(reactionGroups).map(([emoji, data]) => (
+							{Object.entries(reactionGroups).map(([userId, data]) => (
 								<ReactionDisplay
-									key={emoji}
-									emoji={emoji}
-									count={data.count}
-									isUserReacted={data.isUserReacted}
-									onClick={() => (data.isUserReacted ? handleRemoveReaction(emoji) : handleReaction(emoji))}
+									key={userId}
+									emojis={data.emojis}
+									displayName={data.displayName}
+									isCurrentUser={data.isCurrentUser}
+									onClick={() => {
+										if (data.isCurrentUser) {
+											data.emojis.forEach((emoji) => handleRemoveReaction(emoji));
+										}
+									}}
 								/>
 							))}
 						</View>
 					) : (
 						<View style={styles.emptyReactionsContainer}>
 							<Text style={[styles.emptyReactionsText, { color: theme.mutedForeground }]}>
-								No reactions yet — be the first to react! 🎉
+								{isHost
+									? 'No reactions just yet!'
+									: 'No reactions yet — be the first to react! 🎉'}
 							</Text>
 						</View>
 					)}
 				</View>
+
+				{/* Host: private notes badge — only when notes exist */}
+				{isHost && privateNotes.length > 0 && (
+					<Pressable
+						style={[styles.privateNotesBadge, { backgroundColor: theme.card, borderColor: theme.border }]}
+						onPress={() =>
+							router.push({
+								pathname: '/(protected)/private-notes-host/[postId]',
+								params: { postId: post.id },
+							})
+						}
+					>
+						<View style={styles.privateNotesBadgeLeft}>
+							<Feather name='mail' size={16} color={theme.primary} />
+							{hasUnreadPrivateNotes && <View style={[styles.unreadDot, { backgroundColor: theme.primary }]} />}
+						</View>
+						<Text style={[styles.privateNotesBadgeText, { color: theme.primary }]}>
+							{`${privateNotes.length} Private Note${privateNotes.length !== 1 ? 's' : ''}`}
+						</Text>
+						<Feather name='chevron-right' size={14} color={theme.primary} />
+					</Pressable>
+				)}
+
+				{/* Visitor: sent notes badge — navigates to sender notes screen */}
+				{!isHost && sentNotes.length > 0 && (
+					<Pressable
+						style={[styles.sentNotesBadge, { backgroundColor: theme.card, borderColor: theme.border }]}
+						onPress={() =>
+							router.push({
+								pathname: '/(protected)/private-notes-sender/[postId]',
+								params: { postId: post.id },
+							})
+						}
+					>
+						<Feather name='mail' size={16} color={theme.mutedForeground} />
+						<Text style={[styles.sentNotesBadgeText, { color: theme.mutedForeground }]}>
+							{`Your ${sentNotes.length} note${sentNotes.length !== 1 ? 's' : ''}`}
+						</Text>
+						<Feather name='chevron-right' size={14} color={theme.mutedForeground} />
+					</Pressable>
+				)}
 			</ScrollView>
 
 			{/* Bottom bar — chat tab + emoji pill */}
@@ -273,15 +406,15 @@ export default function PostDetailScreen() {
 					style={[
 						styles.chatTab,
 						{
-							backgroundColor: hasReacted ? `${theme.primary}12` : theme.card,
-							borderColor: hasReacted ? theme.primary : theme.border,
+							backgroundColor: canAccessConversation ? `${theme.primary}12` : theme.card,
+							borderColor: canAccessConversation ? theme.primary : theme.border,
 							transform: [{ scale: chatTabScale }],
 						},
 					]}
 				>
 					<Pressable
 						onPress={
-							hasReacted
+							canAccessConversation
 								? () =>
 										router.push({
 											pathname: '/(protected)/conversation',
@@ -289,21 +422,26 @@ export default function PostDetailScreen() {
 										})
 								: undefined
 						}
-						disabled={!hasReacted}
+						disabled={!canAccessConversation}
 						style={styles.chatTabInner}
 					>
-						{!hasReacted ? (
+						{!canAccessConversation ? (
 							<>
 								<Text style={styles.chatTabLockIcon}>🔒</Text>
 								<Text style={[styles.chatTabText, { color: theme.mutedForeground }]}>React to join! 👋</Text>
 							</>
 						) : (
 							<>
-								<Feather name='message-circle' size={16} color={theme.primary} />
+								<View style={styles.chatTabIconWrapper}>
+									<Feather name='message-circle' size={16} color={theme.primary} />
+									{hasUnreadConversation && (
+										<View style={[styles.unreadDot, { backgroundColor: '#EF4444' }]} />
+									)}
+								</View>
 								<Text style={[styles.chatTabText, { color: theme.primary }]}>
 									{messageCount > 0
 										? `${messageCount} message${messageCount !== 1 ? 's' : ''}`
-										: 'Start the conversation 💬'}
+										: 'Start the conversation'}
 								</Text>
 								<Feather name='chevron-right' size={14} color={theme.primary} />
 							</>
@@ -357,6 +495,22 @@ export default function PostDetailScreen() {
 				</View>
 			</View>
 
+			{/* Visitor: private note trigger — below the emoji pill */}
+			{!isHost && (
+				<Pressable
+					style={[
+						styles.privateNoteTrigger,
+						{ backgroundColor: theme.card, borderColor: theme.border },
+					]}
+					onPress={() => setNoteModalVisible(true)}
+				>
+					<Feather name='mail' size={15} color={theme.mutedForeground} />
+					<Text style={[styles.privateNoteTriggerText, { color: theme.mutedForeground }]}>
+						or send {author?.firstName ?? 'them'} a private note
+					</Text>
+				</Pressable>
+			)}
+
 			<EmojiPicker
 				visible={emojiPickerVisible}
 				onSelect={(emoji) => {
@@ -365,6 +519,16 @@ export default function PostDetailScreen() {
 				}}
 				onClose={() => setEmojiPickerVisible(false)}
 			/>
+
+			{!isHost && post.authorId && (
+				<PrivateNoteModal
+					visible={noteModalVisible}
+					onClose={() => setNoteModalVisible(false)}
+					postId={post.id}
+					postAuthorId={post.authorId}
+					authorFirstName={author?.firstName}
+				/>
+			)}
 
 			<UserProfileModal visible={profileModalOpen} onClose={() => setProfileModalOpen(false)} user={author} />
 
@@ -388,6 +552,7 @@ export default function PostDetailScreen() {
 				/>
 			)}
 		</KeyboardAvoidingView>
+		</View>
 	);
 }
 
@@ -517,6 +682,9 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		gap: 8,
 	},
+	chatTabIconWrapper: {
+		position: 'relative',
+	},
 	chatTabText: {
 		fontSize: 14,
 		fontWeight: '600',
@@ -539,6 +707,66 @@ const styles = StyleSheet.create({
 		fontSize: 15,
 		textAlign: 'center',
 		lineHeight: 22,
+	},
+	privateNotesBadge: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 8,
+		marginTop: 20,
+		borderWidth: 1,
+		borderRadius: 12,
+		paddingVertical: 12,
+		paddingHorizontal: 14,
+	},
+	privateNotesBadgeLeft: {
+		position: 'relative',
+	},
+	unreadDot: {
+		position: 'absolute',
+		top: -3,
+		right: -3,
+		width: 8,
+		height: 8,
+		borderRadius: 4,
+	},
+	privateNotesBadgeText: {
+		flex: 1,
+		fontSize: 14,
+		fontWeight: '500',
+	},
+	// ── Visitor: sent notes badge (in scroll area) ───────────────────────────────
+	sentNotesBadge: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 8,
+		marginTop: 20,
+		borderWidth: 1,
+		borderRadius: 12,
+		paddingVertical: 12,
+		paddingHorizontal: 14,
+	},
+	sentNotesBadgeText: {
+		flex: 1,
+		fontSize: 14,
+		fontWeight: '500',
+	},
+	// ── Visitor: private note trigger (below emoji pill) ────────────────────────
+	privateNoteTrigger: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 8,
+		marginHorizontal: 12,
+		marginTop: 4,
+		marginBottom: 6,
+		borderWidth: 1,
+		borderRadius: 20,
+		paddingVertical: 10,
+		paddingHorizontal: 16,
+	},
+	privateNoteTriggerText: {
+		fontSize: 14,
+		fontWeight: '500',
 	},
 });
 

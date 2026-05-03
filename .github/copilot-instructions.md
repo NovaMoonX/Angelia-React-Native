@@ -27,6 +27,38 @@ Angelia is a warm, playful, and encouraging app. All user-facing copy — placeh
 
 ---
 
+## Firestore indexes (`firestore.indexes.json`)
+
+`firestore.indexes.json` is the source of truth for composite Firestore indexes. Any query that combines filters on **two or more different fields** (including `in` with a second equality/inequality filter) requires a composite index. Missing indexes cause queries to fail silently on the client — the `onSnapshot` callback simply never fires.
+
+**Keep `firestore.indexes.json` up to date whenever:**
+- A new collection query is added in `src/services/firebase/firestore.ts` that uses more than one `where()` clause on different fields.
+- An existing query gains a new filter.
+- A query is removed (remove its index entry to keep the file clean).
+
+**Current required indexes:**
+| Collection | Fields | Reason |
+|---|---|---|
+| `posts` | `channelId ASC`, `markedForDeletionAt ASC` | `subscribeToPosts` uses `in` + `== null` |
+| `connectionRequests` | `fromId ASC`, `toId ASC`, `status ASC` | `getExistingConnectionRequest` uses three filters |
+| `channels` | `inviteCode ASC`, `markedForDeletionAt ASC` | `getChannelByInviteCode` uses two filters |
+
+After updating `firestore.indexes.json`, deploy with:
+```bash
+npm run deploy:indexes
+```
+
+---
+
+## Firestore field conventions
+
+- **Never** use TypeScript optional (`?`) for fields that are stored in Firestore documents. Instead, use `| null` for nullable fields. Firestore does not natively support `undefined`, and optional fields can lead to subtle bugs or missing fields in documents.
+  - ✅ `note: string | null`
+  - ❌ `note?: string`
+- Always provide an explicit value (including `null`) when writing documents, so the field is always present in Firestore.
+
+---
+
 ## Cloud Functions type sync
 
 The notification types in `functions/src/index.ts` (the Cloud Functions entry point) mirror the types in `src/models/types.ts`. These **must be kept in sync** whenever notification types change.
@@ -86,11 +118,65 @@ Always use `useSafeAreaInsets()` to account for home-bar / system-navigation-bar
 - Prefer `ScrollView` over a plain `View` for any screen whose content could exceed the viewport, so users can always reach every button/action.
 
 ### Demo-mode header gap
-In demo mode the `DemoModeBanner` is rendered **above** the `Stack` navigator in `_layout.tsx`. This means the Stack's header should not add an additional status-bar-height offset. For every screen that has `headerShown: true`, add:
+
+In demo mode the `DemoModeBanner` is rendered **above** the `Stack` navigator in `_layout.tsx`, consuming the status-bar area. Expo Router uses `@react-navigation/native-stack` (NativeStack), which reads `useSafeAreaInsets().top` internally — meaning any NativeStack-managed header would double-count that gap.
+
+**The fix: always use `headerShown: false` + `<ScreenHeader>` for any screen that needs a back button or title.**
+
+> ⚠️ **Do NOT use NativeStack's built-in header** (`headerShown: true`) for screens inside this layout. NativeStack ignores `headerStatusBarHeight` (a JS Stack-only prop) and always adds its own top-inset padding regardless.
+> ⚠️ **Do NOT use `SafeAreaInsetsContext.Provider`** to override top insets for the Stack — it does not work with NativeStack.
+
+**`ScreenHeader` component** lives at `src/components/ScreenHeader.tsx`:
 ```tsx
-...(isDemo ? { headerStatusBarHeight: 0 } : {})
+<ScreenHeader title="My Screen" />
+// Optional props:
+// showBack?: boolean  (default: true)
+// onBack?: () => void (default: router.back())
 ```
-This pattern is already applied to `post/[id]`, `account`, and `share-connection`. Apply it to every new screen that uses a Stack header.
+It reads `isDemo` from Redux and handles `paddingTop` automatically:
+- demo mode → `paddingTop: 10`
+- normal → `paddingTop: insets.top + 10`
+
+**Pattern for screens with a header:**
+```tsx
+// In _layout.tsx:
+<Stack.Screen name="my-screen" options={{ headerShown: false }} />
+
+// In my-screen.tsx:
+return (
+  <View style={{ flex: 1 }}>
+    <ScreenHeader title="My Screen" />
+    {/* rest of content, e.g. ScrollView or KeyboardAvoidingView */}
+  </View>
+);
+```
+
+Place `<ScreenHeader>` **outside** any `<KeyboardAvoidingView>` so the existing `KEYBOARD_VERTICAL_OFFSET = 90` constant remains valid (the header height approximately matches the old native header height).
+
+For screens that use a fully custom animated header (e.g. `conversation.tsx`), handle `paddingTop` manually: `paddingTop: isDemo ? 10 : insets.top + 10`.
+
+---
+
+## User Avatar (`user` prop)
+
+The `Avatar` component accepts a `user` prop (`Pick<User, 'avatar' | 'avatarUrl'> | null`) that automatically resolves both the preset emoji and any custom profile photo. When `user` is provided, `preset` and `uri` are ignored.
+
+**Always pass `user={user}` whenever rendering an Avatar for a specific user**, including:
+- Post detail screens (the post author's avatar)
+- Conversation / chat headers
+- Profile cards and modals
+- The share-connection screen (current user's avatar)
+- Any other screen that shows a user's identity
+
+```tsx
+// ✅ correct — automatically uses avatarUrl if set, falls back to avatar preset
+<Avatar user={user} size="md" />
+
+// ❌ old pattern — do not use for User objects
+<Avatar preset={user.avatar} uri={user.avatarUrl} size="md" />
+```
+
+The individual `preset` and `uri` props are only for non-User contexts, such as avatar edit previews (e.g. `AccountTab`, `complete-profile.tsx`) where the values come from local state rather than a `User` object.
 
 ---
 
@@ -119,3 +205,126 @@ Do **not** clutter the README with:
 - Every minor dependency update
 - Internal implementation details that don't affect the dev workflow
 - Speculative or forward-looking notes
+
+---
+
+## Code style conventions
+
+### AsyncStorage keys
+
+All `@angelia/…` AsyncStorage keys **must** be declared once as named exports in `src/models/constants.ts` and imported wherever they are used. Never define the same key string in more than one file. If a key is parameterised (e.g. per-post), export it as a function:
+
+```ts
+// ✅ correct — declared once, exported, imported elsewhere
+export const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_notes_seen_${postId}`;
+
+// ❌ wrong — local constant repeated across files
+const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_notes_seen_${postId}`;
+```
+
+### `Number()` vs `parseInt`
+
+Always use `Number()` to convert strings to numbers. Never use `parseInt` or `parseFloat`:
+
+```ts
+// ✅
+const lastSeen = val ? Number(val) : 0;
+
+// ❌
+const lastSeen = val ? parseInt(val, 10) : 0;
+```
+
+### Arrow function return values
+
+Arrow functions must always use an **explicit `return`** statement inside a block body `{ }`. Do not rely on implicit expression returns:
+
+```ts
+// ✅
+allNotes.filter((n) => { return n.authorId === uid; })
+
+// ❌
+allNotes.filter((n) => n.authorId === uid)
+```
+
+This applies to all callbacks, `filter`, `map`, `find`, `sort`, etc.
+
+### Icon + emoji: no duplicates
+
+When a UI element already uses a vector icon (e.g. `<Feather name='mail' />`), do **not** also append a redundant emoji (e.g. `💌`) to the adjacent label. The icon and the emoji convey the same meaning — showing both is visually noisy.
+
+```tsx
+// ✅ icon-only with clean label
+<Feather name='mail' size={15} color={theme.primary} />
+<Text>or send {name} a private note</Text>
+
+// ❌ icon + emoji duplicate
+<Feather name='mail' size={15} color={theme.primary} />
+<Text>Send {name} a private note 💌</Text>
+```
+
+### React Native: bottom-sheet modal keyboard handling
+
+**Always use `ModalKeyboardView` + `useModalSheetPadding`** for any bottom-sheet `<Modal>` that contains a `TextInput`. These two exports live in `src/components/ModalKeyboardView.tsx` and centralise the cross-platform keyboard-avoidance pattern.
+
+**Why a custom component instead of `KeyboardAvoidingView` alone:**
+
+- **iOS:** `KeyboardAvoidingView behavior='padding'` works correctly inside a Modal and is used by `ModalKeyboardView` internally.
+- **Android:** `KeyboardAvoidingView` inside a Modal is unreliable. The Modal is rendered outside the normal layout tree, so Android's `adjustPan`/`adjustResize` window soft-input modes don't apply. KAV's `paddingBottom` may leave a permanent gap below the sheet after the keyboard dismisses. The fix is to bypass KAV on Android entirely and instead track keyboard height via `Keyboard` event listeners (`keyboardDidShow` / `keyboardDidHide`), then apply it as `paddingBottom` on the sheet itself.
+
+**Usage pattern:**
+
+```tsx
+import { ModalKeyboardView, useModalSheetPadding } from '@/components/ModalKeyboardView';
+
+// Inside the component:
+const sheetBottomPadding = useModalSheetPadding(insets.bottom + 16);
+
+return (
+  <Modal visible={visible} transparent animationType='slide'>
+    <ModalKeyboardView>
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        <View style={[styles.sheet, { paddingBottom: sheetBottomPadding }]}>
+          {/* sheet content */}
+        </View>
+      </Pressable>
+    </ModalKeyboardView>
+  </Modal>
+);
+```
+
+See `src/components/PrivateNoteModal.tsx` and `src/components/FeedbackSupportModal.tsx` for canonical implementations.
+
+---
+
+## React Native: Known Issues & Solutions
+
+> **Policy:** Whenever a React Native-specific bug is encountered and resolved during development, add an entry here. Include the symptom, root cause, and fix with a file reference. This section is intentionally self-contained so it can be copied between React Native projects.
+
+### Button text clipped when parent has `alignItems: 'center'`
+
+**Symptom:** A `Button`'s label is truncated/clipped mid-word when the button sits inside a container that has `alignItems: 'center'` (e.g. a `Card` with `alignItems: 'center'`, or a column flex container).
+
+**Root cause:** The `Pressable` inside `Button` has `flexDirection: 'row'`. In a row flex container, a `Text` without `flex: 1` sizes to its intrinsic single-line width and can overflow the container, getting clipped by the Pressable's bounds. This is a well-known React Native gotcha — text inside a `flexDirection: 'row'` View does not automatically wrap unless the Text node has `flex: 1`.
+
+**Fix:** Do **not** add `flex: 1` to the shared `Button` `text` or `button` styles — this causes regressions in other layouts. Instead, pass `textStyle={{ flex: 1 }}` directly on the specific `<Button>` instance whose label needs to wrap. This puts `flex: 1` on the `Text` node only, making it fill the row container so long labels wrap instead of overflow.
+
+```tsx
+// ✅ targeted fix — flex: 1 on the Text node allows wrapping
+<Button variant="outline" textStyle={{ flex: 1 }} onPress={...}>
+  🛟 Get Help & Feedback
+</Button>
+
+// ❌ do not add flex/alignSelf to the shared Button stylesheet
+```
+
+---
+
+### Keyboard gap / flicker below a bottom-sheet Modal (Android)
+
+**Symptom:** After a `TextInput` inside a bottom-sheet `<Modal>` is used and the keyboard is dismissed, a visible gap appears between the bottom of the modal sheet and the bottom of the screen. Earlier versions of the same bug caused the sheet to flicker or jump.
+
+**Root cause:** On Android, `<Modal>` renders outside the normal React Native view hierarchy. This means Android's `windowSoftInputMode` (`adjustPan` / `adjustResize`) does not apply, and `KeyboardAvoidingView`'s internal `paddingBottom` can get stuck at a non-zero value after the keyboard hides — producing either a jump (with `behavior='height'`) or a residual gap (with `behavior='padding'`).
+
+**Fix:** Bypass `KeyboardAvoidingView` on Android entirely. Use `Keyboard.addListener('keyboardDidShow')` and `'keyboardDidHide'` to track keyboard height in state, and apply that height directly as `paddingBottom` on the sheet `View`. On iOS, `KeyboardAvoidingView behavior='padding'` still works correctly and is kept.
+
+**Canonical implementation:** `src/components/ModalKeyboardView.tsx` — exposes `ModalKeyboardView` (wrapper component) and `useModalSheetPadding` (hook). Used by `PrivateNoteModal.tsx` and `FeedbackSupportModal.tsx`.

@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useEffect, useState } from 'react';
 import {
   getAuth,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithCredential,
@@ -16,6 +17,7 @@ import { fetchUserProfile, updateAccountProgress } from '@/store/actions/userAct
 import { ensureDailyChannelExists } from '@/store/actions/channelActions';
 import { resetAllState } from '@/store/actions/globalActions';
 import type { User } from '@/models/types';
+import { FEED_LAST_SEEN_TIMESTAMP_KEY } from '@/models/constants';
 
 const DEMO_MODE_KEY = '@angelia/demo_mode';
 /** Maximum time (ms) to wait for a Firestore profile fetch before giving up. */
@@ -34,6 +36,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<FirebaseAuthTypes.User>;
   signOut: () => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
   isDemoMode: boolean;
   enterDemo: () => Promise<void>;
   exitDemo: () => Promise<void>;
@@ -47,6 +50,7 @@ export const AuthContext = createContext<AuthContextType>({
   signInWithGoogle: () => Promise.reject(new Error('AuthProvider not initialized')),
   signOut: () => Promise.reject(new Error('AuthProvider not initialized')),
   sendVerificationEmail: () => Promise.reject(new Error('AuthProvider not initialized')),
+  sendPasswordReset: () => Promise.reject(new Error('AuthProvider not initialized')),
   isDemoMode: false,
   enterDemo: () => Promise.reject(new Error('AuthProvider not initialized')),
   exitDemo: () => Promise.reject(new Error('AuthProvider not initialized')),
@@ -127,12 +131,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const handleSignOut = useCallback(async () => {
     await firebaseSignOut(getAuth());
-    await AsyncStorage.removeItem(DEMO_MODE_KEY);
+    await AsyncStorage.multiRemove([DEMO_MODE_KEY, FEED_LAST_SEEN_TIMESTAMP_KEY]);
     setIsDemoMode(false);
   }, []);
 
   const handleSendVerificationEmail = useCallback(async () => {
     await getAuth().currentUser?.sendEmailVerification();
+  }, []);
+
+  const handleSendPasswordReset = useCallback(async (email: string) => {
+    await sendPasswordResetEmail(getAuth(), email);
   }, []);
 
   const enterDemo = useCallback(async () => {
@@ -155,6 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signInWithGoogle,
         signOut: handleSignOut,
         sendVerificationEmail: handleSendVerificationEmail,
+        sendPasswordReset: handleSendPasswordReset,
         isDemoMode,
         enterDemo,
         exitDemo,

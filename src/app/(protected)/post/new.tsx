@@ -22,7 +22,10 @@ import { useAppSelector } from '@/store/hooks';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { getColorPair } from '@/lib/channel/channel.utils';
-import { selectUserChannels } from '@/store/slices/channelsSlice';
+import {
+  selectCurrentUserDailyChannel,
+  selectCurrentUserCustomChannels,
+} from '@/store/crossSelectors/channelSelectors';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { MAX_FILES, POST_TIERS } from '@/models/constants';
 import { generateVideoThumbnail } from '@/utils/generateVideoThumbnail';
@@ -43,9 +46,16 @@ export default function PostCreateScreen() {
   const { theme } = useTheme();
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const currentUser = useAppSelector((state) => state.users.currentUser);
-  const userChannels = useAppSelector((state) =>
-    selectUserChannels(state, state.users.currentUser?.id || '')
+  const dailyChannel = useAppSelector(selectCurrentUserDailyChannel);
+  const customChannels = useAppSelector(selectCurrentUserCustomChannels);
+
+  // Daily circle first, then custom circles
+  const sortedUserChannels = useMemo(
+    () => [...(dailyChannel ? [dailyChannel] : []), ...customChannels],
+    [dailyChannel, customChannels],
   );
+
+  const dailyChannelId = dailyChannel?.id ?? '';
 
   const initialMedia = useMemo<MediaFile[]>(() => {
     if (!params.capturedMedia) return [];
@@ -57,8 +67,17 @@ export default function PostCreateScreen() {
   }, [params.capturedMedia]);
 
   const [selectedChannel, setSelectedChannel] = useState(
-    params.existingChannel || userChannels[0]?.id || ''
+    params.existingChannel || dailyChannelId || sortedUserChannels[0]?.id || ''
   );
+
+  // Once channels load (and no explicit selection was passed in), default to daily circle
+  useEffect(() => {
+    if (params.existingChannel) return; // already set from navigation params
+    if (selectedChannel) return;        // already resolved on mount
+    if (sortedUserChannels.length === 0) return;
+    setSelectedChannel(dailyChannelId || sortedUserChannels[0].id);
+  }, [dailyChannelId, sortedUserChannels, params.existingChannel, selectedChannel]);
+
   const [text, setText] = useState(params.existingText || '');
   const [selectedTier, setSelectedTier] = useState<PostTier>('everyday');
   const [media, setMedia] = useState<MediaFile[]>(initialMedia);
@@ -93,7 +112,7 @@ export default function PostCreateScreen() {
     'big-news': "Heads up! What's happening? 🚨",
   };
 
-  const canPublish = (text.trim().length > 0 || media.length > 0) && !!selectedChannel;
+  const canPublish = text.trim().length > 0 && !!selectedChannel;
 
   const removeMedia = (index: number) => {
     setMedia((prev) => prev.filter((_, i) => i !== index));
@@ -111,10 +130,10 @@ export default function PostCreateScreen() {
       addToast({ type: 'warning', title: 'Please select a circle' });
       return;
     }
-    if (!text.trim() && media.length === 0) {
+    if (!text.trim()) {
       addToast({
         type: 'warning',
-        title: 'Please add some text or media',
+        title: "Don't forget to add some text! ✍️",
       });
       return;
     }
@@ -176,7 +195,7 @@ export default function PostCreateScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.channelRow}
         >
-          {userChannels.map((ch) => {
+          {sortedUserChannels.map((ch) => {
             const colors = getColorPair(ch);
             const isSelected = selectedChannel === ch.id;
             return (

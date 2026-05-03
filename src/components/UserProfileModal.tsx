@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/Avatar';
+import { Button } from '@/components/ui/Button';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { useTheme } from '@/hooks/useTheme';
 import { getRelativeTime, formatTimeRemaining } from '@/lib/timeUtils';
@@ -18,11 +19,14 @@ interface UserProfileModalProps {
   visible: boolean;
   onClose: () => void;
   user: User | null | undefined;
+  /** When provided, shows a destructive "Disconnect" button at the bottom of the sheet. */
+  onDisconnect?: () => Promise<void>;
 }
 
-export function UserProfileModal({ visible, onClose, user }: UserProfileModalProps) {
+export function UserProfileModal({ visible, onClose, user, onDisconnect }: UserProfileModalProps) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const [disconnecting, setDisconnecting] = React.useState(false);
 
   if (!user) return null;
 
@@ -57,7 +61,7 @@ export function UserProfileModal({ visible, onClose, user }: UserProfileModalPro
           >
             {/* Avatar + Name */}
             <View style={styles.profileHeader}>
-              <Avatar preset={user.avatar} uri={user.avatarUrl} size="xl" />
+              <Avatar user={user} size="xl" />
               <Text style={[styles.name, { color: theme.foreground }]}>
                 {user.firstName} {user.lastName}
               </Text>
@@ -106,6 +110,28 @@ export function UserProfileModal({ visible, onClose, user }: UserProfileModalPro
                 {getRelativeTime(user.joinedAt)}
               </Text>
             </View>
+
+            {onDisconnect && (
+              <Button
+                variant="destructive"
+                size="sm"
+                style={styles.disconnectButton}
+                loading={disconnecting}
+                onPress={async () => {
+                  setDisconnecting(true);
+                  try {
+                    await onDisconnect();
+                    onClose();
+                  } catch {
+                    // Only reset loading state on failure so the user can retry.
+                    // On success onClose() is called immediately and the modal hides.
+                    setDisconnecting(false);
+                  }
+                }}
+              >
+                Disconnect
+              </Button>
+            )}
           </ScrollView>
         </View>
       </Pressable>
@@ -209,5 +235,9 @@ const styles = StyleSheet.create({
   metaValue: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  disconnectButton: {
+    alignSelf: 'stretch',
+    marginTop: 8,
   },
 });

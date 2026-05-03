@@ -5,9 +5,9 @@ service cloud.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
-    // Helper: verify a user profile document exists
+    // Helper: verify a user public profile document exists
     function userProfileExists(uid) {
-      return exists(/databases/$(database)/documents/users/$(uid));
+      return exists(/databases/$(database)/documents/usersPublic/$(uid));
     }
 
     // Helper: check if the requesting user is a member (owner or subscriber) of a channel.
@@ -25,26 +25,34 @@ service cloud.firestore {
         );
     }
 
-    // Users collection
-    match /users/{userId} {
-      // A user can always read their own profile.
-      allow get: if isSignedIn() && request.auth.uid == userId;
-
-      // Channel members need to read each other's profiles to display post author
-      // names and avatars (populated via subscribeToChannelUsers). Firestore rules
-      // cannot perform collection queries to find shared channels without a known
-      // channelId, so we permit any authenticated user to read user profiles.
-      // Access scoping is enforced at the data layer: subscribeToChannelUsers only
-      // requests the IDs of owners/subscribers from the requester's accessible channels.
+    // ── User public profiles — readable by any authenticated user ─────────────
+    match /usersPublic/{userId} {
       allow read: if isSignedIn();
-
-      // Users can only write to their own profile
       allow create, update: if isSignedIn() && request.auth.uid == userId;
-
-      // Prevent deletion of user profiles
       allow delete: if false;
     }
-    
+
+    // ── User private profiles — readable by any authenticated user ────────────
+    // Contains per-user social context: email, fun fact, and presence status.
+    // Any signed-in user may read another user's private profile so that
+    // channel members and connected users can display fun facts and status
+    // badges. Access scoping is enforced at the data layer: the app only
+    // requests IDs of channel members/connections, not arbitrary user IDs.
+    match /usersPrivate/{userId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    // ── User secret profiles — readable only by the owner ─────────────────────
+    // Secret data (account progress, custom channel count) is never exposed to
+    // other users.
+    match /usersSecret/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
     // Channels collection
     match /channels/{channelId} {
       function isOwner() {
@@ -66,14 +74,14 @@ service cloud.firestore {
       allow read: if isSignedIn();
 
       // Create: only authenticated users can create a channel for themselves.
-      // Require that the creating user has a profile document in `/users/{uid}`.
+      // Require that the creating user has a public profile document in `usersPublic/{uid}`.
       // Additionally enforce a limit on custom (non-daily) channels. Clients
-      // must maintain a `customChannelCount` integer on the user's
-      // document (`users/{uid}.customChannelCount`). Creation of a non-daily
+      // must maintain a `customChannelCount` integer on the user's secret
+      // document (`usersSecret/{uid}.customChannelCount`). Creation of a non-daily
       // channel is allowed only when that count is < 3. Daily channels are
       // exempt from this limit, but the user profile must still exist.
       allow create: if isOwnerOnCreate()
-        // Require the user's profile to exist in `/users/{uid}`
+        // Require the user's public profile to exist
         && userProfileExists(request.auth.uid)
         && (
           // Allow creating daily channels when the user exists
@@ -81,8 +89,8 @@ service cloud.firestore {
           // Or allow creating non-daily channels only when the user's
           // `customChannelCount` exists and is less than 3
           || (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.customChannelCount is int
-            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.customChannelCount < 3
+            get(/databases/$(database)/documents/usersSecret/$(request.auth.uid)).data.customChannelCount is int
+            && get(/databases/$(database)/documents/usersSecret/$(request.auth.uid)).data.customChannelCount < 3
           )
         )
 
@@ -121,13 +129,15 @@ service cloud.firestore {
       function isAuthorOnCreate() {
         return isSignedIn() && request.auth.uid == request.resource.data.authorId;
       }
-      // Returns true when the requesting user is in the post author's connections list.
-      // Only applicable to daily channels so that stand-alone connections grant Daily Circle access.
+      // Returns true when the requesting user is connected to the daily channel's owner.
+      // Uses ch.data.ownerId (derived from channelId, which IS constrained by the query)
+      // instead of resource.data.authorId (unconstrained), so Firestore can evaluate this
+      // at query level without rejecting the in-query with permission-denied.
       function isConnectedToAuthorDailyChannel() {
         let ch = get(/databases/$(database)/documents/channels/$(resource.data.channelId));
         return isSignedIn()
           && ch.data.isDaily == true
-          && exists(/databases/$(database)/documents/connections/$(resource.data.authorId)/people/$(request.auth.uid));
+          && exists(/databases/$(database)/documents/connections/$(ch.data.ownerId)/people/$(request.auth.uid));
       }
 
       // Channel owners and subscribers may read posts in their channel.
@@ -142,6 +152,30 @@ service cloud.firestore {
       // Only the author can update their post (cannot change authorId)
       allow update: if isAuthor()
         && request.resource.data.authorId == resource.data.authorId;
+
+      // Channel members (non-author) may add or remove their own reaction.
+      // Only the reactions field may change; everything else must stay the same.
+      allow update: if isSignedIn()
+        && isChannelMember(resource.data.channelId)
+        && request.resource.data.authorId == resource.data.authorId
+        && request.resource.data.channelId == resource.data.channelId
+        && request.resource.data.text == resource.data.text
+        && request.resource.data.timestamp == resource.data.timestamp
+        && request.resource.data.conversationEnrollees == resource.data.conversationEnrollees
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.markedForDeletionAt == resource.data.markedForDeletionAt;
+
+      // Connected users (non-channel-member) may add or remove their own reaction
+      // on posts in their connection's daily channel.
+      // Only the reactions field may change; everything else must stay the same.
+      allow update: if isConnectedToAuthorDailyChannel()
+        && request.resource.data.authorId == resource.data.authorId
+        && request.resource.data.channelId == resource.data.channelId
+        && request.resource.data.text == resource.data.text
+        && request.resource.data.timestamp == resource.data.timestamp
+        && request.resource.data.conversationEnrollees == resource.data.conversationEnrollees
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.markedForDeletionAt == resource.data.markedForDeletionAt;
 
       // Channel members who have reacted may join the conversation
       // (append themselves to conversationEnrollees) without being the post author.
@@ -160,14 +194,33 @@ service cloud.firestore {
         && request.resource.data.conversationEnrollees.toSet().hasAll(resource.data.conversationEnrollees.toSet())
         && request.resource.data.conversationEnrollees.hasAny([request.auth.uid]);
 
+      // Connected users (non-channel-member) may join the conversation on posts
+      // in their connection's daily channel (append themselves to conversationEnrollees).
+      // Only the conversationEnrollees field may change; everything else must stay the same.
+      allow update: if isConnectedToAuthorDailyChannel()
+        && request.resource.data.authorId == resource.data.authorId
+        && request.resource.data.channelId == resource.data.channelId
+        && request.resource.data.text == resource.data.text
+        && request.resource.data.timestamp == resource.data.timestamp
+        && request.resource.data.reactions == resource.data.reactions
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.markedForDeletionAt == resource.data.markedForDeletionAt
+        && request.resource.data.conversationEnrollees is list
+        && request.resource.data.conversationEnrollees.size() == resource.data.conversationEnrollees.size() + 1
+        && request.resource.data.conversationEnrollees.toSet().hasAll(resource.data.conversationEnrollees.toSet())
+        && request.resource.data.conversationEnrollees.hasAny([request.auth.uid]);
+
       // Only the author can delete their post
       allow delete: if isAuthor();
 
       // Messages subcollection under posts
       match /messages/{messageId} {
-        // Any authenticated channel member may read messages
+        // Channel members and users connected to the post author (for daily circles) may read messages
         allow read: if isSignedIn()
-          && isChannelMember(get(/databases/$(database)/documents/posts/$(postId)).data.channelId);
+          && (
+            isChannelMember(get(/databases/$(database)/documents/posts/$(postId)).data.channelId)
+            || exists(/databases/$(database)/documents/connections/$(get(/databases/$(database)/documents/posts/$(postId)).data.authorId)/people/$(request.auth.uid))
+          );
 
         // Any authenticated user who has reacted to the post may create a message
         allow create: if isSignedIn()
@@ -195,6 +248,26 @@ service cloud.firestore {
           );
 
         // Comments cannot be updated or deleted by clients
+        allow update, delete: if false;
+      }
+
+      // Private notes subcollection — visitor sends a note directly to the post Host.
+      // Stored at posts/{postId}/privateNotes/{noteId}.
+      match /privateNotes/{noteId} {
+        // Only the note author may create a note; they cannot send to themselves.
+        allow create: if isSignedIn()
+          && request.auth.uid == request.resource.data.authorId
+          && request.resource.data.authorId != request.resource.data.hostId;
+
+        // The post author (Host) may read all notes addressed to them.
+        // The note's own author may read notes they have sent (so visitors can view
+        // their sent notes). The visitor query uses where('authorId','==',uid) so
+        // Firestore can verify the authorId == request.auth.uid predicate at query level.
+        allow read: if isSignedIn()
+          && (request.auth.uid == get(/databases/$(database)/documents/posts/$(postId)).data.authorId
+            || request.auth.uid == resource.data.authorId);
+
+        // Notes cannot be updated or deleted by clients.
         allow update, delete: if false;
       }
     }
@@ -291,9 +364,12 @@ service cloud.firestore {
     }
 
     // Connections — mutual connections written by Cloud Function on acceptance.
-    // Each user can only read their own connections list.
+    // The owner of a connections list may read it (to see who they're connected to).
+    // The person named in a connection entry may also read it — this is required so
+    // that the `isConnectedToAuthorDailyChannel()` exists() call in the posts rule
+    // can succeed when user B reads a post in user A's daily channel.
     match /connections/{userId}/people/{personId} {
-      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow read: if isSignedIn() && (request.auth.uid == userId || request.auth.uid == personId);
       // Writes are handled exclusively by the Admin SDK (Cloud Function).
       allow create, update, delete: if false;
     }
@@ -304,15 +380,24 @@ service cloud.firestore {
       // Users can only read and write their own tasks
       allow read, create: if isSignedIn() && request.auth.uid == userId;
 
-      // Allow updating only the completedAt field (mark as done)
+      // Allow updating only the completedAt field (mark as done).
+      // Only completedAt may change; it must transition from null to a non-null value.
       allow update: if isSignedIn()
         && request.auth.uid == userId
-        && request.resource.data.userId == resource.data.userId
-        && request.resource.data.type == resource.data.type
-        && request.resource.data.channelId == resource.data.channelId
-        && request.resource.data.createdAt == resource.data.createdAt;
+        && resource.data.completedAt == null
+        && request.resource.data.completedAt != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['completedAt']);
 
       allow delete: if false;
+    }
+
+    // Disconnect requests — written by a user to trigger a server-side disconnect.
+    // The Cloud Function processes the request (removes connections and circle memberships)
+    // then deletes the document.  Clients only need create access.
+    match /disconnectRequests/{requestId} {
+      allow create: if isSignedIn()
+        && request.resource.data.requesterId == request.auth.uid;
+      allow read, update, delete: if false;
     }
 
     // Default: deny all reads and writes not explicitly allowed above.

@@ -209,7 +209,37 @@ For a **daily circle** big-news notification, change `"isDaily": true` and set
 
 ---
 
-## Step 4 — Observe the Result
+### Scenario F — Private Note (you are the post Host and received a note)
+
+A Circle member sent you a private note on one of your posts. You'll see an
+in-app toast titled "🔒 Private note from …" and a background push with the
+same message. Tapping either navigates to the private-notes screen for that post.
+
+Replace `YOUR_USER_ID` with your real user ID and `YOUR_POST_ID` with the ID of
+a post you authored. The note author can be a fake ID — it only affects the
+display name in the toast/push copy.
+
+```json
+{
+  "id": "test-notif-private-note-1",
+  "type": "private_note",
+  "actorId": "fake-author-id",
+  "target": {
+    "type": "user",
+    "userId": "YOUR_USER_ID"
+  },
+  "createdAt": 1713484800000,
+  "postId": "YOUR_POST_ID",
+  "authorFirstName": "Jordan",
+  "authorLastName": "Test"
+}
+```
+
+> **Note:** Tapping the push routes to `/(protected)/private-notes/[YOUR_POST_ID]`.
+> The screen will redirect back if `YOUR_POST_ID` is not a real post you authored
+> or if there are no notes stored under it — expected in testing mode.
+
+---
 
 | App state | Expected behaviour |
 |---|---|

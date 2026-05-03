@@ -19,8 +19,8 @@ export const COMMON_EMOJIS = ['❤️', '👀', '😊', '🎉', '😮', '😢', 
 /** Default values for the wind-down prompt settings. */
 export const DEFAULT_WIND_DOWN_PROMPT: NotificationSettings['windDownPrompt'] = {
   enabled: true,
-  hour: 17,
-  minute: 30,
+  hour: 21,
+  minute: 0,
 };
 
 export const AVATAR_PRESETS: AvatarPreset[] = [
@@ -51,3 +51,18 @@ export const POST_TIERS: Array<{ value: PostTier; label: string; emoji: string; 
 ];
 
 export const ALL_POST_TIERS: PostTier[] = POST_TIERS.map((t) => t.value);
+
+/** AsyncStorage key that persists the newest post timestamp the user has acknowledged on the feed. */
+export const FEED_LAST_SEEN_TIMESTAMP_KEY = '@angelia/feed_last_seen_timestamp';
+
+/**
+ * AsyncStorage key that records when a post host last opened the private notes screen for a post.
+ * Used to drive the unread indicator on the host's private-notes badge.
+ */
+export const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_notes_seen_${postId}`;
+
+/**
+ * AsyncStorage key that records when the current user last opened the conversation screen for a post.
+ * Used to drive the unread indicator on the chat tab in the post detail screen.
+ */
+export const CONVERSATION_LAST_SEEN_KEY = (postId: string) => `@angelia/conversation_last_seen_${postId}`;

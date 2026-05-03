@@ -1,68 +1,143 @@
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
+import {
+  Camera,
+  useCameraDevice,
+  useCameraPermission,
+  useCodeScanner,
+} from 'react-native-vision-camera';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { useAppSelector } from '@/store/hooks';
 import * as Clipboard from 'expo-clipboard';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import type { User } from '@/models/types';
 
 /** Returns the deep-link URL for a given user's connection request page. */
 function getConnectionLink(userId: string): string {
   return `angelia://connect-request?from=${userId}`;
 }
 
-export default function ShareConnectionScreen() {
+/** Extracts a userId from a scanned connection deep-link, or null if unrecognised. */
+function parseConnectionLink(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (url.protocol === 'angelia:' && url.hostname === 'connect-request') {
+      return url.searchParams.get('from');
+    }
+  } catch {
+    // not a valid URL
+  }
+  return null;
+}
+
+// ── Scan QR tab ──────────────────────────────────────────────────────────────
+
+function ScanQrTab() {
   const router = useRouter();
   const { theme } = useTheme();
   const { addToast } = useToast();
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const device = useCameraDevice('back');
+  const scannedRef = useRef(false);
+
+  const codeScanner = useCodeScanner({
+    codeTypes: ['qr'],
+    onCodeScanned: useCallback(
+      (codes) => {
+        if (scannedRef.current) return;
+        const value = codes[0]?.value;
+        if (!value) return;
+        const fromId = parseConnectionLink(value);
+        if (!fromId) {
+          addToast({ type: 'warning', title: "That QR code isn't an Angelia connection code." });
+          return;
+        }
+        scannedRef.current = true;
+        router.push({ pathname: '/connect-request', params: { from: fromId } });
+      },
+      [router, addToast],
+    ),
+  });
+
+  if (!hasPermission) {
+    return (
+      <View style={styles.permissionBox}>
+        <Text style={[styles.permissionText, { color: theme.mutedForeground }]}>
+          Camera access is needed to scan QR codes.
+        </Text>
+        <Button size="sm" onPress={requestPermission} style={{ marginTop: 12 }}>
+          Allow Camera
+        </Button>
+      </View>
+    );
+  }
+
+  if (!device) {
+    return (
+      <View style={styles.permissionBox}>
+        <Text style={[styles.permissionText, { color: theme.mutedForeground }]}>
+          No camera found on this device.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.scannerContainer}>
+      <Camera
+        style={StyleSheet.absoluteFill}
+        device={device}
+        isActive
+        codeScanner={codeScanner}
+      />
+      {/* Viewfinder overlay */}
+      <View style={styles.viewfinderOverlay} pointerEvents="none">
+        <View style={[styles.viewfinderFrame, { borderColor: theme.primary }]} />
+      </View>
+      <Text style={styles.scanHint}>Point the camera at someone's Angelia QR code</Text>
+    </View>
+  );
+}
+
+// ── My QR tab ─────────────────────────────────────────────────────────────────
+
+function MyQrTab({
+  connectionLink,
+  displayName,
+  currentUser,
+  onShareLink,
+  onCopyLink,
+}: {
+  connectionLink: string;
+  displayName: string;
+  currentUser: User;
+  onShareLink: () => void;
+  onCopyLink: () => void;
+}) {
+  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-
-  const currentUser = useAppSelector((state) => state.users.currentUser);
   const [qrModalVisible, setQrModalVisible] = useState(false);
-
-  if (!currentUser) return null;
-
-  const connectionLink = getConnectionLink(currentUser.id);
-  const displayName = `${currentUser.firstName} ${currentUser.lastName}`;
-
-  const handleShareLink = async () => {
-    try {
-      await Share.share({
-        message: `Connect with me on Angelia! 🤝\n\n${connectionLink}`,
-        url: Platform.OS === 'ios' ? connectionLink : undefined,
-        title: `Connect with ${currentUser.firstName} on Angelia`,
-      });
-    } catch {
-      // User cancelled or share failed — no-op
-    }
-  };
-
-  const handleCopyLink = async () => {
-    await Clipboard.setStringAsync(connectionLink);
-    addToast({ type: 'success', title: 'Link copied! 📋' });
-  };
 
   return (
     <>
       <ScrollView
-        style={{ flex: 1, backgroundColor: theme.background }}
-        contentContainerStyle={[
-          styles.container,
-          { paddingBottom: insets.bottom + 24 },
-        ]}
+        contentContainerStyle={[styles.myQrContent, { paddingBottom: insets.bottom + 24 }]}
         keyboardShouldPersistTaps="handled"
       >
         <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
-          Share your link or QR code. When someone taps it, they'll send you a connection request — and you approve.
+          Share your link or QR code. When someone scans it, they'll send you a connection request — and you approve.
         </Text>
 
         {/* Handshake card */}
         <View style={[styles.handshakeCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Avatar preset={currentUser.avatar} size="xl" />
+          <Avatar user={currentUser} size="xl" />
           <Text style={[styles.cardName, { color: theme.foreground }]}>{displayName}</Text>
 
           <Pressable
@@ -83,17 +158,13 @@ export default function ShareConnectionScreen() {
 
         {/* Actions */}
         <View style={styles.actions}>
-          <Button size="lg" onPress={handleShareLink} style={styles.actionBtn}>
+          <Button size="lg" onPress={onShareLink} style={styles.actionBtn}>
             Share Connection Link
           </Button>
-          <Button variant="outline" size="lg" onPress={handleCopyLink} style={styles.actionBtn}>
+          <Button variant="outline" size="lg" onPress={onCopyLink} style={styles.actionBtn}>
             Copy Link
           </Button>
         </View>
-
-        <Pressable onPress={() => router.back()} style={styles.doneRow}>
-          <Text style={[styles.doneText, { color: theme.mutedForeground }]}>Done</Text>
-        </Pressable>
       </ScrollView>
 
       {/* QR code overlay modal */}
@@ -109,8 +180,7 @@ export default function ShareConnectionScreen() {
         >
           <View
             style={[styles.modalCard, { backgroundColor: theme.card }]}
-            // Prevent touches inside the card from closing the modal
-            onStartShouldSetResponder={() => true}
+            onStartShouldSetResponder={() => { return true; }}
           >
             <Text style={[styles.modalTitle, { color: theme.foreground }]}>
               {displayName}
@@ -137,10 +207,73 @@ export default function ShareConnectionScreen() {
   );
 }
 
+// ── Screen ────────────────────────────────────────────────────────────────────
+
+export default function ShareConnectionScreen() {
+  const { theme } = useTheme();
+  const { addToast } = useToast();
+
+  const currentUser = useAppSelector((state) => state.users.currentUser);
+
+  if (!currentUser) return null;
+
+  const connectionLink = getConnectionLink(currentUser.id);
+  const displayName = `${currentUser.firstName} ${currentUser.lastName}`;
+
+  const handleShareLink = async () => {
+    try {
+      await Share.share({
+        message: `Connect with me on Angelia! 🤝\n\n${connectionLink}`,
+        url: Platform.OS === 'ios' ? connectionLink : undefined,
+        title: `Connect with ${currentUser.firstName} on Angelia`,
+      });
+    } catch {
+      // User cancelled or share failed — no-op
+    }
+  };
+
+  const handleCopyLink = async () => {
+    await Clipboard.setStringAsync(connectionLink);
+    addToast({ type: 'success', title: 'Link copied! 📋' });
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
+      <ScreenHeader title="Connect" />
+
+      <Tabs defaultValue="my-qr" style={{ flex: 1 }}>
+        <TabsList style={styles.tabsList}>
+          <TabsTrigger value="my-qr">My QR</TabsTrigger>
+          <TabsTrigger value="scan">Scan QR</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="my-qr" style={{ flex: 1 }}>
+          <MyQrTab
+            connectionLink={connectionLink}
+            displayName={displayName}
+            currentUser={currentUser}
+            onShareLink={handleShareLink}
+            onCopyLink={handleCopyLink}
+          />
+        </TabsContent>
+
+        <TabsContent value="scan" style={{ flex: 1 }}>
+          <ScanQrTab />
+        </TabsContent>
+      </Tabs>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
+  tabsList: {
+    marginHorizontal: 24,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  myQrContent: {
     paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingTop: 16,
     gap: 20,
   },
   subtitle: {
@@ -173,13 +306,47 @@ const styles = StyleSheet.create({
   actionBtn: {
     width: '100%',
   },
-  doneRow: {
-    alignItems: 'center',
-    paddingVertical: 4,
+  // Scanner
+  scannerContainer: {
+    flex: 1,
+    overflow: 'hidden',
   },
-  doneText: {
-    fontSize: 15,
-    fontWeight: '600',
+  viewfinderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewfinderFrame: {
+    width: 220,
+    height: 220,
+    borderWidth: 2,
+    borderRadius: 16,
+  },
+  scanHint: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+    paddingHorizontal: 24,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  permissionBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    gap: 8,
+  },
+  permissionText: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   // Modal
   modalOverlay: {

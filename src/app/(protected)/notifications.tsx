@@ -1,8 +1,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -11,16 +10,13 @@ import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { respondToJoinRequest } from '@/store/actions/inviteActions';
-import { respondToConnectionRequest } from '@/store/actions/connectionsActions';
+import { ScreenHeader } from '@/components/ScreenHeader';
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { addToast } = useToast();
   const { theme } = useTheme();
-  const insets = useSafeAreaInsets();
-
-  const isDemo = useAppSelector((state) => state.demo.isActive);
   const channels = useAppSelector((state) => state.channels.items);
   const incoming = useAppSelector((state) => state.invites.incoming);
   const incomingConnRequests = useAppSelector((state) => state.connections.incomingRequests);
@@ -48,43 +44,25 @@ export default function NotificationsScreen() {
     }
   };
 
-  const handleRespondToConnection = async (requestId: string, accept: boolean) => {
-    try {
-      await dispatch(respondToConnectionRequest({ requestId, accept })).unwrap();
-      addToast({
-        type: 'success',
-        title: accept ? 'Connected! 🤝' : 'Request declined',
-      });
-    } catch {
-      addToast({ type: 'error', title: 'Failed to respond' });
-    }
-  };
-
   return (
-    <>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: 'Notifications',
-          headerStyle: { backgroundColor: theme.background },
-          headerTintColor: theme.foreground,
-          headerTitleStyle: { fontWeight: '700' },
-          headerRight: () => (
-            <Pressable
-              onPress={() => router.push('/(protected)/notification-settings')}
-              hitSlop={8}
-              style={{ marginRight: 4 }}
-            >
-              <Feather name="settings" size={22} color={theme.foreground} />
-            </Pressable>
-          ),
-        }}
+    <View style={{ flex: 1 }}>
+      <ScreenHeader
+        title="Notifications"
+        rightAction={
+          <Pressable
+            onPress={() => router.push('/(protected)/notification-settings')}
+            hitSlop={8}
+            style={{ marginRight: 4 }}
+          >
+            <Feather name="settings" size={22} color={theme.foreground} />
+          </Pressable>
+        }
       />
       <ScrollView
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: isDemo ? 12 : 12 }
+          { paddingTop: 12 }
         ]}
       >
         {/* Settings entry point */}
@@ -133,7 +111,7 @@ export default function NotificationsScreen() {
                   return (
                     <Card key={req.id} style={styles.requestCard}>
                       <View style={styles.requestHeader}>
-                        <Avatar preset={requester?.avatar || 'moon'} uri={requester?.avatarUrl} size="sm" />
+                        <Avatar user={requester} size="sm" />
                         <View style={{ flex: 1, marginLeft: 8 }}>
                           <Text style={[styles.requestName, { color: theme.foreground }]}>
                             {requester?.firstName || 'Unknown'}{' '}
@@ -146,17 +124,13 @@ export default function NotificationsScreen() {
                       </View>
                       <View style={styles.requestActions}>
                         <Button
-                          variant="destructive"
                           size="sm"
-                          onPress={() => handleRespondToConnection(req.id, false)}
+                          onPress={() => router.push({
+                            pathname: '/(protected)/connection-request/[id]',
+                            params: { id: req.id },
+                          })}
                         >
-                          Decline
-                        </Button>
-                        <Button
-                          size="sm"
-                          onPress={() => handleRespondToConnection(req.id, true)}
-                        >
-                          Accept
+                          View Request
                         </Button>
                       </View>
                     </Card>
@@ -178,8 +152,7 @@ export default function NotificationsScreen() {
                     <Card key={req.id} style={styles.requestCard}>
                       <View style={styles.requestHeader}>
                         <Avatar
-                          preset={requester?.avatar || 'moon'}
-                          uri={requester?.avatarUrl}
+                          user={requester}
                           size="sm"
                         />
                         <View style={{ flex: 1, marginLeft: 8 }}>
@@ -242,7 +215,7 @@ export default function NotificationsScreen() {
           </>
         )}
       </ScrollView>
-    </>
+    </View>
   );
 }
 

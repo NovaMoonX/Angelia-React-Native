@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/Avatar';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { UserProfileModal } from '@/components/UserProfileModal';
-import { useAppSelector } from '@/store/hooks';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useTheme } from '@/hooks/useTheme';
+import { useToast } from '@/hooks/useToast';
 import { selectMyPeopleData } from '@/store/crossSelectors/myPeopleSelectors';
+import { disconnectUser } from '@/store/actions/connectionsActions';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import type { User } from '@/models/types';
 
 interface PersonRowProps {
@@ -28,7 +31,7 @@ function PersonRow({ user, tag, onPress }: PersonRowProps) {
         { backgroundColor: theme.card, borderColor: theme.border, opacity: pressed ? 0.8 : 1 },
       ]}
     >
-      <Avatar preset={user.avatar} size="sm" />
+      <Avatar user={user} size="sm" />
       <View style={{ flex: 1, marginLeft: 12 }}>
         <Text style={[styles.personName, { color: theme.foreground }]}>
           {user.firstName} {user.lastName}
@@ -55,31 +58,34 @@ export default function MyPeopleScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const dispatch = useAppDispatch();
+  const { addToast } = useToast();
 
   const { people } = useAppSelector(selectMyPeopleData);
-  const isDemo = useAppSelector((state) => state.demo.isActive);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
+  const handleDisconnect = async (userId: string) => {
+    try {
+      await dispatch(disconnectUser(userId)).unwrap();
+      addToast({ type: 'success', title: 'Disconnected' });
+    } catch {
+      addToast({ type: 'error', title: 'Failed to disconnect' });
+    }
+  };
+
   return (
-    <>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: 'My People',
-          headerStyle: { backgroundColor: theme.background },
-          headerTintColor: theme.foreground,
-          headerTitleStyle: { fontWeight: '700' },
-          ...(isDemo ? { headerStatusBarHeight: 0 } : {}),
-          headerRight: () => (
-            <Pressable
-              onPress={() => router.push('/(protected)/share-connection')}
-              hitSlop={8}
-              style={{ marginRight: 4 }}
-            >
-              <Feather name="user-plus" size={22} color={theme.primary} />
-            </Pressable>
-          ),
-        }}
+    <View style={{ flex: 1 }}>
+      <ScreenHeader
+        title="My People"
+        rightAction={
+          <Pressable
+            onPress={() => router.push('/(protected)/share-connection')}
+            hitSlop={8}
+            style={{ marginRight: 4 }}
+          >
+            <Feather name="user-plus" size={22} color={theme.primary} />
+          </Pressable>
+        }
       />
 
       <ScrollView
@@ -137,8 +143,13 @@ export default function MyPeopleScreen() {
         visible={!!selectedUser}
         onClose={() => setSelectedUser(null)}
         user={selectedUser}
+        onDisconnect={
+          selectedUser
+            ? () => handleDisconnect(selectedUser.id)
+            : undefined
+        }
       />
-    </>
+    </View>
   );
 }
 

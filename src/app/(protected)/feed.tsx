@@ -20,12 +20,16 @@ import { SkeletonPostCard } from '@/components/SkeletonPostCard';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { NowStatusModal } from '@/components/NowStatusModal';
 import { FeedChannelFilterModal, type ChannelFilterState } from '@/components/FeedChannelFilterModal';
+import { NewPostsPill, type NewPostsPillRef } from '@/components/NewPostsPill';
 import { formatTimeRemaining } from '@/lib/timeUtils';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { saveStatus, clearStatus } from '@/store/actions/userActions';
+import { completeTask } from '@/store/actions/taskActions';
 import { selectHasAnyPendingActivity } from '@/store/crossSelectors/activitySelectors';
+import { selectAllChannels } from '@/store/slices/channelsSlice';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
+import { useAutoCompleteTasks } from '@/hooks/useAutoCompleteTasks';
 import { POST_TIERS } from '@/models/constants';
 import type { Post, PostTier, UserStatus } from '@/models/types';
 
@@ -42,11 +46,15 @@ export default function FeedScreen() {
 
   const posts = useAppSelector((state) => state.posts.items);
   const postsLoaded = useAppSelector((state) => state.posts.loaded);
-  const channels = useAppSelector((state) => state.channels.items);
+  const channels = useAppSelector(selectAllChannels);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const hasPendingActivity = useAppSelector(selectHasAnyPendingActivity);
   const pendingTasks = useAppSelector((state) => state.tasks.items);
+
+  // Auto-complete tasks when their conditions are already met on load.
+  // Returns true while auto-completion is in progress to suppress banner flicker.
+  const isAutoCompletingTasks = useAutoCompleteTasks();
 
   const [channelFilter, setChannelFilter] = useState<ChannelFilterState>({ mode: 'all', specificIds: [] });
   const [channelFilterOpen, setChannelFilterOpen] = useState(false);
@@ -73,6 +81,9 @@ export default function FeedScreen() {
   const headerVisible = useRef(true);
   const headerAnimation = useRef<Animated.CompositeAnimation | null>(null);
   const [scrolledPast, setScrolledPast] = useState(false);
+
+  // Ref to the new-posts pill so onScroll can notify it of the current Y position.
+  const newPostsPillRef = useRef<NewPostsPillRef>(null);
 
   const channelFilterLabel = useMemo(() => {
     if (channelFilter.mode === 'all') return 'All Circles';
@@ -123,16 +134,6 @@ export default function FeedScreen() {
       result = result.filter((p) => allowedChannelIds.has(p.channelId));
     }
 
-    // Apply per-channel tier preferences
-    const tierPrefs = currentUser?.channelTierPrefs;
-    if (tierPrefs) {
-      result = result.filter((p) => {
-        const prefs = tierPrefs[p.channelId];
-        if (!prefs || prefs.length === 0) return true;
-        return prefs.includes(p.tier ?? 'everyday');
-      });
-    }
-
     // Apply feed-level priority filter
     result = result.filter(matchesPriorityFilter);
 
@@ -143,26 +144,17 @@ export default function FeedScreen() {
     );
 
     return result.slice(0, displayCount);
-  }, [posts, allowedChannelIds, sortOrder, displayCount, currentUser?.channelTierPrefs, priorityFilter, matchesPriorityFilter]);
+  }, [posts, allowedChannelIds, sortOrder, displayCount, priorityFilter, matchesPriorityFilter]);
 
   const hasMore = useMemo(() => {
-    const tierPrefs = currentUser?.channelTierPrefs;
-    const matchesTier = (p: (typeof posts)[0]) => {
-      if (!tierPrefs) return true;
-      const prefs = tierPrefs[p.channelId];
-      if (!prefs || prefs.length === 0) return true;
-      return prefs.includes(p.tier ?? 'everyday');
-    };
-
     const total = posts.filter(
       (p) =>
         p.status === 'ready' &&
         (allowedChannelIds === null || allowedChannelIds.has(p.channelId)) &&
-        matchesTier(p) &&
         matchesPriorityFilter(p),
     ).length;
     return displayCount < total;
-  }, [posts, allowedChannelIds, displayCount, currentUser?.channelTierPrefs, priorityFilter, matchesPriorityFilter]);
+  }, [posts, allowedChannelIds, displayCount, priorityFilter, matchesPriorityFilter]);
 
   const loadMore = useCallback(() => {
     if (hasMore) {
@@ -258,6 +250,10 @@ export default function FeedScreen() {
         animateHeader(0, 200);
       }
 
+      // Notify the new-posts pill of the current scroll position so it can
+      // auto-dismiss when the user scrolls back to the top.
+      newPostsPillRef.current?.notifyScrollY(currentY);
+
       setScrolledPast(currentY > 100);
       prevScrollY.current = currentY;
     },
@@ -266,15 +262,27 @@ export default function FeedScreen() {
 
   const handleSaveStatus = useCallback(
     async (status: UserStatus) => {
+      // Capture the set_status task ID before dispatching so the closure
+      // always has the correct value even if the component re-renders.
+      const setStatusTaskId = pendingTasks.find((t) => t.type === 'set_status')?.id ?? null;
       try {
         await dispatch(saveStatus(status)).unwrap();
         addToast({ type: 'success', title: 'Status updated!' });
         setStatusModalOpen(false);
+
+        // Auto-complete the set_status task (if it still exists) and show a
+        // congratulatory toast after the action toast has faded away (~4.3s lifecycle).
+        if (setStatusTaskId) {
+          dispatch(completeTask(setStatusTaskId));
+          setTimeout(() => {
+            addToast({ type: 'success', title: "You set your first status! 🎉 Your people can see it." });
+          }, 5000);
+        }
       } catch {
         addToast({ type: 'error', title: 'Failed to set status' });
       }
     },
-    [dispatch, addToast],
+    [dispatch, addToast, pendingTasks],
   );
 
   const handleClearStatus = useCallback(async () => {
@@ -362,6 +370,13 @@ export default function FeedScreen() {
         <Animated.View style={[styles.filteringDot, { backgroundColor: theme.primary, transform: [{ scale: dot3Scale }] }]} />
       </Animated.View>
 
+      {/* New-posts pill — always rendered; the component decides its own visibility */}
+      <NewPostsPill
+        ref={newPostsPillRef}
+        topOffset={headerHeight + 10}
+        onRequestScrollToTop={scrollToTop}
+      />
+
       {/* Animated header — absolute so it slides up without affecting FlashList layout */}
       <Animated.View
         style={[
@@ -378,10 +393,8 @@ export default function FeedScreen() {
           <View style={styles.headerSide}>
             <Pressable onPress={() => router.push('/(protected)/account')}>
               <Avatar
-                preset={currentUser?.avatar || 'moon'}
-                uri={currentUser?.avatarUrl}
+                user={currentUser}
                 size="sm"
-                statusEmoji={isStatusActive(currentUser?.status) ? currentUser?.status?.emoji : undefined}
               />
             </Pressable>
           </View>
@@ -487,8 +500,9 @@ export default function FeedScreen() {
         </View>
 
         {/* Task banner — lives inside the header so `headerHeight` includes it,
-            preventing overlap with both the skeleton list and the filtering dots. */}
-        {pendingTasks.length > 0 && (
+            preventing overlap with both the skeleton list and the filtering dots.
+            Hidden while auto-completing tasks to prevent flicker when the count changes. */}
+        {pendingTasks.length > 0 && !isAutoCompletingTasks && (
           <Pressable
             onPress={() => router.push('/(protected)/tasks')}
             style={[styles.tasksBanner, { backgroundColor: theme.tertiary }]}

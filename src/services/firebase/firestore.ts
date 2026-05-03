@@ -15,7 +15,7 @@ import {
   arrayUnion,
   arrayRemove,
 } from '@react-native-firebase/firestore';
-import type { User, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, PostTier, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, AppTask, Comment } from '@/models/types';
+import type { User, UserPublic, UserPrivate, UserSecret, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, AppTask, Comment, PrivateNote } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX, DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
@@ -23,27 +23,99 @@ const db = getFirestore();
 
 // ---- User Operations ----
 
+/**
+ * Safe defaults for UserSecret fields when the secret document is unavailable
+ * (e.g. when loading another user's public/private data only).
+ *
+ * accountProgress fields default to false so that a missing secret document
+ * (e.g. mid-onboarding, before createUserProfile writes the secret doc) is
+ * treated as "not yet onboarded" and correctly redirects to complete-profile.
+ * For other users' profiles these fields are never surfaced in the UI.
+ */
+const DEFAULT_USER_SECRET: UserSecret = {
+  accountProgress: {
+    signUpComplete: false,
+    emailVerified: false,
+    dailyChannelCreated: false,
+    onboardingComplete: false,
+  },
+  customChannelCount: 0,
+};
+
+/** Merges the three user sub-documents into a single User object. */
+function mergeUserDocs(
+  pub: UserPublic,
+  priv: UserPrivate | null,
+  secret: UserSecret | null,
+): User {
+  return {
+    ...pub,
+    email: priv?.email ?? '',
+    funFact: priv?.funFact ?? '',
+    status: priv?.status ?? null,
+    ...(secret ?? DEFAULT_USER_SECRET),
+  };
+}
+
 export async function getUserProfile(uid: string): Promise<User | null> {
-  const snap = await getDoc(doc(db, 'users', uid));
-  return snap.exists ? (snap.data() as User) : null;
+  const [pubSnap, privSnap, secSnap] = await Promise.all([
+    getDoc(doc(db, 'usersPublic', uid)),
+    getDoc(doc(db, 'usersPrivate', uid)),
+    getDoc(doc(db, 'usersSecret', uid)),
+  ]);
+  if (!pubSnap.exists) return null;
+  return mergeUserDocs(
+    pubSnap.data() as UserPublic,
+    privSnap.exists ? (privSnap.data() as UserPrivate) : null,
+    secSnap.exists ? (secSnap.data() as UserSecret) : null,
+  );
 }
 
 export async function createUserProfile(userData: NewUser): Promise<void> {
-  await setDoc(doc(db, 'users', userData.id), {
-    ...userData,
-    joinedAt: Date.now(),
+  const now = Date.now();
+  const publicData: UserPublic = {
+    id: userData.id,
+    firstName: userData.firstName,
+    lastName: userData.lastName,
+    avatar: userData.avatar,
+    avatarUrl: userData.avatarUrl,
+    joinedAt: now,
+  };
+  const privateData: UserPrivate = {
+    email: userData.email,
+    funFact: userData.funFact,
+    status: null,
+  };
+  const secretData: UserSecret = {
     accountProgress: {
       signUpComplete: true,
       emailVerified: false,
       dailyChannelCreated: false,
+      onboardingComplete: false,
     },
     customChannelCount: 0,
-    status: null,
-  });
+  };
+  await Promise.all([
+    setDoc(doc(db, 'usersPublic', userData.id), publicData),
+    setDoc(doc(db, 'usersPrivate', userData.id), privateData),
+    setDoc(doc(db, 'usersSecret', userData.id), secretData),
+  ]);
+}
+
+export async function savePublicProfile(uid: string, data: Pick<UserPublic, 'id' | 'firstName' | 'lastName' | 'avatar' | 'avatarUrl'>): Promise<void> {
+  await setDoc(doc(db, 'usersPublic', uid), { ...data, joinedAt: Date.now() }, { merge: true });
 }
 
 export async function updateUserProfile(uid: string, data: UpdateUserProfileData): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), { ...data });
+  const { funFact, ...publicFields } = data;
+  const updates: Promise<void>[] = [
+    updateDoc(doc(db, 'usersPublic', uid), publicFields),
+  ];
+  // Only write to usersPrivate when funFact is explicitly provided.
+  if (funFact !== undefined) {
+    updates.push(updateDoc(doc(db, 'usersPrivate', uid), { funFact }));
+  }
+  await Promise.all(updates);
 }
 
 export async function updateAccountProgress(
@@ -51,17 +123,13 @@ export async function updateAccountProgress(
   field: string,
   value: boolean
 ): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), {
+  await updateDoc(doc(db, 'usersSecret', uid), {
     [`accountProgress.${field}`]: value,
   });
 }
 
 export async function updateUserStatus(uid: string, status: UserStatus | null): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), { status });
-}
-
-export async function updateChannelTierPrefs(uid: string, prefs: Record<string, PostTier[]>): Promise<void> {
-  await updateDoc(doc(db, 'users', uid), { channelTierPrefs: prefs });
+  await updateDoc(doc(db, 'usersPrivate', uid), { status });
 }
 
 // ---- Notification Settings Operations ----
@@ -206,18 +274,18 @@ export async function createCustomChannel(channelData: NewChannel): Promise<Chan
   };
 
   await runTransaction(db, async (transaction) => {
-    const userRef = doc(db, 'users', channelData.ownerId);
-    const userSnap = await transaction.get(userRef);
-    if (!userSnap.exists) throw new Error('User not found');
+    const secretRef = doc(db, 'usersSecret', channelData.ownerId);
+    const secretSnap = await transaction.get(secretRef);
+    if (!secretSnap.exists) throw new Error('User not found');
 
-    const userData = userSnap.data() as User;
-    if (userData.customChannelCount >= 3) {
+    const secretData = secretSnap.data() as UserSecret;
+    if (secretData.customChannelCount >= 3) {
       throw new Error('Maximum custom channels reached');
     }
 
     transaction.set(doc(db, 'channels', channelId), channel);
-    transaction.update(userRef, {
-      customChannelCount: userData.customChannelCount + 1,
+    transaction.update(secretRef, {
+      customChannelCount: secretData.customChannelCount + 1,
     });
   });
 
@@ -234,16 +302,16 @@ export async function updateCustomChannel(channel: Channel): Promise<void> {
 
 export async function deleteCustomChannel(channelId: string, ownerId: string): Promise<void> {
   await runTransaction(db, async (transaction) => {
-    const userRef = doc(db, 'users', ownerId);
-    const userSnap = await transaction.get(userRef);
-    if (!userSnap.exists) throw new Error('User not found');
+    const secretRef = doc(db, 'usersSecret', ownerId);
+    const secretSnap = await transaction.get(secretRef);
+    if (!secretSnap.exists) throw new Error('User not found');
 
-    const userData = userSnap.data() as User;
+    const secretData = secretSnap.data() as UserSecret;
     transaction.update(doc(db, 'channels', channelId), {
       markedForDeletionAt: Date.now(),
     });
-    transaction.update(userRef, {
-      customChannelCount: Math.max(0, userData.customChannelCount - 1),
+    transaction.update(secretRef, {
+      customChannelCount: Math.max(0, secretData.customChannelCount - 1),
     });
   });
 }
@@ -393,24 +461,93 @@ export function subscribeToCurrentUser(
   uid: string,
   callback: (user: User | null) => void
 ): () => void {
-  return onSnapshot(doc(db, 'users', uid), (snap) => {
-    callback(snap.exists ? (snap.data() as User) : null);
+  let publicData: UserPublic | null = null;
+  let privateData: UserPrivate | null = null;
+  let secretData: UserSecret | null = null;
+
+  // Track which sub-documents have had their first snapshot; only emit once all
+  // three have fired to avoid dispatching an incomplete User during initial load.
+  const ready = { public: false, private: false, secret: false };
+
+  function emit() {
+    if (!ready.public || !ready.private || !ready.secret) return;
+    if (!publicData) {
+      callback(null);
+      return;
+    }
+    callback(mergeUserDocs(publicData, privateData, secretData));
+  }
+
+  const unsubPublic = onSnapshot(doc(db, 'usersPublic', uid), (snap) => {
+    publicData = snap.exists ? (snap.data() as UserPublic) : null;
+    ready.public = true;
+    emit();
   });
+
+  const unsubPrivate = onSnapshot(doc(db, 'usersPrivate', uid), (snap) => {
+    privateData = snap.exists ? (snap.data() as UserPrivate) : null;
+    ready.private = true;
+    emit();
+  });
+
+  const unsubSecret = onSnapshot(doc(db, 'usersSecret', uid), (snap) => {
+    secretData = snap.exists ? (snap.data() as UserSecret) : null;
+    ready.secret = true;
+    emit();
+  });
+
+  return () => {
+    unsubPublic();
+    unsubPrivate();
+    unsubSecret();
+  };
 }
 
 export function subscribeToChannels(
   uid: string,
-  callback: (channels: Channel[]) => void
+  callback: (channels: Channel[]) => void,
 ): () => void {
-  return onSnapshot(
-    query(collection(db, 'channels'), where('markedForDeletionAt', '==', null)),
+  // Use two targeted queries instead of a global collection scan to avoid
+  // client-side filtering bugs (e.g. channels with missing `subscribers` fields
+  // causing Array.prototype.includes() to throw and silently drop all results).
+  const ownedMap = new Map<string, Channel>();
+  const subscribedMap = new Map<string, Channel>();
+
+  function emit() {
+    // Merge maps; owned takes precedence over subscribed for the same channel id.
+    const merged = new Map<string, Channel>(ownedMap);
+    for (const [id, ch] of subscribedMap) {
+      if (!merged.has(id)) merged.set(id, ch);
+    }
+    callback(
+      Array.from(merged.values()).filter((ch) => ch.markedForDeletionAt == null),
+    );
+  }
+
+  const unsubOwned = onSnapshot(
+    query(collection(db, 'channels'), where('ownerId', '==', uid)),
     (snap) => {
-      const channels = snap.docs
-        .map((d) => d.data() as Channel)
-        .filter((ch) => ch.ownerId === uid || ch.subscribers.includes(uid));
-      callback(channels);
+      ownedMap.clear();
+      for (const d of snap.docs) ownedMap.set(d.id, d.data() as Channel);
+      emit();
     },
+    (_err) => { emit(); },
   );
+
+  const unsubSubscribed = onSnapshot(
+    query(collection(db, 'channels'), where('subscribers', 'array-contains', uid)),
+    (snap) => {
+      subscribedMap.clear();
+      for (const d of snap.docs) subscribedMap.set(d.id, d.data() as Channel);
+      emit();
+    },
+    (_err) => { emit(); },
+  );
+
+  return () => {
+    unsubOwned();
+    unsubSubscribed();
+  };
 }
 
 export function subscribeToPosts(
@@ -440,9 +577,14 @@ export function subscribeToPosts(
         where('markedForDeletionAt', '==', null),
       ),
       (snap) => {
+        if (!snap) return;
         for (const d of snap.docs) {
           allPosts.set(d.id, d.data() as Post);
         }
+        callback(Array.from(allPosts.values()));
+      },
+      (error) => {
+        // Query failed (missing index or rules denial) — return what we have so far
         callback(Array.from(allPosts.values()));
       },
     );
@@ -490,20 +632,39 @@ export function subscribeToChannelUsers(
     batches.push(userIds.slice(i, i + 30));
   }
 
-  const allUsers: Map<string, User> = new Map();
+  const publicDataMap: Map<string, UserPublic> = new Map();
+  const privateDataMap: Map<string, UserPrivate> = new Map();
   const unsubscribes: Array<() => void> = [];
 
+  function emitMerged() {
+    const merged: User[] = [];
+    for (const [id, pub] of publicDataMap) {
+      const priv = privateDataMap.get(id) ?? null;
+      merged.push(mergeUserDocs(pub, priv, null));
+    }
+    callback(merged);
+  }
+
   for (const batch of batches) {
-    const unsub = onSnapshot(
-      query(collection(db, 'users'), where('__name__', 'in', batch)),
+    const unsubPub = onSnapshot(
+      query(collection(db, 'usersPublic'), where('__name__', 'in', batch)),
       (snap) => {
         for (const d of snap.docs) {
-          allUsers.set(d.id, d.data() as User);
+          publicDataMap.set(d.id, d.data() as UserPublic);
         }
-        callback(Array.from(allUsers.values()));
+        emitMerged();
       },
     );
-    unsubscribes.push(unsub);
+    const unsubPriv = onSnapshot(
+      query(collection(db, 'usersPrivate'), where('__name__', 'in', batch)),
+      (snap) => {
+        for (const d of snap.docs) {
+          privateDataMap.set(d.id, d.data() as UserPrivate);
+        }
+        emitMerged();
+      },
+    );
+    unsubscribes.push(unsubPub, unsubPriv);
   }
 
   return () => unsubscribes.forEach((u) => u());
@@ -558,6 +719,7 @@ export async function createAppNotification(notification: AppNotification): Prom
 export async function createConnectionRequest(
   fromId: string,
   toId: string,
+  note?: string,
 ): Promise<ConnectionRequest> {
   const id = generateId('nano');
   const request: ConnectionRequest = {
@@ -567,6 +729,7 @@ export async function createConnectionRequest(
     status: 'pending',
     createdAt: Date.now(),
     respondedAt: null,
+    note: note?.trim() || null,
   };
   await setDoc(doc(db, 'connectionRequests', id), request);
   return request;
@@ -695,6 +858,25 @@ export function subscribeToConnectionChannels(
   return () => unsubscribes.forEach((u) => u());
 }
 
+// ── Disconnect Operations ────────────────────────────────────────────────────
+
+/**
+ * Writes a `disconnectRequests` document to trigger the `onDisconnectRequest`
+ * Cloud Function.  The CF deletes both connection documents and removes the
+ * target user from all circles owned by the requester.
+ */
+export async function createDisconnectRequest(
+  requesterId: string,
+  targetUserId: string,
+): Promise<void> {
+  const id = generateId('nano');
+  await setDoc(doc(db, 'disconnectRequests', id), {
+    requesterId,
+    targetUserId,
+    createdAt: Date.now(),
+  });
+}
+
 // ── Feedback & Support Operations ───────────────────────────────────────────
 
 /**
@@ -705,7 +887,71 @@ export async function submitFeedback(submission: FeedbackSubmission): Promise<vo
   await setDoc(doc(db, 'feedback', submission.id), submission);
 }
 
-// ── Task Operations ─────────────────────────────────────────────────────────
+// ── Private Note Operations ─────────────────────────────────────────────────
+
+/**
+ * Writes a private note to the `posts/{postId}/privateNotes/{noteId}` subcollection.
+ * Notes are automatically deleted when the parent post is removed.
+ * Only the note author can create; only the host (post author) can read.
+ */
+export async function createPrivateNote(note: PrivateNote): Promise<void> {
+  await setDoc(doc(db, 'posts', note.postId, 'privateNotes', note.id), note);
+}
+
+/**
+ * Subscribes to all private notes under `posts/{postId}/privateNotes`, ordered
+ * by timestamp ascending.
+ * Only the host (post author) should call this — the Firestore rules enforce it.
+ */
+export function subscribeToPrivateNotesForPost(
+  postId: string,
+  callback: (notes: PrivateNote[]) => void,
+  onError?: () => void,
+): () => void {
+  return onSnapshot(
+    query(
+      collection(db, 'posts', postId, 'privateNotes'),
+      orderBy('timestamp', 'asc'),
+    ),
+    (snap) => {
+      callback(snap.docs.map((d) => d.data() as PrivateNote));
+    },
+    (_error) => {
+      onError?.();
+    },
+  );
+}
+
+
+/**
+ * Subscribes to the private notes written by `authorId` under
+ * `posts/{postId}/privateNotes`, filtered to only their own notes.
+ * Results are sorted by timestamp ascending (client-side, no composite index needed).
+ *
+ * Should only be called by the note's author (visitor) — the Firestore rules enforce it.
+ */
+export function subscribeToMyPrivateNotesForPost(
+  postId: string,
+  authorId: string,
+  callback: (notes: PrivateNote[]) => void,
+  onError?: () => void,
+): () => void {
+  return onSnapshot(
+    query(
+      collection(db, 'posts', postId, 'privateNotes'),
+      where('authorId', '==', authorId),
+    ),
+    (snap) => {
+      const notes = snap.docs.map((d) => d.data() as PrivateNote);
+      notes.sort((a, b) => a.timestamp - b.timestamp);
+      callback(notes);
+    },
+    (_error) => {
+      onError?.();
+    },
+  );
+}
+
 
 /**
  * Creates a task document in the user's tasks subcollection.

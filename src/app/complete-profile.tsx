@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   KeyboardAvoidingView,
@@ -9,6 +9,7 @@ import {
   Share,
   StyleSheet,
   Text,
+  type ViewStyle,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +17,7 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import QRCode from 'react-native-qrcode-svg';
+import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -26,13 +28,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { createUserProfile } from '@/store/actions/userActions';
+import { createUserProfile, updateAccountProgress } from '@/store/actions/userActions';
 import { createDailyChannel, createCustomChannel } from '@/store/actions/channelActions';
 import { saveNotificationSettings } from '@/store/actions/notificationActions';
-import { createInviteCircleTask, createSetFunFactTask, createSetStatusTask, createCustomCircleTask } from '@/store/actions/taskActions';
-import { uploadPost } from '@/store/actions/postActions';
+import { createInviteCircleTask, createSetFunFactTask, createSetStatusTask, createCustomCircleTask, createMakeFirstPostTask } from '@/store/actions/taskActions';
 import { uploadUserAvatar } from '@/services/firebase/storage';
-import { AVATAR_PRESETS, CHANNEL_COLORS, DAILY_CHANNEL_SUFFIX } from '@/models/constants';
+import { savePublicProfile } from '@/services/firebase/firestore';
+import { AVATAR_PRESETS, CHANNEL_COLORS } from '@/models/constants';
 import type { AvatarPreset } from '@/models/types';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 
@@ -40,7 +42,7 @@ import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout'
 
 const TOTAL_STEPS = 6;
 
-type Category = 'family' | 'hobbies' | 'lifelog';
+type Category = 'family' | 'hobbies' | 'lifelog' | 'business';
 
 type FamilyStyle = 'new-parent' | 'grandparent' | 'long-distance' | 'immediate-family' | 'inner-circle';
 
@@ -75,7 +77,18 @@ const LIFELOG_EMOJI: Record<string, string> = {
 
 const DEFAULT_LIFELOG_EMOJI = '📓';
 
+type BusinessStyle = 'small-business' | 'organization' | 'club' | 'creator' | 'side-hustle';
+
+const BUSINESS_STYLES: { id: BusinessStyle; title: string; label: string; desc: string }[] = [
+  { id: 'small-business', title: '🏪 Small Business', label: 'Small Business', desc: 'I run a business and want to keep my community updated.' },
+  { id: 'organization', title: '🏛️ Organization / Nonprofit', label: 'Organization', desc: "I lead an organization and want to share what we're working on." },
+  { id: 'club', title: '🤝 Club / Group', label: 'Club or Group', desc: 'I run a club or recurring group and want to keep members in the loop.' },
+  { id: 'creator', title: '🎙️ Creator / Maker', label: 'Creator', desc: 'I create things and want to share my process and updates.' },
+  { id: 'side-hustle', title: '🚀 Side Hustle', label: 'Side Hustle', desc: 'I have a project on the side that I want to document and share.' },
+];
+
 const CIRCLE_LIMIT_WARNING = "You've hit the 3-circle limit. Remove an existing one to add a different one.";
+const DISABLED_INPUT_OPACITY = 0.4;
 
 const HOURS_12 = Array.from({ length: 12 }, (_, i) => i + 1);
 const MINUTES_DISPLAY = ['00', '15', '30', '45'];
@@ -99,14 +112,13 @@ function to12(h24: number): { hour: number; ampm: 'AM' | 'PM' } {
   return { hour: h24 - 12, ampm: 'PM' };
 }
 
-function midpoint(startH: number, startM: number, endH: number, endM: number) {
+function oneThirdPoint(startH: number, startM: number, endH: number, endM: number) {
   const startTotal = startH * 60 + startM;
   let endTotal = endH * 60 + endM;
   if (endTotal <= startTotal) endTotal += 24 * 60;
-  const mid = Math.round((startTotal + endTotal) / 2);
-  const roundedMinute = Math.round((mid % 60) / 15) * 15;
-  const extraHour = roundedMinute >= 60 ? 1 : 0;
-  return { hour: (Math.floor(mid / 60) + extraHour) % 24, minute: roundedMinute % 60 };
+  const third = startTotal + Math.floor((endTotal - startTotal) / 3);
+  const minute = Math.floor((third % 60) / 30) * 30; // round down to nearest 30 min
+  return { hour: Math.floor(third / 60) % 24, minute };
 }
 
 function addMinutes(h: number, m: number, add: number) {
@@ -117,6 +129,168 @@ function addMinutes(h: number, m: number, add: number) {
 function formatTime(h: number, m: number) {
   const { hour, ampm } = to12(h);
   return `${hour}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+// ── Info Callout (module-level to avoid re-creating on every render) ─────────
+
+interface InfoCalloutProps {
+  children: React.ReactNode;
+  /** When provided the callout becomes a collapsible section with this header. */
+  title?: string;
+  /** Initial expanded state — only used for collapsible variants. Default: false. */
+  defaultExpanded?: boolean;
+  style?: ViewStyle;
+}
+
+const calloutStyles = StyleSheet.create({
+  container: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  text: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+});
+
+function InfoCallout({ children, title, defaultExpanded = false, style }: InfoCalloutProps) {
+  const { theme } = useTheme();
+  const [expanded, setExpanded] = useState(defaultExpanded);
+
+  const containerStyle = [
+    calloutStyles.container,
+    { backgroundColor: theme.secondary, borderColor: theme.border },
+    style,
+  ];
+
+  if (title) {
+    return (
+      <Pressable
+        onPress={() => setExpanded((v) => !v)}
+        style={containerStyle}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityHint="Double tap to expand or collapse"
+      >
+        <View style={calloutStyles.titleRow}>
+          <Text style={[calloutStyles.text, { color: theme.foreground, fontWeight: '700', flex: 1 }]}>
+            {title}
+          </Text>
+          <Feather
+            name={expanded ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={theme.mutedForeground}
+          />
+        </View>
+        {expanded && (
+          <View style={{ marginTop: 6 }}>{children}</View>
+        )}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={containerStyle} accessible>
+      {children}
+    </View>
+  );
+}
+
+// ── Time Picker (module-level to preserve ScrollView scroll position) ────────
+
+interface TimePickerProps {
+  label: string;
+  hour: number;
+  minute: number;
+  ampm: 'AM' | 'PM';
+  onHourChange: (h: number) => void;
+  onMinuteChange: (m: number) => void;
+  onAmPmChange: (v: 'AM' | 'PM') => void;
+}
+
+function TimePicker({ label, hour, minute, ampm, onHourChange, onMinuteChange, onAmPmChange }: TimePickerProps) {
+  const { theme } = useTheme();
+  return (
+    <View style={styles.section}>
+      <View style={styles.timePickerHeader}>
+        <Label>{label}</Label>
+        <Text style={[styles.selectedTimeDisplay, { color: theme.primary }]}>
+          {hour}:{String(minute).padStart(2, '0')} {ampm}
+        </Text>
+      </View>
+      <View style={styles.timeRow}>
+        {/* Hour selector */}
+        <View style={styles.timeGroup}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.timePills}
+          >
+            {HOURS_12.map((h) => (
+              <Pressable
+                key={h}
+                onPress={() => onHourChange(h)}
+                style={[
+                  styles.timePill,
+                  { backgroundColor: hour === h ? theme.primary : theme.secondary },
+                ]}
+              >
+                <Text style={[styles.timePillText, { color: hour === h ? theme.primaryForeground : theme.secondaryForeground }]}>
+                  {h}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Minute selector */}
+        <View style={[styles.timeGroup, { flex: 0 }]}>
+          <View style={styles.timePills}>
+            {MINUTES_VALUES.map((m, idx) => (
+              <Pressable
+                key={m}
+                onPress={() => onMinuteChange(m)}
+                style={[
+                  styles.timePill,
+                  { backgroundColor: minute === m ? theme.primary : theme.secondary },
+                ]}
+              >
+                <Text style={[styles.timePillText, { color: minute === m ? theme.primaryForeground : theme.secondaryForeground }]}>
+                  :{MINUTES_DISPLAY[idx]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* AM / PM toggle */}
+        <View style={[styles.timeGroup, { flex: 0 }]}>
+          <View style={styles.timePills}>
+            {(['AM', 'PM'] as const).map((v) => (
+              <Pressable
+                key={v}
+                onPress={() => onAmPmChange(v)}
+                style={[
+                  styles.timePill,
+                  { backgroundColor: ampm === v ? theme.primary : theme.secondary },
+                ]}
+              >
+                <Text style={[styles.timePillText, { color: ampm === v ? theme.primaryForeground : theme.secondaryForeground }]}>
+                  {v}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      </View>
+    </View>
+  );
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -130,16 +304,45 @@ export default function CompleteProfileScreen() {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
 
+  const currentUser = useAppSelector((state) => state.users.currentUser);
+
+  // Redirect already-onboarded users away from this screen
+  useEffect(() => {
+    if (currentUser?.accountProgress?.onboardingComplete === true) {
+      router.replace('/(protected)/feed');
+    }
+  }, [currentUser, router]);
+
   // If the user arrived here from "Join a Circle" on the home screen, a
   // pending invite channel will be in Redux.  We use this to skip the
   // YES/NO invited question and go straight to the acknowledgement screen.
   const pendingInviteChannel = useAppSelector((state) => state.pendingInvite.channel);
+  // If the user arrived from a connection invite screen (e.g. "Sign up to Connect"),
+  // a pending connection user ID will be in Redux.  In that case we know they
+  // were NOT invited to a circle, so we skip the YES/NO question and go straight
+  // to the space-setup screen.
+  const pendingConnectionUserId = useAppSelector((state) => state.connections.pendingFromUserId);
 
   // ── Wizard state ────────────────────────────────────────────────────────
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Pulse animation for the loading overlay
+  useEffect(() => {
+    if (loading) {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.35, duration: 700, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+        ]),
+      );
+      loop.start();
+      return () => loop.stop();
+    }
+  }, [loading, pulseAnim]);
 
   // Step 1
   const [firstName, setFirstName] = useState('');
@@ -148,19 +351,25 @@ export default function CompleteProfileScreen() {
   /** Local file URI of a custom photo picked during sign-up. Uploaded in handleFinish. */
   const [avatarPhotoUri, setAvatarPhotoUri] = useState<string | null>(null);
 
-  // Step 2 — if a pending invite exists we already know the answer is "yes"
+  // Step 2 — if a pending circle invite exists we already know the answer is "yes";
+  // if a pending connection invite exists we already know the answer is "no" (not a circle invite).
   const [invitedAnswer, setInvitedAnswer] = useState<'yes' | 'no' | null>(
-    pendingInviteChannel ? 'yes' : null,
+    pendingInviteChannel ? 'yes' : pendingConnectionUserId ? 'no' : null,
   );
-  // When there's a pending invite we skip phase 1 (the YES/NO question) and
+  // When there's a pending circle invite we skip phase 1 (the YES/NO question) and
   // go directly to phase 2 (the "you'll be added after setup" acknowledgement).
+  // When there's a pending connection invite we skip to phase 3 (space-setup screen).
   const [step2Phase, setStep2Phase] = useState<1 | 2 | 3>(
-    pendingInviteChannel ? 2 : 1,
+    pendingInviteChannel ? 2 : pendingConnectionUserId ? 3 : 1,
   );
+
+  // Step 2 — "What's a Circle?" callout collapsed by default
+  // (expansion state lives inside InfoCallout component)
 
   // Step 3
   const [categories, setCategories] = useState<Category[]>([]);
   const [familyStyle, setFamilyStyle] = useState<FamilyStyle | null>(null);
+  const [businessStyles, setBusinessStyles] = useState<BusinessStyle[]>([]);
   const [selectedHobbies, setSelectedHobbies] = useState<string[]>([]);
   const [customHobbies, setCustomHobbies] = useState<string[]>([]);
   const [customHobbyInput, setCustomHobbyInput] = useState('');
@@ -170,12 +379,12 @@ export default function CompleteProfileScreen() {
   const [circleNameOverrides, setCircleNameOverrides] = useState<Record<string, string>>({});
 
   // Step 4
-  const [busyFromHour, setBusyFromHour] = useState(9);
-  const [busyFromMinute, setBusyFromMinute] = useState(0);
-  const [busyFromAmPm, setBusyFromAmPm] = useState<'AM' | 'PM'>('AM');
-  const [busyUntilHour, setBusyUntilHour] = useState(5);
-  const [busyUntilMinute, setBusyUntilMinute] = useState(0);
-  const [busyUntilAmPm, setBusyUntilAmPm] = useState<'AM' | 'PM'>('PM');
+  const [activeFromHour, setActiveFromHour] = useState(8);
+  const [activeFromMinute, setActiveFromMinute] = useState(0);
+  const [activeFromAmPm, setActiveFromAmPm] = useState<'AM' | 'PM'>('AM');
+  const [activeUntilHour, setActiveUntilHour] = useState(10);
+  const [activeUntilMinute, setActiveUntilMinute] = useState(0);
+  const [activeUntilAmPm, setActiveUntilAmPm] = useState<'AM' | 'PM'>('PM');
 
   // Step 4 — allow skipping with noon/6 PM defaults
   const [notifSkipped, setNotifSkipped] = useState(false);
@@ -276,15 +485,16 @@ export default function CompleteProfileScreen() {
 
   // ── Derived values for Step 4 ───────────────────────────────────────────
 
-  const busyStart24 = to24(busyFromHour, busyFromAmPm);
-  const busyEnd24 = to24(busyUntilHour, busyUntilAmPm);
-  const midCheckIn = midpoint(busyStart24, busyFromMinute, busyEnd24, busyUntilMinute);
-  const windDown = addMinutes(busyEnd24, busyUntilMinute, 30);
+  const activeStart24 = to24(activeFromHour, activeFromAmPm);
+  const activeEnd24 = to24(activeUntilHour, activeUntilAmPm);
+  const midCheckIn = oneThirdPoint(activeStart24, activeFromMinute, activeEnd24, activeUntilMinute);
+  const windDown = addMinutes(activeEnd24, activeUntilMinute, -60);
 
   // ── Derived circle count ────────────────────────────────────────────────
 
   const totalPendingCircles =
     (categories.includes('family') && familyStyle ? 1 : 0) +
+    (categories.includes('business') ? businessStyles.length : 0) +
     selectedHobbies.length +
     customHobbies.length +
     selectedLifelogs.length +
@@ -308,6 +518,16 @@ export default function CompleteProfileScreen() {
         key: `family:${familyStyle}`,
         name: style?.label ?? 'Family Circle',
         emoji: '💛',
+        color: randomChannelColor(),
+        description: style?.desc ?? '',
+      });
+    }
+    for (const bs of (categories.includes('business') ? businessStyles : [])) {
+      const style = BUSINESS_STYLES.find((s) => s.id === bs);
+      circles.push({
+        key: `business:${bs}`,
+        name: style?.label ?? 'My Circle',
+        emoji: '🏪',
         color: randomChannelColor(),
         description: style?.desc ?? '',
       });
@@ -350,7 +570,7 @@ export default function CompleteProfileScreen() {
     });
 
     return circles.slice(0, 3);
-  }, [categories, familyStyle, selectedHobbies, customHobbies, selectedLifelogs, customLifelogs]);
+  }, [categories, familyStyle, businessStyles, selectedHobbies, customHobbies, selectedLifelogs, customLifelogs]);
 
   // ── Final submit ────────────────────────────────────────────────────────
 
@@ -358,8 +578,9 @@ export default function CompleteProfileScreen() {
   const MIN_STEP_MS = 800;
   const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-  const handleFinish = async () => {
+  const handleFinish = async (overrideFunFact?: string) => {
     if (!firebaseUser) return;
+    const funFact = overrideFunFact !== undefined ? overrideFunFact : firstPost.trim();
 
     setLoading(true);
     setLoadingMessage('Getting everything ready for you ✨');
@@ -382,7 +603,7 @@ export default function CompleteProfileScreen() {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
           email: firebaseUser.email ?? '',
-          funFact: firstPost.trim(),
+          funFact,
           avatar,
           avatarUrl: uploadedAvatarUrl ?? null,
         }),
@@ -390,25 +611,9 @@ export default function CompleteProfileScreen() {
 
       // 3 — Create daily Circle
       setLoadingMessage('Building your Daily Circle 🌙');
-      const dailyChannelId = `${firebaseUser.uid}${DAILY_CHANNEL_SUFFIX}`;
       await Promise.all([dispatch(createDailyChannel(firebaseUser.uid)).unwrap(), sleep(MIN_STEP_MS)]);
 
-      // 4 — Upload first post to Daily Circle (non-fatal)
-      const firstPostText = firstPost.trim();
-      if (firstPostText) {
-        setLoadingMessage('Saving your first post 📝');
-        try {
-          await Promise.all([
-            dispatch(uploadPost({ channelId: dailyChannelId, text: firstPostText, media: [] })).unwrap(),
-            sleep(MIN_STEP_MS),
-          ]);
-        } catch {
-          // Non-fatal: the user can post later
-          await sleep(MIN_STEP_MS);
-        }
-      }
-
-      // 5 — Create custom Circles (up to 3, from Step 3 selections)
+      // 4 — Create custom Circles (up to 3, from Step 3 selections)
       const pendingCircles = getPendingCircles();
       if (pendingCircles.length > 0) {
         setLoadingMessage('Setting up your custom Circles 💫');
@@ -431,14 +636,12 @@ export default function CompleteProfileScreen() {
         }
       }
 
-      // 6 — Create nudge tasks (non-fatal, all in parallel)
+      // 5 — Create nudge tasks (non-fatal, all in parallel)
       setLoadingMessage('Setting up your to-do list 📋');
       await Promise.all([
         sleep(MIN_STEP_MS),
-        // Nudge to fill in their bio/fun fact if they skipped the first-post step.
-        // The first post content is also stored as their profile fun fact, so if they
-        // didn't write anything there they haven't set one yet.
-        !firstPostText
+        // Nudge to fill in their fun fact if they skipped it during onboarding
+        !funFact
           ? dispatch(createSetFunFactTask()).unwrap().catch(() => null)
           : Promise.resolve(null),
         // Nudge to set first status — everyone starts without one
@@ -447,13 +650,16 @@ export default function CompleteProfileScreen() {
         pendingCircles.length === 0
           ? dispatch(createCustomCircleTask()).unwrap().catch(() => null)
           : Promise.resolve(null),
+        // Task to make their first post — always created for new users
+        dispatch(createMakeFirstPostTask()).unwrap().catch(() => null),
       ]);
 
-      // 7 — Save notification settings
+      // 6 — Save notification settings
       try {
+        // If skipped, default to 12:30 PM (1/3 of way through an 8am–10pm day) and 9 PM (1hr before 10pm)
         const dailyHour = notifSkipped ? 12 : midCheckIn.hour;
-        const dailyMinute = notifSkipped ? 0 : midCheckIn.minute;
-        const windDownHour = notifSkipped ? 18 : windDown.hour;
+        const dailyMinute = notifSkipped ? 30 : midCheckIn.minute;
+        const windDownHour = notifSkipped ? 21 : windDown.hour;
         const windDownMinute = notifSkipped ? 0 : windDown.minute;
         await dispatch(
           saveNotificationSettings({
@@ -465,9 +671,16 @@ export default function CompleteProfileScreen() {
         // Non-fatal: defaults will apply
       }
 
-      // 8 — Verification email
+      // 7 — Verification email
       setLoadingMessage('Almost there — sending your verification email 💌');
       await Promise.all([sendVerificationEmail(), sleep(MIN_STEP_MS)]);
+
+      // 8 — Mark onboarding complete (non-fatal: layout will re-check on next load)
+      try {
+        await dispatch(updateAccountProgress({ uid: firebaseUser.uid, field: 'onboardingComplete', value: true })).unwrap();
+      } catch {
+        // Non-fatal
+      }
 
       addToast({ type: 'success', title: "You're all set! 🎉" });
       if (invitedAnswer === 'yes') {
@@ -498,6 +711,9 @@ export default function CompleteProfileScreen() {
   const removePendingCircle = useCallback((key: string) => {
     if (key.startsWith('family:')) {
       setFamilyStyle(null);
+    } else if (key.startsWith('business:')) {
+      const bs = key.slice('business:'.length) as BusinessStyle;
+      setBusinessStyles((prev) => prev.filter((x) => x !== bs));
     } else if (key.startsWith('hobby:')) {
       const h = key.slice('hobby:'.length);
       setSelectedHobbies((prev) => prev.filter((x) => x !== h));
@@ -603,120 +819,6 @@ export default function CompleteProfileScreen() {
     </Pressable>
   );
 
-  // Simple time-picker row (hour, minute, AM/PM) with selected time display
-  const TimePicker = ({
-    label,
-    hour,
-    minute,
-    ampm,
-    onHourChange,
-    onMinuteChange,
-    onAmPmChange,
-  }: {
-    label: string;
-    hour: number;
-    minute: number;
-    ampm: 'AM' | 'PM';
-    onHourChange: (h: number) => void;
-    onMinuteChange: (m: number) => void;
-    onAmPmChange: (v: 'AM' | 'PM') => void;
-  }) => (
-    <View style={styles.section}>
-      <View style={styles.timePickerHeader}>
-        <Label>{label}</Label>
-        <Text style={[styles.selectedTimeDisplay, { color: theme.primary }]}>
-          {hour}:{String(minute).padStart(2, '0')} {ampm}
-        </Text>
-      </View>
-      <View style={styles.timeRow}>
-        {/* Hour selector */}
-        <View style={styles.timeGroup}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.timePills}
-          >
-            {HOURS_12.map((h) => (
-              <Pressable
-                key={h}
-                onPress={() => onHourChange(h)}
-                style={[
-                  styles.timePill,
-                  {
-                    backgroundColor: hour === h ? theme.primary : theme.secondary,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.timePillText,
-                    { color: hour === h ? theme.primaryForeground : theme.secondaryForeground },
-                  ]}
-                >
-                  {h}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Minute selector */}
-        <View style={[styles.timeGroup, { flex: 0 }]}>
-          <View style={styles.timePills}>
-            {MINUTES_VALUES.map((m, idx) => (
-              <Pressable
-                key={m}
-                onPress={() => onMinuteChange(m)}
-                style={[
-                  styles.timePill,
-                  {
-                    backgroundColor: minute === m ? theme.primary : theme.secondary,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.timePillText,
-                    { color: minute === m ? theme.primaryForeground : theme.secondaryForeground },
-                  ]}
-                >
-                  :{MINUTES_DISPLAY[idx]}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        {/* AM / PM toggle */}
-        <View style={[styles.timeGroup, { flex: 0 }]}>
-          <View style={styles.timePills}>
-            {(['AM', 'PM'] as const).map((v) => (
-              <Pressable
-                key={v}
-                onPress={() => onAmPmChange(v)}
-                style={[
-                  styles.timePill,
-                  {
-                    backgroundColor: ampm === v ? theme.primary : theme.secondary,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.timePillText,
-                    { color: ampm === v ? theme.primaryForeground : theme.secondaryForeground },
-                  ]}
-                >
-                  {v}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-      </View>
-    </View>
-  );
-
   // ── Step renderers ──────────────────────────────────────────────────────
 
   const renderStep1 = () => (
@@ -798,6 +900,17 @@ export default function CompleteProfileScreen() {
             addToast({ type: 'warning', title: 'We need your name to continue 💫' });
             return;
           }
+          // Fire-and-forget: save basic public profile so the QR code on
+          // step 5 shows the user's real name/avatar when scanned.
+          if (firebaseUser) {
+            savePublicProfile(firebaseUser.uid, {
+              id: firebaseUser.uid,
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              avatar,
+              avatarUrl: null,
+            }).catch(() => {});
+          }
           goNext();
         }}
         style={styles.cta}
@@ -866,7 +979,7 @@ export default function CompleteProfileScreen() {
             </Text>
           </>
         )
-        : ' to join a Circle on Angelia';
+        : ' to connect on Angelia';
 
       return (
         <View style={styles.invitedHero}>
@@ -875,22 +988,17 @@ export default function CompleteProfileScreen() {
             You're in!
           </Text>
           <Text style={[styles.invitedHeroBody, { color: theme.mutedForeground }]}>
-            You've been invited{circleRef}.{' '}
+            Someone invited you{circleRef}.{' '}
             <Text style={{ fontWeight: '700', color: theme.foreground }}>
               Once you finish setting up your profile, you'll be taken right to it.
             </Text>
           </Text>
 
-          <View
-            style={[
-              styles.invitedHeroCallout,
-              { backgroundColor: theme.secondary, borderColor: theme.border },
-            ]}
-          >
-            <Text style={[styles.bridgeText, { color: theme.foreground }]}>
+          <InfoCallout style={{ borderRadius: 14, padding: 16, width: '100%' }}>
+            <Text style={[calloutStyles.text, { color: theme.foreground }]}>
               💡 Your space is separate from theirs — it's yours to own and share with whoever you choose.
             </Text>
-          </View>
+          </InfoCallout>
 
           <Button
             onPress={() => animateTransition(() => setStep2Phase(3))}
@@ -905,7 +1013,7 @@ export default function CompleteProfileScreen() {
             onPress={() => setShowSkipSpaceModal(true)}
             style={styles.invitedHeroSkip}
           >
-            Skip — take me to join their Circle
+            Skip — take me right there
           </Button>
 
           <Modal
@@ -913,12 +1021,12 @@ export default function CompleteProfileScreen() {
             onClose={() => setShowSkipSpaceModal(false)}
             title="Skip setting up your space?"
           >
-            <Text style={[styles.infoCalloutText, { color: theme.foreground, marginBottom: 16 }]}>
+            <Text style={[calloutStyles.text, { color: theme.foreground, marginBottom: 16 }]}>
               Your{' '}
               <Text style={{ fontWeight: '700', color: theme.primary }}>Daily Circle</Text>
               {' '}will still be created automatically — but you won't set up any custom Circles right now. You can always do that later from the app.
             </Text>
-            <Text style={[styles.infoCalloutText, { color: theme.mutedForeground, marginBottom: 20 }]}>
+            <Text style={[calloutStyles.text, { color: theme.mutedForeground, marginBottom: 20 }]}>
               We'll take you straight to the Circle you were invited to after the last step. 🎉
             </Text>
             <Button
@@ -971,13 +1079,11 @@ export default function CompleteProfileScreen() {
           </Button>
         </View>
 
-        {/* What's a Circle? — anchored at the bottom */}
-        <View style={[styles.bridgeCard, styles.spaceSetupFooter, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
-          <Text style={[styles.bridgeText, { color: theme.mutedForeground }]}>
-            💬 <Text style={{ fontWeight: '700', color: theme.foreground }}>What's a Circle?</Text>
-            {' '}A small, private group where you share updates with people who actually care — family, friends, or whoever you choose. No feeds, no strangers.
+        <InfoCallout title="💬 What's a Circle?" style={styles.spaceSetupFooter}>
+          <Text style={[calloutStyles.text, { color: theme.mutedForeground }]}>
+            A small, private group where you share updates with people who actually care — family, friends, or whoever you choose. No feeds, no strangers.
           </Text>
-        </View>
+        </InfoCallout>
       </View>
     );
   };
@@ -986,6 +1092,7 @@ export default function CompleteProfileScreen() {
     const showFamilySub = categories.includes('family');
     const showHobbySub = categories.includes('hobbies');
     const showLifelogSub = categories.includes('lifelog');
+    const showBusinessSub = categories.includes('business');
     const pendingCircles = getPendingCircles();
 
     const toggleHobby = (h: string) => {
@@ -1057,11 +1164,11 @@ export default function CompleteProfileScreen() {
 
         {/* 3-circle max indicator */}
         {circlesAtMax && (
-          <View style={[styles.infoCallout, { backgroundColor: theme.secondary, borderColor: theme.border, marginBottom: 12 }]}>
-            <Text style={[styles.infoCalloutText, { color: theme.foreground }]}>
+          <InfoCallout style={{ marginBottom: 12 }}>
+            <Text style={[calloutStyles.text, { color: theme.foreground }]}>
               ✅ You've reached the 3-circle max. Remove a selection to add a different one.
             </Text>
-          </View>
+          </InfoCallout>
         )}
 
         {/* Categories section header */}
@@ -1073,7 +1180,7 @@ export default function CompleteProfileScreen() {
             Which of these resonates with you?
           </Text>
           <Text style={[styles.infoText, { color: theme.mutedForeground }]}>
-            Choose what feels applicable to you. You can select all 3 categories if they all align with who you are.
+            Choose what feels applicable to you. You can select all 4 categories if they all align with who you are.
           </Text>
         </View>
 
@@ -1084,6 +1191,7 @@ export default function CompleteProfileScreen() {
               { id: 'family' as Category, label: '💛 Family & Friends' },
               { id: 'hobbies' as Category, label: '🎯 Hobbies' },
               { id: 'lifelog' as Category, label: '✨ Life Log' },
+              { id: 'business' as Category, label: '🏢 I Run Things' },
             ] as const
           ).map(({ id, label }) => {
             const active = categories.includes(id);
@@ -1235,17 +1343,72 @@ export default function CompleteProfileScreen() {
                 placeholder="Add a custom hobby…"
                 autoCapitalize="words"
                 onSubmitEditing={addCustomHobby}
-                style={{ flex: 1 }}
+                editable={!circlesAtMax}
+                style={{ flex: 1, opacity: circlesAtMax ? DISABLED_INPUT_OPACITY : 1 }}
               />
               <Button
-                size="sm"
                 onPress={addCustomHobby}
-                disabled={!customHobbyInput.trim()}
-                style={{ marginLeft: 8 }}
+                disabled={!customHobbyInput.trim() || circlesAtMax}
+                style={{ marginLeft: 8, alignSelf: 'stretch' }}
               >
                 Add
               </Button>
             </View>
+          </View>
+        )}
+
+        {/* Business sub-options */}
+        {showBusinessSub && (
+          <View style={styles.subSection}>
+            <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>
+              I RUN THINGS
+            </Text>
+            <Text style={[styles.subHeader, { color: theme.foreground }]}>
+              What best describes what you run?
+            </Text>
+            {BUSINESS_STYLES.map((s) => {
+              const isSelected = businessStyles.includes(s.id);
+              const isDisabled = !isSelected && circlesAtMax;
+              return (
+                <Pressable
+                  key={s.id}
+                  onPress={() => {
+                    if (isSelected) {
+                      setBusinessStyles((prev) => prev.filter((x) => x !== s.id));
+                    } else if (isDisabled) {
+                      addToast({ type: 'warning', title: CIRCLE_LIMIT_WARNING });
+                    } else {
+                      setBusinessStyles((prev) => [...prev, s.id]);
+                    }
+                  }}
+                  style={[
+                    styles.optionCard,
+                    {
+                      backgroundColor: isSelected ? theme.primary : theme.card,
+                      borderColor: isSelected ? theme.primary : theme.border,
+                      opacity: isDisabled ? 0.4 : 1,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.optionCardTitle,
+                      { color: isSelected ? theme.primaryForeground : theme.foreground },
+                    ]}
+                  >
+                    {s.title}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.optionCardDesc,
+                      { color: isSelected ? theme.primaryForeground : theme.mutedForeground },
+                    ]}
+                  >
+                    {s.desc}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         )}
 
@@ -1322,13 +1485,13 @@ export default function CompleteProfileScreen() {
                 placeholder="Add a custom log…"
                 autoCapitalize="words"
                 onSubmitEditing={addCustomLifelog}
-                style={{ flex: 1 }}
+                editable={!circlesAtMax}
+                style={{ flex: 1, opacity: circlesAtMax ? DISABLED_INPUT_OPACITY : 1 }}
               />
               <Button
-                size="sm"
                 onPress={addCustomLifelog}
-                disabled={!customLifelogInput.trim()}
-                style={{ marginLeft: 8 }}
+                disabled={!customLifelogInput.trim() || circlesAtMax}
+                style={{ marginLeft: 8, alignSelf: 'stretch' }}
               >
                 Add
               </Button>
@@ -1380,57 +1543,46 @@ export default function CompleteProfileScreen() {
   const renderStep4 = () => (
     <>
       <StepHeader
-        title="When are you normally busy? ⏰"
+        title="When are you normally active? ⏰"
         subtitle="We'll schedule gentle nudges around your day — one mid-day check-in, one evening wind-down."
       />
 
       {/* Why we ask */}
-      <View
-        style={[
-          styles.infoCallout,
-          { backgroundColor: theme.secondary, borderColor: theme.border },
-        ]}
-      >
-        <Text style={[styles.infoCalloutText, { color: theme.foreground }]}>
-          💡 <Text style={{ fontWeight: '700' }}>Why do we ask?</Text>
-          {' '}Angelia sends two gentle nudges a day so the people in your Circle know what you're up to — and because people want to know! We schedule them around your day so they feel natural, not intrusive. You can always turn them off later in{' '}
+      <InfoCallout title="💡 Why do we ask?" style={{ marginBottom: 20 }}>
+        <Text style={[calloutStyles.text, { color: theme.foreground }]}>
+          Angelia sends two gentle nudges a day so the people in your Circle know what you're up to — and because people want to know! We schedule them around your day so they feel natural, not intrusive. You can always turn them off later in{' '}
           <Text style={{ fontWeight: '700' }}>Notifications → Settings</Text>.
         </Text>
-      </View>
+      </InfoCallout>
 
       <TimePicker
-        label="Busy from"
-        hour={busyFromHour}
-        minute={busyFromMinute}
-        ampm={busyFromAmPm}
-        onHourChange={setBusyFromHour}
-        onMinuteChange={setBusyFromMinute}
-        onAmPmChange={setBusyFromAmPm}
+        label="Active from"
+        hour={activeFromHour}
+        minute={activeFromMinute}
+        ampm={activeFromAmPm}
+        onHourChange={setActiveFromHour}
+        onMinuteChange={setActiveFromMinute}
+        onAmPmChange={setActiveFromAmPm}
       />
 
       <TimePicker
-        label="Busy until"
-        hour={busyUntilHour}
-        minute={busyUntilMinute}
-        ampm={busyUntilAmPm}
-        onHourChange={setBusyUntilHour}
-        onMinuteChange={setBusyUntilMinute}
-        onAmPmChange={setBusyUntilAmPm}
+        label="Active until"
+        hour={activeUntilHour}
+        minute={activeUntilMinute}
+        ampm={activeUntilAmPm}
+        onHourChange={setActiveUntilHour}
+        onMinuteChange={setActiveUntilMinute}
+        onAmPmChange={setActiveUntilAmPm}
       />
 
-      <View
-        style={[
-          styles.bridgeCard,
-          { backgroundColor: theme.secondary, borderColor: theme.border },
-        ]}
-      >
-        <Text style={[styles.bridgeText, { color: theme.foreground }]}>
+      <InfoCallout style={{ marginTop: 12, marginBottom: 4 }}>
+        <Text style={[calloutStyles.text, { color: theme.foreground }]}>
           🔔 We'll check in around{' '}
           <Text style={{ fontWeight: '700' }}>{formatTime(midCheckIn.hour, midCheckIn.minute)}</Text>
           {' '}and nudge you to wind down at{' '}
           <Text style={{ fontWeight: '700' }}>{formatTime(windDown.hour, windDown.minute)}</Text>.
         </Text>
-      </View>
+      </InfoCallout>
 
       <View style={styles.ctaRow}>
         <Button
@@ -1441,7 +1593,7 @@ export default function CompleteProfileScreen() {
           }}
           style={{ flex: 1 }}
         >
-          Skip (noon & 6 PM)
+          Skip
         </Button>
         <Button
           onPress={() => {
@@ -1455,7 +1607,7 @@ export default function CompleteProfileScreen() {
       </View>
 
       <Text style={[styles.reassurance, { color: theme.mutedForeground }, { marginTop: 10}]}>
-        If you skip, we'll default to noon & 6 PM. You can always change this in{' '}
+        If you skip, we'll default to 12:30 PM & 9 PM. You can always change this in{' '}
         <Text style={{ fontWeight: '700' }}>Notifications → Settings</Text>.
       </Text>
     </>
@@ -1561,36 +1713,23 @@ export default function CompleteProfileScreen() {
   const renderStep6 = () => (
     <>
       <StepHeader
-        title="You're all set. Let's break the ice! 🎉"
-        subtitle="Share a 'Now' status for your Daily Circle. Even if no one is here yet, your post will be waiting for them when they arrive."
+        title="Almost there! Let's make it personal. 🌟"
+        subtitle="Share a fun fact about yourself — something most people probably don't know."
       />
 
-      {/* Daily Circle explanation */}
-      <View
-        style={[
-          styles.infoCallout,
-          { backgroundColor: theme.secondary, borderColor: theme.border },
-        ]}
-      >
-        <Text style={[styles.infoCalloutText, { color: theme.foreground }]}>
-          ☀️ <Text style={{ fontWeight: '700', color: theme.primary }}>What's your Daily Circle?</Text>
-          {' '}It's your default space for everyday updates — the small stuff, the funny moments, the "you had to be there" things. Everyone amongst your Circles will see it here.
-        </Text>
-      </View>
-
       <View style={styles.section}>
-        <Label>Share your first update ✍️</Label>
+        <Label>Your fun fact ✍️</Label>
         <Textarea
           value={firstPost}
           onChangeText={setFirstPost}
-          placeholder="What's happening right now? A coffee? A sunset? A messy desk? 🤷‍♀️"
+          placeholder="Something surprising, quirky, or totally unexpected about you 🤔"
           rows={4}
           maxLength={300}
         />
       </View>
 
       <Text style={[styles.reassurance, { color: theme.mutedForeground }]}>
-        Remember: it doesn't have to be perfect. If it matters to you, it's worth knowing for them. 💛
+        This shows up on your profile and is a great conversation starter. 💛
       </Text>
 
       <Button
@@ -1606,31 +1745,29 @@ export default function CompleteProfileScreen() {
         onPress={() => setShowSkipPostModal(true)}
         style={{ marginTop: 12 }}
       >
-        Skip first post
+        Skip fun fact
       </Button>
 
-      {/* Skip first post confirmation modal */}
+      {/* Skip fun fact confirmation modal */}
       <Modal
         isOpen={showSkipPostModal}
         onClose={() => setShowSkipPostModal(false)}
-        title="Skip your first post?"
+        title="Skip your fun fact?"
       >
-        <Text style={[styles.infoCalloutText, { color: theme.foreground, marginBottom: 16 }]}>
-          Your first post is a great way to say "I'm here!" — even something small like a quick hello goes a long way. The people in your{' '}
-          <Text style={{ fontWeight: '700', color: theme.primary }}>Daily Circle</Text>
-          {' '}will love knowing you've arrived. 🌟
+        <Text style={[calloutStyles.text, { color: theme.foreground, marginBottom: 16 }]}>
+          A fun fact is a great way to let people get to know the real you — something they'd never guess! It's a small touch that makes your profile feel personal and memorable. 🌟
         </Text>
-        <Text style={[styles.infoCalloutText, { color: theme.mutedForeground, marginBottom: 20 }]}>
-          No pressure though — you can always post later from your feed.
+        <Text style={[calloutStyles.text, { color: theme.mutedForeground, marginBottom: 20 }]}>
+          No worries — you can always add one later from your profile.
         </Text>
         <Button onPress={() => setShowSkipPostModal(false)} style={{ marginBottom: 12 }}>
-          Make the post
+          Add a fun fact
         </Button>
         <Button
           variant="tertiary"
           onPress={() => {
             setShowSkipPostModal(false);
-            handleFinish();
+            handleFinish('');
           }}
         >
           Skip for now
@@ -1654,7 +1791,9 @@ export default function CompleteProfileScreen() {
   if (loading && loadingMessage) {
     return (
       <View style={[styles.loadingOverlay, { backgroundColor: theme.background }]}>
-        <Text style={styles.loadingEmoji}>✨</Text>
+        <Animated.Text style={[styles.loadingEmoji, { transform: [{ scale: pulseAnim }] }]}>
+          ✨
+        </Animated.Text>
         <Text style={[styles.loadingHeading, { color: theme.foreground }]}>
           Prepping your space…
         </Text>
@@ -1827,19 +1966,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // Bridge card
-  bridgeCard: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  bridgeText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-
   // Category pills (Step 3)
   pillRow: {
     flexDirection: 'row',
@@ -1907,6 +2033,7 @@ const styles = StyleSheet.create({
   hobbyChipText: {
     fontSize: 13,
     fontWeight: '600',
+    flex: 1,
   },
 
   // Suggestion text
@@ -1955,17 +2082,6 @@ const styles = StyleSheet.create({
   },
 
   // Info callout (Step 4 & 5)
-  infoCallout: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 20,
-  },
-  infoCalloutText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-
   // CTA
   cta: {
     marginTop: 20,
@@ -2010,8 +2126,11 @@ const styles = StyleSheet.create({
   // Input + Add button row (custom entries)
   customInputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
     marginTop: 8,
+  },
+  addButton: {
+    alignSelf: 'stretch',
   },
 
   // Circles preview panel (Step 3 bottom)
@@ -2107,12 +2226,6 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     textAlign: 'center',
     marginBottom: 24,
-  },
-  invitedHeroCallout: {
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 16,
-    width: '100%',
   },
   invitedHeroCta: {
     marginTop: 32,

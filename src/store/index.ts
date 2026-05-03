@@ -9,6 +9,7 @@ import conversationReducer from './slices/conversationSlice';
 import commentsReducer from './slices/commentsSlice';
 import connectionsReducer from './slices/connectionsSlice';
 import tasksReducer from './slices/tasksSlice';
+import privateNotesReducer from './slices/privateNotesSlice';
 
 export const store = configureStore({
   reducer: {
@@ -22,6 +23,7 @@ export const store = configureStore({
     comments: commentsReducer,
     connections: connectionsReducer,
     tasks: tasksReducer,
+    privateNotes: privateNotesReducer,
   },
 });
 

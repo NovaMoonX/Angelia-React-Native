@@ -110,6 +110,7 @@ export const selectPostAuthor = (state: RootState, authorId: string) =>
   state.users.users.find((u) => u.id === authorId);
 
 export const selectPostChannel = (state: RootState, channelId: string) =>
-  state.channels.items.find((c) => c.id === channelId);
+  state.channels.items.find((c) => c.id === channelId) ??
+  state.channels.connectionChannels.find((c) => c.id === channelId);
 
 export default postsSlice.reducer;

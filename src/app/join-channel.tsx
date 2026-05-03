@@ -189,10 +189,10 @@ export default function JoinChannelScreen() {
             </View>
 
             <Text style={[styles.heading, { color: theme.foreground }]}>
-              Join a Circle
+              Accept an Invite
             </Text>
             <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
-              Enter the 8-character invite code shared with you, or scan the circle's QR code.
+              Enter your 8-character invite code or scan a QR code to join a Circle — or scan someone's connection QR to connect directly with them.
             </Text>
 
             {/* QR scan button */}
@@ -201,14 +201,19 @@ export default function JoinChannelScreen() {
               onPress={() => router.push('/scan-qr')}
             >
               <Feather name="maximize" size={22} color={theme.secondaryForeground} />
-              <Text style={[styles.scanQrText, { color: theme.secondaryForeground }]}>
-                Scan QR Code
-              </Text>
+              <View>
+                <Text style={[styles.scanQrText, { color: theme.secondaryForeground }]}>
+                  Scan QR Code
+                </Text>
+                <Text style={[styles.scanQrSubtext, { color: theme.mutedForeground }]}>
+                  Works for Circles and connections
+                </Text>
+              </View>
             </Pressable>
 
             <View style={styles.dividerRow}>
               <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
-              <Text style={[styles.dividerLabel, { color: theme.mutedForeground }]}>or enter code</Text>
+              <Text style={[styles.dividerLabel, { color: theme.mutedForeground }]}>or enter a Circle invite code</Text>
               <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
             </View>
 
@@ -440,6 +445,10 @@ const styles = StyleSheet.create({
   scanQrText: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  scanQrSubtext: {
+    fontSize: 12,
+    marginTop: 1,
   },
   dividerRow: {
     flexDirection: 'row',

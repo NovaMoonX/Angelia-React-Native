@@ -1,16 +1,27 @@
 import React from 'react';
 import { View, Text, StyleSheet, type ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
-import type { AvatarPreset } from '@/models/types';
+import type { AvatarPreset, User, UserStatus } from '@/models/types';
 
 interface AvatarProps {
-  preset: AvatarPreset;
+  /**
+   * Provide a User (or partial User with `avatar`, `avatarUrl`, and optionally `status`) to
+   * automatically resolve the preset emoji, custom photo URL, and status badge.
+   * When set, `preset`, `uri`, and `statusEmoji` are ignored.
+   * Falls back to the 'moon' preset when the user has no avatarUrl.
+   */
+  user?: Pick<User, 'avatar' | 'avatarUrl'> & { status?: UserStatus | null } | null;
+  /** Required when `user` is not provided. */
+  preset?: AvatarPreset;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   shape?: 'circle' | 'square';
   style?: ViewStyle;
-  /** When provided, renders a small emoji badge at the bottom-right of the avatar. */
+  /**
+   * Override emoji badge when `user` is not provided.
+   * When `user` is provided, the status emoji is resolved automatically.
+   */
   statusEmoji?: string;
-  /** Firebase Storage download URL for a custom profile photo. When set, renders the photo instead of the preset emoji. */
+  /** Firebase Storage download URL for a custom profile photo. Used only when `user` is not provided. */
   uri?: string | null;
 }
 
@@ -65,7 +76,15 @@ const PRESET_COLORS: Record<AvatarPreset, string> = {
   'black-hole': '#18181B',
 };
 
-export function Avatar({ preset, size = 'md', shape = 'circle', style, statusEmoji, uri }: AvatarProps) {
+export function Avatar({ user, preset, size = 'md', shape = 'circle', style, statusEmoji, uri }: AvatarProps) {
+  const resolvedPreset: AvatarPreset = user?.avatar ?? preset ?? 'moon';
+  const resolvedUri: string | null | undefined = user !== undefined && user !== null ? user.avatarUrl : uri;
+
+  // Auto-resolve status emoji from user.status when user prop is provided
+  const resolvedStatusEmoji: string | undefined = user !== undefined && user !== null
+    ? (user.status && Date.now() < user.status.expiresAt ? user.status.emoji : undefined)
+    : statusEmoji;
+
   const dimension = SIZE_MAP[size];
   const borderRadius = shape === 'circle' ? dimension / 2 : 8;
   const fontSize = dimension * 0.5;
@@ -74,9 +93,9 @@ export function Avatar({ preset, size = 'md', shape = 'circle', style, statusEmo
 
   return (
     <View style={[{ width: dimension, height: dimension }, style]}>
-      {uri ? (
+      {resolvedUri ? (
         <Image
-          source={{ uri }}
+          source={{ uri: resolvedUri }}
           style={[styles.container, { width: dimension, height: dimension, borderRadius }]}
           contentFit="cover"
         />
@@ -88,14 +107,14 @@ export function Avatar({ preset, size = 'md', shape = 'circle', style, statusEmo
               width: dimension,
               height: dimension,
               borderRadius,
-              backgroundColor: PRESET_COLORS[preset] || '#6366F1',
+              backgroundColor: PRESET_COLORS[resolvedPreset] || '#6366F1',
             },
           ]}
         >
-          <Text style={{ fontSize }}>{PRESET_EMOJIS[preset] || '🌙'}</Text>
+          <Text style={{ fontSize }}>{PRESET_EMOJIS[resolvedPreset] || '🌙'}</Text>
         </View>
       )}
-      {statusEmoji ? (
+      {resolvedStatusEmoji ? (
         <View
           style={[
             styles.badge,
@@ -106,7 +125,7 @@ export function Avatar({ preset, size = 'md', shape = 'circle', style, statusEmo
             },
           ]}
         >
-          <Text style={{ fontSize: badgeFontSize, lineHeight: badgeSize }}>{statusEmoji}</Text>
+          <Text style={{ fontSize: badgeFontSize, lineHeight: badgeSize }}>{resolvedStatusEmoji}</Text>
         </View>
       ) : null}
     </View>

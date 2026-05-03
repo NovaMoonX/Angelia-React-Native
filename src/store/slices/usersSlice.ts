@@ -1,5 +1,5 @@
 import { createSlice, createSelector, type PayloadAction } from '@reduxjs/toolkit';
-import type { User, UserStatus, PostTier, NotificationSettings, NotificationSettingsUpdate } from '@/models/types';
+import type { User, UserStatus, NotificationSettings, NotificationSettingsUpdate } from '@/models/types';
 import { DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
 import type { RootState } from '../index';
 import { resetAllState } from '../actions/globalActions';
@@ -60,11 +60,6 @@ const usersSlice = createSlice({
         }
       }
     },
-    updateCurrentUserTierPrefs(state, action: PayloadAction<Record<string, PostTier[]>>) {
-      if (state.currentUser) {
-        state.currentUser.channelTierPrefs = action.payload;
-      }
-    },
     setCurrentUserNotificationSettings(
       state,
       action: PayloadAction<NotificationSettings | null>,
@@ -111,7 +106,6 @@ export const {
   setUsers,
   updateCurrentUser,
   updateCurrentUserStatus,
-  updateCurrentUserTierPrefs,
   setCurrentUserNotificationSettings,
   updateCurrentUserNotificationSettings,
   clearUsers,

@@ -10,25 +10,49 @@ export interface UserStatus {
   expiresAt: number;
 }
 
-export interface User {
+/**
+ * Public profile — readable by any authenticated user.
+ * Stored at `usersPublic/{uid}`.
+ */
+export interface UserPublic {
   id: string;
   firstName: string;
   lastName: string;
-  email: string;
-  funFact: string;
   avatar: AvatarPreset;
   /** Firebase Storage download URL for a custom profile photo. When set, takes precedence over `avatar`. */
   avatarUrl: string | null;
   joinedAt: number;
+}
+
+/**
+ * Private profile — readable by other users (e.g. connected users / channel members).
+ * Stored at `usersPrivate/{uid}`.
+ */
+export interface UserPrivate {
+  email: string;
+  funFact: string;
+  status: UserStatus | null;
+}
+
+/**
+ * Secret profile — readable only by the user themselves.
+ * Stored at `usersSecret/{uid}`.
+ */
+export interface UserSecret {
   accountProgress: {
     signUpComplete: boolean;
     emailVerified: boolean;
     dailyChannelCreated: boolean;
+    onboardingComplete: boolean;
   };
   customChannelCount: number;
-  status: UserStatus | null;
-  channelTierPrefs?: Record<string, PostTier[]>;
 }
+
+/**
+ * Merged user type used internally in Redux state.
+ * Combines all three Firestore sub-documents into a single in-memory shape.
+ */
+export interface User extends UserPublic, UserPrivate, UserSecret {}
 
 export type NewUser = Omit<User, 'joinedAt' | 'accountProgress' | 'customChannelCount' | 'status'>;
 
@@ -51,8 +75,8 @@ export interface NotificationSettings {
     minute: number;
   };
   /**
-   * Evening wind-down prompt. Fires after the user's busy period ends.
-   * Defaults to 30 minutes after the busyEnd hour (e.g. 17:30 for a 9–17 schedule).
+   * Evening wind-down prompt. Fires 1 hour before the user's active period ends.
+   * Defaults to 1 hour before the activeEnd hour (e.g. 21:00 for an 8–22 schedule).
    */
   windDownPrompt: {
     enabled: boolean;
@@ -70,7 +94,7 @@ export interface NotificationSettings {
    */
   autoDetectTimeZone: boolean;
 }
-export type UpdateUserProfileData = Pick<User, 'firstName' | 'lastName' | 'funFact' | 'avatar' | 'avatarUrl'>
+export type UpdateUserProfileData = Pick<UserPublic, 'firstName' | 'lastName' | 'avatar' | 'avatarUrl'> & Pick<UserPrivate, 'funFact'>
 
 /**
  * Partial update shape for notification settings.  The `dailyPrompt` sub-object
@@ -189,6 +213,8 @@ export interface ConnectionRequest {
   status: 'pending' | 'accepted' | 'declined';
   createdAt: number;
   respondedAt: number | null;
+  /** Optional message from the requester so the host knows who they are. */
+  note: string | null;
 }
 
 // ── App Notifications (Firestore-triggered FCM) ────────────────────────────
@@ -200,7 +226,8 @@ export type AppNotificationType =
   | 'connection_accepted'
   | 'big_news_post'
   | 'new_post'        // For post tier subscriptions (future)
-  | 'comment_reply';  // For conversation enrollment (future)
+  | 'comment_reply'   // For conversation enrollment (future)
+  | 'private_note';   // A Circle member sent the post Host a private note
 
 /**
  * Describes where a notification should be delivered.
@@ -276,12 +303,24 @@ export interface BigNewsPostNotification extends BaseAppNotification {
   authorLastName: string;
 }
 
+/** Written when a Circle member sends the post Host a private note — targets the host. */
+export interface PrivateNoteNotification extends BaseAppNotification {
+  type: 'private_note';
+  /** The ID of the post the note is about. Used for deep-linking to the private-notes screen. */
+  postId: string;
+  /** First name of the note author (Circle member). */
+  authorFirstName: string;
+  /** Last name of the note author. */
+  authorLastName: string;
+}
+
 export type AppNotification =
   | JoinChannelRequestNotification
   | JoinChannelAcceptedNotification
   | ConnectionRequestNotification
   | ConnectionAcceptedNotification
-  | BigNewsPostNotification;
+  | BigNewsPostNotification
+  | PrivateNoteNotification;
 
 // ── Tasks ───────────────────────────────────────────────────────────────────
 
@@ -291,12 +330,14 @@ export type AppNotification =
  * - `set_fun_fact`: prompt user to fill in their profile bio.
  * - `set_status`: prompt user to set their first status.
  * - `create_custom_circle`: prompt user to create their first custom Circle.
+ * - `make_first_post`: prompt user to make their first post to their Daily Circle.
  */
 export type TaskType =
   | 'invite_to_circle'
   | 'set_fun_fact'
   | 'set_status'
-  | 'create_custom_circle';
+  | 'create_custom_circle'
+  | 'make_first_post';
 
 /**
  * A lightweight to-do item owned by a single user.
@@ -315,6 +356,25 @@ export interface AppTask {
   createdAt: number;
   /** Non-null once the user marks the task done (or dismisses it). */
   completedAt: number | null;
+}
+
+// ── Private Notes ────────────────────────────────────────────────────────────
+
+/**
+ * A private note sent by a Circle member to the post Host.
+ * Only the Host (post author) can read notes addressed to them.
+ * Stored in the top-level `privateNotes` collection.
+ */
+export interface PrivateNote {
+  id: string;
+  /** The ID of the post this note is about. */
+  postId: string;
+  /** The user who wrote the note (visitor / Circle member). */
+  authorId: string;
+  /** The user who will receive the note (post author / Host). */
+  hostId: string;
+  text: string;
+  timestamp: number;
 }
 
 // ── Feedback & Support ──────────────────────────────────────────────────────

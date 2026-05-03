@@ -1,4 +1,4 @@
-import type { User, Channel, Post, Comment, ChannelJoinRequest, Message, Connection } from '@/models/types';
+import type { User, Channel, Post, Comment, ChannelJoinRequest, Message, Connection, PrivateNote } from '@/models/types';
 
 const DEMO_USER: User = {
   id: 'demo-user-1',
@@ -7,6 +7,7 @@ const DEMO_USER: User = {
   email: 'demo@angelia.app',
   funFact: 'I love exploring the cosmos!',
   avatar: 'astronaut',
+  avatarUrl: null,
   joinedAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
   accountProgress: {
     signUpComplete: true,
@@ -29,6 +30,7 @@ const DEMO_USER_2: User = {
   email: 'sarah@angelia.app',
   funFact: 'I make the best pancakes!',
   avatar: 'moon',
+  avatarUrl: null,
   joinedAt: Date.now() - 60 * 24 * 60 * 60 * 1000,
   accountProgress: {
     signUpComplete: true,
@@ -51,6 +53,7 @@ const DEMO_USER_3: User = {
   email: 'alex@angelia.app',
   funFact: 'I can juggle five balls!',
   avatar: 'star',
+  avatarUrl: null,
   joinedAt: Date.now() - 45 * 24 * 60 * 60 * 1000,
   accountProgress: {
     signUpComplete: true,
@@ -505,6 +508,41 @@ const DEMO_CONNECTIONS: Connection[] = [
   },
 ];
 
+/**
+ * Pre-seeded private notes for posts authored by demo-user-1 (the demo current user).
+ * Keyed by postId, mirroring DEMO_COMMENTS / DEMO_MESSAGES structure.
+ */
+const DEMO_PRIVATE_NOTES: Record<string, PrivateNote[]> = {
+  'demo-post-1': [
+    {
+      id: 'demo-note-1',
+      postId: 'demo-post-1',
+      authorId: 'demo-user-2',
+      hostId: 'demo-user-1',
+      text: 'What a stunning photo! Where exactly was this taken? 🌅',
+      timestamp: Date.now() - 90 * 60 * 1000,
+    },
+    {
+      id: 'demo-note-2',
+      postId: 'demo-post-1',
+      authorId: 'demo-user-3',
+      hostId: 'demo-user-1',
+      text: 'This made my whole morning, thank you for sharing ✨',
+      timestamp: Date.now() - 45 * 60 * 1000,
+    },
+  ],
+  'demo-post-3': [
+    {
+      id: 'demo-note-3',
+      postId: 'demo-post-3',
+      authorId: 'demo-user-2',
+      hostId: 'demo-user-1',
+      text: 'I am SO jealous — I have always wanted to go during cherry blossom season! 🌸',
+      timestamp: Date.now() - 20 * 60 * 60 * 1000,
+    },
+  ],
+};
+
 export const DEMO_DATA = {
   users: {
     currentUser: DEMO_USER,
@@ -516,4 +554,5 @@ export const DEMO_DATA = {
   invites: DEMO_INVITES,
   messages: DEMO_MESSAGES,
   connections: DEMO_CONNECTIONS,
+  privateNotes: DEMO_PRIVATE_NOTES,
 };
