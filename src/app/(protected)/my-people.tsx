@@ -7,9 +7,11 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { UserProfileModal } from '@/components/UserProfileModal';
-import { useAppSelector } from '@/store/hooks';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useTheme } from '@/hooks/useTheme';
+import { useToast } from '@/hooks/useToast';
 import { selectMyPeopleData } from '@/store/crossSelectors/myPeopleSelectors';
+import { disconnectUser } from '@/store/actions/connectionsActions';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import type { User } from '@/models/types';
 
@@ -56,6 +58,8 @@ export default function MyPeopleScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const dispatch = useAppDispatch();
+  const { addToast } = useToast();
 
   const { people } = useAppSelector(selectMyPeopleData);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -130,6 +134,18 @@ export default function MyPeopleScreen() {
         visible={!!selectedUser}
         onClose={() => setSelectedUser(null)}
         user={selectedUser}
+        onDisconnect={
+          selectedUser
+            ? async () => {
+                try {
+                  await dispatch(disconnectUser(selectedUser.id)).unwrap();
+                  addToast({ type: 'success', title: 'Disconnected' });
+                } catch {
+                  addToast({ type: 'error', title: 'Failed to disconnect' });
+                }
+              }
+            : undefined
+        }
       />
     </View>
   );

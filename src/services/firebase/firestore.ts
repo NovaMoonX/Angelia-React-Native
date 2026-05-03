@@ -858,6 +858,25 @@ export function subscribeToConnectionChannels(
   return () => unsubscribes.forEach((u) => u());
 }
 
+// ── Disconnect Operations ────────────────────────────────────────────────────
+
+/**
+ * Writes a `disconnectRequests` document to trigger the `onDisconnectRequest`
+ * Cloud Function.  The CF deletes both connection documents and removes the
+ * target user from all circles owned by the requester.
+ */
+export async function createDisconnectRequest(
+  requesterId: string,
+  targetUserId: string,
+): Promise<void> {
+  const id = generateId('nano');
+  await setDoc(doc(db, 'disconnectRequests', id), {
+    requesterId,
+    targetUserId,
+    createdAt: Date.now(),
+  });
+}
+
 // ── Feedback & Support Operations ───────────────────────────────────────────
 
 /**
