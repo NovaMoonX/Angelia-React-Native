@@ -33,7 +33,10 @@ export function formatTimeRemaining(expiresAt: number): string {
   if (minutes < 60) return `${Math.max(1, minutes)}m left`;
 
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h left`;
+  const remainingMins = minutes % 60;
+  if (hours < 24) {
+    return remainingMins > 0 ? `${hours}h ${remainingMins}m left` : `${hours}h left`;
+  }
 
   const days = Math.floor(hours / 24);
   return `${days}d left`;

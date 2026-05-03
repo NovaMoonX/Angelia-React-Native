@@ -38,7 +38,6 @@ import { usePostComments } from '@/hooks/usePostComments';
 import { getTierTheme } from '@/lib/conversation/tierTheme';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
-import { isStatusActive } from '@/components/NowStatusBadge';
 import { POST_TIERS } from '@/models/constants';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import type { Message } from '@/models/types';
@@ -242,7 +241,6 @@ export default function ConversationScreen() {
         <Avatar
           user={author}
           size="sm"
-          statusEmoji={isStatusActive(author?.status) ? author?.status?.emoji : undefined}
         />
 
         <View style={styles.headerText}>
