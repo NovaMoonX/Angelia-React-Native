@@ -194,14 +194,33 @@ service cloud.firestore {
         && request.resource.data.conversationEnrollees.toSet().hasAll(resource.data.conversationEnrollees.toSet())
         && request.resource.data.conversationEnrollees.hasAny([request.auth.uid]);
 
+      // Connected users (non-channel-member) may join the conversation on posts
+      // in their connection's daily channel (append themselves to conversationEnrollees).
+      // Only the conversationEnrollees field may change; everything else must stay the same.
+      allow update: if isConnectedToAuthorDailyChannel()
+        && request.resource.data.authorId == resource.data.authorId
+        && request.resource.data.channelId == resource.data.channelId
+        && request.resource.data.text == resource.data.text
+        && request.resource.data.timestamp == resource.data.timestamp
+        && request.resource.data.reactions == resource.data.reactions
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.markedForDeletionAt == resource.data.markedForDeletionAt
+        && request.resource.data.conversationEnrollees is list
+        && request.resource.data.conversationEnrollees.size() == resource.data.conversationEnrollees.size() + 1
+        && request.resource.data.conversationEnrollees.toSet().hasAll(resource.data.conversationEnrollees.toSet())
+        && request.resource.data.conversationEnrollees.hasAny([request.auth.uid]);
+
       // Only the author can delete their post
       allow delete: if isAuthor();
 
       // Messages subcollection under posts
       match /messages/{messageId} {
-        // Any authenticated channel member may read messages
+        // Channel members and users connected to the post author (for daily circles) may read messages
         allow read: if isSignedIn()
-          && isChannelMember(get(/databases/$(database)/documents/posts/$(postId)).data.channelId);
+          && (
+            isChannelMember(get(/databases/$(database)/documents/posts/$(postId)).data.channelId)
+            || exists(/databases/$(database)/documents/connections/$(get(/databases/$(database)/documents/posts/$(postId)).data.authorId)/people/$(request.auth.uid))
+          );
 
         // Any authenticated user who has reacted to the post may create a message
         allow create: if isSignedIn()

@@ -179,6 +179,7 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
               <Text style={[styles.firstReactText, { color: theme.mutedForeground }]}>
                 Be the first to react! 🎉
               </Text>
+
             ) : null}
           </View>
         </Pressable>
@@ -361,6 +362,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   firstReactText: {
-    fontSize: 13,
+    fontSize: 11,
+    opacity: 0.55,
   },
 });
