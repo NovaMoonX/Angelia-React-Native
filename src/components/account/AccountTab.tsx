@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Avatar } from '@/components/ui/Avatar';
@@ -170,16 +169,7 @@ export function AccountTab() {
     <>
       <Card style={styles.profileCard}>
         <View style={styles.profileHeader}>
-          <View>
-            <Avatar user={currentUser} size="xl" />
-            <Pressable
-              onPress={() => router.push('/(protected)/share-connection')}
-              style={[styles.qrBadge, { backgroundColor: theme.primary }]}
-              hitSlop={4}
-            >
-              <Feather name="maximize" size={12} color={theme.primaryForeground} />
-            </Pressable>
-          </View>
+          <Avatar user={currentUser} size="xl" />
           <Text style={[styles.profileName, { color: theme.foreground }]}>
             {currentUser.firstName} {currentUser.lastName}
           </Text>
@@ -290,15 +280,23 @@ export function AccountTab() {
 
       <Separator style={{ marginVertical: 16 }} />
       <View style={styles.bottomSection}>
+        <Button
+          variant="outline"
+          textStyle={{ flex: 1 }}
+          onPress={() => router.push('/(protected)/share-connection')}
+        >
+          🔗 Share Connection Link
+        </Button>
         {!isDemo && (
           <Button
             variant="outline"
+            textStyle={{ flex: 1 }}
             onPress={() => setFeedbackModalOpen(true)}
           >
             🛟 Get Help & Feedback
           </Button>
         )}
-        <Button variant="destructive" onPress={handleSignOut}>
+        <Button variant="destructive" textStyle={{ flex: 1 }} onPress={handleSignOut}>
           Sign Out
         </Button>
       </View>
@@ -328,16 +326,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'stretch',
     gap: 4,
-  },
-  qrBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   profileName: {
     fontSize: 20,
