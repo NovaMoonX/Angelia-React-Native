@@ -131,6 +131,26 @@ export function MyChannelsTab() {
     }
   };
 
+  const handleRemoveSubscriber = async (subscriberId: string) => {
+    setRemovingSubscriberId(subscriberId);
+    try {
+      if (!selectedChannel) return;
+      await dispatch(
+        removeChannelSubscriber({ channelId: selectedChannel.id, subscriberId })
+      ).unwrap();
+      addToast({ type: 'success', title: 'Member removed' });
+    } catch {
+      addToast({ type: 'error', title: 'Failed to remove member' });
+    } finally {
+      setRemovingSubscriberId(null);
+    }
+  };
+
+  const getRemoveSubscriberHandler = (channel: typeof selectedChannel) => {
+    if (!channel || channel.ownerId !== currentUser.id) return undefined;
+    return channel.isDaily ? handleDisconnectSubscriber : handleRemoveSubscriber;
+  };
+
   return (
     <>
       {canCreateChannel ? (
@@ -224,25 +244,7 @@ export function MyChannelsTab() {
                 }
               : undefined
           }
-          onRemoveSubscriber={
-            selectedChannel.ownerId === currentUser.id
-              ? selectedChannel.isDaily
-                ? handleDisconnectSubscriber
-                : async (subscriberId: string) => {
-                    setRemovingSubscriberId(subscriberId);
-                    try {
-                      await dispatch(
-                        removeChannelSubscriber({ channelId: selectedChannel.id, subscriberId })
-                      ).unwrap();
-                      addToast({ type: 'success', title: 'Member removed' });
-                    } catch {
-                      addToast({ type: 'error', title: 'Failed to remove member' });
-                    } finally {
-                      setRemovingSubscriberId(null);
-                    }
-                  }
-              : undefined
-          }
+          onRemoveSubscriber={getRemoveSubscriberHandler(selectedChannel)}
           removeSubscriberLabel={selectedChannel.isDaily ? 'Disconnect' : 'Remove'}
           removingSubscriberId={removingSubscriberId}
         />

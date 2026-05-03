@@ -64,6 +64,15 @@ export default function MyPeopleScreen() {
   const { people } = useAppSelector(selectMyPeopleData);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
+  const handleDisconnect = async (userId: string) => {
+    try {
+      await dispatch(disconnectUser(userId)).unwrap();
+      addToast({ type: 'success', title: 'Disconnected' });
+    } catch {
+      addToast({ type: 'error', title: 'Failed to disconnect' });
+    }
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <ScreenHeader
@@ -136,14 +145,7 @@ export default function MyPeopleScreen() {
         user={selectedUser}
         onDisconnect={
           selectedUser
-            ? async () => {
-                try {
-                  await dispatch(disconnectUser(selectedUser.id)).unwrap();
-                  addToast({ type: 'success', title: 'Disconnected' });
-                } catch {
-                  addToast({ type: 'error', title: 'Failed to disconnect' });
-                }
-              }
+            ? () => handleDisconnect(selectedUser.id)
             : undefined
         }
       />
