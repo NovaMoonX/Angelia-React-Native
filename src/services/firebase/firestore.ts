@@ -19,7 +19,8 @@ import type { User, UserPublic, UserPrivate, UserSecret, Channel, Post, NewUser,
 import { DAILY_CHANNEL_SUFFIX, DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
-const db = getFirestore();
+// const db = getFirestore();
+const getDb = () => getFirestore();
 
 // ---- User Operations ----
 
@@ -59,9 +60,9 @@ function mergeUserDocs(
 
 export async function getUserProfile(uid: string): Promise<User | null> {
   const [pubSnap, privSnap, secSnap] = await Promise.all([
-    getDoc(doc(db, 'usersPublic', uid)),
-    getDoc(doc(db, 'usersPrivate', uid)),
-    getDoc(doc(db, 'usersSecret', uid)),
+    getDoc(doc(getDb(), 'usersPublic', uid)),
+    getDoc(doc(getDb(), 'usersPrivate', uid)),
+    getDoc(doc(getDb(), 'usersSecret', uid)),
   ]);
   if (!pubSnap.exists) return null;
   return mergeUserDocs(
@@ -96,24 +97,24 @@ export async function createUserProfile(userData: NewUser): Promise<void> {
     customChannelCount: 0,
   };
   await Promise.all([
-    setDoc(doc(db, 'usersPublic', userData.id), publicData),
-    setDoc(doc(db, 'usersPrivate', userData.id), privateData),
-    setDoc(doc(db, 'usersSecret', userData.id), secretData),
+    setDoc(doc(getDb(), 'usersPublic', userData.id), publicData),
+    setDoc(doc(getDb(), 'usersPrivate', userData.id), privateData),
+    setDoc(doc(getDb(), 'usersSecret', userData.id), secretData),
   ]);
 }
 
 export async function savePublicProfile(uid: string, data: Pick<UserPublic, 'id' | 'firstName' | 'lastName' | 'avatar' | 'avatarUrl'>): Promise<void> {
-  await setDoc(doc(db, 'usersPublic', uid), { ...data, joinedAt: Date.now() }, { merge: true });
+  await setDoc(doc(getDb(), 'usersPublic', uid), { ...data, joinedAt: Date.now() }, { merge: true });
 }
 
 export async function updateUserProfile(uid: string, data: UpdateUserProfileData): Promise<void> {
   const { funFact, ...publicFields } = data;
   const updates: Promise<void>[] = [
-    updateDoc(doc(db, 'usersPublic', uid), publicFields),
+    updateDoc(doc(getDb(), 'usersPublic', uid), publicFields),
   ];
   // Only write to usersPrivate when funFact is explicitly provided.
   if (funFact !== undefined) {
-    updates.push(updateDoc(doc(db, 'usersPrivate', uid), { funFact }));
+    updates.push(updateDoc(doc(getDb(), 'usersPrivate', uid), { funFact }));
   }
   await Promise.all(updates);
 }
@@ -123,13 +124,13 @@ export async function updateAccountProgress(
   field: string,
   value: boolean
 ): Promise<void> {
-  await updateDoc(doc(db, 'usersSecret', uid), {
+  await updateDoc(doc(getDb(), 'usersSecret', uid), {
     [`accountProgress.${field}`]: value,
   });
 }
 
 export async function updateUserStatus(uid: string, status: UserStatus | null): Promise<void> {
-  await updateDoc(doc(db, 'usersPrivate', uid), { status });
+  await updateDoc(doc(getDb(), 'usersPrivate', uid), { status });
 }
 
 // ---- Notification Settings Operations ----
@@ -147,7 +148,7 @@ const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
 };
 
 export async function getNotificationSettings(uid: string): Promise<NotificationSettings | null> {
-  const snap = await getDoc(doc(db, 'userNotificationSettings', uid));
+  const snap = await getDoc(doc(getDb(), 'userNotificationSettings', uid));
   return snap?.exists ? (snap.data() as NotificationSettings) : null;
 }
 
@@ -159,7 +160,7 @@ export async function initNotificationSettings(
     ...DEFAULT_NOTIFICATION_SETTINGS,
     timeZone: deviceTimeZone,
   };
-  await setDoc(doc(db, 'userNotificationSettings', uid), settings);
+  await setDoc(doc(getDb(), 'userNotificationSettings', uid), settings);
   return settings;
 }
 
@@ -179,7 +180,7 @@ export async function updateNotificationSettings(
       flat[key] = value;
     }
   }
-  await updateDoc(doc(db, 'userNotificationSettings', uid), flat);
+  await updateDoc(doc(getDb(), 'userNotificationSettings', uid), flat);
 }
 
 /**
@@ -188,8 +189,8 @@ export async function updateNotificationSettings(
  * the user signs in, solving token accumulation on repeated logins.
  */
 export async function upsertFcmToken(uid: string, entry: FcmTokenEntry): Promise<void> {
-  const docRef = doc(db, 'userNotificationSettings', uid);
-  await runTransaction(db, async (transaction) => {
+  const docRef = doc(getDb(), 'userNotificationSettings', uid);
+  await runTransaction(getDb(), async (transaction) => {
     const snap = await transaction.get(docRef);
     if (!snap.exists) return;
     const data = snap.data() as NotificationSettings;
@@ -203,8 +204,8 @@ export async function upsertFcmToken(uid: string, entry: FcmTokenEntry): Promise
  * Removes the FCM token entry for the given deviceId.
  */
 export async function removeFcmToken(uid: string, deviceId: string): Promise<void> {
-  const docRef = doc(db, 'userNotificationSettings', uid);
-  await runTransaction(db, async (transaction) => {
+  const docRef = doc(getDb(), 'userNotificationSettings', uid);
+  await runTransaction(getDb(), async (transaction) => {
     const snap = await transaction.get(docRef);
     if (!snap.exists) return;
     const data = snap.data() as NotificationSettings;
@@ -217,7 +218,7 @@ export function subscribeToNotificationSettings(
   uid: string,
   callback: (settings: NotificationSettings | null) => void,
 ): () => void {
-  return onSnapshot(doc(db, 'userNotificationSettings', uid), (snap) => {
+  return onSnapshot(doc(getDb(), 'userNotificationSettings', uid), (snap) => {
     if (!snap) return;
     callback(snap.exists ? (snap.data() as NotificationSettings) : null);
   });
@@ -226,14 +227,14 @@ export function subscribeToNotificationSettings(
 // ---- Channel Operations ----
 
 export async function getChannel(channelId: string): Promise<Channel | null> {
-  const snap = await getDoc(doc(db, 'channels', channelId));
+  const snap = await getDoc(doc(getDb(), 'channels', channelId));
   return snap.exists ? (snap.data() as Channel) : null;
 }
 
 export async function getChannelByInviteCode(inviteCode: string): Promise<Channel | null> {
   const snap = await getDocs(
     query(
-      collection(db, 'channels'),
+      collection(getDb(), 'channels'),
       where('inviteCode', '==', inviteCode),
       where('markedForDeletionAt', '==', null),
       limit(1),
@@ -257,7 +258,7 @@ export async function createDailyChannel(userId: string): Promise<Channel> {
     createdAt: Date.now(),
     markedForDeletionAt: null,
   };
-  await setDoc(doc(db, 'channels', channelId), channel);
+  await setDoc(doc(getDb(), 'channels', channelId), channel);
   return channel;
 }
 
@@ -273,8 +274,8 @@ export async function createCustomChannel(channelData: NewChannel): Promise<Chan
     markedForDeletionAt: null,
   };
 
-  await runTransaction(db, async (transaction) => {
-    const secretRef = doc(db, 'usersSecret', channelData.ownerId);
+  await runTransaction(getDb(), async (transaction) => {
+    const secretRef = doc(getDb(), 'usersSecret', channelData.ownerId);
     const secretSnap = await transaction.get(secretRef);
     if (!secretSnap.exists) throw new Error('User not found');
 
@@ -283,7 +284,7 @@ export async function createCustomChannel(channelData: NewChannel): Promise<Chan
       throw new Error('Maximum custom channels reached');
     }
 
-    transaction.set(doc(db, 'channels', channelId), channel);
+    transaction.set(doc(getDb(), 'channels', channelId), channel);
     transaction.update(secretRef, {
       customChannelCount: secretData.customChannelCount + 1,
     });
@@ -297,17 +298,17 @@ export async function updateCustomChannel(channel: Channel): Promise<void> {
   void ownerId;
   void isDaily;
   void createdAt;
-  await updateDoc(doc(db, 'channels', id), updateData);
+  await updateDoc(doc(getDb(), 'channels', id), updateData);
 }
 
 export async function deleteCustomChannel(channelId: string, ownerId: string): Promise<void> {
-  await runTransaction(db, async (transaction) => {
-    const secretRef = doc(db, 'usersSecret', ownerId);
+  await runTransaction(getDb(), async (transaction) => {
+    const secretRef = doc(getDb(), 'usersSecret', ownerId);
     const secretSnap = await transaction.get(secretRef);
     if (!secretSnap.exists) throw new Error('User not found');
 
     const secretData = secretSnap.data() as UserSecret;
-    transaction.update(doc(db, 'channels', channelId), {
+    transaction.update(doc(getDb(), 'channels', channelId), {
       markedForDeletionAt: Date.now(),
     });
     transaction.update(secretRef, {
@@ -318,8 +319,8 @@ export async function deleteCustomChannel(channelId: string, ownerId: string): P
 
 export async function refreshChannelInviteCode(channelId: string): Promise<string> {
   const newCode = generateId('nano').substring(0, 8).toUpperCase();
-  await runTransaction(db, async (transaction) => {
-    const channelRef = doc(db, 'channels', channelId);
+  await runTransaction(getDb(), async (transaction) => {
+    const channelRef = doc(getDb(), 'channels', channelId);
     const channelSnap = await transaction.get(channelRef);
     if (!channelSnap.exists) throw new Error('Channel not found');
     transaction.update(channelRef, { inviteCode: newCode });
@@ -328,7 +329,7 @@ export async function refreshChannelInviteCode(channelId: string): Promise<strin
 }
 
 export async function unsubscribeFromChannel(channelId: string, userId: string): Promise<void> {
-  await updateDoc(doc(db, 'channels', channelId), {
+  await updateDoc(doc(getDb(), 'channels', channelId), {
     subscribers: arrayRemove(userId),
   });
 }
@@ -337,7 +338,7 @@ export async function removeSubscriberFromChannel(
   channelId: string,
   subscriberId: string
 ): Promise<void> {
-  await updateDoc(doc(db, 'channels', channelId), {
+  await updateDoc(doc(getDb(), 'channels', channelId), {
     subscribers: arrayRemove(subscriberId),
   });
 }
@@ -362,7 +363,7 @@ export async function createJoinRequest(
     createdAt: Date.now(),
     respondedAt: null,
   };
-  await setDoc(doc(db, 'channelJoinRequests', id), request);
+  await setDoc(doc(getDb(), 'channelJoinRequests', id), request);
   return request;
 }
 
@@ -370,8 +371,8 @@ export async function respondToJoinRequest(
   requestId: string,
   accept: boolean
 ): Promise<void> {
-  await runTransaction(db, async (transaction) => {
-    const requestRef = doc(db, 'channelJoinRequests', requestId);
+  await runTransaction(getDb(), async (transaction) => {
+    const requestRef = doc(getDb(), 'channelJoinRequests', requestId);
     const requestSnap = await transaction.get(requestRef);
     if (!requestSnap.exists) throw new Error('Request not found');
 
@@ -384,7 +385,7 @@ export async function respondToJoinRequest(
     });
 
     if (accept) {
-      transaction.update(doc(db, 'channels', request.channelId), {
+      transaction.update(doc(getDb(), 'channels', request.channelId), {
         subscribers: arrayUnion(request.requesterId),
       });
     }
@@ -394,44 +395,44 @@ export async function respondToJoinRequest(
 // ---- Post Operations ----
 
 export async function createPost(post: Post): Promise<void> {
-  await setDoc(doc(db, 'posts', post.id), post);
+  await setDoc(doc(getDb(), 'posts', post.id), post);
 }
 
 export async function updatePost(postId: string, data: Partial<Post>): Promise<void> {
-  await updateDoc(doc(db, 'posts', postId), data);
+  await updateDoc(doc(getDb(), 'posts', postId), data);
 }
 
 export async function deletePost(postId: string): Promise<void> {
-  await updateDoc(doc(db, 'posts', postId), {
+  await updateDoc(doc(getDb(), 'posts', postId), {
     markedForDeletionAt: Date.now(),
   });
 }
 
 export async function joinConversation(postId: string, userId: string): Promise<void> {
-  await updateDoc(doc(db, 'posts', postId), {
+  await updateDoc(doc(getDb(), 'posts', postId), {
     conversationEnrollees: arrayUnion(userId),
   });
 }
 
 export async function updatePostReactions(postId: string, reactions: unknown[]): Promise<void> {
-  await updateDoc(doc(db, 'posts', postId), { reactions });
+  await updateDoc(doc(getDb(), 'posts', postId), { reactions });
 }
 
 export async function addReactionToPost(postId: string, reaction: { emoji: string; userId: string }): Promise<void> {
-  await updateDoc(doc(db, 'posts', postId), {
+  await updateDoc(doc(getDb(), 'posts', postId), {
     reactions: arrayUnion(reaction),
   });
 }
 
 export async function removeReactionFromPost(postId: string, reaction: { emoji: string; userId: string }): Promise<void> {
-  await updateDoc(doc(db, 'posts', postId), {
+  await updateDoc(doc(getDb(), 'posts', postId), {
     reactions: arrayRemove(reaction),
   });
 }
 
 export async function addComment(postId: string, comment: Comment): Promise<void> {
   await setDoc(
-    doc(db, 'posts', postId, 'comments', comment.id),
+    doc(getDb(), 'posts', postId, 'comments', comment.id),
     comment,
   );
 }
@@ -442,7 +443,7 @@ export function subscribeToComments(
 ): () => void {
   return onSnapshot(
     query(
-      collection(db, 'posts', postId, 'comments'),
+      collection(getDb(), 'posts', postId, 'comments'),
       orderBy('timestamp', 'asc'),
     ),
     (snap) => {
@@ -478,19 +479,19 @@ export function subscribeToCurrentUser(
     callback(mergeUserDocs(publicData, privateData, secretData));
   }
 
-  const unsubPublic = onSnapshot(doc(db, 'usersPublic', uid), (snap) => {
+  const unsubPublic = onSnapshot(doc(getDb(), 'usersPublic', uid), (snap) => {
     publicData = snap.exists ? (snap.data() as UserPublic) : null;
     ready.public = true;
     emit();
   });
 
-  const unsubPrivate = onSnapshot(doc(db, 'usersPrivate', uid), (snap) => {
+  const unsubPrivate = onSnapshot(doc(getDb(), 'usersPrivate', uid), (snap) => {
     privateData = snap.exists ? (snap.data() as UserPrivate) : null;
     ready.private = true;
     emit();
   });
 
-  const unsubSecret = onSnapshot(doc(db, 'usersSecret', uid), (snap) => {
+  const unsubSecret = onSnapshot(doc(getDb(), 'usersSecret', uid), (snap) => {
     secretData = snap.exists ? (snap.data() as UserSecret) : null;
     ready.secret = true;
     emit();
@@ -525,7 +526,7 @@ export function subscribeToChannels(
   }
 
   const unsubOwned = onSnapshot(
-    query(collection(db, 'channels'), where('ownerId', '==', uid)),
+    query(collection(getDb(), 'channels'), where('ownerId', '==', uid)),
     (snap) => {
       ownedMap.clear();
       for (const d of snap.docs) ownedMap.set(d.id, d.data() as Channel);
@@ -535,7 +536,7 @@ export function subscribeToChannels(
   );
 
   const unsubSubscribed = onSnapshot(
-    query(collection(db, 'channels'), where('subscribers', 'array-contains', uid)),
+    query(collection(getDb(), 'channels'), where('subscribers', 'array-contains', uid)),
     (snap) => {
       subscribedMap.clear();
       for (const d of snap.docs) subscribedMap.set(d.id, d.data() as Channel);
@@ -572,7 +573,7 @@ export function subscribeToPosts(
   for (const batch of batches) {
     const unsub = onSnapshot(
       query(
-        collection(db, 'posts'),
+        collection(getDb(), 'posts'),
         where('channelId', 'in', batch),
         where('markedForDeletionAt', '==', null),
       ),
@@ -599,7 +600,7 @@ export function subscribeToIncomingJoinRequests(
   callback: (requests: ChannelJoinRequest[]) => void
 ): () => void {
   return onSnapshot(
-    query(collection(db, 'channelJoinRequests'), where('channelOwnerId', '==', uid)),
+    query(collection(getDb(), 'channelJoinRequests'), where('channelOwnerId', '==', uid)),
     (snap) => {
       callback(snap.docs.map((d) => d.data() as ChannelJoinRequest));
     },
@@ -611,7 +612,7 @@ export function subscribeToOutgoingJoinRequests(
   callback: (requests: ChannelJoinRequest[]) => void
 ): () => void {
   return onSnapshot(
-    query(collection(db, 'channelJoinRequests'), where('requesterId', '==', uid)),
+    query(collection(getDb(), 'channelJoinRequests'), where('requesterId', '==', uid)),
     (snap) => {
       callback(snap.docs.map((d) => d.data() as ChannelJoinRequest));
     },
@@ -647,7 +648,7 @@ export function subscribeToChannelUsers(
 
   for (const batch of batches) {
     const unsubPub = onSnapshot(
-      query(collection(db, 'usersPublic'), where('__name__', 'in', batch)),
+      query(collection(getDb(), 'usersPublic'), where('__name__', 'in', batch)),
       (snap) => {
         for (const d of snap.docs) {
           publicDataMap.set(d.id, d.data() as UserPublic);
@@ -656,7 +657,7 @@ export function subscribeToChannelUsers(
       },
     );
     const unsubPriv = onSnapshot(
-      query(collection(db, 'usersPrivate'), where('__name__', 'in', batch)),
+      query(collection(getDb(), 'usersPrivate'), where('__name__', 'in', batch)),
       (snap) => {
         for (const d of snap.docs) {
           privateDataMap.set(d.id, d.data() as UserPrivate);
@@ -674,7 +675,7 @@ export function subscribeToChannelUsers(
 
 export async function addMessage(postId: string, message: Message): Promise<void> {
   await setDoc(
-    doc(db, 'posts', postId, 'messages', message.id),
+    doc(getDb(), 'posts', postId, 'messages', message.id),
     message,
   );
 }
@@ -685,7 +686,7 @@ export function subscribeToMessages(
 ): () => void {
   return onSnapshot(
     query(
-      collection(db, 'posts', postId, 'messages'),
+      collection(getDb(), 'posts', postId, 'messages'),
       orderBy('timestamp', 'asc'),
     ),
     (snap) => {
@@ -707,7 +708,7 @@ export function subscribeToMessages(
  * user's registered devices, and then deletes the document.
  */
 export async function createAppNotification(notification: AppNotification): Promise<void> {
-  await setDoc(doc(db, 'notifications', notification.id), notification);
+  await setDoc(doc(getDb(), 'notifications', notification.id), notification);
 }
 
 // ── Connection Operations ────────────────────────────────────────────────────
@@ -731,12 +732,12 @@ export async function createConnectionRequest(
     respondedAt: null,
     note: note?.trim() || null,
   };
-  await setDoc(doc(db, 'connectionRequests', id), request);
+  await setDoc(doc(getDb(), 'connectionRequests', id), request);
   return request;
 }
 
 export async function getConnectionRequest(requestId: string): Promise<ConnectionRequest | null> {
-  const snap = await getDoc(doc(db, 'connectionRequests', requestId));
+  const snap = await getDoc(doc(getDb(), 'connectionRequests', requestId));
   return snap.exists ? (snap.data() as ConnectionRequest) : null;
 }
 
@@ -749,7 +750,7 @@ export async function respondToConnectionRequest(
   requestId: string,
   accept: boolean,
 ): Promise<void> {
-  await updateDoc(doc(db, 'connectionRequests', requestId), {
+  await updateDoc(doc(getDb(), 'connectionRequests', requestId), {
     status: accept ? 'accepted' : 'declined',
     respondedAt: Date.now(),
   });
@@ -765,7 +766,7 @@ export async function getExistingConnectionRequest(
 ): Promise<ConnectionRequest | null> {
   const snap = await getDocs(
     query(
-      collection(db, 'connectionRequests'),
+      collection(getDb(), 'connectionRequests'),
       where('fromId', '==', fromId),
       where('toId', '==', toId),
       where('status', 'in', ['pending', 'accepted']),
@@ -782,7 +783,7 @@ export function subscribeToIncomingConnectionRequests(
   callback: (requests: ConnectionRequest[]) => void,
 ): () => void {
   return onSnapshot(
-    query(collection(db, 'connectionRequests'), where('toId', '==', uid)),
+    query(collection(getDb(), 'connectionRequests'), where('toId', '==', uid)),
     (snap) => {
       callback(snap.docs.map((d) => d.data() as ConnectionRequest));
     },
@@ -795,7 +796,7 @@ export function subscribeToOutgoingConnectionRequests(
   callback: (requests: ConnectionRequest[]) => void,
 ): () => void {
   return onSnapshot(
-    query(collection(db, 'connectionRequests'), where('fromId', '==', uid)),
+    query(collection(getDb(), 'connectionRequests'), where('fromId', '==', uid)),
     (snap) => {
       callback(snap.docs.map((d) => d.data() as ConnectionRequest));
     },
@@ -812,7 +813,7 @@ export function subscribeToConnections(
   callback: (connections: Connection[]) => void,
 ): () => void {
   return onSnapshot(
-    collection(db, 'connections', uid, 'people'),
+    collection(getDb(), 'connections', uid, 'people'),
     (snap) => {
       callback(snap.docs.map((d) => d.data() as Connection));
     },
@@ -844,7 +845,7 @@ export function subscribeToConnectionChannels(
 
   for (const batch of batches) {
     const unsub = onSnapshot(
-      query(collection(db, 'channels'), where('__name__', 'in', batch)),
+      query(collection(getDb(), 'channels'), where('__name__', 'in', batch)),
       (snap) => {
         for (const d of snap.docs) {
           allChannels.set(d.id, d.data() as Channel);
@@ -870,7 +871,7 @@ export async function createDisconnectRequest(
   targetUserId: string,
 ): Promise<void> {
   const id = generateId('nano');
-  await setDoc(doc(db, 'disconnectRequests', id), {
+  await setDoc(doc(getDb(), 'disconnectRequests', id), {
     requesterId,
     targetUserId,
     createdAt: Date.now(),
@@ -884,7 +885,7 @@ export async function createDisconnectRequest(
  * Only the submitting user can create the document; no client reads/updates.
  */
 export async function submitFeedback(submission: FeedbackSubmission): Promise<void> {
-  await setDoc(doc(db, 'feedback', submission.id), submission);
+  await setDoc(doc(getDb(), 'feedback', submission.id), submission);
 }
 
 // ── Private Note Operations ─────────────────────────────────────────────────
@@ -895,7 +896,7 @@ export async function submitFeedback(submission: FeedbackSubmission): Promise<vo
  * Only the note author can create; only the host (post author) can read.
  */
 export async function createPrivateNote(note: PrivateNote): Promise<void> {
-  await setDoc(doc(db, 'posts', note.postId, 'privateNotes', note.id), note);
+  await setDoc(doc(getDb(), 'posts', note.postId, 'privateNotes', note.id), note);
 }
 
 /**
@@ -910,7 +911,7 @@ export function subscribeToPrivateNotesForPost(
 ): () => void {
   return onSnapshot(
     query(
-      collection(db, 'posts', postId, 'privateNotes'),
+      collection(getDb(), 'posts', postId, 'privateNotes'),
       orderBy('timestamp', 'asc'),
     ),
     (snap) => {
@@ -938,7 +939,7 @@ export function subscribeToMyPrivateNotesForPost(
 ): () => void {
   return onSnapshot(
     query(
-      collection(db, 'posts', postId, 'privateNotes'),
+      collection(getDb(), 'posts', postId, 'privateNotes'),
       where('authorId', '==', authorId),
     ),
     (snap) => {
@@ -959,7 +960,7 @@ export function subscribeToMyPrivateNotesForPost(
  */
 export async function createTask(task: AppTask): Promise<void> {
   await setDoc(
-    doc(db, 'tasks', task.userId, 'items', task.id),
+    doc(getDb(), 'tasks', task.userId, 'items', task.id),
     task,
   );
 }
@@ -969,7 +970,7 @@ export async function createTask(task: AppTask): Promise<void> {
  */
 export async function markTaskComplete(userId: string, taskId: string): Promise<void> {
   await updateDoc(
-    doc(db, 'tasks', userId, 'items', taskId),
+    doc(getDb(), 'tasks', userId, 'items', taskId),
     { completedAt: Date.now() },
   );
 }
@@ -983,7 +984,7 @@ export function subscribeToTasks(
 ): () => void {
   return onSnapshot(
     query(
-      collection(db, 'tasks', userId, 'items'),
+      collection(getDb(), 'tasks', userId, 'items'),
       where('completedAt', '==', null),
     ),
     (snap) => {
