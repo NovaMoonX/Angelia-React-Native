@@ -22,7 +22,10 @@ import { useAppSelector } from '@/store/hooks';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { getColorPair } from '@/lib/channel/channel.utils';
-import { selectUserChannels } from '@/store/slices/channelsSlice';
+import {
+  selectCurrentUserDailyChannel,
+  selectCurrentUserCustomChannels,
+} from '@/store/crossSelectors/channelSelectors';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { MAX_FILES, POST_TIERS } from '@/models/constants';
 import { generateVideoThumbnail } from '@/utils/generateVideoThumbnail';
@@ -43,23 +46,16 @@ export default function PostCreateScreen() {
   const { theme } = useTheme();
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const currentUser = useAppSelector((state) => state.users.currentUser);
-  const userChannels = useAppSelector((state) =>
-    selectUserChannels(state, state.users.currentUser?.id || '')
+  const dailyChannel = useAppSelector(selectCurrentUserDailyChannel);
+  const customChannels = useAppSelector(selectCurrentUserCustomChannels);
+
+  // Daily circle first, then custom circles
+  const sortedUserChannels = useMemo(
+    () => [...(dailyChannel ? [dailyChannel] : []), ...customChannels],
+    [dailyChannel, customChannels],
   );
 
-  // Sort channels: daily circle always first, then rest in original order
-  const sortedUserChannels = useMemo(() => {
-    return [...userChannels].sort((a, b) => {
-      if (a.isDaily && !b.isDaily) return -1;
-      if (!a.isDaily && b.isDaily) return 1;
-      return 0;
-    });
-  }, [userChannels]);
-
-  const dailyChannelId = useMemo(
-    () => userChannels.find((ch) => ch.isDaily)?.id ?? '',
-    [userChannels],
-  );
+  const dailyChannelId = dailyChannel?.id ?? '';
 
   const initialMedia = useMemo<MediaFile[]>(() => {
     if (!params.capturedMedia) return [];
