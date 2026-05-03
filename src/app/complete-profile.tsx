@@ -304,6 +304,15 @@ export default function CompleteProfileScreen() {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
 
+  const currentUser = useAppSelector((state) => state.users.currentUser);
+
+  // Redirect already-onboarded users away from this screen
+  useEffect(() => {
+    if (currentUser?.accountProgress?.onboardingComplete === true) {
+      router.replace('/(protected)/feed');
+    }
+  }, [currentUser, router]);
+
   // If the user arrived here from "Join a Circle" on the home screen, a
   // pending invite channel will be in Redux.  We use this to skip the
   // YES/NO invited question and go straight to the acknowledgement screen.
