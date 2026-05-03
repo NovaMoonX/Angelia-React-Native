@@ -52,8 +52,9 @@ export default function FeedScreen() {
   const hasPendingActivity = useAppSelector(selectHasAnyPendingActivity);
   const pendingTasks = useAppSelector((state) => state.tasks.items);
 
-  // Auto-complete tasks when their conditions are already met on load
-  useAutoCompleteTasks();
+  // Auto-complete tasks when their conditions are already met on load.
+  // Returns true while auto-completion is in progress to suppress banner flicker.
+  const isAutoCompletingTasks = useAutoCompleteTasks();
 
   const [channelFilter, setChannelFilter] = useState<ChannelFilterState>({ mode: 'all', specificIds: [] });
   const [channelFilterOpen, setChannelFilterOpen] = useState(false);
@@ -499,8 +500,9 @@ export default function FeedScreen() {
         </View>
 
         {/* Task banner — lives inside the header so `headerHeight` includes it,
-            preventing overlap with both the skeleton list and the filtering dots. */}
-        {pendingTasks.length > 0 && (
+            preventing overlap with both the skeleton list and the filtering dots.
+            Hidden while auto-completing tasks to prevent flicker when the count changes. */}
+        {pendingTasks.length > 0 && !isAutoCompletingTasks && (
           <Pressable
             onPress={() => router.push('/(protected)/tasks')}
             style={[styles.tasksBanner, { backgroundColor: theme.tertiary }]}
