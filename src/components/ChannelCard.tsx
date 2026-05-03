@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -31,6 +32,7 @@ export function ChannelCard({
 }: ChannelCardProps) {
   const { theme } = useTheme();
   const colors = getColorPair(channel);
+  const memberCount = channel.subscribers.length;
 
   return (
     <Pressable onPress={onClick}>
@@ -58,13 +60,16 @@ export function ChannelCard({
 
         <View style={styles.meta}>
           <Text style={[styles.metaText, { color: theme.mutedForeground }]}>
-            {channel.subscribers.length} member
-            {channel.subscribers.length !== 1 ? 's' : ''}
+            {memberCount} member
+            {memberCount !== 1 ? 's' : ''}
           </Text>
           {owner && (
-            <Text style={[styles.metaText, { color: theme.mutedForeground }]}>
-              by {owner.firstName} {owner.lastName}
-            </Text>
+            <View style={styles.ownerRow}>
+              <Avatar user={owner} size="sm" />
+              <Text style={[styles.metaText, { color: theme.mutedForeground }]}>
+                {owner.firstName} {owner.lastName}
+              </Text>
+            </View>
           )}
         </View>
 
@@ -119,11 +124,17 @@ const styles = StyleSheet.create({
   },
   meta: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
     marginBottom: 8,
   },
   metaText: {
     fontSize: 12,
+  },
+  ownerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   actions: {
     flexDirection: 'row',

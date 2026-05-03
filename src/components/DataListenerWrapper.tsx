@@ -6,7 +6,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { setPosts } from '@/store/slices/postsSlice';
-import { setChannels, setConnectionChannels } from '@/store/slices/channelsSlice';
+import { setChannels, setConnectionChannels, syncDailyChannelMembers } from '@/store/slices/channelsSlice';
 import { setCurrentUser, setUsers, setCurrentUserNotificationSettings } from '@/store/slices/usersSlice';
 import {
   setIncomingRequests,
@@ -18,7 +18,7 @@ import {
   setIncomingConnectionRequests,
   setOutgoingConnectionRequests,
 } from '@/store/slices/connectionsSlice';
-import { selectAllChannels } from '@/store/slices/channelsSlice';
+import { selectAllChannels, selectUserDailyChannel } from '@/store/slices/channelsSlice';
 import { processPendingInvite } from '@/store/actions/inviteActions';
 import { processPendingConnection } from '@/store/actions/connectionsActions';
 import { initNotifications } from '@/store/actions/notificationActions';
@@ -74,6 +74,13 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const pendingFromUserId = useAppSelector((state) => state.connections.pendingFromUserId);
   const connections = useAppSelector((state) => state.connections.connections);
   const posts = useAppSelector((state) => state.posts.items);
+
+  // Whether the current user's daily channel is loaded — used to trigger the member sync
+  // when channels arrive after connections (race-condition safety).
+  const uid = firebaseUser?.uid ?? '';
+  const myDailyChannelId = useAppSelector(
+    (state) => selectUserDailyChannel(state, uid)?.id ?? null,
+  );
 
   // Refs used by Effect 10 so the listener isn't re-created on every post change.
   const currentUserRef = useRef(currentUser);
@@ -298,6 +305,19 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firebaseUser, isDemo, connections.length,
     // Stable key: only changes when the set of connected user IDs changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    connections.map((c) => c.userId).sort().join(',')]);
+
+  // Effect 4d: Sync the daily channel's subscriber list with connections.
+  // Runs whenever the connections set changes OR when the daily channel first loads,
+  // so the member count is always accurate regardless of load order.
+  useEffect(() => {
+    if (isDemo || !firebaseUser || !myDailyChannelId) return;
+    const memberIds = connections.map((c) => c.userId);
+    dispatch(syncDailyChannelMembers({ channelId: myDailyChannelId, memberIds }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDemo, firebaseUser, myDailyChannelId, dispatch,
+    // Stable key: only re-runs when the set of connected user IDs actually changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     connections.map((c) => c.userId).sort().join(',')]);
 

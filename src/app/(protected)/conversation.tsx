@@ -247,7 +247,6 @@ export default function ConversationScreen() {
         <Avatar
           user={author}
           size="sm"
-          statusEmoji={isStatusActive(author?.status) ? author?.status?.emoji : undefined}
         />
 
         <View style={styles.headerText}>
