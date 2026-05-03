@@ -18,8 +18,6 @@ interface ChannelCardProps {
   onClick?: () => void;
   isOwner?: boolean;
   isLoading?: boolean;
-  /** When provided, overrides the subscriber-based member count display. */
-  memberCountOverride?: number;
 }
 
 export function ChannelCard({
@@ -31,11 +29,10 @@ export function ChannelCard({
   onClick,
   isOwner = false,
   isLoading = false,
-  memberCountOverride,
 }: ChannelCardProps) {
   const { theme } = useTheme();
   const colors = getColorPair(channel);
-  const memberCount = memberCountOverride !== undefined ? memberCountOverride : channel.subscribers.length;
+  const memberCount = channel.subscribers.length;
 
   return (
     <Pressable onPress={onClick}>

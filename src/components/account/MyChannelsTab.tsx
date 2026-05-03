@@ -8,7 +8,6 @@ import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { useActionModal } from '@/hooks/useActionModal';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
-import { selectUserChannels } from '@/store/slices/channelsSlice';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import {
   createCustomChannel,
@@ -19,6 +18,10 @@ import {
 } from '@/store/actions/channelActions';
 import { completeTask } from '@/store/actions/taskActions';
 import { CUSTOM_CHANNEL_LIMIT } from '@/models/constants';
+import {
+  selectCurrentUserDailyChannel,
+  selectCurrentUserCustomChannels,
+} from '@/store/crossSelectors/channelSelectors';
 import type { Channel } from '@/models/types';
 
 export function MyChannelsTab() {
@@ -30,23 +33,16 @@ export function MyChannelsTab() {
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const channels = useAppSelector((state) => state.channels.items);
   const usersMap = useAppSelector(selectAllUsersMapById);
-  const myChannels = useAppSelector((state) =>
-    selectUserChannels(state, state.users.currentUser?.id || '')
-  );
+  const dailyChannel = useAppSelector(selectCurrentUserDailyChannel);
+  const customChannels = useAppSelector(selectCurrentUserCustomChannels);
   const tasks = useAppSelector((state) => state.tasks.items);
-  const connections = useAppSelector((state) => state.connections.connections);
 
-  const dailyChannels = useMemo(
-    () => myChannels.filter((c) => c.isDaily),
-    [myChannels],
-  );
-  const customChannels = useMemo(
-    () => myChannels.filter((c) => !c.isDaily),
-    [myChannels],
-  );
   const customChannelCount = customChannels.length;
   const canCreateChannel = (currentUser?.customChannelCount || 0) < CUSTOM_CHANNEL_LIMIT;
-  const existingNames = myChannels.map((ch) => ch.name);
+  const existingNames = [
+    ...(dailyChannel ? [dailyChannel.name] : []),
+    ...customChannels.map((ch) => ch.name),
+  ];
 
   const [channelFormOpen, setChannelFormOpen] = useState(false);
   const [channelFormMode, setChannelFormMode] = useState<'create' | 'edit'>('create');
@@ -135,26 +131,18 @@ export function MyChannelsTab() {
         </Text>
       )}
 
-      {dailyChannels.map((ch) => (
+      {dailyChannel && (
         <ChannelCard
-          key={ch.id}
-          channel={ch}
+          channel={dailyChannel}
           isOwner
-          memberCountOverride={connections.length} // Daily circles: members are connections, not subscribers
-          onEdit={() => {
-            setChannelFormMode('edit');
-            setEditingChannel(ch);
-            setChannelFormOpen(true);
-          }}
-          onDelete={() => handleDeleteChannel(ch.id)}
           onClick={() => {
-            setSelectedChannelId(ch.id);
+            setSelectedChannelId(dailyChannel.id);
             setChannelDetailOpen(true);
           }}
         />
-      ))}
+      )}
 
-      {dailyChannels.length > 0 && customChannels.length > 0 && (
+      {dailyChannel && customChannels.length > 0 && (
         <View style={[styles.separator, { borderColor: theme.border }]} />
       )}
 
@@ -176,7 +164,7 @@ export function MyChannelsTab() {
         />
       ))}
 
-      {myChannels.length === 0 && (
+      {!dailyChannel && customChannels.length === 0 && (
         <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>
           You don't have any circles yet.
         </Text>

@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 import { ChannelCard } from '@/components/ChannelCard';
 import { ChannelModal } from '@/components/ChannelModal';
 import { useToast } from '@/hooks/useToast';
@@ -25,31 +27,29 @@ export function SubscribedTab() {
 
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const channels = useAppSelector((state) => state.channels.items);
-  const connectionChannels = useAppSelector((state) => state.channels.connectionChannels);
   const usersMap = useAppSelector(selectAllUsersMapById);
+  const connections = useAppSelector((state) => state.connections.connections);
 
-  const subscribedChannels = useMemo(() => {
-    const explicitlySubscribed = channels.filter(
-      (ch) =>
-        ch.ownerId !== currentUser?.id &&
-        ch.subscribers.includes(currentUser?.id || ''),
-    );
-    // De-duplicate: connection channels are daily channels of connected users.
-    // They may already appear in items if the user also subscribed explicitly.
-    const subscribedIds = new Set(explicitlySubscribed.map((ch) => ch.id));
-    const connDaily = connectionChannels.filter((ch) => { return !subscribedIds.has(ch.id); });
-    return [...explicitlySubscribed, ...connDaily];
-  }, [channels, connectionChannels, currentUser?.id]);
+  // Only non-daily circles that the user explicitly joined
+  const joinedCustomChannels = useMemo(
+    () =>
+      channels.filter(
+        (ch) =>
+          !ch.isDaily &&
+          ch.ownerId !== currentUser?.id &&
+          ch.subscribers.includes(currentUser?.id || ''),
+      ),
+    [channels, currentUser?.id],
+  );
 
   const [channelDetailOpen, setChannelDetailOpen] = useState(false);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [removingSubscriberId, setRemovingSubscriberId] = useState<string | null>(null);
 
-  const selectedChannel = useMemo(() => {
-    const inItems = channels.find((c: Channel) => c.id === selectedChannelId);
-    if (inItems) return inItems;
-    return connectionChannels.find((c: Channel) => c.id === selectedChannelId) ?? null;
-  }, [channels, connectionChannels, selectedChannelId]);
+  const selectedChannel = useMemo(
+    () => channels.find((c: Channel) => c.id === selectedChannelId) ?? null,
+    [channels, selectedChannelId],
+  );
 
   if (!currentUser) return null;
 
@@ -69,6 +69,8 @@ export function SubscribedTab() {
     }
   };
 
+  const connectionCount = connections.length;
+
   return (
     <>
       <Button
@@ -79,24 +81,36 @@ export function SubscribedTab() {
         {`🤝 Join a Circle`}
       </Button>
 
-      {subscribedChannels.map((ch) => (
+      {/* Single card representing all connections' daily circles */}
+      <Pressable onPress={() => router.push('/my-people')}>
+        <Card style={styles.dailyCard}>
+          <View style={styles.dailyHeader}>
+            <Text style={[styles.dailyTitle, { color: theme.foreground }]}>
+              Daily Circles
+            </Text>
+            <Feather name="chevron-right" size={16} color={theme.mutedForeground} />
+          </View>
+          <Text style={[styles.dailyDescription, { color: theme.mutedForeground }]}>
+            Your connections share their daily updates here.
+          </Text>
+          <Text style={[styles.dailyMeta, { color: theme.mutedForeground }]}>
+            {connectionCount} connection{connectionCount !== 1 ? 's' : ''}
+          </Text>
+        </Card>
+      </Pressable>
+
+      {joinedCustomChannels.map((ch) => (
         <ChannelCard
           key={ch.id}
           channel={ch}
           owner={usersMap[ch.ownerId]}
-          onUnsubscribe={!ch.isDaily ? () => handleUnsubscribe(ch.id) : undefined}
+          onUnsubscribe={() => handleUnsubscribe(ch.id)}
           onClick={() => {
             setSelectedChannelId(ch.id);
             setChannelDetailOpen(true);
           }}
         />
       ))}
-
-      {subscribedChannels.length === 0 && (
-        <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>
-          You're not a member of any circles yet.
-        </Text>
-      )}
 
       {selectedChannel && (
         <ChannelModal
@@ -146,6 +160,27 @@ export function SubscribedTab() {
 }
 
 const styles = StyleSheet.create({
+  dailyCard: {
+    marginBottom: 12,
+  },
+  dailyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  dailyTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  dailyDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+  dailyMeta: {
+    fontSize: 12,
+  },
   emptyText: {
     fontSize: 14,
     textAlign: 'center',
