@@ -400,7 +400,7 @@ export default function PostDetailScreen() {
 								<Text style={[styles.chatTabText, { color: theme.primary }]}>
 									{messageCount > 0
 										? `${messageCount} message${messageCount !== 1 ? 's' : ''}`
-										: 'Start the conversation'}
+										: 'Join the conversation'}
 								</Text>
 								<Feather name='chevron-right' size={14} color={theme.primary} />
 							</>
