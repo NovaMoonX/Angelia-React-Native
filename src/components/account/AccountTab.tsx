@@ -282,6 +282,7 @@ export function AccountTab() {
       <View style={styles.bottomSection}>
         <Button
           variant="outline"
+          textStyle={{ flex: 1 }}
           onPress={() => router.push('/(protected)/share-connection')}
         >
           🔗 Share Connection Link
@@ -289,12 +290,13 @@ export function AccountTab() {
         {!isDemo && (
           <Button
             variant="outline"
+            textStyle={{ flex: 1 }}
             onPress={() => setFeedbackModalOpen(true)}
           >
             🛟 Get Help & Feedback
           </Button>
         )}
-        <Button variant="destructive" onPress={handleSignOut}>
+        <Button variant="destructive" textStyle={{ flex: 1 }} onPress={handleSignOut}>
           Sign Out
         </Button>
       </View>
