@@ -122,7 +122,9 @@ export function UserProfileModal({ visible, onClose, user, onDisconnect }: UserP
                   try {
                     await onDisconnect();
                     onClose();
-                  } finally {
+                  } catch {
+                    // Only reset loading state on failure so the user can retry.
+                    // On success onClose() is called immediately and the modal hides.
                     setDisconnecting(false);
                   }
                 }}
