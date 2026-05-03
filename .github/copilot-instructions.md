@@ -300,6 +300,25 @@ See `src/components/PrivateNoteModal.tsx` and `src/components/FeedbackSupportMod
 
 > **Policy:** Whenever a React Native-specific bug is encountered and resolved during development, add an entry here. Include the symptom, root cause, and fix with a file reference. This section is intentionally self-contained so it can be copied between React Native projects.
 
+### Button text clipped when parent has `alignItems: 'center'`
+
+**Symptom:** A `Button`'s label is truncated/clipped mid-word when the button sits inside a container that has `alignItems: 'center'` (e.g. a `Card` with `alignItems: 'center'`, or a column flex container).
+
+**Root cause:** The `Pressable` inside `Button` has `flexDirection: 'row'`. In a row flex container, a `Text` without `flex: 1` sizes to its intrinsic single-line width and can overflow the container, getting clipped by the Pressable's bounds. This is a well-known React Native gotcha — text inside a `flexDirection: 'row'` View does not automatically wrap unless the Text node has `flex: 1`.
+
+**Fix:** Do **not** add `flex: 1` to the shared `Button` `text` or `button` styles — this causes regressions in other layouts. Instead, pass `textStyle={{ flex: 1 }}` directly on the specific `<Button>` instance whose label needs to wrap. This puts `flex: 1` on the `Text` node only, making it fill the row container so long labels wrap instead of overflow.
+
+```tsx
+// ✅ targeted fix — flex: 1 on the Text node allows wrapping
+<Button variant="outline" textStyle={{ flex: 1 }} onPress={...}>
+  🛟 Get Help & Feedback
+</Button>
+
+// ❌ do not add flex/alignSelf to the shared Button stylesheet
+```
+
+---
+
 ### Keyboard gap / flicker below a bottom-sheet Modal (Android)
 
 **Symptom:** After a `TextInput` inside a bottom-sheet `<Modal>` is used and the keyboard is dismissed, a visible gap appears between the bottom of the modal sheet and the bottom of the screen. Earlier versions of the same bug caused the sheet to flicker or jump.

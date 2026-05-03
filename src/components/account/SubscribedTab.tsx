@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 import { ChannelCard } from '@/components/ChannelCard';
 import { ChannelModal } from '@/components/ChannelModal';
 import { useToast } from '@/hooks/useToast';
@@ -26,11 +28,14 @@ export function SubscribedTab() {
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const channels = useAppSelector((state) => state.channels.items);
   const usersMap = useAppSelector(selectAllUsersMapById);
+  const connections = useAppSelector((state) => state.connections.connections);
 
-  const subscribedChannels = useMemo(
+  // Only non-daily circles that the user explicitly joined
+  const joinedCustomChannels = useMemo(
     () =>
       channels.filter(
         (ch) =>
+          !ch.isDaily &&
           ch.ownerId !== currentUser?.id &&
           ch.subscribers.includes(currentUser?.id || ''),
       ),
@@ -64,6 +69,8 @@ export function SubscribedTab() {
     }
   };
 
+  const connectionCount = connections.length;
+
   return (
     <>
       <Button
@@ -74,7 +81,25 @@ export function SubscribedTab() {
         {`🤝 Join a Circle`}
       </Button>
 
-      {subscribedChannels.map((ch) => (
+      {/* Single card representing all connections' daily circles */}
+      <Pressable onPress={() => router.push('/my-people')}>
+        <Card style={styles.dailyCard}>
+          <View style={styles.dailyHeader}>
+            <Text style={[styles.dailyTitle, { color: theme.foreground }]}>
+              Daily Circles
+            </Text>
+            <Feather name="chevron-right" size={16} color={theme.mutedForeground} />
+          </View>
+          <Text style={[styles.dailyDescription, { color: theme.mutedForeground }]}>
+            Your connections share their daily updates here.
+          </Text>
+          <Text style={[styles.dailyMeta, { color: theme.mutedForeground }]}>
+            {connectionCount} connection{connectionCount !== 1 ? 's' : ''}
+          </Text>
+        </Card>
+      </Pressable>
+
+      {joinedCustomChannels.map((ch) => (
         <ChannelCard
           key={ch.id}
           channel={ch}
@@ -86,12 +111,6 @@ export function SubscribedTab() {
           }}
         />
       ))}
-
-      {subscribedChannels.length === 0 && (
-        <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>
-          You're not a member of any circles yet.
-        </Text>
-      )}
 
       {selectedChannel && (
         <ChannelModal
@@ -141,6 +160,27 @@ export function SubscribedTab() {
 }
 
 const styles = StyleSheet.create({
+  dailyCard: {
+    marginBottom: 12,
+  },
+  dailyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  dailyTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  dailyDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+  dailyMeta: {
+    fontSize: 12,
+  },
   emptyText: {
     fontSize: 14,
     textAlign: 'center',

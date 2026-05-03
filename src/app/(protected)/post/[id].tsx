@@ -9,7 +9,6 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Carousel } from '@/components/ui/Carousel';
 import { ReactionDisplay } from '@/components/ReactionDisplay';
-import { isStatusActive } from '@/components/NowStatusBadge';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { MediaViewerModal } from '@/components/MediaViewerModal';
 import { PrivateNoteModal } from '@/components/PrivateNoteModal';
@@ -238,7 +237,6 @@ export default function PostDetailScreen() {
 						<Avatar
 							user={author}
 							size='md'
-							statusEmoji={isStatusActive(author?.status) ? author?.status?.emoji : undefined}
 						/>
 					</Pressable>
 					<View style={styles.headerText}>

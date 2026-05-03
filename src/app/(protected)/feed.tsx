@@ -29,6 +29,7 @@ import { selectHasAnyPendingActivity } from '@/store/crossSelectors/activitySele
 import { selectAllChannels } from '@/store/slices/channelsSlice';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
+import { useAutoCompleteTasks } from '@/hooks/useAutoCompleteTasks';
 import { POST_TIERS } from '@/models/constants';
 import type { Post, PostTier, UserStatus } from '@/models/types';
 
@@ -50,6 +51,9 @@ export default function FeedScreen() {
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const hasPendingActivity = useAppSelector(selectHasAnyPendingActivity);
   const pendingTasks = useAppSelector((state) => state.tasks.items);
+
+  // Auto-complete tasks when their conditions are already met on load
+  useAutoCompleteTasks();
 
   const [channelFilter, setChannelFilter] = useState<ChannelFilterState>({ mode: 'all', specificIds: [] });
   const [channelFilterOpen, setChannelFilterOpen] = useState(false);
@@ -388,10 +392,8 @@ export default function FeedScreen() {
           <View style={styles.headerSide}>
             <Pressable onPress={() => router.push('/(protected)/account')}>
               <Avatar
-                preset={currentUser?.avatar || 'moon'}
-                uri={currentUser?.avatarUrl}
+                user={currentUser}
                 size="sm"
-                statusEmoji={isStatusActive(currentUser?.status) ? currentUser?.status?.emoji : undefined}
               />
             </Pressable>
           </View>
