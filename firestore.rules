@@ -380,13 +380,13 @@ service cloud.firestore {
       // Users can only read and write their own tasks
       allow read, create: if isSignedIn() && request.auth.uid == userId;
 
-      // Allow updating only the completedAt field (mark as done)
+      // Allow updating only the completedAt field (mark as done).
+      // Only completedAt may change; it must transition from null to a non-null value.
       allow update: if isSignedIn()
         && request.auth.uid == userId
-        && request.resource.data.userId == resource.data.userId
-        && request.resource.data.type == resource.data.type
-        && request.resource.data.channelId == resource.data.channelId
-        && request.resource.data.createdAt == resource.data.createdAt;
+        && resource.data.completedAt == null
+        && request.resource.data.completedAt != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['completedAt']);
 
       allow delete: if false;
     }

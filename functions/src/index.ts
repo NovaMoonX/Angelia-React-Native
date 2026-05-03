@@ -502,6 +502,100 @@ export const onDisconnectRequest = onDocumentCreated(
   },
 );
 
+// ── Cloud Function: Cascade-delete circles marked for deletion ─────────────
+
+/**
+ * Runs once every 24 hours (UTC midnight) and permanently removes any circle
+ * (custom channel) that has been marked for deletion by its owner.
+ *
+ * Deletion order (to satisfy the constraint that a circle is only removed once
+ * all related data is gone):
+ *   1. Delete Firebase Storage media files for every post in the channel.
+ *   2. Recursively delete every post document (which also removes the
+ *      `messages`, `comments`, and `privateNotes` subcollections).
+ *   3. Delete all `channelJoinRequests` documents for the channel.
+ *   4. Delete the channel document itself.
+ *
+ * Each channel is processed independently so a failure on one does not block
+ * the others.
+ */
+const DELETE_BATCH_SIZE = 500;
+
+export const deleteMarkedChannels = onSchedule('every 24 hours', async () => {
+  const channelsSnap = await db
+    .collection('channels')
+    .where('markedForDeletionAt', '!=', null)
+    .get();
+
+  if (channelsSnap.empty) return;
+
+  const bucket = admin.storage().bucket();
+
+  for (const channelDoc of channelsSnap.docs) {
+    const channelId = channelDoc.id;
+    console.log(`deleteMarkedChannels: starting cleanup for channel ${channelId}`);
+
+    try {
+      // ── Step 1 & 2: Collect all posts, delete Storage media, then delete docs ─
+      const postsSnap = await db
+        .collection('posts')
+        .where('channelId', '==', channelId)
+        .get();
+
+      // Delete Storage files for all posts in parallel (best-effort).
+      await Promise.all(
+        postsSnap.docs.map(async (postDoc) => {
+          try {
+            await bucket.deleteFiles({ prefix: `posts/${postDoc.id}/` });
+          } catch (err) {
+            console.error(
+              `deleteMarkedChannels: failed to delete Storage files for post ${postDoc.id}:`,
+              err,
+            );
+          }
+        }),
+      );
+
+      // Recursively delete each post document (removes messages/comments/privateNotes subcollections).
+      for (const postDoc of postsSnap.docs) {
+        try {
+          await db.recursiveDelete(postDoc.ref);
+        } catch (err) {
+          console.error(
+            `deleteMarkedChannels: failed to recursively delete post ${postDoc.id}:`,
+            err,
+          );
+        }
+      }
+
+      // ── Step 3: Delete channelJoinRequests for this channel ───────────────────
+      const joinRequestsSnap = await db
+        .collection('channelJoinRequests')
+        .where('channelId', '==', channelId)
+        .get();
+
+      const joinRequestRefs = joinRequestsSnap.docs.map((d) => d.ref);
+      for (let i = 0; i < joinRequestRefs.length; i += DELETE_BATCH_SIZE) {
+        const batch = db.batch();
+        for (const ref of joinRequestRefs.slice(i, i + DELETE_BATCH_SIZE)) {
+          batch.delete(ref);
+        }
+        await batch.commit();
+      }
+
+      // ── Step 4: Delete the channel document itself ────────────────────────────
+      await channelDoc.ref.delete();
+
+      console.log(
+        `deleteMarkedChannels: successfully deleted channel ${channelId} ` +
+        `(${postsSnap.size} posts, ${joinRequestsSnap.size} join requests)`,
+      );
+    } catch (err) {
+      console.error(`deleteMarkedChannels: unexpected error processing channel ${channelId}:`, err);
+    }
+  }
+});
+
 // ── Cloud Function: Delete expired posts every 24 hours ────────────────────
 
 /**

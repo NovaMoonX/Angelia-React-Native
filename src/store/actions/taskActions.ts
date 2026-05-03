@@ -3,7 +3,7 @@ import {
   createTask as firestoreCreateTask,
   markTaskComplete as firestoreMarkTaskComplete,
 } from '@/services/firebase/firestore';
-import { addTask, removeTask } from '@/store/slices/tasksSlice';
+import { addTask, removeTask } from '@/store/slices/tasksSlice'; // addTask imported for rollback on write failure
 import type { AppTask, TaskType } from '@/models/types';
 import { generateId } from '@/utils/generateId';
 import type { RootState } from '@/store';
@@ -107,6 +107,15 @@ export const createMakeFirstPostTask = createAsyncThunk(
 
 /**
  * Marks a task as completed (removes it from the active task list).
+ *
+ * removeTask is dispatched OPTIMISTICALLY before the Firestore write, consistent
+ * with how addTask is handled in makeTask. This prevents useAutoCompleteTasks from
+ * re-dispatching the same task while the async write is in-flight (the task would
+ * still appear in pendingTasks until the write resolves, causing duplicate dispatches
+ * and UI flickering).
+ *
+ * If the Firestore write fails, the task is re-added to pendingTasks so it can be
+ * retried by useAutoCompleteTasks on the next effect run.
  */
 export const completeTask = createAsyncThunk(
   'tasks/complete',
@@ -118,13 +127,21 @@ export const completeTask = createAsyncThunk(
 
     const state = getState() as RootState;
     const userId = state.users.currentUser?.id;
+    const task = state.tasks.items.find((t) => { return t.id === taskId; });
+    
     if (!userId) return rejectWithValue('User not authenticated');
+    if (!task) return rejectWithValue('Task not found');
+
+    // Optimistically remove from Redux immediately so the task leaves pendingTasks
+    // before any effect re-run can see it and re-dispatch completeTask for the same ID.
+    dispatch(removeTask(taskId));
 
     try {
       await firestoreMarkTaskComplete(userId, taskId);
-      dispatch(removeTask(taskId));
       return taskId;
     } catch (err) {
+      // Re-add the task so it remains in pendingTasks and can be retried.
+      dispatch(addTask(task));
       return rejectWithValue(err instanceof Error ? err.message : err);
     }
   },
