@@ -51,7 +51,12 @@ npm run env:pull     # writes .env.development
 
 | Script | When to run |
 |---|---|
-| `npm run ios` | Build and launch on a connected iOS device or simulator. |
+| `npm run ios` | Build and launch on a connected iOS device. Run after `setup-ios.sh` completes. |
+| `npm run ios:clean` | Same as above but forces a fresh native build. Use when the cached build is stale. |
+| `npm run prebuild:ios` | Regenerate the `ios/` folder without wiping it. Run after config changes. |
+| `npm run prebuild:ios:clean` | Wipe and regenerate `ios/`. **Do not run this alone** — you must re-patch the Podfile and reinstall pods via `setup-ios.sh` after this. |
+| `npm run build:ios` | Trigger a cloud EAS development build for iOS. |
+| `bash scripts/setup-ios.sh` | **Full iOS setup from scratch.** Runs `prebuild --clean`, patches the Podfile for the RNFB non-modular header bug, and runs `pod install`. Run this after the initial clone and after any `prebuild:ios:clean`. |
 
 #### Metro / Dev Server
 
@@ -87,6 +92,15 @@ npm run env:pull     # writes .env.development
 | `npm run deploy:all` | Build and deploy everything — Firestore rules, Storage rules, and Cloud Functions — in one command. |
 
 > **Before committing:** Run `npm run ts:check` and `npm run lint`. Both must pass cleanly.
+
+---
+
+### Typical Development Flow (iOS)
+
+1. **`bash scripts/setup-ios.sh`** — run once after cloning, and again after any clean prebuild. This does everything: prebuild, Podfile patch, pod install.
+2. **`npm run ios`** — build and launch on a connected device or simulator.
+3. **For JS-only changes after initial setup:** `npm start` is sufficient — no rebuild needed.
+4. **If you run `npm run prebuild:ios:clean`** manually, always follow it with `bash scripts/setup-ios.sh` — the script re-applies the Podfile patch that the clean wipes away.
 
 ---
 
@@ -156,6 +170,16 @@ See [NOTIFICATION_TESTING.md](./NOTIFICATION_TESTING.md) for a step-by-step guid
 **Cause:** `expo-notifications` and `expo` each bundle their own copy of `expo-modules-core`, and the hoisted type doesn't match the runtime import.
 
 **Fix:** Cast the status check using `Notifications.PermissionStatus.GRANTED` directly on the `expo-notifications` import rather than importing from `expo-modules-core`. See `src/services/notifications.ts`.
+
+---
+
+#### iOS build fails: non-modular header inside framework module (RNFB)
+
+**Symptom:** `xcodebuild` exits with error code 65. Multiple `[-Werror,-Wnon-modular-include-in-framework-module]` errors pointing to files inside `@react-native-firebase/app/ios/RNFBApp/` (e.g. `RCTConvert+FIRApp.h`, `RNFBAppModule.h`, `RNFBSharedUtils.h`).
+
+**Cause:** `expo prebuild --clean` (or `rm -rf ios`) regenerates the `ios/` folder and a fresh Podfile. The fresh Podfile does not include the build-settings override that tells Xcode to allow non-modular headers inside RNFB framework targets. React Native Firebase headers import React headers using `<React/...>` angle-bracket syntax, which Xcode rejects as non-modular when `DEFINES_MODULE = YES` (the CocoaPods default for dynamic frameworks).
+
+**Fix:** After every clean prebuild, run `bash scripts/setup-ios.sh` from the repo root. The script patches the Podfile by injecting a `post_install` hook that sets `DEFINES_MODULE = NO` and `ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES` for all `RNFB*` targets, then runs `pod install`. The patch is idempotent — running the script again when the patch is already present is safe. See `scripts/setup-ios.sh`.
 
 ---
 
