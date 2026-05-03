@@ -55,11 +55,13 @@ export function useAutoCompleteTasks(): void {
           break;
 
         case 'invite_to_circle':
-          // A circle-specific invite task: check if that particular channel has members
-          completed = ownedCustomChannels.some((ch) => {
-            const matchesTask = task.channelId ? ch.id === task.channelId : true;
-            return matchesTask && ch.subscribers.length > 0;
-          });
+          // A circle-specific invite task: only complete if the targeted channel has members.
+          // If channelId is missing (shouldn't happen in normal flow), skip auto-completion.
+          if (task.channelId) {
+            completed = ownedCustomChannels.some((ch) => {
+              return ch.id === task.channelId && ch.subscribers.length > 0;
+            });
+          }
           break;
 
         default:
