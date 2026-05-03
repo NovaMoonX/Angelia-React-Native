@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   KeyboardAvoidingView,
   Pressable,
@@ -16,7 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 
 import { Avatar } from '@/components/ui/Avatar';
@@ -39,7 +40,7 @@ import { getTierTheme } from '@/lib/conversation/tierTheme';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { isStatusActive } from '@/components/NowStatusBadge';
-import { POST_TIERS } from '@/models/constants';
+import { POST_TIERS, CONVERSATION_LAST_SEEN_KEY } from '@/models/constants';
 import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import type { Message } from '@/models/types';
 
@@ -98,6 +99,14 @@ export default function ConversationScreen() {
     });
     return unsub;
   }, [postId, dispatch, isDemo]);
+
+  // Record when the user last opened this conversation to drive the unread indicator
+  useFocusEffect(
+    useCallback(() => {
+      if (!postId || isDemo) return;
+      void AsyncStorage.setItem(CONVERSATION_LAST_SEEN_KEY(postId), String(Date.now()));
+    }, [postId, isDemo]),
+  );
 
   usePostComments({ postId });
 

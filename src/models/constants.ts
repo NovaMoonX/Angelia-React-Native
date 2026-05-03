@@ -60,3 +60,9 @@ export const FEED_LAST_SEEN_TIMESTAMP_KEY = '@angelia/feed_last_seen_timestamp';
  * Used to drive the unread indicator on the host's private-notes badge.
  */
 export const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_notes_seen_${postId}`;
+
+/**
+ * AsyncStorage key that records when the current user last opened the conversation screen for a post.
+ * Used to drive the unread indicator on the chat tab in the post detail screen.
+ */
+export const CONVERSATION_LAST_SEEN_KEY = (postId: string) => `@angelia/conversation_last_seen_${postId}`;

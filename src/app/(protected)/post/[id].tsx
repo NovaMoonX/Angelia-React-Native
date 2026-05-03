@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { Animated, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,7 +15,7 @@ import { MediaViewerModal } from '@/components/MediaViewerModal';
 import { PrivateNoteModal } from '@/components/PrivateNoteModal';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
-import { selectMessages } from '@/store/slices/conversationSlice';
+import { selectMessages, setMessages } from '@/store/slices/conversationSlice';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { usePostComments } from '@/hooks/usePostComments';
 import { usePrivateNotes } from '@/hooks/usePrivateNotes';
@@ -26,12 +26,13 @@ import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { getUserDisplayName } from '@/lib/user/user.utils';
-import { COMMON_EMOJIS, PRIVATE_NOTES_SEEN_KEY } from '@/models/constants';
+import { COMMON_EMOJIS, PRIVATE_NOTES_SEEN_KEY, CONVERSATION_LAST_SEEN_KEY } from '@/models/constants';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { AddReactionIcon } from '@/components/AddReactionIcon';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { updatePostReactions, removePostReaction } from '@/store/actions/postActions';
+import { subscribeToMessages } from '@/services/firebase/firestore';
 import type { Reaction, MediaItem } from '@/models/types';
 
 export default function PostDetailScreen() {
@@ -66,6 +67,8 @@ export default function PostDetailScreen() {
 	const [noteModalVisible, setNoteModalVisible] = useState(false);
 	// Tracks whether the host has unseen private notes (persisted in AsyncStorage)
 	const [hasUnreadPrivateNotes, setHasUnreadPrivateNotes] = useState(false);
+	// Tracks whether there are new conversation messages the user hasn't seen
+	const [hasUnreadConversation, setHasUnreadConversation] = useState(false);
 	const chatTabScale = useRef(new Animated.Value(1)).current;
 	const chatTabUnlockOpacity = useRef(new Animated.Value(0)).current;
 	const unlockEmojiY = useRef(new Animated.Value(0)).current;
@@ -75,6 +78,25 @@ export default function PostDetailScreen() {
 		() => (privateNotes.length > 0 ? Math.max(...privateNotes.map((n) => n.timestamp)) : 0),
 		[privateNotes],
 	);
+
+	// Memoize the latest non-system message timestamp
+	const latestMessageTimestamp = useMemo(
+		() => {
+			const nonSystem = conversationMessages.filter((m) => { return Boolean(m.isSystem) === false; });
+			return nonSystem.length > 0 ? Math.max(...nonSystem.map((m) => m.timestamp)) : 0;
+		},
+		[conversationMessages],
+	);
+
+	// Subscribe to conversation messages so the unread indicator works without
+	// the user needing to open the conversation screen first
+	useEffect(() => {
+		if (!id || isDemo) return;
+		const unsub = subscribeToMessages(id, (msgs) => {
+			dispatch(setMessages({ postId: id, messages: msgs }));
+		});
+		return unsub;
+	}, [id, dispatch, isDemo]);
 
 	// Re-check the unread dot every time this screen comes into focus (e.g. after
 	// returning from the private-notes-host screen, where PRIVATE_NOTES_SEEN_KEY
@@ -92,6 +114,22 @@ export default function PostDetailScreen() {
 				})
 				.catch(() => setHasUnreadPrivateNotes(false));
 		}, [isHost, id, latestNoteTimestamp]),
+	);
+
+	// Re-check conversation unread dot on focus (clears after the user visits conversation screen)
+	useFocusEffect(
+		useCallback(() => {
+			if (!id || latestMessageTimestamp === 0) {
+				setHasUnreadConversation(false);
+				return;
+			}
+			AsyncStorage.getItem(CONVERSATION_LAST_SEEN_KEY(id))
+				.then((val) => {
+					const lastSeen = val ? Number(val) : 0;
+					setHasUnreadConversation(latestMessageTimestamp > lastSeen);
+				})
+				.catch(() => setHasUnreadConversation(false));
+		}, [id, latestMessageTimestamp]),
 	);
 
 	const handleCarouselIndexChange = (index: number) => {
@@ -396,11 +434,16 @@ export default function PostDetailScreen() {
 							</>
 						) : (
 							<>
-								<Feather name='message-circle' size={16} color={theme.primary} />
+								<View style={styles.chatTabIconWrapper}>
+									<Feather name='message-circle' size={16} color={theme.primary} />
+									{hasUnreadConversation && (
+										<View style={[styles.unreadDot, { backgroundColor: '#EF4444' }]} />
+									)}
+								</View>
 								<Text style={[styles.chatTabText, { color: theme.primary }]}>
 									{messageCount > 0
 										? `${messageCount} message${messageCount !== 1 ? 's' : ''}`
-										: 'Join the conversation'}
+										: 'Start the conversation'}
 								</Text>
 								<Feather name='chevron-right' size={14} color={theme.primary} />
 							</>
@@ -640,6 +683,9 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		justifyContent: 'center',
 		gap: 8,
+	},
+	chatTabIconWrapper: {
+		position: 'relative',
 	},
 	chatTabText: {
 		fontSize: 14,
