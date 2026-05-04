@@ -17,7 +17,8 @@
     "unsub",
     "unsubs",
     "viewability",
-    "winddown"
+    "winddown",
+    "xcworkspace"
   ],
   "chat.tools.terminal.autoApprove": {
     "gh": true,

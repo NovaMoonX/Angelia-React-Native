@@ -15,6 +15,7 @@
     "android": "expo run:android --device",
     "ios:clean": "expo run:ios --device --no-build-cache",
 		"ios:setup": "bash scripts/setup-ios.sh",
+		"ios:xcode": "open ios/Angelia.xcworkspace",
     "android:clean": "expo run:android --device --no-build-cache",
     "prebuild:ios": "expo prebuild --platform ios",
     "prebuild:android": "expo prebuild --platform android",

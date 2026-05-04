@@ -19,6 +19,25 @@ with open("ios/Podfile", "r") as f:
     content = f.read()
 
 patch = """
+  # Fix non-modular header errors for react-native-firebase ONLY.
+  # SDWebImage targets are explicitly kept modular to avoid VerifyModule failures.
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      if target.name.start_with?("RNFB")
+        config.build_settings['DEFINES_MODULE'] = 'NO'
+        config.build_settings['ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      elsif target.name.include?("SDWebImage")
+        config.build_settings['DEFINES_MODULE'] = 'YES'
+      end
+    end
+  end
+"""
+
+if "Fix non-modular header errors for react-native-firebase ONLY" in content:
+    print("✅ Patch already applied, skipping")
+else:
+    # Remove old broader patch if present
+    old_patch = """
   # Fix non-modular header errors for react-native-firebase
   installer.pods_project.targets.each do |target|
     if target.name.start_with?("RNFB")
@@ -27,13 +46,10 @@ patch = """
         config.build_settings['ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
       end
     end
-  end
-"""
+  end"""
+    content = content.replace(old_patch, "")
 
-if "Fix non-modular header" in content:
-    print("✅ Patch already applied, skipping")
-else:
-    # Insert before the final end/end closing the post_install block
+    # Insert new patch before the final end/end closing the post_install block
     content = content.replace(
         "  end\nend",
         patch + "\n  end\nend",
