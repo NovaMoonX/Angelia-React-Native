@@ -87,6 +87,14 @@ export const sendJoinRequest = createAsyncThunk(
       return { channelId, message: message.trim() };
     }
 
+    // Guard: prevent sending a new request when one is already pending for this channel
+    const existingPending = state.invites.outgoing.find(
+      (r) => r.channelId === channelId && r.status === 'pending',
+    );
+    if (existingPending) {
+      return rejectWithValue('You already have a pending join request for this circle.');
+    }
+
     try {
       const joinRequest = await firestoreCreateJoinRequest(
         channelId,
