@@ -40,8 +40,9 @@ export default {
 		},
 		android: {
 			adaptiveIcon: {
-				backgroundColor: '#D97706',
-				foregroundImage: './assets/images/icon.png',
+				foregroundImage: './assets/images/android-icon-foreground.png',
+				backgroundImage: './assets/images/android-icon-background.png',
+				monochromeImage: './assets/images/android-icon-monochrome.png',
 			},
 			package: 'com.angelia.app',
 			softwareKeyboardLayoutMode: 'pan',
@@ -58,7 +59,7 @@ export default {
 			[
 				'expo-splash-screen',
 				{
-					backgroundColor: '#D97706',
+					backgroundColor: '#ffffff',
 					image: './assets/images/splash-icon.png',
 					imageWidth: 200,
 				},
@@ -72,7 +73,7 @@ export default {
 				'expo-notifications',
 				{
 					icon: './assets/images/icon.png',
-					color: '#D97706',
+					color: '#ffffff',
 				},
 			],
 			[
