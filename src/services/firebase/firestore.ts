@@ -72,6 +72,29 @@ export async function getUserProfile(uid: string): Promise<User | null> {
   );
 }
 
+/**
+ * Fetches a user's public-facing profile (name, avatar, fun fact) without
+ * requiring access to the secret sub-document.
+ *
+ * This is safe to call for any user — including from the public connect-request
+ * screen before the visitor signs in — because `usersPublic` is readable by
+ * anyone and `usersPrivate` (fun fact, status) is readable by any signed-in
+ * user. If either read fails due to missing auth, the function degrades
+ * gracefully: it returns the public fields only (no fun fact or status).
+ */
+export async function getPublicUserProfile(uid: string): Promise<User | null> {
+  const pubSnap = await getDoc(doc(getDb(), 'usersPublic', uid)).catch(() => null);
+  if (!pubSnap?.exists) return null;
+  const pub = pubSnap.data() as UserPublic;
+
+  // usersPrivate is readable by any signed-in user. For unauthenticated visitors
+  // this will fail — catch the error and continue without private fields.
+  const privSnap = await getDoc(doc(getDb(), 'usersPrivate', uid)).catch(() => null);
+  const priv = privSnap?.exists ? (privSnap.data() as UserPrivate) : null;
+
+  return mergeUserDocs(pub, priv, null);
+}
+
 export async function createUserProfile(userData: NewUser): Promise<void> {
   const now = Date.now();
   const publicData: UserPublic = {

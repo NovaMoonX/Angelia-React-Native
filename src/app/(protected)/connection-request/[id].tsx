@@ -37,10 +37,15 @@ export default function ConnectionRequestScreen() {
   const handleRespond = async (accept: boolean) => {
     if (!request) return;
     setLoading(true);
+    // Set the result immediately so the post-action view renders at once,
+    // preventing a brief flash of the "request unavailable" state that occurs
+    // when the Redux update changes request.status before this local state is set.
+    const optimisticResult: ActionResult = accept ? 'accepted' : 'declined';
+    setResult(optimisticResult);
     try {
       await dispatch(respondToConnectionRequest({ requestId: request.id, accept })).unwrap();
-      setResult(accept ? 'accepted' : 'declined');
     } catch {
+      setResult(null);
       addToast({ type: 'error', title: 'Something went wrong. Try again!' });
     } finally {
       setLoading(false);
