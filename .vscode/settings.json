@@ -8,14 +8,17 @@
     "LIFELOG",
     "Lifelogs",
     "notif",
+    "Podfile",
     "prefs",
     "Pressable",
+    "RNFB",
     "Schedulable",
     "subcollection",
     "unsub",
     "unsubs",
     "viewability",
-    "winddown"
+    "winddown",
+    "xcworkspace"
   ],
   "chat.tools.terminal.autoApprove": {
     "gh": true,

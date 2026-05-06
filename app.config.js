@@ -7,12 +7,19 @@ const path = require('path');
 const googleServicesPath = process.env.GOOGLE_SERVICES_JSON;
 // Create the google-services.json file
 if (googleServicesPath && fs.existsSync(googleServicesPath)) {
-  const targetPath = path.join(__dirname, 'google-services.json');
-  fs.copyFileSync(googleServicesPath, targetPath);
-  console.log('✅ Successfully copied google-services.json');
+	const targetPath = path.join(__dirname, 'google-services.json');
+	fs.copyFileSync(googleServicesPath, targetPath);
+	console.log('✅ Successfully copied google-services.json');
 }
 
-// TODO: Add GoogleService-Info.plist to the project env variables and update the path here
+// Handle GoogleService-Info.plist from environment variable
+const googleServiceInfoPath = process.env.GOOGLE_SERVICE_INFO_PLIST;
+// Create the GoogleService-Info.plist file
+if (googleServiceInfoPath && fs.existsSync(googleServiceInfoPath)) {
+	const targetPath = path.join(__dirname, 'GoogleService-Info.plist');
+	fs.copyFileSync(googleServiceInfoPath, targetPath);
+	console.log('✅ Successfully copied GoogleService-Info.plist');
+}
 
 export default {
 	expo: {
@@ -52,11 +59,12 @@ export default {
 				'expo-splash-screen',
 				{
 					backgroundColor: '#D97706',
-          image: "./assets/images/splash-icon.png",
-          imageWidth: 200,
+					image: './assets/images/splash-icon.png',
+					imageWidth: 200,
 				},
 			],
 			'@react-native-firebase/app',
+			'./plugins/withFirebaseAppConfigure',
 			'@react-native-firebase/auth',
 			'@react-native-firebase/messaging',
 			'@react-native-google-signin/google-signin',
