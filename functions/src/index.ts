@@ -390,33 +390,22 @@ export const onConnectionRequestAccepted = onDocumentUpdated(
     const toUserSnap = await db.collection('usersPublic').doc(toId).get();
     const toUser = toUserSnap.exists ? (toUserSnap.data() as UserPublic) : null;
 
-    const batch = db.batch();
+    // 1. Commit the mutual connection documents and notification atomically.
+    //    These are the core of the operation and must succeed together.
+    const connectionBatch = db.batch();
 
-    // 1. Mutual connection documents.
-    batch.set(
+    connectionBatch.set(
       db.collection('connections').doc(fromId).collection('people').doc(toId),
       { userId: toId, connectedAt },
     );
-    batch.set(
+    connectionBatch.set(
       db.collection('connections').doc(toId).collection('people').doc(fromId),
       { userId: fromId, connectedAt },
     );
 
-    // 2. Add each user as a subscriber in the other's daily circle so that the
-    //    regular channel subscription delivers each other's feed automatically.
-    batch.update(
-      db.collection('channels').doc(`${toId}${DAILY_CHANNEL_SUFFIX}`),
-      { subscribers: FieldValue.arrayUnion(fromId) },
-    );
-    batch.update(
-      db.collection('channels').doc(`${fromId}${DAILY_CHANNEL_SUFFIX}`),
-      { subscribers: FieldValue.arrayUnion(toId) },
-    );
-
-    // 3. Notify the original requester that their request was accepted.
     if (toUser) {
       const notifRef = db.collection('notifications').doc();
-      batch.set(notifRef, {
+      connectionBatch.set(notifRef, {
         id: notifRef.id,
         type: 'connection_accepted',
         actorId: toId,
@@ -428,7 +417,26 @@ export const onConnectionRequestAccepted = onDocumentUpdated(
       });
     }
 
-    await batch.commit();
+    await connectionBatch.commit();
+
+    // 2. Add each user as a subscriber in the other's daily circle so that the
+    //    regular channel subscription delivers each other's feed automatically.
+    //    This runs separately so a missing daily channel document (edge case)
+    //    does not roll back the connection and notification committed above.
+    try {
+      const circlesBatch = db.batch();
+      circlesBatch.update(
+        db.collection('channels').doc(`${toId}${DAILY_CHANNEL_SUFFIX}`),
+        { subscribers: FieldValue.arrayUnion(fromId) },
+      );
+      circlesBatch.update(
+        db.collection('channels').doc(`${fromId}${DAILY_CHANNEL_SUFFIX}`),
+        { subscribers: FieldValue.arrayUnion(toId) },
+      );
+      await circlesBatch.commit();
+    } catch (err) {
+      console.error(`onConnectionRequestAccepted: failed to update daily circle subscribers for ${fromId} ↔ ${toId}:`, err);
+    }
   },
 );
 
@@ -458,29 +466,37 @@ export const onJoinRequestAccepted = onDocumentUpdated(
     const { requesterId, channelOwnerId } = after;
     const connectedAt = Date.now();
 
-    const batch = db.batch();
+    // 1. Commit the mutual connection documents atomically.
+    const connectionBatch = db.batch();
 
-    // 1. Mutual connection documents.
-    batch.set(
+    connectionBatch.set(
       db.collection('connections').doc(requesterId).collection('people').doc(channelOwnerId),
       { userId: channelOwnerId, connectedAt },
     );
-    batch.set(
+    connectionBatch.set(
       db.collection('connections').doc(channelOwnerId).collection('people').doc(requesterId),
       { userId: requesterId, connectedAt },
     );
 
-    // 2. Add each user as a subscriber in the other's daily circle.
-    batch.update(
-      db.collection('channels').doc(`${channelOwnerId}${DAILY_CHANNEL_SUFFIX}`),
-      { subscribers: FieldValue.arrayUnion(requesterId) },
-    );
-    batch.update(
-      db.collection('channels').doc(`${requesterId}${DAILY_CHANNEL_SUFFIX}`),
-      { subscribers: FieldValue.arrayUnion(channelOwnerId) },
-    );
+    await connectionBatch.commit();
 
-    await batch.commit();
+    // 2. Add each user as a subscriber in the other's daily circle.
+    //    Runs separately so a missing daily channel document (edge case)
+    //    does not roll back the connection committed above.
+    try {
+      const circlesBatch = db.batch();
+      circlesBatch.update(
+        db.collection('channels').doc(`${channelOwnerId}${DAILY_CHANNEL_SUFFIX}`),
+        { subscribers: FieldValue.arrayUnion(requesterId) },
+      );
+      circlesBatch.update(
+        db.collection('channels').doc(`${requesterId}${DAILY_CHANNEL_SUFFIX}`),
+        { subscribers: FieldValue.arrayUnion(channelOwnerId) },
+      );
+      await circlesBatch.commit();
+    } catch (err) {
+      console.error(`onJoinRequestAccepted: failed to update daily circle subscribers for ${requesterId} ↔ ${channelOwnerId}:`, err);
+    }
   },
 );
 
