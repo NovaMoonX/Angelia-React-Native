@@ -19,7 +19,7 @@ import { useToast } from '@/hooks/useToast';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { setPendingFromUserId } from '@/store/slices/connectionsSlice';
 import { sendConnectionRequest } from '@/store/actions/connectionsActions';
-import { getUserProfile, getExistingConnectionRequest } from '@/services/firebase/firestore';
+import { getPublicUserProfile, getExistingConnectionRequest } from '@/services/firebase/firestore';
 import type { User } from '@/models/types';
 
 /**
@@ -58,7 +58,7 @@ export default function ConnectRequestScreen() {
       return;
     }
     setLoadingHost(true);
-    getUserProfile(from)
+    getPublicUserProfile(from)
       .then((user) => setHostUser(user))
       .catch(() => setHostUser(null))
       .finally(() => setLoadingHost(false));

@@ -9,7 +9,7 @@ import {
 import { updateConnectionRequest, removeConnection } from '@/store/slices/connectionsSlice';
 import { updateChannel } from '@/store/slices/channelsSlice';
 import type { RootState } from '@/store';
-import type { ConnectionAcceptedNotification, ConnectionRequestNotification } from '@/models/types';
+import type { ConnectionRequestNotification } from '@/models/types';
 import { isDemoActive } from './globalActions';
 import { generateId } from '@/utils/generateId';
 
@@ -96,22 +96,6 @@ export const respondToConnectionRequest = createAsyncThunk(
     try {
       await firestoreRespondToConnectionRequest(requestId, accept);
       dispatch(updateConnectionRequest(updatedRequest));
-
-      if (accept) {
-        const notification: ConnectionAcceptedNotification = {
-          id: generateId('nano'),
-          type: 'connection_accepted',
-          actorId: user.id,
-          target: { type: 'user', userId: request.fromId },
-          toFirstName: user.firstName,
-          toLastName: user.lastName,
-          connectionRequestId: request.id,
-          createdAt: Date.now(),
-        };
-        // Fire-and-forget — delivery failure must not block the accept action
-        createAppNotification(notification).catch(() => {});
-      }
-
       return updatedRequest;
     } catch (err) {
       return rejectWithValue(err instanceof Error ? err.message : err);

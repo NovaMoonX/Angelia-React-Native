@@ -8,6 +8,9 @@ admin.initializeApp();
 const db = admin.firestore();
 const messaging = admin.messaging();
 
+/** Mirrors DAILY_CHANNEL_SUFFIX in src/models/constants.ts — keep in sync. */
+const DAILY_CHANNEL_SUFFIX = '-daily';
+
 // ── Types (mirrors src/models/types.ts in the app) ─────────────────────────
 // IMPORTANT: Keep these types in sync with src/models/types.ts in the app.
 
@@ -121,6 +124,13 @@ interface FcmTokenEntry {
   deviceId: string;
   token: string;
   deviceName?: string;
+}
+
+/** Mirrors the public profile fields stored at usersPublic/{uid}. */
+interface UserPublic {
+  id: string;
+  firstName: string;
+  lastName: string;
 }
 
 interface UserNotificationSettings {
@@ -348,9 +358,14 @@ export const sendAppNotification = onDocumentCreated(
 
 /**
  * Triggered when a `connectionRequests` document is updated.
- * When the status changes to 'accepted', writes mutual connection documents
- * under `connections/{userId}/people/{connectedUserId}` for both parties.
- * These writes use the Admin SDK and cannot be replicated by clients.
+ * When the status changes to 'accepted':
+ *   1. Writes mutual connection documents for both parties.
+ *   2. Adds each user to the other's daily circle as a subscriber, so the
+ *      standard channel subscription automatically includes each other's feed.
+ *   3. Sends a `connection_accepted` push notification to the original requester.
+ *
+ * All writes are batched for atomicity. The idempotency guard on
+ * `before.status` prevents duplicate work if the function is retried.
  */
 export const onConnectionRequestAccepted = onDocumentUpdated(
   'connectionRequests/{requestId}',
@@ -368,21 +383,50 @@ export const onConnectionRequestAccepted = onDocumentUpdated(
     if (before.status === 'accepted' || after.status !== 'accepted') return;
 
     const { fromId, toId } = after;
+    const requestId = event.params.requestId;
     const connectedAt = Date.now();
+
+    // Fetch the acceptor's public profile for the notification payload.
+    const toUserSnap = await db.collection('usersPublic').doc(toId).get();
+    const toUser = toUserSnap.exists ? (toUserSnap.data() as UserPublic) : null;
 
     const batch = db.batch();
 
-    // fromId → toId
+    // 1. Mutual connection documents.
     batch.set(
       db.collection('connections').doc(fromId).collection('people').doc(toId),
       { userId: toId, connectedAt },
     );
-
-    // toId → fromId
     batch.set(
       db.collection('connections').doc(toId).collection('people').doc(fromId),
       { userId: fromId, connectedAt },
     );
+
+    // 2. Add each user as a subscriber in the other's daily circle so that the
+    //    regular channel subscription delivers each other's feed automatically.
+    batch.update(
+      db.collection('channels').doc(`${toId}${DAILY_CHANNEL_SUFFIX}`),
+      { subscribers: FieldValue.arrayUnion(fromId) },
+    );
+    batch.update(
+      db.collection('channels').doc(`${fromId}${DAILY_CHANNEL_SUFFIX}`),
+      { subscribers: FieldValue.arrayUnion(toId) },
+    );
+
+    // 3. Notify the original requester that their request was accepted.
+    if (toUser) {
+      const notifRef = db.collection('notifications').doc();
+      batch.set(notifRef, {
+        id: notifRef.id,
+        type: 'connection_accepted',
+        actorId: toId,
+        target: { type: 'user', userId: fromId },
+        toFirstName: toUser.firstName,
+        toLastName: toUser.lastName,
+        connectionRequestId: requestId,
+        createdAt: connectedAt,
+      });
+    }
 
     await batch.commit();
   },
@@ -392,13 +436,10 @@ export const onConnectionRequestAccepted = onDocumentUpdated(
 
 /**
  * Triggered when a `channelJoinRequests` document is updated.
- * When the status changes to 'accepted', writes mutual connection documents
- * under `connections/{userId}/people/{connectedUserId}` for both the requester
- * and the circle owner.
- *
- * This means joining a circle automatically creates a direct connection between
- * the new member and the circle host, giving both parties access to each other's
- * Daily Circle without a separate connection request.
+ * When the status changes to 'accepted':
+ *   1. Writes mutual connection documents for the requester and the circle owner.
+ *   2. Adds each user as a subscriber in the other's daily circle so their feeds
+ *      are visible without a separate connection request.
  *
  * The write is idempotent: if `before.status` is already 'accepted', the
  * function exits early so retries do not produce duplicate documents.
@@ -419,16 +460,24 @@ export const onJoinRequestAccepted = onDocumentUpdated(
 
     const batch = db.batch();
 
-    // requester → channelOwner
+    // 1. Mutual connection documents.
     batch.set(
       db.collection('connections').doc(requesterId).collection('people').doc(channelOwnerId),
       { userId: channelOwnerId, connectedAt },
     );
-
-    // channelOwner → requester
     batch.set(
       db.collection('connections').doc(channelOwnerId).collection('people').doc(requesterId),
       { userId: requesterId, connectedAt },
+    );
+
+    // 2. Add each user as a subscriber in the other's daily circle.
+    batch.update(
+      db.collection('channels').doc(`${channelOwnerId}${DAILY_CHANNEL_SUFFIX}`),
+      { subscribers: FieldValue.arrayUnion(requesterId) },
+    );
+    batch.update(
+      db.collection('channels').doc(`${requesterId}${DAILY_CHANNEL_SUFFIX}`),
+      { subscribers: FieldValue.arrayUnion(channelOwnerId) },
     );
 
     await batch.commit();
@@ -454,7 +503,8 @@ interface DisconnectRequest {
  * In a single Firestore batch it:
  *   1. Deletes the mutual connection documents for both parties.
  *   2. Removes the target user from every channel owned by the requester
- *      where the target is currently a subscriber.
+ *      where the target is currently a subscriber (including their daily circle).
+ *   3. Removes the requester from the target's daily circle.
  *
  * Using a single batch keeps costs low (one Admin SDK round-trip) and makes
  * the operation atomic from the Cloud Function's perspective.
@@ -482,7 +532,8 @@ export const onDisconnectRequest = onDocumentCreated(
     );
 
     // 2. Remove the target from every channel owned by the requester where
-    //    they are listed as a subscriber.
+    //    they are listed as a subscriber (covers the requester's daily circle
+    //    and any custom circles they own).
     const channelsSnap = await db
       .collection('channels')
       .where('ownerId', '==', requesterId)
@@ -495,7 +546,13 @@ export const onDisconnectRequest = onDocumentCreated(
       });
     }
 
-    // 3. Clean up the request document.
+    // 3. Remove the requester from the target's daily circle.
+    batch.update(
+      db.collection('channels').doc(`${targetUserId}${DAILY_CHANNEL_SUFFIX}`),
+      { subscribers: FieldValue.arrayRemove(requesterId) },
+    );
+
+    // 4. Clean up the request document.
     batch.delete(snap.ref);
 
     await batch.commit();

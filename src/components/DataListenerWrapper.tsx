@@ -73,6 +73,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const pendingInviteChannel = useAppSelector((state) => state.pendingInvite.channel);
   const pendingFromUserId = useAppSelector((state) => state.connections.pendingFromUserId);
   const connections = useAppSelector((state) => state.connections.connections);
+  const incomingConnectionRequests = useAppSelector((state) => state.connections.incomingRequests);
   const posts = useAppSelector((state) => state.posts.items);
 
   // Whether the current user's daily channel is loaded — used to trigger the member sync
@@ -210,6 +211,11 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
     });
     // Include direct connections so My People can resolve their display names.
     connections.forEach((c) => userIds.add(c.userId));
+    // Include pending connection request senders so the notifications and
+    // connection-request screens can resolve their names and avatars.
+    incomingConnectionRequests
+      .filter((r) => { return r.status === 'pending'; })
+      .forEach((r) => { userIds.add(r.fromId); });
 
     const uniqueIds = Array.from(userIds);
     if (uniqueIds.length === 0) return;
@@ -231,7 +237,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
         usersUnsubRef.current = null;
       }
     };
-  }, [firebaseUser, isDemo, channels, connections, dispatch]);
+  }, [firebaseUser, isDemo, channels, connections, incomingConnectionRequests, dispatch]);
 
   // Effect 4: Process pending invite once user is authenticated
   useEffect(() => {
