@@ -174,12 +174,12 @@ export function AccountTab() {
             <Avatar user={currentUser} size="xl" />
             <Pressable
               onPress={() => router.push('/(protected)/share-connection')}
-              style={[styles.qrButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+              style={[styles.qrButton, { backgroundColor: theme.card, borderColor: theme.accent }]}
               hitSlop={4}
               accessibilityLabel="Share connection link"
               accessibilityRole="button"
             >
-              <MaterialCommunityIcons name="qrcode" size={14} color={theme.foreground} />
+              <MaterialCommunityIcons name="qrcode" size={14} color={theme.accent} />
             </Pressable>
           </View>
           <Text style={[styles.profileName, { color: theme.foreground }]}>
