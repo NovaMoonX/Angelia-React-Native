@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Avatar } from '@/components/ui/Avatar';
@@ -169,7 +170,18 @@ export function AccountTab() {
     <>
       <Card style={styles.profileCard}>
         <View style={styles.profileHeader}>
-          <Avatar user={currentUser} size="xl" />
+          <View style={styles.avatarWrapper}>
+            <Avatar user={currentUser} size="xl" />
+            <Pressable
+              onPress={() => router.push('/(protected)/share-connection')}
+              style={[styles.qrButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+              hitSlop={4}
+              accessibilityLabel="Share connection link"
+              accessibilityRole="button"
+            >
+              <MaterialCommunityIcons name="qrcode" size={14} color={theme.foreground} />
+            </Pressable>
+          </View>
           <Text style={[styles.profileName, { color: theme.foreground }]}>
             {currentUser.firstName} {currentUser.lastName}
           </Text>
@@ -280,13 +292,6 @@ export function AccountTab() {
 
       <Separator style={{ marginVertical: 16 }} />
       <View style={styles.bottomSection}>
-        <Button
-          variant="outline"
-          textStyle={{ flex: 1 }}
-          onPress={() => router.push('/(protected)/share-connection')}
-        >
-          🔗 Share Connection Link
-        </Button>
         {!isDemo && (
           <Button
             variant="outline"
@@ -326,6 +331,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'stretch',
     gap: 4,
+  },
+  avatarWrapper: {
+    position: 'relative',
+  },
+  qrButton: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   profileName: {
     fontSize: 20,
