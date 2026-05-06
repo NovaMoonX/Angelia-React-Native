@@ -40,7 +40,7 @@ npm run env:pull     # writes .env.development
 
 | Script | When to run |
 |---|---|
-| `npm run android` | **Standard run command.** Builds and launches on a connected physical Android device. Run this after `prebuild:android` to start developing. |
+| `npm run android` | **Compiles native code (Gradle), installs the `.apk` on the device, and starts Metro.** Run this after `prebuild:android` or any time native code, plugins, or `app.config.js` has changed. Also the first command to run on a fresh clone. |
 | `npm run android:clean` | Use when you suspect a stale build cache is causing issues (e.g. native changes aren't reflected, unexplained crash on launch). Slower than `android` but guaranteed fresh. |
 | `npm run android:devices` | Run when ADB can't see your device — restarts the ADB server and lists connected devices. |
 | `npm run prebuild:android` | **Run after any config change** (`app.config.js`, new native plugin, or new native dependency). Regenerates the `android/` folder. Must be run before `npm run android` when changes are made. |
@@ -62,8 +62,8 @@ npm run env:pull     # writes .env.development
 
 | Script | When to run |
 |---|---|
-| `npm start` | Start the Metro bundler for JS-only changes (no native rebuild needed). |
-| `npm run start:clean` | Use when Metro is serving stale modules or assets — clears the cache before starting. |
+| `npm start` | **Start Metro only** — does not build or install the native app. The dev-client `.apk` (or `.app`) must already be installed on the device from a prior `npm run android` (or `npm run ios`). Use for JS-only iteration once the native binary is in place. |
+| `npm run start:clean` | Same as above but clears Metro's cache first. Use when Metro is serving stale modules or assets. |
 | `npm run web` | Start the web version via Expo. |
 
 #### Code Quality
@@ -99,7 +99,7 @@ npm run env:pull     # writes .env.development
 
 1. **`bash scripts/setup-ios.sh`** — run once after cloning, and again after any clean prebuild. This does everything: prebuild, Podfile patch, pod install.
 2. **`npm run ios`** — build and launch on a connected device or simulator.
-3. **For JS-only changes after initial setup:** `npm start` is sufficient — no rebuild needed.
+3. **For JS-only changes after the native app is installed:** `npm start` (Metro only) is sufficient — no native recompile needed. If the app isn't installed on the device yet, use `npm run ios` first.
 4. **If you run `npm run prebuild:ios:clean`** manually, always follow it with `bash scripts/setup-ios.sh` — the script re-applies the Podfile patch that the clean wipes away.
 
 ---
@@ -113,9 +113,9 @@ This is the standard day-to-day flow when developing on a physical Android devic
 3. **`npm run prebuild:android`** — regenerate the `android/` folder
    - Run this after: initial clone, changes to `app.config.js`, adding/removing native plugins or native dependencies
    - Use `prebuild:android:clean` when prebuild errors out or after an SDK upgrade
-4. **`npm run android`** — build and launch on your connected Android device
+4. **`npm run android`** — compile (Gradle), install the `.apk`, and start Metro on your connected device
    - Use `android:clean` when you suspect a stale build cache
-5. **For JS-only changes after initial setup:** `npm start` is sufficient — no prebuild needed
+5. **For JS-only changes after the native app is installed:** `npm start` is sufficient — it starts Metro without rebuilding the native binary. If the app isn't installed yet (or you've run `prebuild:android` since the last install), use `npm run android` instead.
 6. **After editing Firestore or Storage rules:** `npm run deploy:rules`
    - After editing Cloud Functions: `npm run deploy:functions`
 7. **Before pushing:** `npm run ts:check` && `npm run lint`
