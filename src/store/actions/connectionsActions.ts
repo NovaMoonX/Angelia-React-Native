@@ -25,10 +25,24 @@ export const sendConnectionRequest = createAsyncThunk(
     const user = state.users.currentUser;
     if (!user) return rejectWithValue('User not authenticated');
 
-    // Prevent duplicate pending/accepted requests
+    // Prevent duplicate pending requests or re-requesting while still connected.
+    // Note: an 'accepted' connectionRequests doc can linger after a disconnect
+    // because the Cloud Function only deletes the connections subcollection docs,
+    // not the original request document.  We therefore only block on an existing
+    // request when the request is still 'pending' OR the users are still actively
+    // connected according to the Redux state (which is kept current by the
+    // real-time Firestore listener).
     if (!isDemoActive(getState)) {
       const existing = await getExistingConnectionRequest(user.id, toId);
-      if (existing) return existing;
+      if (existing) {
+        const currentState = getState() as RootState;
+        const isStillConnected = currentState.connections.connections.some(
+          (c) => { return c.userId === toId; },
+        );
+        if (existing.status === 'pending' || isStillConnected) {
+          return existing;
+        }
+      }
     }
 
     if (isDemoActive(getState)) {
