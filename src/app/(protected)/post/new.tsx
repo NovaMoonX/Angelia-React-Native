@@ -232,6 +232,8 @@ export default function PostCreateScreen() {
         <View style={styles.tierRow}>
           {POST_TIERS.map((opt) => {
             const isSelected = selectedTier === opt.value;
+            const activeBg = opt.badgeBg === 'transparent' ? theme.primary : opt.badgeBg;
+            const activeText = opt.badgeText === 'transparent' ? theme.primaryForeground : opt.badgeText;
             return (
               <Pressable
                 key={opt.value}
@@ -239,8 +241,8 @@ export default function PostCreateScreen() {
                 style={[
                   styles.tierPill,
                   {
-                    backgroundColor: isSelected ? theme.primary : theme.muted,
-                    borderColor: isSelected ? theme.primary : theme.border,
+                    backgroundColor: isSelected ? activeBg : theme.muted,
+                    borderColor: isSelected ? activeBg : theme.border,
                   },
                 ]}
               >
@@ -248,7 +250,7 @@ export default function PostCreateScreen() {
                 <Text
                   style={[
                     styles.tierPillLabel,
-                    { color: isSelected ? theme.primaryForeground : theme.mutedForeground },
+                    { color: isSelected ? activeText : theme.mutedForeground },
                   ]}
                 >
                   {opt.label}
