@@ -74,6 +74,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const pendingFromUserId = useAppSelector((state) => state.connections.pendingFromUserId);
   const connections = useAppSelector((state) => state.connections.connections);
   const incomingConnectionRequests = useAppSelector((state) => state.connections.incomingRequests);
+  const incomingJoinRequests = useAppSelector((state) => state.invites.incoming);
   const posts = useAppSelector((state) => state.posts.items);
 
   // Whether the current user's daily channel is loaded — used to trigger the member sync
@@ -88,6 +89,14 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const postsRef = useRef(posts);
   useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
   useEffect(() => { postsRef.current = posts; }, [posts]);
+
+  // Refs used by Effects 12 & 13 for Firestore-sourced in-app notification detection.
+  // Tracks which request IDs have already triggered an in-app toast (deduplicates
+  // against push-notification toasts from Effect 9).
+  const seenConnectionRequestIdsRef = useRef(new Set<string>());
+  const connectionRequestsLoadedRef = useRef(false);
+  const seenJoinRequestIdsRef = useRef(new Set<string>());
+  const joinRequestsLoadedRef = useRef(false);
 
   const unsubsRef = useRef<Array<() => void>>([]);
   const postsUnsubRef = useRef<(() => void) | null>(null);
@@ -111,6 +120,13 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
 
     const uid = firebaseUser.uid;
 
+    // Reset Firestore-sourced notification tracking on each auth session so
+    // we don't show stale toasts when the user logs out and back in.
+    seenConnectionRequestIdsRef.current = new Set();
+    connectionRequestsLoadedRef.current = false;
+    seenJoinRequestIdsRef.current = new Set();
+    joinRequestsLoadedRef.current = false;
+
     const unsubUser = subscribeToCurrentUser(uid, (user: User | null) => {
       dispatch(setCurrentUser(user));
     });
@@ -122,6 +138,12 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
     const unsubIncoming = subscribeToIncomingJoinRequests(
       uid,
       (reqs: ChannelJoinRequest[]) => {
+        // Record all existing IDs on the first snapshot so we don't show
+        // in-app toasts for join requests that were already pending at login.
+        if (!joinRequestsLoadedRef.current) {
+          reqs.forEach((r) => { seenJoinRequestIdsRef.current.add(r.id); });
+          joinRequestsLoadedRef.current = true;
+        }
         dispatch(setIncomingRequests(reqs));
       }
     );
@@ -140,6 +162,12 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
     const unsubIncomingConns = subscribeToIncomingConnectionRequests(
       uid,
       (reqs: ConnectionRequest[]) => {
+        // Record all existing IDs on the first snapshot so we don't show
+        // in-app toasts for connection requests that were already pending at login.
+        if (!connectionRequestsLoadedRef.current) {
+          reqs.forEach((r) => { seenConnectionRequestIdsRef.current.add(r.id); });
+          connectionRequestsLoadedRef.current = true;
+        }
         dispatch(setIncomingConnectionRequests(reqs));
       },
     );
@@ -436,6 +464,9 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   // Effect 9: Show in-app toast when a push notification arrives in the foreground.
   // Handles join_channel_request, join_channel_accepted, connection_request,
   // connection_accepted, and big_news_post types.
+  //
+  // For connection_request and join_channel_request, we also mark the request ID
+  // as seen so that the Firestore-based Effects 12 & 13 don't show a duplicate toast.
   useEffect(() => {
     const subscription = Notifications.addNotificationReceivedListener((notification) => {
       const data = notification.request.content.data as Record<string, string> | undefined;
@@ -445,6 +476,8 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
         const channelName = data?.channelName ?? 'your channel';
         const firstName = data?.requesterFirstName ?? 'Someone';
         const joinRequestId = data?.joinRequestId;
+        // Mark as seen so the Firestore watcher (Effect 13) doesn't duplicate this toast.
+        if (joinRequestId) seenJoinRequestIdsRef.current.add(joinRequestId);
         addToast({
           type: 'info',
           title: `📬 ${firstName} wants to join!`,
@@ -464,6 +497,8 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       } else if (type === 'connection_request') {
         const firstName = data?.fromFirstName ?? 'Someone';
         const requestId = data?.connectionRequestId;
+        // Mark as seen so the Firestore watcher (Effect 12) doesn't duplicate this toast.
+        if (requestId) seenConnectionRequestIdsRef.current.add(requestId);
         addToast({
           type: 'info',
           title: `🤝 ${firstName} wants to connect!`,
@@ -588,6 +623,55 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       tasksUnsubRef.current = null;
     };
   }, [isDemo, firebaseUser, dispatch]);
+
+  // Effect 12: Show in-app toasts for new pending connection requests detected via
+  // the Firestore real-time listener (covers cases where the push notification was
+  // not delivered, e.g. permission denied or app foregrounded after being backgrounded).
+  // Deduplicates with Effect 9 (push notification path) via seenConnectionRequestIdsRef.
+  useEffect(() => {
+    if (isDemo || !connectionRequestsLoadedRef.current) return;
+
+    const newRequests = incomingConnectionRequests.filter(
+      (r) => { return r.status === 'pending' && !seenConnectionRequestIdsRef.current.has(r.id); },
+    );
+
+    for (const req of newRequests) {
+      seenConnectionRequestIdsRef.current.add(req.id);
+      const sender = allUsers.find((u) => { return u.id === req.fromId; });
+      const firstName = sender?.firstName ?? 'Someone';
+      addToast({
+        type: 'info',
+        title: `🤝 ${firstName} wants to connect!`,
+        description: 'Tap to review their connection request',
+        onPress: () => router.push({ pathname: '/(protected)/connection-request/[id]', params: { id: req.id } }),
+      });
+    }
+  }, [isDemo, incomingConnectionRequests, allUsers, addToast]);
+
+  // Effect 13: Show in-app toasts for new pending circle join requests detected via
+  // the Firestore real-time listener (same rationale as Effect 12).
+  // Deduplicates with Effect 9 (push notification path) via seenJoinRequestIdsRef.
+  useEffect(() => {
+    if (isDemo || !joinRequestsLoadedRef.current) return;
+
+    const newRequests = incomingJoinRequests.filter(
+      (r) => { return r.status === 'pending' && !seenJoinRequestIdsRef.current.has(r.id); },
+    );
+
+    for (const req of newRequests) {
+      seenJoinRequestIdsRef.current.add(req.id);
+      const requester = allUsers.find((u) => { return u.id === req.requesterId; });
+      const circle = channels.find((ch) => { return ch.id === req.channelId; });
+      const firstName = requester?.firstName ?? 'Someone';
+      const channelName = circle?.name ?? 'your circle';
+      addToast({
+        type: 'info',
+        title: `📬 ${firstName} wants to join!`,
+        description: `Tap to review their request for ${channelName}`,
+        onPress: () => router.push({ pathname: '/(protected)/join-request/[id]', params: { id: req.id } }),
+      });
+    }
+  }, [isDemo, incomingJoinRequests, allUsers, channels, addToast]);
 
   return <>{children}</>;
 }
