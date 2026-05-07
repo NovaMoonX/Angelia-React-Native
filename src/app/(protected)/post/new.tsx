@@ -26,7 +26,7 @@ import {
   selectCurrentUserDailyChannel,
   selectCurrentUserCustomChannels,
 } from '@/store/crossSelectors/channelSelectors';
-import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
+import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { MAX_FILES, POST_TIERS } from '@/models/constants';
 import { generateVideoThumbnail } from '@/utils/generateVideoThumbnail';
 import type { VideoThumbnail } from 'expo-video';
@@ -155,7 +155,7 @@ export default function PostCreateScreen() {
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: theme.background }}
       behavior={KEYBOARD_BEHAVIOR}
-      keyboardVerticalOffset={KEYBOARD_VERTICAL_OFFSET}
+      keyboardVerticalOffset={0}
     >
       {/* Top bar: Cancel + Post */}
       <View style={[styles.topBar, { borderBottomColor: theme.border, paddingTop: isDemo ? 12 : insets.top + 8 }]}>
