@@ -335,11 +335,10 @@ export default function PostCreateScreen() {
       {/* Media preview strip — kept outside ScrollView so it stays visible above
            the toolbar when the keyboard is open on iOS */}
       {media.length > 0 && (
-        <FlashList
+        <FlashList<MediaFile>
           data={media}
           horizontal
           showsHorizontalScrollIndicator={false}
-          estimatedItemSize={88}  {/* mediaThumb: 80px + 8px gap */}
           keyExtractor={(_, i) => `media-${i}`}
           contentContainerStyle={styles.mediaStrip}
           renderItem={({ item, index }) => {
