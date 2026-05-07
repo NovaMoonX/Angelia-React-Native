@@ -57,7 +57,7 @@ export default function FeedScreen() {
   const isAutoCompletingTasks = useAutoCompleteTasks();
 
   const [hideOwnPosts, setHideOwnPosts] = useState(true);
-  const [channelFilter, setChannelFilter] = useState<ChannelFilterState>({ mode: 'all', specificIds: [] });
+  const [channelFilter, setChannelFilter] = useState<ChannelFilterState>({ mode: 'others', specificIds: [] });
   const [channelFilterOpen, setChannelFilterOpen] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState<PostTier[]>([]);
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
@@ -112,7 +112,15 @@ export default function FeedScreen() {
   }, [channelFilter, channels, currentUser?.id]);
 
   const toggleHideOwnPosts = useCallback(() => {
-    setHideOwnPosts((prev) => !prev);
+    setHideOwnPosts((prev) => {
+      const next = !prev;
+      if (next) {
+        setChannelFilter((cf) => { return cf.mode === 'all' ? { mode: 'others', specificIds: [] } : cf; });
+      } else {
+        setChannelFilter((cf) => { return cf.mode === 'others' ? { mode: 'all', specificIds: [] } : cf; });
+      }
+      return next;
+    });
   }, []);
 
   const togglePriorityFilter = useCallback((tier: PostTier) => {
@@ -180,11 +188,21 @@ export default function FeedScreen() {
 
   // True when the only active "filter" is the default hide-own toggle (no channel or priority filter).
   // Used to show an encouraging empty state rather than a generic "no match" state.
-  const isOnlyHideOwnFilter = hideOwnPosts && !hasActiveFilters;
+  const isOnlyHideOwnFilter = hideOwnPosts && channelFilter.mode === 'others' && priorityFilter.length === 0;
 
   const clearFilters = useCallback(() => {
     setChannelFilter({ mode: 'all', specificIds: [] });
     setPriorityFilter([]);
+    setHideOwnPosts(false);
+  }, []);
+
+  const handleApplyFilter = useCallback((filter: ChannelFilterState) => {
+    setChannelFilter(filter);
+    if (filter.mode === 'others') {
+      setHideOwnPosts(true);
+    } else if (filter.mode === 'all') {
+      setHideOwnPosts(false);
+    }
   }, []);
 
   // When filters or sort order change: scroll to top, reset page, show filtering indicator
@@ -474,25 +492,6 @@ export default function FeedScreen() {
             />
           </Pressable>
           <Pressable
-            onPress={toggleHideOwnPosts}
-            style={[
-              styles.hideOwnButton,
-              {
-                borderColor: hideOwnPosts ? theme.primary : theme.border,
-                backgroundColor: theme.background,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.hideOwnText,
-                { color: hideOwnPosts ? theme.primary : theme.mutedForeground },
-              ]}
-            >
-              {hideOwnPosts ? 'Others only' : 'All posts'}
-            </Text>
-          </Pressable>
-          <Pressable
             onPress={() =>
               setSortOrder((prev) =>
                 prev === 'newest' ? 'oldest' : 'newest'
@@ -570,7 +569,7 @@ export default function FeedScreen() {
         isOpen={channelFilterOpen}
         onClose={() => setChannelFilterOpen(false)}
         value={channelFilter}
-        onApply={setChannelFilter}
+        onApply={handleApplyFilter}
         channels={channels}
         currentUserId={currentUser?.id}
       />
@@ -769,18 +768,6 @@ const styles = StyleSheet.create({
   channelFilterText: {
     fontSize: 14,
     flex: 1,
-  },
-  hideOwnButton: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hideOwnText: {
-    fontSize: 13,
-    fontWeight: '500',
   },
   sortButton: {
     width: 40,
