@@ -23,6 +23,8 @@ interface AvatarProps {
   statusEmoji?: string;
   /** Firebase Storage download URL for a custom profile photo. Used only when `user` is not provided. */
   uri?: string | null;
+  /** When false, the status emoji badge is hidden even if the user has an active status. Defaults to true. */
+  showStatus?: boolean;
 }
 
 const SIZE_MAP = {
@@ -76,14 +78,16 @@ const PRESET_COLORS: Record<AvatarPreset, string> = {
   'black-hole': '#18181B',
 };
 
-export function Avatar({ user, preset, size = 'md', shape = 'circle', style, statusEmoji, uri }: AvatarProps) {
+export function Avatar({ user, preset, size = 'md', shape = 'circle', style, statusEmoji, uri, showStatus = true }: AvatarProps) {
   const resolvedPreset: AvatarPreset = user?.avatar ?? preset ?? 'moon';
   const resolvedUri: string | null | undefined = user !== undefined && user !== null ? user.avatarUrl : uri;
 
   // Auto-resolve status emoji from user.status when user prop is provided
-  const resolvedStatusEmoji: string | undefined = user !== undefined && user !== null
-    ? (user.status && Date.now() < user.status.expiresAt ? user.status.emoji : undefined)
-    : statusEmoji;
+  const resolvedStatusEmoji: string | undefined = showStatus
+    ? (user !== undefined && user !== null
+      ? (user.status && Date.now() < user.status.expiresAt ? user.status.emoji : undefined)
+      : statusEmoji)
+    : undefined;
 
   const dimension = SIZE_MAP[size];
   const borderRadius = shape === 'circle' ? dimension / 2 : 8;

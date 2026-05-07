@@ -162,7 +162,7 @@ export default function ConnectionRequestScreen() {
 
           <Card style={styles.requestCard}>
             <View style={styles.requesterRow}>
-              <Avatar user={requester} size="md" />
+              <Avatar user={requester} size="md" showStatus={false} />
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={[styles.requesterName, { color: theme.foreground }]}>
                   {requester?.firstName ?? 'Unknown'} {requester?.lastName ?? 'User'}

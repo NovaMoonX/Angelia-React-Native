@@ -10,6 +10,7 @@ import { UserProfileModal } from '@/components/UserProfileModal';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
+import { useActionModal } from '@/hooks/useActionModal';
 import { selectMyPeopleData } from '@/store/crossSelectors/myPeopleSelectors';
 import { disconnectUser } from '@/store/actions/connectionsActions';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -31,7 +32,7 @@ function PersonRow({ user, tag, onPress }: PersonRowProps) {
         { backgroundColor: theme.card, borderColor: theme.border, opacity: pressed ? 0.8 : 1 },
       ]}
     >
-      <Avatar user={user} size="sm" />
+      <Avatar user={user} size="sm" showStatus={false} />
       <View style={{ flex: 1, marginLeft: 12 }}>
         <Text style={[styles.personName, { color: theme.foreground }]}>
           {user.firstName} {user.lastName}
@@ -60,11 +61,18 @@ export default function MyPeopleScreen() {
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
   const { addToast } = useToast();
+  const { confirm } = useActionModal();
 
   const { people } = useAppSelector(selectMyPeopleData);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   const handleDisconnect = async (userId: string) => {
+    const ok = await confirm({
+      title: 'Disconnect',
+      message: 'This will remove your connection. You will no longer see each other\'s daily updates. Continue?',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await dispatch(disconnectUser(userId)).unwrap();
       addToast({ type: 'success', title: 'Disconnected' });

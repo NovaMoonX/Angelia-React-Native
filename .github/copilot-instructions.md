@@ -178,6 +178,34 @@ The `Avatar` component accepts a `user` prop (`Pick<User, 'avatar' | 'avatarUrl'
 
 The individual `preset` and `uri` props are only for non-User contexts, such as avatar edit previews (e.g. `AccountTab`, `complete-profile.tsx`) where the values come from local state rather than a `User` object.
 
+### Status badge visibility (`showStatus` prop)
+
+`Avatar` renders the user's active status emoji as a badge by default (`showStatus` defaults to `true`). Pass `showStatus={false}` to suppress the badge in contexts where the status icon would be distracting or irrelevant.
+
+**Always use `showStatus={false}` in:**
+- The account/profile tab (the user's own avatar at the top)
+- Connection request screens
+- Join request screens
+- Invite screens
+- Share-connection screen
+- My People list
+- Notifications list
+- Channel member lists / channel cards
+- Private notes screens (both host and sender views)
+
+**Leave `showStatus` at its default (`true`) in:**
+- Feed posts (post author avatar)
+- Conversation / chat message avatars
+- User profile modal
+
+```tsx
+// ✅ feed / conversation — status badge visible
+<Avatar user={author} size="sm" />
+
+// ✅ utility / action screens — status badge hidden
+<Avatar user={requester} size="md" showStatus={false} />
+```
+
 ---
 
 ## Keeping docs up to date
@@ -205,6 +233,36 @@ Do **not** clutter the README with:
 - Every minor dependency update
 - Internal implementation details that don't affect the dev workflow
 - Speculative or forward-looking notes
+
+---
+
+## Confirming destructive actions
+
+Any user-initiated action that is **irreversible or has significant consequences** must be confirmed with `useActionModal`'s `confirm()` before proceeding. Pass `destructive: true` so the confirm button renders in a destructive (red) style.
+
+Actions that always require confirmation:
+- **Disconnecting from a user** — removing a mutual connection (e.g. `disconnectUser`)
+- **Leaving a circle** — unsubscribing from a custom circle (e.g. `unsubscribeFromChannel`)
+- **Removing a member from a circle** — kicking a subscriber out of a custom circle (e.g. `removeChannelSubscriber`)
+- **Deleting a circle** — permanently deleting a channel and all its posts (e.g. `deleteCustomChannel`)
+- **Any other action that deletes or permanently removes data**
+
+Pattern:
+```tsx
+const { confirm } = useActionModal();
+
+const handleDestructiveAction = async () => {
+  const ok = await confirm({
+    title: 'Short title',
+    message: 'One sentence explaining what will happen.',
+    destructive: true,
+  });
+  if (!ok) return;
+  // proceed with the action
+};
+```
+
+**Never** perform a destructive action without first awaiting `confirm()`. If `confirm` is not yet imported in the file, add `useActionModal` from `@/hooks/useActionModal`.
 
 ---
 
