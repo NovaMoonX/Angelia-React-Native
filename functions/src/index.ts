@@ -202,8 +202,8 @@ function buildFcmPayload(notification: AppNotification): {
     const n = notification as BigNewsPostNotification;
     const circleLabel = n.isDaily ? 'Daily Circle' : `"${n.channelName}"`;
     return {
-      title: '🔔 Big News!!',
-      body: `${n.authorFirstName} ${n.authorLastName} shared big news in their ${circleLabel}`,
+      title: `${n.authorFirstName} ${n.authorLastName} shared some big news!!!`,
+      body: `See their update in their ${circleLabel}`,
       data: {
         type: n.type,
         postId: n.postId,

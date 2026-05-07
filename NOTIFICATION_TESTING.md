@@ -170,8 +170,8 @@ titled "🎉 You're connected!".
 ### Scenario E — Big News Post (you are a subscriber of the channel)
 
 A connected user or circle host published a `big-news` tier post. You'll see an
-in-app toast titled "🌟 Big news from …!" and a background push with the same
-message. Tapping either navigates to the post detail screen.
+in-app toast titled "🌟 … shared some big news!!!" and a background push with
+the same message. Tapping either navigates to the post detail screen.
 
 > **Important:** This notification uses a `channel_tier` target instead of a
 > `user` target.  The Cloud Function reads the `channels/{channelId}` document
@@ -194,6 +194,7 @@ Replace `YOUR_USER_ID`, `YOUR_CHANNEL_ID`, and `YOUR_POST_ID` with real values.
   "createdAt": 1713484800000,
   "postId": "YOUR_POST_ID",
   "channelId": "YOUR_CHANNEL_ID",
+  "channelName": "Your Circle Name",
   "isDaily": false,
   "authorFirstName": "Alex",
   "authorLastName": "Test"
@@ -260,6 +261,101 @@ persists, check the Cloud Function logs in Firebase Console → Functions → Lo
 | Doc deleted but no push received | `fcmTokens` is empty, permissions denied, or token is stale — sign out and back in |
 | Toast not showing in foreground | App is not wrapped in `DataListenerWrapper`, or the `type` field value is wrong |
 | Push arrives but tapping does nothing | `joinRequestId` / `channelName` in the data payload doesn't match a real doc — expected in test mode |
+
+---
+
+## Investigating Cloud Function Notification Failures
+
+Use this guide when big-news (or any Cloud-Function-driven) notifications are
+not appearing — neither in the foreground toast nor as a background system push.
+
+### Step 1 — Confirm the Cloud Functions are deployed
+
+1. Open [Firebase Console](https://console.firebase.google.com) → select your
+   project → **Functions**.
+2. Verify that `sendAppNotification` appears in the function list with a green
+   status indicator.
+3. If it is missing or shows an error, deploy it:
+   ```bash
+   npm run deploy:functions
+   ```
+   This runs `cd functions && npm run build && firebase deploy --only functions`.
+
+### Step 2 — Verify the notification document is being written
+
+After posting a **Big News** post from the app:
+
+1. Open Firestore Console → `notifications` collection.
+2. Within a second or two the document should appear and then disappear (the
+   Cloud Function deletes it after processing).
+
+**If the document never appears:**
+- The client-side `sendBigNewsNotification` is failing silently. Open the app's
+  JavaScript console / Metro logs and look for any `createAppNotification` or
+  Firestore write errors.
+- Confirm the posting user is **not** in demo mode — demo mode skips the real
+  Firestore write entirely.
+
+**If the document appears and stays:**
+- The Cloud Function is not triggering. Continue to Step 3.
+
+### Step 3 — Check Cloud Function logs
+
+1. Firebase Console → **Functions** → **Logs** tab (or use the GCP Logs
+   Explorer filtered to `resource.type="cloud_function"`).
+2. Filter by function name `sendAppNotification`.
+3. Look for:
+   - `Successfully sent FCM to N tokens` — function ran and sent pushes.
+   - `Failed to send FCM to token …` — function ran but FCM rejected a token
+     (stale token — user should sign out and back in).
+   - Any `Error` lines — indicates a runtime crash. Note the full stack trace.
+4. If there are **no log lines** for `sendAppNotification` after a notification
+   document was created, the Firestore trigger is not firing. Re-deploy the
+   functions and try again.
+
+### Step 4 — Verify the channel has subscribers
+
+The `sendAppNotification` Cloud Function reads the channel's `subscribers` array
+and fans out to each subscriber's FCM tokens.  If the array is empty (or only
+contains the author), no one receives a push.
+
+1. Firestore Console → `channels/{channelId}`.
+2. Confirm your test user's UID is in the `subscribers` array.
+3. If not, the test recipient must join the circle first (or for a daily circle,
+   they must be connected to the channel owner).
+
+### Step 5 — Verify the FCM token is registered on the recipient device
+
+1. Firestore Console → `userNotificationSettings/{recipientUserId}`.
+2. Confirm a `fcmTokens` array exists with at least one entry.
+3. If missing or empty:
+   - On the **physical device**, sign out of the app and sign back in.
+     Token registration happens automatically on sign-in.
+   - Confirm notification permissions are granted: device Settings → Angelia →
+     Notifications → Allow.
+
+### Step 6 — Try the manual Firestore test
+
+Use **Scenario E** above to create a notification document directly in the
+Firestore Console (bypassing the app entirely).  This isolates whether the
+issue is in the client-side code or the Cloud Function.
+
+- If the manual doc is processed and you receive a push: the problem is in
+  `sendBigNewsNotification` / `postActions.ts` on the client.
+- If the manual doc stays: the Cloud Function is not deployed or is crashing
+  (see Steps 1–3).
+
+### Step 7 — Common gotchas checklist
+
+| Condition | Fix |
+|---|---|
+| Testing on iOS Simulator or Android Emulator | FCM does not deliver to simulators/emulators — use a **physical device** |
+| Notification permissions not granted | Device Settings → Angelia → Notifications → enable |
+| Signed in with demo account | Demo mode skips all real Firestore writes — sign in with a real account |
+| Functions code changed locally but not deployed | Run `npm run deploy:functions` |
+| Stale FCM token | Sign out and sign back in on the physical device |
+| Recipient is the same user as the author | The Cloud Function excludes the post author from push recipients by design |
+| Channel document missing `subscribers` field | Manually inspect the channel doc and ensure `subscribers` is a non-empty array |
 
 ---
 
