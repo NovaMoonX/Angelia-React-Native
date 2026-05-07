@@ -171,7 +171,7 @@ export function AccountTab() {
       <Card style={styles.profileCard}>
         <View style={styles.profileHeader}>
           <View style={styles.avatarWrapper}>
-            <Avatar user={currentUser} size="xl" />
+            <Avatar user={currentUser} size="xl" showStatus={false} />
             <Pressable
               onPress={() => router.push('/(protected)/share-connection')}
               style={[styles.qrButton, { backgroundColor: theme.card, borderColor: theme.accent }]}
