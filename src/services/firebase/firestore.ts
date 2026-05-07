@@ -660,6 +660,17 @@ export function subscribeToChannelUsers(
   const privateDataMap: Map<string, UserPrivate> = new Map();
   const unsubscribes: Array<() => void> = [];
 
+  // Track per-batch readiness so we only emit after both the public AND private
+  // snapshots have fired at least once for every batch.  Emitting after the
+  // public-only snapshot would produce users with status === null, causing the
+  // status badge on avatars to briefly disappear before the private data arrives.
+  const totalBatches = batches.length;
+  const publicBatchFired = new Array<boolean>(totalBatches).fill(false);
+  const privateBatchFired = new Array<boolean>(totalBatches).fill(false);
+  let publicBatchesReady = 0;
+  let privateBatchesReady = 0;
+  let allInitiallyReady = false;
+
   function emitMerged() {
     const merged: User[] = [];
     for (const [id, pub] of publicDataMap) {
@@ -669,14 +680,25 @@ export function subscribeToChannelUsers(
     callback(merged);
   }
 
-  for (const batch of batches) {
+  for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
+    const batch = batches[batchIdx];
     const unsubPub = onSnapshot(
       query(collection(getDb(), 'usersPublic'), where('__name__', 'in', batch)),
       (snap) => {
         for (const d of snap.docs) {
           publicDataMap.set(d.id, d.data() as UserPublic);
         }
-        emitMerged();
+        if (!publicBatchFired[batchIdx]) {
+          publicBatchFired[batchIdx] = true;
+          publicBatchesReady++;
+        }
+        // After initial readiness, every public update is safe to emit.
+        if (allInitiallyReady) {
+          emitMerged();
+        } else if (publicBatchesReady === totalBatches && privateBatchesReady === totalBatches) {
+          allInitiallyReady = true;
+          emitMerged();
+        }
       },
     );
     const unsubPriv = onSnapshot(
@@ -685,7 +707,18 @@ export function subscribeToChannelUsers(
         for (const d of snap.docs) {
           privateDataMap.set(d.id, d.data() as UserPrivate);
         }
-        emitMerged();
+        if (!privateBatchFired[batchIdx]) {
+          privateBatchFired[batchIdx] = true;
+          privateBatchesReady++;
+        }
+        // Always emit once both collections have fired for all batches so that
+        // status updates (from usersPrivate) are reflected immediately.
+        if (allInitiallyReady) {
+          emitMerged();
+        } else if (publicBatchesReady === totalBatches && privateBatchesReady === totalBatches) {
+          allInitiallyReady = true;
+          emitMerged();
+        }
       },
     );
     unsubscribes.push(unsubPub, unsubPriv);
