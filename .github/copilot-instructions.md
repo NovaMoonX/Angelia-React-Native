@@ -208,6 +208,36 @@ Do **not** clutter the README with:
 
 ---
 
+## Confirming destructive actions
+
+Any user-initiated action that is **irreversible or has significant consequences** must be confirmed with `useActionModal`'s `confirm()` before proceeding. Pass `destructive: true` so the confirm button renders in a destructive (red) style.
+
+Actions that always require confirmation:
+- **Disconnecting from a user** — removing a mutual connection (e.g. `disconnectUser`)
+- **Leaving a circle** — unsubscribing from a custom circle (e.g. `unsubscribeFromChannel`)
+- **Removing a member from a circle** — kicking a subscriber out of a custom circle (e.g. `removeChannelSubscriber`)
+- **Deleting a circle** — permanently deleting a channel and all its posts (e.g. `deleteCustomChannel`)
+- **Any other action that deletes or permanently removes data**
+
+Pattern:
+```tsx
+const { confirm } = useActionModal();
+
+const handleDestructiveAction = async () => {
+  const ok = await confirm({
+    title: 'Short title',
+    message: 'One sentence explaining what will happen.',
+    destructive: true,
+  });
+  if (!ok) return;
+  // proceed with the action
+};
+```
+
+**Never** perform a destructive action without first awaiting `confirm()`. If `confirm` is not yet imported in the file, add `useActionModal` from `@/hooks/useActionModal`.
+
+---
+
 ## Code style conventions
 
 ### AsyncStorage keys

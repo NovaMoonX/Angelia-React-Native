@@ -132,6 +132,12 @@ export function MyChannelsTab() {
   };
 
   const handleRemoveSubscriber = async (subscriberId: string) => {
+    const ok = await confirm({
+      title: 'Remove Member',
+      message: 'This will remove them from this circle. Continue?',
+      destructive: true,
+    });
+    if (!ok) return;
     setRemovingSubscriberId(subscriberId);
     try {
       if (!selectedChannel) return;
