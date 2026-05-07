@@ -32,7 +32,7 @@ function PersonRow({ user, tag, onPress }: PersonRowProps) {
         { backgroundColor: theme.card, borderColor: theme.border, opacity: pressed ? 0.8 : 1 },
       ]}
     >
-      <Avatar user={user} size="sm" />
+      <Avatar user={user} size="sm" showStatus={false} />
       <View style={{ flex: 1, marginLeft: 12 }}>
         <Text style={[styles.personName, { color: theme.foreground }]}>
           {user.firstName} {user.lastName}

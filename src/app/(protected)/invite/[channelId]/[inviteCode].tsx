@@ -166,7 +166,7 @@ export default function InviteAcceptScreen() {
           ) : null}
           {owner && (
             <View style={styles.ownerRow}>
-              <Avatar user={owner} size="sm" />
+              <Avatar user={owner} size="sm" showStatus={false} />
               <Text
                 style={[styles.ownerName, { color: theme.mutedForeground }]}
               >

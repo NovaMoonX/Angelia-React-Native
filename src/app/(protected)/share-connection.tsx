@@ -137,7 +137,7 @@ function MyQrTab({
 
         {/* Handshake card */}
         <View style={[styles.handshakeCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Avatar user={currentUser} size="xl" />
+          <Avatar user={currentUser} size="xl" showStatus={false} />
           <Text style={[styles.cardName, { color: theme.foreground }]}>{displayName}</Text>
 
           <Pressable

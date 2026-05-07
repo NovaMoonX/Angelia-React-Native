@@ -178,6 +178,34 @@ The `Avatar` component accepts a `user` prop (`Pick<User, 'avatar' | 'avatarUrl'
 
 The individual `preset` and `uri` props are only for non-User contexts, such as avatar edit previews (e.g. `AccountTab`, `complete-profile.tsx`) where the values come from local state rather than a `User` object.
 
+### Status badge visibility (`showStatus` prop)
+
+`Avatar` renders the user's active status emoji as a badge by default (`showStatus` defaults to `true`). Pass `showStatus={false}` to suppress the badge in contexts where the status icon would be distracting or irrelevant.
+
+**Always use `showStatus={false}` in:**
+- The account/profile tab (the user's own avatar at the top)
+- Connection request screens
+- Join request screens
+- Invite screens
+- Share-connection screen
+- My People list
+- Notifications list
+- Channel member lists / channel cards
+- Private notes screens (both host and sender views)
+
+**Leave `showStatus` at its default (`true`) in:**
+- Feed posts (post author avatar)
+- Conversation / chat message avatars
+- User profile modal
+
+```tsx
+// ✅ feed / conversation — status badge visible
+<Avatar user={author} size="sm" />
+
+// ✅ utility / action screens — status badge hidden
+<Avatar user={requester} size="md" showStatus={false} />
+```
+
 ---
 
 ## Keeping docs up to date

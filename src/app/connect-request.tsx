@@ -156,7 +156,7 @@ export default function ConnectRequestScreen() {
         <>
           {/* Host card */}
           <View style={[styles.hostCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Avatar user={hostUser} size="xl" />
+            <Avatar user={hostUser} size="xl" showStatus={false} />
             <Text style={[styles.hostName, { color: theme.foreground }]}>{hostName}</Text>
             {hostUser?.funFact ? (
               <Text style={[styles.hostFact, { color: theme.mutedForeground }]}>

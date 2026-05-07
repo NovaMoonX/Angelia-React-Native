@@ -60,7 +60,7 @@ export default function PrivateNotesSenderScreen() {
 								key={note.id}
 								style={[styles.noteCard, { backgroundColor: theme.card, borderColor: theme.border }]}
 							>
-								<Avatar user={currentUser} size='sm' />
+								<Avatar user={currentUser} size='sm' showStatus={false} />
 								<View style={styles.noteContent}>
 									<View style={styles.noteHeader}>
 										<Text style={[styles.authorName, { color: theme.foreground }]}>You</Text>
