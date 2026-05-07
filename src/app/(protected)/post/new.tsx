@@ -330,46 +330,48 @@ export default function PostCreateScreen() {
             )}
           </Pressable>
         )}
-
-        {/* Media preview strip */}
-        {media.length > 0 && (
-          <FlashList
-            data={media}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(_, i) => `media-${i}`}
-            contentContainerStyle={styles.mediaStrip}
-            renderItem={({ item, index }) => {
-              const isVideo = item.type.startsWith('video/');
-              const thumb = isVideo ? videoThumbnails[index] : null;
-              return (
-                <Pressable
-                  style={[styles.mediaThumb, { borderColor: theme.border }]}
-                  onPress={() => setPreviewItem({ uri: item.uri, type: isVideo ? 'video' : 'image' })}
-                >
-                  <Image
-                    source={thumb ?? { uri: item.uri }}
-                    style={styles.mediaImage}
-                    contentFit="cover"
-                  />
-                  {isVideo && (
-                    <View style={styles.videoOverlay}>
-                      <Feather name="play" size={18} color="#FFF" />
-                    </View>
-                  )}
-                  <Pressable
-                    style={styles.mediaRemove}
-                    onPress={() => removeMedia(index)}
-                    hitSlop={8}
-                  >
-                    <Feather name="x" size={12} color="#FFF" />
-                  </Pressable>
-                </Pressable>
-              );
-            }}
-          />
-        )}
       </ScrollView>
+
+      {/* Media preview strip — kept outside ScrollView so it stays visible above
+           the toolbar when the keyboard is open on iOS */}
+      {media.length > 0 && (
+        <FlashList
+          data={media}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          estimatedItemSize={88}  {/* mediaThumb: 80px + 8px gap */}
+          keyExtractor={(_, i) => `media-${i}`}
+          contentContainerStyle={styles.mediaStrip}
+          renderItem={({ item, index }) => {
+            const isVideo = item.type.startsWith('video/');
+            const thumb = isVideo ? videoThumbnails[index] : null;
+            return (
+              <Pressable
+                style={[styles.mediaThumb, { borderColor: theme.border }]}
+                onPress={() => setPreviewItem({ uri: item.uri, type: isVideo ? 'video' : 'image' })}
+              >
+                <Image
+                  source={thumb ?? { uri: item.uri }}
+                  style={styles.mediaImage}
+                  contentFit="cover"
+                />
+                {isVideo && (
+                  <View style={styles.videoOverlay}>
+                    <Feather name="play" size={18} color="#FFF" />
+                  </View>
+                )}
+                <Pressable
+                  style={styles.mediaRemove}
+                  onPress={() => removeMedia(index)}
+                  hitSlop={8}
+                >
+                  <Feather name="x" size={12} color="#FFF" />
+                </Pressable>
+              </Pressable>
+            );
+          }}
+        />
+      )}
 
       {/* Action toolbar */}
       <View
@@ -538,7 +540,8 @@ const styles = StyleSheet.create({
   },
   mediaStrip: {
     gap: 8,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   mediaThumb: {
     position: 'relative',

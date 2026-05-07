@@ -13,6 +13,7 @@ export const CUSTOM_POST_EXPIRY_WARNING_DAYS = 7;
 export const DAILY_CHANNEL_SUFFIX = '-daily';
 export const MAX_FILES = 5;
 export const MAX_FILE_SIZE_MB = 10;
+export const MAX_VIDEO_SECONDS = 30;
 
 export const COMMON_EMOJIS = ['❤️', '👀', '😊', '🎉', '😮', '😢', '😄', '🔥'];
 
