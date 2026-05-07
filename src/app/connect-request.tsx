@@ -76,10 +76,16 @@ export default function ConnectRequestScreen() {
 
     getExistingConnectionRequest(currentUser.id, from)
       .then((req) => {
-        if (req) {
+        if (req?.status === 'pending') {
+          // A pending request means one is already in flight — show waiting state.
           setAlreadyRequested(true);
-          setAlreadyConnected(req.status === 'accepted');
         }
+        // Don't treat an 'accepted' connectionRequest doc as proof of an active
+        // connection.  The Cloud Function removes connection documents when a
+        // disconnect occurs but leaves the original connectionRequest document
+        // intact, so req.status can still read 'accepted' even after a disconnect.
+        // The authoritative check is the Redux connections state, which was already
+        // verified above via the `connections.some(…)` guard.
       })
       .catch(() => {});
   }, [from, currentUser, connections]);
@@ -150,7 +156,7 @@ export default function ConnectRequestScreen() {
         <>
           {/* Host card */}
           <View style={[styles.hostCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Avatar user={hostUser} size="xl" />
+            <Avatar user={hostUser} size="xl" showStatus={false} />
             <Text style={[styles.hostName, { color: theme.foreground }]}>{hostName}</Text>
             {hostUser?.funFact ? (
               <Text style={[styles.hostFact, { color: theme.mutedForeground }]}>

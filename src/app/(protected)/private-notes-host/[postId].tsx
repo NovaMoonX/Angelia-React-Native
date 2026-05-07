@@ -85,6 +85,7 @@ export default function PrivateNotesScreen() {
 							<Avatar
 								user={author}
 								size='sm'
+								showStatus={false}
 							/>
 							<View style={styles.noteContent}>
 								<View style={styles.noteHeader}>

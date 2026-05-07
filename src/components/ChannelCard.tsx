@@ -65,7 +65,7 @@ export function ChannelCard({
           </Text>
           {owner && (
             <View style={styles.ownerRow}>
-              <Avatar user={owner} size="sm" />
+              <Avatar user={owner} size="sm" showStatus={false} />
               <Text style={[styles.metaText, { color: theme.mutedForeground }]}>
                 {owner.firstName} {owner.lastName}
               </Text>

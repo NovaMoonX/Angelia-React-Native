@@ -285,6 +285,9 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
         connectionChannelsUnsubRef.current();
         connectionChannelsUnsubRef.current = null;
       }
+      // Clear stale connection channels so posts from disconnected users are removed
+      // immediately rather than requiring an app refresh.
+      dispatch(setConnectionChannels([]));
       return;
     }
 
