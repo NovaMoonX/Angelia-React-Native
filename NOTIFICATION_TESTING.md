@@ -194,7 +194,7 @@ Replace `YOUR_USER_ID`, `YOUR_CHANNEL_ID`, and `YOUR_POST_ID` with real values.
   "createdAt": 1713484800000,
   "postId": "YOUR_POST_ID",
   "channelId": "YOUR_CHANNEL_ID",
-  "channelName": "Your Circle Name",
+  "channelName": "Book Club",
   "isDaily": false,
   "authorFirstName": "Alex",
   "authorLastName": "Test"
