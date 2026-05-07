@@ -56,6 +56,7 @@ export default function FeedScreen() {
   // Returns true while auto-completion is in progress to suppress banner flicker.
   const isAutoCompletingTasks = useAutoCompleteTasks();
 
+  const [hideOwnPosts, setHideOwnPosts] = useState(true);
   const [channelFilter, setChannelFilter] = useState<ChannelFilterState>({ mode: 'all', specificIds: [] });
   const [channelFilterOpen, setChannelFilterOpen] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState<PostTier[]>([]);
@@ -110,6 +111,10 @@ export default function FeedScreen() {
     return new Set(channelFilter.specificIds);
   }, [channelFilter, channels, currentUser?.id]);
 
+  const toggleHideOwn = useCallback(() => {
+    setHideOwnPosts((prev) => !prev);
+  }, []);
+
   const togglePriorityFilter = useCallback((tier: PostTier) => {
     setPriorityFilter((prev) => {
       if (prev.includes(tier)) {
@@ -128,10 +133,14 @@ export default function FeedScreen() {
   );
 
   const filteredPosts = useMemo(() => {
-    let result = [...posts].filter((p) => p.status === 'ready');
+    let result = [...posts].filter((p) => { return p.status === 'ready'; });
+
+    if (hideOwnPosts && currentUser) {
+      result = result.filter((p) => { return p.authorId !== currentUser.id; });
+    }
 
     if (allowedChannelIds !== null) {
-      result = result.filter((p) => allowedChannelIds.has(p.channelId));
+      result = result.filter((p) => { return allowedChannelIds.has(p.channelId); });
     }
 
     // Apply feed-level priority filter
@@ -144,17 +153,18 @@ export default function FeedScreen() {
     );
 
     return result.slice(0, displayCount);
-  }, [posts, allowedChannelIds, sortOrder, displayCount, priorityFilter, matchesPriorityFilter]);
+  }, [posts, hideOwnPosts, currentUser, allowedChannelIds, sortOrder, displayCount, matchesPriorityFilter]);
 
   const hasMore = useMemo(() => {
     const total = posts.filter(
       (p) =>
         p.status === 'ready' &&
+        (!hideOwnPosts || !currentUser || p.authorId !== currentUser.id) &&
         (allowedChannelIds === null || allowedChannelIds.has(p.channelId)) &&
         matchesPriorityFilter(p),
     ).length;
     return displayCount < total;
-  }, [posts, allowedChannelIds, displayCount, priorityFilter, matchesPriorityFilter]);
+  }, [posts, hideOwnPosts, currentUser, allowedChannelIds, displayCount, matchesPriorityFilter]);
 
   const loadMore = useCallback(() => {
     if (hasMore) {
@@ -167,6 +177,10 @@ export default function FeedScreen() {
     (channelFilter.mode === 'specific' && channelFilter.specificIds.length > 0);
 
   const hasActiveFilters = isChannelFiltered || priorityFilter.length > 0;
+
+  // True when the only active "filter" is the default hide-own toggle (no channel or priority filter).
+  // Used to show an encouraging empty state rather than a generic "no match" state.
+  const isOnlyHideOwnFilter = hideOwnPosts && !hasActiveFilters;
 
   const clearFilters = useCallback(() => {
     setChannelFilter({ mode: 'all', specificIds: [] });
@@ -184,7 +198,7 @@ export default function FeedScreen() {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
     const timer = setTimeout(() => setIsFiltering(false), FILTERING_INDICATOR_DURATION);
     return () => clearTimeout(timer);
-  }, [channelFilter, priorityFilter, sortOrder]);
+  }, [channelFilter, priorityFilter, sortOrder, hideOwnPosts]);
 
   // Animated bouncing dots for filter loading indicator
   useEffect(() => {
@@ -335,7 +349,23 @@ export default function FeedScreen() {
           onEndReached={loadMore}
           onEndReachedThreshold={0.3}
           ListEmptyComponent={
-            hasActiveFilters ? (
+            isOnlyHideOwnFilter ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyEmoji}>👀</Text>
+                <Text style={[styles.emptyTitle, { color: theme.foreground }]}>
+                  Others' posts show up here!
+                </Text>
+                <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>
+                  Connect with friends and invite them to share — you'll see their posts right here.
+                </Text>
+                <Button variant="outline" size="sm" onPress={toggleHideOwn} style={styles.clearFiltersButton}>
+                  Show my posts too
+                </Button>
+                <Button variant="tertiary" size="sm" onPress={() => router.push('/(protected)/my-people')} style={styles.clearFiltersButton}>
+                  Connect with people
+                </Button>
+              </View>
+            ) : hasActiveFilters ? (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyEmoji}>🔍</Text>
                 <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>
@@ -442,6 +472,25 @@ export default function FeedScreen() {
               size={15}
               color={isChannelFiltered ? theme.primary : theme.mutedForeground}
             />
+          </Pressable>
+          <Pressable
+            onPress={toggleHideOwn}
+            style={[
+              styles.hideOwnButton,
+              {
+                borderColor: hideOwnPosts ? theme.primary : theme.border,
+                backgroundColor: theme.background,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.hideOwnText,
+                { color: hideOwnPosts ? theme.primary : theme.mutedForeground },
+              ]}
+            >
+              {hideOwnPosts ? 'Others only' : 'All posts'}
+            </Text>
           </Pressable>
           <Pressable
             onPress={() =>
@@ -721,6 +770,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     flex: 1,
   },
+  hideOwnButton: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hideOwnText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
   sortButton: {
     width: 40,
     height: 40,
@@ -768,6 +829,11 @@ const styles = StyleSheet.create({
   },
   emptyEmoji: {
     fontSize: 48,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   emptyText: {
     fontSize: 15,
