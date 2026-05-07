@@ -111,7 +111,7 @@ export default function FeedScreen() {
     return new Set(channelFilter.specificIds);
   }, [channelFilter, channels, currentUser?.id]);
 
-  const toggleHideOwn = useCallback(() => {
+  const toggleHideOwnPosts = useCallback(() => {
     setHideOwnPosts((prev) => !prev);
   }, []);
 
@@ -153,7 +153,7 @@ export default function FeedScreen() {
     );
 
     return result.slice(0, displayCount);
-  }, [posts, hideOwnPosts, currentUser, allowedChannelIds, sortOrder, displayCount, matchesPriorityFilter]);
+  }, [posts, hideOwnPosts, currentUser, allowedChannelIds, sortOrder, displayCount, priorityFilter, matchesPriorityFilter]);
 
   const hasMore = useMemo(() => {
     const total = posts.filter(
@@ -164,7 +164,7 @@ export default function FeedScreen() {
         matchesPriorityFilter(p),
     ).length;
     return displayCount < total;
-  }, [posts, hideOwnPosts, currentUser, allowedChannelIds, displayCount, matchesPriorityFilter]);
+  }, [posts, hideOwnPosts, currentUser, allowedChannelIds, displayCount, priorityFilter, matchesPriorityFilter]);
 
   const loadMore = useCallback(() => {
     if (hasMore) {
@@ -358,10 +358,10 @@ export default function FeedScreen() {
                 <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>
                   Connect with friends and invite them to share — you'll see their posts right here.
                 </Text>
-                <Button variant="outline" size="sm" onPress={toggleHideOwn} style={styles.clearFiltersButton}>
+                <Button variant="outline" size="sm" onPress={toggleHideOwnPosts} style={styles.emptyStateButton}>
                   Show my posts too
                 </Button>
-                <Button variant="tertiary" size="sm" onPress={() => router.push('/(protected)/my-people')} style={styles.clearFiltersButton}>
+                <Button variant="tertiary" size="sm" onPress={() => router.push('/(protected)/my-people')} style={styles.emptyStateButton}>
                   Connect with people
                 </Button>
               </View>
@@ -474,7 +474,7 @@ export default function FeedScreen() {
             />
           </Pressable>
           <Pressable
-            onPress={toggleHideOwn}
+            onPress={toggleHideOwnPosts}
             style={[
               styles.hideOwnButton,
               {
@@ -944,6 +944,9 @@ const styles = StyleSheet.create({
     borderRadius: 3.5,
   },
   clearFiltersButton: {
+    marginTop: 4,
+  },
+  emptyStateButton: {
     marginTop: 4,
   },
   tasksBanner: {
