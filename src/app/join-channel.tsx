@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   KeyboardAvoidingView,
   Pressable,
@@ -23,6 +23,7 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { getChannelByInviteCode } from '@/services/firebase/firestore';
 import { setPendingInviteChannel, clearPendingInvite } from '@/store/slices/pendingInviteSlice';
 import { sendJoinRequest } from '@/store/actions/inviteActions';
+import { makeSelectMostRecentOutgoingRequestForChannel } from '@/store/crossSelectors/inviteSelectors';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import type { Channel } from '@/models/types';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
@@ -40,7 +41,6 @@ export default function JoinChannelScreen() {
 
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const isDemo = useAppSelector((state) => state.demo.isActive);
-  const outgoing = useAppSelector((state) => state.invites.outgoing);
 
   const fromOnboarding = params.fromOnboarding === '1';
 
@@ -54,6 +54,13 @@ export default function JoinChannelScreen() {
   const codeInputRef = useRef<CodeInputHandle>(null);
 
   const isAuthenticated = !!firebaseUser || isDemo;
+
+  // Memoize the selector instance so it re-creates only when the channel changes
+  const selectMostRecentRequest = useMemo(
+    () => makeSelectMostRecentOutgoingRequestForChannel(channel?.id ?? ''),
+    [channel?.id],
+  );
+  const mostRecentRequest = useAppSelector(selectMostRecentRequest);
 
   const handleLookup = useCallback(async (lookupCode?: string) => {
     const trimmed = (lookupCode ?? code).trim().toUpperCase();
@@ -150,9 +157,12 @@ export default function JoinChannelScreen() {
   }, [step, router, fromOnboarding]);
 
   const isSubscribed = channel?.subscribers.includes(currentUser?.id || '') || false;
-  const existingRequest = channel
-    ? outgoing.find((r) => r.channelId === channel.id)
-    : undefined;
+  // Ignore a stale 'accepted' request — if the user was previously accepted but is no
+  // longer subscribed (e.g. removed from the circle), allow them to request to join again.
+  const existingRequest =
+    mostRecentRequest?.status === 'accepted' && !isSubscribed
+      ? undefined
+      : mostRecentRequest;
 
   const colors = channel
     ? getColorPair(channel)

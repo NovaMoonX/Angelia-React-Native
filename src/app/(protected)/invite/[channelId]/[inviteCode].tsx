@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -15,6 +15,7 @@ import { getColorPair } from '@/lib/channel/channel.utils';
 import { selectChannelById } from '@/store/slices/channelsSlice';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { sendJoinRequest } from '@/store/actions/inviteActions';
+import { makeSelectMostRecentOutgoingRequestForChannel } from '@/store/crossSelectors/inviteSelectors';
 
 export default function InviteAcceptScreen() {
   const { channelId, inviteCode } = useLocalSearchParams<{
@@ -32,7 +33,11 @@ export default function InviteAcceptScreen() {
     selectChannelById(state, channelId || '')
   );
   const usersMap = useAppSelector(selectAllUsersMapById);
-  const outgoing = useAppSelector((state) => state.invites.outgoing);
+  const selectMostRecentRequest = useMemo(
+    () => makeSelectMostRecentOutgoingRequestForChannel(channelId || ''),
+    [channelId],
+  );
+  const mostRecentRequest = useAppSelector(selectMostRecentRequest);
 
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -45,9 +50,12 @@ export default function InviteAcceptScreen() {
   // Check existing relationship
   const isSubscribed =
     channel?.subscribers.includes(currentUser?.id || '') || false;
-  const existingRequest = outgoing.find(
-    (r) => r.channelId === channelId
-  );
+  // Ignore a stale 'accepted' request — if the user was previously accepted but is no
+  // longer subscribed (e.g. removed from the circle), allow them to request to join again.
+  const existingRequest =
+    mostRecentRequest?.status === 'accepted' && !isSubscribed
+      ? undefined
+      : mostRecentRequest;
   const isInvalidCode =
     channel && channel.inviteCode !== inviteCode;
 
