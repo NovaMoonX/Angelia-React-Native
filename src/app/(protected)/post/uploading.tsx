@@ -23,11 +23,11 @@ import type { PostTier, UserStatus } from '@/models/types';
 // How long to wait before revealing the upload UI (prevents flash on quick uploads)
 const REVEAL_DELAY_MS = 600;
 // Maximum time to show the uploading screen before sending to background
-const MAX_UPLOAD_DISPLAY_MS = 6000;
+const MAX_UPLOAD_DISPLAY_MS = 30000;
 // How long to show the background message before navigating to feed
 const BACKGROUND_MESSAGE_DURATION_MS = 1500;
 // Minimum time to show the success screen so users always see the confirmation
-const MIN_SUCCESS_DISPLAY_MS = 1200;
+const MIN_SUCCESS_DISPLAY_MS = 1500;
 
 type UploadPhase =
   | 'pending'   // < REVEAL_DELAY_MS – nothing visible
@@ -227,12 +227,12 @@ export default function PostUploadingScreen() {
           // success screen so users always get confirmation of their post.
           clearTimeout(revealTimer);
           runReveal();
-          runSuccessAnimation(Math.max(remaining, 900), () => navigateToFeed());
+          runSuccessAnimation(Math.max(remaining, MIN_SUCCESS_DISPLAY_MS * 0.75), () => navigateToFeed());
           return;
         }
 
         // Show success, then navigate
-        runSuccessAnimation(Math.max(remaining, 900), () => navigateToFeed());
+        runSuccessAnimation(Math.max(remaining, MIN_SUCCESS_DISPLAY_MS * 0.75), () => navigateToFeed());
       })
       .catch((err: unknown) => {
         clearTimeout(revealTimer);

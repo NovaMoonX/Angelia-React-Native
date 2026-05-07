@@ -22,7 +22,7 @@ import { generateId } from '@/utils/generateId';
 import { compressImage } from '@/utils/compressImage';
 import { generateVideoThumbnailFileUri } from '@/utils/generateVideoThumbnail';
 import { useToast } from '@/hooks/useToast';
-import { MAX_FILES } from '@/models/constants';
+import { MAX_FILES, MAX_VIDEO_SECONDS } from '@/models/constants';
 export default function CameraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -66,6 +66,14 @@ export default function CameraScreen() {
   const totalCount = existingMedia.length + capturedPhotos.length;
   const atMax = totalCount >= MAX_FILES;
 
+  // Request microphone permission on mount whenever camera is already granted
+  // but mic hasn't been approved yet — this ensures the Video mode toggle appears.
+  useEffect(() => {
+    if (hasCameraPermission && !hasMicPermission) {
+      requestMic();
+    }
+  }, [hasCameraPermission, hasMicPermission, requestMic]);
+
   // Recording timer
   useEffect(() => {
     if (!recording) {
@@ -77,6 +85,14 @@ export default function CameraScreen() {
     }, 1000);
     return () => clearInterval(interval);
   }, [recording]);
+
+  // Auto-stop recording once the limit is reached
+  useEffect(() => {
+    if (recording && recordingSeconds >= MAX_VIDEO_SECONDS) {
+      void camera.current?.stopRecording();
+      addToast({ type: 'info', title: `Video capped at ${MAX_VIDEO_SECONDS}s ⏱️` });
+    }
+  }, [recording, recordingSeconds]);
 
   const formatSeconds = (secs: number) => {
     const m = Math.floor(secs / 60).toString().padStart(2, '0');
@@ -322,11 +338,17 @@ export default function CameraScreen() {
         </View>
       )}
 
-      {/* Recording badge with timer */}
+      {/* Recording badge with timer / countdown */}
       {recording && (
         <View style={[styles.recordingBadge, { top: insets.top + 60 }]}>
           <View style={styles.recordingIndicator} />
-          <Text style={styles.recordingText}>REC {formatSeconds(recordingSeconds)}</Text>
+          {recordingSeconds >= MAX_VIDEO_SECONDS - 5 ? (
+            <Text style={[styles.recordingText, styles.countdownText]}>
+              {MAX_VIDEO_SECONDS - recordingSeconds}s left
+            </Text>
+          ) : (
+            <Text style={styles.recordingText}>REC {formatSeconds(recordingSeconds)}</Text>
+          )}
         </View>
       )}
 
@@ -489,6 +511,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 1,
+  },
+  countdownText: {
+    color: '#EF4444',
   },
   modeRow: {
     position: 'absolute',
