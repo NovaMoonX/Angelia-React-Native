@@ -52,6 +52,12 @@ apps/mobile/functions/lib
 apps/mobile/ios/
 apps/mobile/android/
 
+# root-level ios/ leftover from pre-mono-repo restructure
+ios/
+
+# scripts (contain secrets / local tooling)
+scripts/
+
 # Google services files
 google-services.json
 GoogleService-Info.plist
