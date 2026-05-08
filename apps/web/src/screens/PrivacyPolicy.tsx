@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { AngeliaLogo } from '@components/AngeliaLogo';
 
 const EFFECTIVE_DATE = 'May 7, 2026';
-const CONTACT_EMAIL = 'hello@angelia.app';
+const CONTACT_EMAIL = 'angelia-support@moondreams.dev';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
