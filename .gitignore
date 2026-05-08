@@ -9,6 +9,10 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Web (Vite)
+apps/web/dist/
+apps/web/*.tsbuildinfo
+
 # Native
 .kotlin/
 *.orig.*
