@@ -386,3 +386,36 @@ See `src/components/PrivateNoteModal.tsx` and `src/components/FeedbackSupportMod
 **Fix:** Bypass `KeyboardAvoidingView` on Android entirely. Use `Keyboard.addListener('keyboardDidShow')` and `'keyboardDidHide'` to track keyboard height in state, and apply that height directly as `paddingBottom` on the sheet `View`. On iOS, `KeyboardAvoidingView behavior='padding'` still works correctly and is kept.
 
 **Canonical implementation:** `src/components/ModalKeyboardView.tsx` — exposes `ModalKeyboardView` (wrapper component) and `useModalSheetPadding` (hook). Used by `PrivateNoteModal.tsx` and `FeedbackSupportModal.tsx`.
+
+---
+
+## Mono Repo Structure
+
+This repo is organized as a mono repo under `apps/`:
+
+| Path | Description |
+|---|---|
+| `apps/mobile/` | Expo / React Native app (the primary Angelia mobile app) |
+| `apps/web/` | Vite + React landing site (home page & about page only) |
+
+### apps/mobile/
+- All existing React Native / Expo conventions, Redux, Firebase, and copilot rules above apply here.
+- Path references in mobile-specific instructions (e.g. `src/components/…`) are relative to `apps/mobile/`.
+
+### apps/web/
+- A minimal **marketing/landing site** — only the Home page (`/`) and About page (`/about`).
+- **No authentication, no Redux, no Firebase SDK** — it is purely static content.
+- Uses **Vite + React + TypeScript + TailwindCSS v4**.
+- UI components come exclusively from `@moondreamsdev/dreamer-ui` — see `.github/instructions/dreamer-ui-one-pager.instructions.md`.
+- Styling rules:
+  - Use `join` from `@moondreamsdev/dreamer-ui/utils` for conditional class names. Never template literals with `${` for `className`.
+  - CSS lives in `apps/web/src/index.css` (app theme) and `apps/web/src/dreamer-ui.css` (Dreamer UI theme). Do not modify these without good reason.
+- Path aliases (configured in `apps/web/vite.config.ts`):
+  - `@` → `apps/web/src`
+  - `@components` → `apps/web/src/components`
+  - `@routes` → `apps/web/src/routes`
+  - `@screens` → `apps/web/src/screens`
+  - `@ui` → `apps/web/src/ui`
+- Routing: `react-router-dom` v7 via `apps/web/src/routes/AppRoutes.tsx`. Only `/` and `/about` routes exist.
+- Firebase Hosting deploy is handled by `.github/workflows/firebase-hosting-merge.yml` (triggered on pushes to `main` that touch `apps/web/**`).
+

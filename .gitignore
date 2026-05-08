@@ -9,6 +9,10 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Web (Vite)
+apps/web/dist/
+apps/web/*.tsbuildinfo
+
 # Native
 .kotlin/
 *.orig.*
@@ -41,12 +45,18 @@ app-example
 # Firebase
 .firebase
 /firebase-debug.log
-functions/firebase-debug.log
-functions/lib
+apps/mobile/functions/firebase-debug.log
+apps/mobile/functions/lib
 
 # generated native folders
-/ios
-/android
+apps/mobile/ios/
+apps/mobile/android/
+
+# root-level ios/ leftover from pre-mono-repo restructure
+ios/
+
+# scripts (contain secrets / local tooling)
+scripts/
 
 # Google services files
 google-services.json
