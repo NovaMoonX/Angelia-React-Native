@@ -12,17 +12,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Step({ number, children }: { number: number; children: React.ReactNode }) {
-  return (
-    <div className='flex gap-4'>
-      <div className='flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-sm'>
-        {number}
-      </div>
-      <p className='pt-1 text-foreground/80 leading-relaxed'>{children}</p>
-    </div>
-  );
-}
-
 export default function DataDeletion() {
   return (
     <div className='page flex flex-col items-center overflow-y-auto'>
@@ -48,38 +37,22 @@ export default function DataDeletion() {
         {/* Delete account */}
         <Section title='How to Request Account Deletion'>
           <p>
-            To request full deletion of your Angelia account and all associated data, follow these
-            steps:
-          </p>
-          <div className='space-y-4 pt-2'>
-            <Step number={1}>
-              Open Angelia on your device and navigate to{' '}
-              <strong>Account → Settings → Delete Account</strong>.
-            </Step>
-            <Step number={2}>
-              Confirm your identity when prompted (you may be asked to re-authenticate).
-            </Step>
-            <Step number={3}>
-              Tap <strong>Delete My Account</strong> and confirm. Your account will be scheduled for
-              permanent deletion.
-            </Step>
-          </div>
-          <p className='pt-2'>
-            If you no longer have access to the app or your account, you can also submit a deletion
-            request by email:
+            To request full deletion of your Angelia account and all associated data, send an email
+            to:
           </p>
           <div className='rounded-lg border border-foreground/10 bg-foreground/[0.03] p-4 space-y-1'>
-            <p className='font-medium text-foreground'>Email request</p>
+            <p className='font-medium text-foreground'>Email</p>
             <p>
-              Send an email to{' '}
               <a
                 href={`mailto:${CONTACT_EMAIL}?subject=Account Deletion Request`}
                 className='text-primary underline underline-offset-2'
               >
                 {CONTACT_EMAIL}
-              </a>{' '}
-              with the subject line <strong>"Account Deletion Request"</strong>. Include the email
-              address associated with your Angelia account. We will process your request within{' '}
+              </a>
+            </p>
+            <p className='text-sm text-foreground/60'>
+              Subject: <strong>Account Deletion Request</strong> — include the email address
+              associated with your Angelia account. We will process your request within{' '}
               <strong>30 days</strong>.
             </p>
           </div>
@@ -105,28 +78,28 @@ export default function DataDeletion() {
         {/* Specific data deletion */}
         <Section title='Requesting Deletion of Specific Data Only'>
           <p>
-            If you want to delete specific content without deleting your full account — for example,
-            a particular post, photo, or message — you can do so directly in the app:
+            If you want to remove specific content — such as a post or message — without deleting
+            your full account, email us with the details of what you'd like removed:
           </p>
-          <ul className='list-disc list-inside space-y-1'>
-            <li>
-              <strong>Posts:</strong> tap the post options menu and select <strong>Delete</strong>.
-            </li>
-            <li>
-              <strong>Profile photo:</strong> go to <strong>Account → Edit Profile</strong> and
-              remove your photo.
-            </li>
-          </ul>
-          <p>
-            For any other specific data deletion request, email{' '}
-            <a
-              href={`mailto:${CONTACT_EMAIL}?subject=Data Deletion Request`}
-              className='text-primary underline underline-offset-2'
-            >
-              {CONTACT_EMAIL}
-            </a>{' '}
-            with the subject line <strong>"Data Deletion Request"</strong>, describing what you
-            would like removed. We will respond within <strong>30 days</strong>.
+          <div className='rounded-lg border border-foreground/10 bg-foreground/[0.03] p-4 space-y-1'>
+            <p className='font-medium text-foreground'>Email</p>
+            <p>
+              <a
+                href={`mailto:${CONTACT_EMAIL}?subject=Data Deletion Request`}
+                className='text-primary underline underline-offset-2'
+              >
+                {CONTACT_EMAIL}
+              </a>
+            </p>
+            <p className='text-sm text-foreground/60'>
+              Subject: <strong>Data Deletion Request</strong> — describe the specific content you'd
+              like deleted and include the email address on your account. We will respond within{' '}
+              <strong>30 days</strong>.
+            </p>
+          </div>
+          <p className='text-sm text-foreground/50 italic'>
+            In a future update, users will be able to delete individual posts and messages directly
+            within the app.
           </p>
         </Section>
 
