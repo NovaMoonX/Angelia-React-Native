@@ -154,6 +154,9 @@ function Home() {
             <Link to='/privacy-policy' className='hover:text-foreground transition-colors'>
               Privacy Policy
             </Link>
+            <Link to='/data-deletion' className='hover:text-foreground transition-colors'>
+              Data Deletion
+            </Link>
           </nav>
         </div>
       </footer>

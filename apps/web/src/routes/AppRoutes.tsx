@@ -29,6 +29,14 @@ export const router = createBrowserRouter([
           return { Component: PrivacyPolicy };
         },
       },
+      {
+        path: 'data-deletion',
+        HydrateFallback: Loading,
+        lazy: async () => {
+          const { default: DataDeletion } = await import('@screens/DataDeletion');
+          return { Component: DataDeletion };
+        },
+      },
     ],
   },
 ]);
