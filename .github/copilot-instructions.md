@@ -210,6 +210,23 @@ The individual `preset` and `uri` props are only for non-User contexts, such as 
 
 ## Keeping docs up to date
 
+### APP_STORE_LISTING.txt
+
+`APP_STORE_LISTING.txt` (repo root) is the source of truth for app store copy — short description, full description, keywords, and reviewer notes. **Keep the full description up to date whenever:**
+
+- A **new core feature** is added or shipped (e.g. new circle type, reactions, scheduling).
+- An **existing feature is removed or significantly changed** — remove or reword the relevant bullet.
+- The **value proposition or positioning changes** (e.g. new target audience, new differentiator).
+- A **policy URL changes** (privacy policy, data deletion page).
+
+When updating, preserve the casual, warm, and welcoming tone. Write like a friendly teammate explaining the app — avoid corporate or formal language. Lead with the user's problem, not the feature list.
+
+Do **not** update it for bug fixes, UI tweaks, refactors, or minor additions that don't change what the product does or how it's described to new users.
+
+After editing, update the `Last updated` date at the top of the file.
+
+---
+
 ### PRODUCT_SUMMARY.md
 
 `PRODUCT_SUMMARY.md` is the canonical product overview. Keep it current when:

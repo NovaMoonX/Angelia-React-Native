@@ -1,0 +1,69 @@
+================================================================================
+ANGELIA — APP STORE LISTING COPY
+================================================================================
+Last updated: May 7, 2026
+
+--------------------------------------------------------------------------------
+SHORT DESCRIPTION (max 80 characters)
+--------------------------------------------------------------------------------
+Private circles for the people who matter most.
+
+--------------------------------------------------------------------------------
+FULL DESCRIPTION
+--------------------------------------------------------------------------------
+Group chats are chaos. Social media is exhausting. And somehow, staying
+genuinely connected to the people you love has never felt harder.
+
+Angelia is a private sharing app built for families and close-knit groups. It
+gives everyone their own space to share life's moments — organized, intentional,
+and without the noise.
+
+Here's how it works:
+
+  • Daily Circles — Every person gets their own Daily Circle, a personal space
+    to share everyday updates. Think of it like a private mini-feed, just for
+    the people in your life.
+
+  • Custom Circles — Create private circles around any topic: kids' milestones,
+    travel adventures, recipes, workout goals — whatever brings your people
+    together. You choose who's in.
+
+  • Subscribe to what matters — You don't have to follow everything. Subscribe
+    only to the circles you actually care about. No more drowning in updates
+    that don't apply to you.
+
+  • Updates that fade naturally — Posts automatically disappear after six months.
+    That means you can share freely without building a permanent record. Recent
+    moments stay front and center; old ones fade away — just like real memory.
+
+  • Private messaging — Have a quick one-on-one conversation directly in the
+    app, no need to switch to another platform.
+
+  • No algorithm, no ads, no performance pressure — Angelia doesn't push viral
+    content or reward engagement metrics. It's just the people you chose,
+    sharing what they want, when they want.
+
+Angelia is for the long-distance family that wants to feel closer. The busy
+parent who wants to share without keeping a highlight reel. The tight-knit
+friend group that's tired of chaotic group threads.
+
+Connection governed by logic, not algorithms.
+
+--------------------------------------------------------------------------------
+KEYWORDS (comma-separated, for ASO)
+--------------------------------------------------------------------------------
+family, private, circles, sharing, photo sharing, video sharing, groups,
+close friends, family app, private social, no ads, daily updates
+
+--------------------------------------------------------------------------------
+NOTES FOR REVIEWERS
+--------------------------------------------------------------------------------
+- Angelia requires account creation (email) to use.
+- All content is shared only within user-created private circles.
+- Camera and microphone permissions are requested only when the user attempts
+  to record a photo or video within the app.
+- Users can request account or data deletion by emailing:
+  angelia-support@moondreams.dev
+- Data deletion page: https://angelia-020726.web.app/data-deletion
+- Privacy policy: https://angelia-020726.web.app/privacy-policy
+================================================================================
