@@ -3,6 +3,7 @@ import { CategoricalAgencyIllustration } from '@components/CategoricalAgencyIllu
 import { ComparisonTable } from '@components/ComparisonTable';
 import { Button } from '@moondreamsdev/dreamer-ui/components';
 import { join } from '@moondreamsdev/dreamer-ui/utils';
+import { Link } from 'react-router-dom';
 
 function Home() {
   return (
@@ -142,6 +143,20 @@ function Home() {
           </Button>
         </section>
       </div>
+
+      {/* Page Footer */}
+      <footer className='w-full border-t border-foreground/10 mt-8'>
+        <div className='mx-auto max-w-5xl px-6 py-8 flex flex-col items-center gap-4 md:flex-row md:justify-between'>
+          <p className='text-foreground/40 text-sm'>
+            © {new Date().getFullYear()} Angelia. All rights reserved.
+          </p>
+          <nav className='flex items-center gap-6 text-sm text-foreground/50'>
+            <Link to='/privacy-policy' className='hover:text-foreground transition-colors'>
+              Privacy Policy
+            </Link>
+          </nav>
+        </div>
+      </footer>
     </div>
   );
 }

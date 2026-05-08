@@ -21,6 +21,14 @@ export const router = createBrowserRouter([
           return { Component: About };
         },
       },
+      {
+        path: 'privacy-policy',
+        HydrateFallback: Loading,
+        lazy: async () => {
+          const { default: PrivacyPolicy } = await import('@screens/PrivacyPolicy');
+          return { Component: PrivacyPolicy };
+        },
+      },
     ],
   },
 ]);
