@@ -45,12 +45,12 @@ app-example
 # Firebase
 .firebase
 /firebase-debug.log
-functions/firebase-debug.log
-functions/lib
+apps/mobile/functions/firebase-debug.log
+apps/mobile/functions/lib
 
 # generated native folders
-/ios
-/android
+apps/mobile/ios/
+apps/mobile/android/
 
 # Google services files
 google-services.json
