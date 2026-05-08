@@ -143,12 +143,16 @@ export default function FeedScreen() {
   const filteredPosts = useMemo(() => {
     let result = [...posts].filter((p) => { return p.status === 'ready'; });
 
-    if (hideOwnPosts && currentUser) {
-      result = result.filter((p) => { return p.authorId !== currentUser.id; });
-    }
+    // When a priority (post type) filter is active, show posts from everyone
+    // so the user sees all posts of that type — own and others'.
+    if (priorityFilter.length === 0) {
+      if (hideOwnPosts && currentUser) {
+        result = result.filter((p) => { return p.authorId !== currentUser.id; });
+      }
 
-    if (allowedChannelIds !== null) {
-      result = result.filter((p) => { return allowedChannelIds.has(p.channelId); });
+      if (allowedChannelIds !== null) {
+        result = result.filter((p) => { return allowedChannelIds.has(p.channelId); });
+      }
     }
 
     // Apply feed-level priority filter
@@ -164,13 +168,14 @@ export default function FeedScreen() {
   }, [posts, hideOwnPosts, currentUser, allowedChannelIds, sortOrder, displayCount, priorityFilter, matchesPriorityFilter]);
 
   const hasMore = useMemo(() => {
-    const total = posts.filter(
-      (p) =>
-        p.status === 'ready' &&
-        (!hideOwnPosts || !currentUser || p.authorId !== currentUser.id) &&
-        (allowedChannelIds === null || allowedChannelIds.has(p.channelId)) &&
-        matchesPriorityFilter(p),
-    ).length;
+    const total = posts.filter((p) => {
+      if (p.status !== 'ready') return false;
+      if (priorityFilter.length === 0) {
+        if (hideOwnPosts && currentUser && p.authorId === currentUser.id) return false;
+        if (allowedChannelIds !== null && !allowedChannelIds.has(p.channelId)) return false;
+      }
+      return matchesPriorityFilter(p);
+    }).length;
     return displayCount < total;
   }, [posts, hideOwnPosts, currentUser, allowedChannelIds, displayCount, priorityFilter, matchesPriorityFilter]);
 

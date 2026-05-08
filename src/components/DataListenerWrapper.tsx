@@ -529,8 +529,8 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
             : 'their circle';
         addToast({
           type: 'info',
-          title: `🔔 Big news from ${name}!!`,
-          description: `Tap to see the update in ${circleDescription}`,
+          title: `🌟 ${name} shared some big news!!!`,
+          description: `Tap to see their update in ${circleDescription}`,
           onPress: postId
             ? () => router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } })
             : undefined,

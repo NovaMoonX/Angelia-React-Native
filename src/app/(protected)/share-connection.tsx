@@ -54,13 +54,24 @@ function ScanQrTab() {
         if (scannedRef.current) return;
         const value = codes[0]?.value;
         if (!value) return;
+
+        // Connection QR code: angelia://connect-request?from={userId}
         const fromId = parseConnectionLink(value);
-        if (!fromId) {
-          addToast({ type: 'warning', title: "That QR code isn't an Angelia connection code." });
+        if (fromId) {
+          scannedRef.current = true;
+          router.push({ pathname: '/connect-request', params: { from: fromId } });
           return;
         }
-        scannedRef.current = true;
-        router.push({ pathname: '/connect-request', params: { from: fromId } });
+
+        // Circle invite QR code: angelia://invite/{channelId}/{inviteCode}
+        const inviteMatch = /angelia:\/\/invite\/[^/]+\/([A-Z0-9]{8})/i.exec(value);
+        if (inviteMatch) {
+          scannedRef.current = true;
+          router.push({ pathname: '/join-channel', params: { code: inviteMatch[1].toUpperCase(), autoLookup: '1' } });
+          return;
+        }
+
+        addToast({ type: 'warning', title: "That QR code isn't an Angelia QR code." });
       },
       [router, addToast],
     ),
