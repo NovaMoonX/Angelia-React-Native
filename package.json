@@ -27,6 +27,8 @@
     "env:android": "eas env:delete && eas env:create --name GOOGLE_SERVICES_JSON --type file --visibility sensitive --value ./google-services.json --environment development",
     "build:ios": "eas build --profile development --platform ios",
     "build:android": "eas build --profile development --platform android",
+    "prod:ios": "eas build --profile production --platform ios",
+    "prod:android": "eas build --profile production --platform android",
     "web": "expo start --web",
     "lint": "expo lint",
     "ts:check": "tsc --noEmit",
