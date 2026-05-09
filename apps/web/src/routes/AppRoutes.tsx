@@ -3,6 +3,7 @@ import { createBrowserRouter } from 'react-router-dom';
 import ConnectRedirect from '@screens/ConnectRedirect';
 import Home from '@screens/Home';
 import InviteRedirect from '@screens/InviteRedirect';
+import ErrorBoundary from '@ui/ErrorBoundary';
 import Layout from '@ui/Layout';
 import Loading from '@ui/Loading';
 
@@ -10,6 +11,7 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <Layout />,
+    errorElement: <ErrorBoundary />,
     children: [
       {
         index: true,
