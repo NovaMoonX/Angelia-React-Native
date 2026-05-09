@@ -1,6 +1,8 @@
 import { createBrowserRouter } from 'react-router-dom';
 
+import ConnectRedirect from '@screens/ConnectRedirect';
 import Home from '@screens/Home';
+import InviteRedirect from '@screens/InviteRedirect';
 import Layout from '@ui/Layout';
 import Loading from '@ui/Loading';
 
@@ -12,6 +14,14 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <Home />,
+      },
+      {
+        path: 'connect',
+        element: <ConnectRedirect />,
+      },
+      {
+        path: 'invite/:channelId/:inviteCode',
+        element: <InviteRedirect />,
       },
       {
         path: 'about',

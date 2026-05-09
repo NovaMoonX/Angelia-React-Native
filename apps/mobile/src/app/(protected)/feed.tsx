@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Animated,
   NativeSyntheticEvent,
@@ -19,6 +20,7 @@ import { PostCard } from '@/components/PostCard';
 import { SkeletonPostCard } from '@/components/SkeletonPostCard';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { NowStatusModal } from '@/components/NowStatusModal';
+import { OnboardingWelcomeModal } from '@/components/OnboardingWelcomeModal';
 import { FeedChannelFilterModal, type ChannelFilterState } from '@/components/FeedChannelFilterModal';
 import { NewPostsPill, type NewPostsPillRef } from '@/components/NewPostsPill';
 import { formatTimeRemaining } from '@/lib/timeUtils';
@@ -26,11 +28,12 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { saveStatus, clearStatus } from '@/store/actions/userActions';
 import { completeTask } from '@/store/actions/taskActions';
 import { selectHasAnyPendingActivity } from '@/store/crossSelectors/activitySelectors';
+import { selectCurrentUserCustomChannels } from '@/store/crossSelectors/channelSelectors';
 import { selectAllChannels } from '@/store/slices/channelsSlice';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { useAutoCompleteTasks } from '@/hooks/useAutoCompleteTasks';
-import { POST_TIERS } from '@/models/constants';
+import { ONBOARDING_FEED_GUIDE_STATE_KEY, POST_TIERS } from '@/models/constants';
 import type { Post, PostTier, UserStatus } from '@/models/types';
 
 const INITIAL_PAGE = 10;
@@ -48,6 +51,7 @@ export default function FeedScreen() {
   const postsLoaded = useAppSelector((state) => state.posts.loaded);
   const channels = useAppSelector(selectAllChannels);
   const currentUser = useAppSelector((state) => state.users.currentUser);
+  const customChannels = useAppSelector(selectCurrentUserCustomChannels);
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const hasPendingActivity = useAppSelector(selectHasAnyPendingActivity);
   const pendingTasks = useAppSelector((state) => state.tasks.items);
@@ -64,6 +68,7 @@ export default function FeedScreen() {
   const [displayCount, setDisplayCount] = useState(INITIAL_PAGE);
   const [fabExpanded, setFabExpanded] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [onboardingGuideOpen, setOnboardingGuideOpen] = useState(false);
   const [isFiltering, setIsFiltering] = useState(false);
   const isMountedRef = useRef(false);
   const flatListRef = useRef<FlashListRef<Post>>(null);
@@ -252,6 +257,41 @@ export default function FeedScreen() {
       dot3Scale.setValue(1);
     }
   }, [isFiltering]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!currentUser || isDemo) {
+      setOnboardingGuideOpen(false);
+      return () => {};
+    }
+
+    AsyncStorage.getItem(ONBOARDING_FEED_GUIDE_STATE_KEY(currentUser.id))
+      .then((value) => {
+        if (cancelled) return;
+        setOnboardingGuideOpen(value === 'pending');
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setOnboardingGuideOpen(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser, isDemo]);
+
+  const dismissOnboardingGuide = useCallback(async () => {
+    if (!currentUser) return;
+
+    setOnboardingGuideOpen(false);
+
+    try {
+      await AsyncStorage.setItem(ONBOARDING_FEED_GUIDE_STATE_KEY(currentUser.id), 'dismissed');
+    } catch {
+      // Best-effort persistence only
+    }
+  }, [currentUser]);
 
   const scrollToTop = () => {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
@@ -708,6 +748,12 @@ export default function FeedScreen() {
         onSave={handleSaveStatus}
         onClear={handleClearStatus}
         currentStatus={currentUser?.status}
+      />
+
+      <OnboardingWelcomeModal
+        isOpen={onboardingGuideOpen}
+        customCircleCount={customChannels.length}
+        onDismiss={dismissOnboardingGuide}
       />
     </View>
   );

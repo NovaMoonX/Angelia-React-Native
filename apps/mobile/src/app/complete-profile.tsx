@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Animated,
   KeyboardAvoidingView,
@@ -35,7 +36,8 @@ import { createInviteCircleTask, createSetFunFactTask, createSetStatusTask, crea
 import { uploadPost } from '@/store/actions/postActions';
 import { uploadUserAvatar } from '@/services/firebase/storage';
 import { savePublicProfile } from '@/services/firebase/firestore';
-import { AVATAR_PRESETS, CHANNEL_COLORS } from '@/models/constants';
+import { getConnectionShareLink } from '@/lib/links';
+import { AVATAR_PRESETS, CHANNEL_COLORS, ONBOARDING_FEED_GUIDE_STATE_KEY } from '@/models/constants';
 import type { AvatarPreset } from '@/models/types';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 
@@ -690,6 +692,12 @@ export default function CompleteProfileScreen() {
       // 8 — Mark onboarding complete (non-fatal: layout will re-check on next load)
       try {
         await dispatch(updateAccountProgress({ uid: firebaseUser.uid, field: 'onboardingComplete', value: true })).unwrap();
+      } catch {
+        // Non-fatal
+      }
+
+      try {
+        await AsyncStorage.setItem(ONBOARDING_FEED_GUIDE_STATE_KEY(firebaseUser.uid), 'pending');
       } catch {
         // Non-fatal
       }
@@ -1626,7 +1634,7 @@ export default function CompleteProfileScreen() {
   );
 
   const renderStep5 = () => {
-    const connectionLink = `angelia://connect-request?from=${firebaseUser?.uid ?? ''}`;
+    const connectionLink = getConnectionShareLink(firebaseUser?.uid ?? '');
     const displayName = `${firstName.trim() || 'You'} ${lastName.trim()}`.trim();
 
     const handleShareLink = async () => {

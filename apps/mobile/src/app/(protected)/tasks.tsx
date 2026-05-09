@@ -15,6 +15,7 @@ import { Card } from '@/components/ui/Card';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
+import { generateChannelInviteLink } from '@/lib/channel/channel.utils';
 import { completeTask } from '@/store/actions/taskActions';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import type { AppTask } from '@/models/types';
@@ -100,8 +101,9 @@ export default function TasksScreen() {
         return;
       }
       try {
+        const inviteLink = generateChannelInviteLink(channel);
         await Share.share({
-          message: `Join my "${channel.name}" Circle on Angelia! 🎉\n\nUse invite code: ${channel.inviteCode}`,
+          message: `Join my "${channel.name}" Circle on Angelia! 🎉\n\n${inviteLink}\n\nInvite code: ${channel.inviteCode}`,
           title: `Join ${channel.name} on Angelia`,
         });
         // Mark done after a successful share attempt
@@ -164,7 +166,7 @@ export default function TasksScreen() {
           {tasks.map((task) => {
             const meta = taskMeta(task);
             return (
-              <Card key={task.id} style={[styles.card, { borderColor: theme.border }]}>
+              <Card key={task.id} style={{ ...styles.card, borderColor: theme.border }}>
                 <View style={styles.cardHeader}>
                   <View style={[styles.iconWrap, { backgroundColor: theme.secondary }]}>
                     <Feather name={meta.icon} size={20} color={theme.primary} />

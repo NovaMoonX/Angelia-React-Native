@@ -17,25 +17,8 @@ import { useToast } from '@/hooks/useToast';
 import { useAppSelector } from '@/store/hooks';
 import * as Clipboard from 'expo-clipboard';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { getConnectionShareLink, parseConnectionLink, parseInviteLink } from '@/lib/links';
 import type { User } from '@/models/types';
-
-/** Returns the deep-link URL for a given user's connection request page. */
-function getConnectionLink(userId: string): string {
-  return `angelia://connect-request?from=${userId}`;
-}
-
-/** Extracts a userId from a scanned connection deep-link, or null if unrecognised. */
-function parseConnectionLink(value: string): string | null {
-  try {
-    const url = new URL(value);
-    if (url.protocol === 'angelia:' && url.hostname === 'connect-request') {
-      return url.searchParams.get('from');
-    }
-  } catch {
-    // not a valid URL
-  }
-  return null;
-}
 
 // ── Scan QR tab ──────────────────────────────────────────────────────────────
 
@@ -55,7 +38,7 @@ function ScanQrTab() {
         const value = codes[0]?.value;
         if (!value) return;
 
-        // Connection QR code: angelia://connect-request?from={userId}
+        // Connection QR code / link
         const fromId = parseConnectionLink(value);
         if (fromId) {
           scannedRef.current = true;
@@ -63,11 +46,11 @@ function ScanQrTab() {
           return;
         }
 
-        // Circle invite QR code: angelia://invite/{channelId}/{inviteCode}
-        const inviteMatch = /angelia:\/\/invite\/[^/]+\/([A-Z0-9]{8})/i.exec(value);
+        // Circle invite QR code / link
+        const inviteMatch = parseInviteLink(value);
         if (inviteMatch) {
           scannedRef.current = true;
-          router.push({ pathname: '/join-channel', params: { code: inviteMatch[1].toUpperCase(), autoLookup: '1' } });
+          router.push({ pathname: '/join-channel', params: { code: inviteMatch.inviteCode, autoLookup: '1' } });
           return;
         }
 
@@ -228,7 +211,7 @@ export default function ShareConnectionScreen() {
 
   if (!currentUser) return null;
 
-  const connectionLink = getConnectionLink(currentUser.id);
+  const connectionLink = getConnectionShareLink(currentUser.id);
   const displayName = `${currentUser.firstName} ${currentUser.lastName}`;
 
   const handleShareLink = async () => {
