@@ -6,6 +6,7 @@
     "apps/*"
   ],
   "scripts": {
+    "postinstall": "npm run postinstall --workspace=apps/mobile",
     "mobile": "npm run --workspace=apps/mobile start",
     "web": "npm run --workspace=apps/web dev",
     "web:build": "npm run --workspace=apps/web build",
