@@ -107,5 +107,11 @@ export default {
 				projectId: '966178ad-a43f-425c-9ca2-b31b4a367d7c',
 			},
 		},
+		updates: {
+			url: 'https://u.expo.dev/966178ad-a43f-425c-9ca2-b31b4a367d7c',
+		},
+		runtimeVersion: {
+			policy: 'appVersion',
+		},
 	},
 };
