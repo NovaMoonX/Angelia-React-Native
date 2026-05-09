@@ -32,7 +32,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "ts:check": "tsc --noEmit",
-    "postinstall": "cd ../.. && npx patch-package --patch-dir ./apps/mobile/patches",
+    "postinstall": "cd ../.. && (test -d node_modules/@react-native-firebase/auth && npx patch-package --patch-dir ./apps/mobile/patches || echo 'Skipping patches: mobile packages not installed')",
     "env:pull": "eas env:pull --environment development --output .env.development",
     "packages:check": "npx expo install --check",
     "deps:reset": "rm -rf node_modules package-lock.json && npm install",
