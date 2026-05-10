@@ -1,15 +1,14 @@
 import React from 'react';
 import {
-  KeyboardAvoidingView,
   Modal as RNModal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ModalKeyboardView, useModalSheetPadding } from '@/components/ModalKeyboardView';
 import { useTheme } from '@/hooks/useTheme';
 
 interface ModalProps {
@@ -21,6 +20,8 @@ interface ModalProps {
 
 export function Modal({ isOpen, onClose, title, children }: ModalProps) {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
+  const sheetBottomPadding = useModalSheetPadding(insets.bottom + 16);
 
   return (
     <RNModal
@@ -29,10 +30,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
       animationType="slide"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
+      <ModalKeyboardView style={styles.keyboardView}>
         <Pressable style={styles.backdrop} onPress={onClose}>
           <View
             style={[styles.content, { backgroundColor: theme.card }]}
@@ -44,17 +42,16 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
                 <Text style={[styles.closeButton, { color: theme.mutedForeground }]}>✕</Text>
               </Pressable>
             </View>
-            <SafeAreaView edges={['bottom']} style={styles.body}>
-              <ScrollView
-                contentContainerStyle={styles.bodyContent}
-                showsVerticalScrollIndicator={false}
-              >
-                {children}
-              </ScrollView>
-            </SafeAreaView>
+            <ScrollView
+              style={styles.body}
+              contentContainerStyle={[styles.bodyContent, { paddingBottom: sheetBottomPadding }]}
+              showsVerticalScrollIndicator={false}
+            >
+              {children}
+            </ScrollView>
           </View>
         </Pressable>
-      </KeyboardAvoidingView>
+      </ModalKeyboardView>
     </RNModal>
   );
 }
