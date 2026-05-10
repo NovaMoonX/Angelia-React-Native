@@ -9,15 +9,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { parseConnectionLink, parseInviteLink } from '@/lib/links';
 import {
   Camera,
   useCameraDevice,
   useCameraPermission,
   useCodeScanner,
 } from 'react-native-vision-camera';
-
-const ANGELIA_INVITE_RE = /angelia:\/\/invite\/([^/]+)\/([A-Z0-9]{8})/i;
-const ANGELIA_CONNECT_RE = /angelia:\/\/connect-request\?from=([^&\s]+)/i;
 
 export default function ScanQRScreen() {
   const router = useRouter();
@@ -33,27 +31,26 @@ export default function ScanQRScreen() {
       for (const code of codes) {
         if (!code.value) continue;
 
-        // Circle invite QR code: angelia://invite/{channelId}/{inviteCode}
-        const inviteMatch = ANGELIA_INVITE_RE.exec(code.value);
+        // Circle invite QR code / link
+        const inviteMatch = parseInviteLink(code.value);
         if (inviteMatch) {
           scannedRef.current = true;
           setScanned(true);
-          const inviteCode = inviteMatch[2].toUpperCase();
           router.replace({
             pathname: '/join-channel',
-            params: { code: inviteCode, autoLookup: '1' },
+            params: { code: inviteMatch.inviteCode, autoLookup: '1' },
           });
           return;
         }
 
-        // Connection QR code: angelia://connect-request?from={userId}
-        const connectMatch = ANGELIA_CONNECT_RE.exec(code.value);
+        // Connection QR code / link
+        const connectMatch = parseConnectionLink(code.value);
         if (connectMatch) {
           scannedRef.current = true;
           setScanned(true);
           router.replace({
             pathname: '/connect-request',
-            params: { from: connectMatch[1] },
+            params: { from: connectMatch },
           });
           return;
         }

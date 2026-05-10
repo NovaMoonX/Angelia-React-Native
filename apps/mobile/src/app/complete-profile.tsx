@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Animated,
   KeyboardAvoidingView,
@@ -32,9 +33,11 @@ import { createUserProfile, updateAccountProgress } from '@/store/actions/userAc
 import { createDailyChannel, createCustomChannel } from '@/store/actions/channelActions';
 import { saveNotificationSettings } from '@/store/actions/notificationActions';
 import { createInviteCircleTask, createSetFunFactTask, createSetStatusTask, createCustomCircleTask, createMakeFirstPostTask } from '@/store/actions/taskActions';
+import { uploadPost } from '@/store/actions/postActions';
 import { uploadUserAvatar } from '@/services/firebase/storage';
 import { savePublicProfile } from '@/services/firebase/firestore';
-import { AVATAR_PRESETS, CHANNEL_COLORS } from '@/models/constants';
+import { getConnectionShareLink } from '@/lib/links';
+import { AVATAR_PRESETS, CHANNEL_COLORS, ONBOARDING_FEED_GUIDE_STATE_KEY } from '@/models/constants';
 import type { AvatarPreset } from '@/models/types';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 
@@ -611,7 +614,16 @@ export default function CompleteProfileScreen() {
 
       // 3 — Create daily Circle
       setLoadingMessage('Building your Daily Circle 🌙');
-      await Promise.all([dispatch(createDailyChannel(firebaseUser.uid)).unwrap(), sleep(MIN_STEP_MS)]);
+      const [dailyChannel] = await Promise.all([dispatch(createDailyChannel(firebaseUser.uid)).unwrap(), sleep(MIN_STEP_MS)]);
+
+      // 3b — Create first post from fun fact (if provided)
+      if (funFact) {
+        try {
+          await dispatch(uploadPost({ channelId: dailyChannel.id, text: funFact, media: [], tier: 'everyday' })).unwrap();
+        } catch {
+          // Non-fatal: fun fact post creation failure shouldn't block onboarding
+        }
+      }
 
       // 4 — Create custom Circles (up to 3, from Step 3 selections)
       const pendingCircles = getPendingCircles();
@@ -650,8 +662,10 @@ export default function CompleteProfileScreen() {
         pendingCircles.length === 0
           ? dispatch(createCustomCircleTask()).unwrap().catch(() => null)
           : Promise.resolve(null),
-        // Task to make their first post — always created for new users
-        dispatch(createMakeFirstPostTask()).unwrap().catch(() => null),
+        // Task to make their first post — only if they didn't already post their fun fact
+        !funFact
+          ? dispatch(createMakeFirstPostTask()).unwrap().catch(() => null)
+          : Promise.resolve(null),
       ]);
 
       // 6 — Save notification settings
@@ -678,6 +692,12 @@ export default function CompleteProfileScreen() {
       // 8 — Mark onboarding complete (non-fatal: layout will re-check on next load)
       try {
         await dispatch(updateAccountProgress({ uid: firebaseUser.uid, field: 'onboardingComplete', value: true })).unwrap();
+      } catch {
+        // Non-fatal
+      }
+
+      try {
+        await AsyncStorage.setItem(ONBOARDING_FEED_GUIDE_STATE_KEY(firebaseUser.uid), 'pending');
       } catch {
         // Non-fatal
       }
@@ -1614,7 +1634,7 @@ export default function CompleteProfileScreen() {
   );
 
   const renderStep5 = () => {
-    const connectionLink = `angelia://connect-request?from=${firebaseUser?.uid ?? ''}`;
+    const connectionLink = getConnectionShareLink(firebaseUser?.uid ?? '');
     const displayName = `${firstName.trim() || 'You'} ${lastName.trim()}`.trim();
 
     const handleShareLink = async () => {
@@ -1733,7 +1753,7 @@ export default function CompleteProfileScreen() {
       </Text>
 
       <Button
-        onPress={handleFinish}
+        onPress={() => handleFinish()}
         loading={loading}
         style={styles.cta}
       >

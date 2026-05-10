@@ -11,6 +11,7 @@ export const DAILY_POST_EXPIRY_WARNING_DAYS = 3;
 export const CUSTOM_POST_EXPIRY_WARNING_DAYS = 7;
 
 export const DAILY_CHANNEL_SUFFIX = '-daily';
+export const ANGELIA_WEB_BASE_URL = 'https://angelia.moondreams.dev';
 export const MAX_FILES = 5;
 export const MAX_FILE_SIZE_MB = 10;
 export const MAX_VIDEO_SECONDS = 30;
@@ -55,6 +56,9 @@ export const ALL_POST_TIERS: PostTier[] = POST_TIERS.map((t) => t.value);
 
 /** AsyncStorage key that persists the newest post timestamp the user has acknowledged on the feed. */
 export const FEED_LAST_SEEN_TIMESTAMP_KEY = '@angelia/feed_last_seen_timestamp';
+
+/** AsyncStorage key that tracks whether the new-user feed guide is still pending or has been dismissed. */
+export const ONBOARDING_FEED_GUIDE_STATE_KEY = (userId: string) => `@angelia/onboarding_feed_guide_${userId}`;
 
 /**
  * AsyncStorage key that records when a post host last opened the private notes screen for a post.

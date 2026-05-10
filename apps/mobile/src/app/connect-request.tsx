@@ -47,6 +47,7 @@ export default function ConnectRequestScreen() {
   const [sending, setSending] = useState(false);
   const [alreadyRequested, setAlreadyRequested] = useState(false);
   const [alreadyConnected, setAlreadyConnected] = useState(false);
+  const [isSelf, setIsSelf] = useState(false);
   const [note, setNote] = useState('');
 
   const isSignedIn = !!firebaseUser || isDemo;
@@ -67,6 +68,12 @@ export default function ConnectRequestScreen() {
   // Check if a request already exists once the current user is known
   useEffect(() => {
     if (!from || !currentUser) return;
+
+    // Can't connect with yourself
+    if (from === currentUser.id) {
+      setIsSelf(true);
+      return;
+    }
 
     // Check if already connected via Redux state
     if (connections.some((c) => c.userId === from)) {
@@ -91,15 +98,7 @@ export default function ConnectRequestScreen() {
   }, [from, currentUser, connections]);
 
   const handleConnect = useCallback(async () => {
-    if (!from) return;
-
-    if (!currentUser) return;
-
-    // Can't connect to yourself
-    if (from === currentUser.id) {
-      addToast({ type: 'info', title: "That's your own link! Share it with others 😄" });
-      return;
-    }
+    if (!from || !currentUser) return;
 
     setSending(true);
     try {
@@ -165,7 +164,21 @@ export default function ConnectRequestScreen() {
             ) : null}
           </View>
 
-          {alreadyConnected ? (
+          {isSelf ? (
+            <>
+              <View style={[styles.statusCard, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
+                <Text style={[styles.statusText, { color: theme.foreground }]}>
+                  🙈 Whoops — that's your own link! You can't connect with yourself.
+                </Text>
+              </View>
+              <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
+                Share your link with friends so they can connect with you.
+              </Text>
+              <Button onPress={() => router.replace('/(protected)/my-people')} style={styles.cta}>
+                Go to My People
+              </Button>
+            </>
+          ) : alreadyConnected ? (
             <>
               <View style={[styles.statusCard, { backgroundColor: theme.secondary, borderColor: theme.border }]}>
                 <Text style={[styles.statusText, { color: theme.foreground }]}>

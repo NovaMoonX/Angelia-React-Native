@@ -1,4 +1,5 @@
 import { CHANNEL_COLORS } from '@/models/constants';
+import { getInviteShareLink } from '@/lib/links';
 import type { Channel } from '@/models/types';
 
 export function getColorPair(channel: Channel): { backgroundColor: string; textColor: string } {
@@ -11,5 +12,5 @@ export function getColorPair(channel: Channel): { backgroundColor: string; textC
 
 export function generateChannelInviteLink(channel: Channel): string {
   if (!channel.inviteCode) return '';
-  return `angelia://invite/${channel.id}/${channel.inviteCode}`;
+  return getInviteShareLink(channel.id, channel.inviteCode);
 }

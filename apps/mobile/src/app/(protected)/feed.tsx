@@ -19,6 +19,7 @@ import { PostCard } from '@/components/PostCard';
 import { SkeletonPostCard } from '@/components/SkeletonPostCard';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { NowStatusModal } from '@/components/NowStatusModal';
+import { OnboardingWelcomeModal } from '@/components/OnboardingWelcomeModal';
 import { FeedChannelFilterModal, type ChannelFilterState } from '@/components/FeedChannelFilterModal';
 import { NewPostsPill, type NewPostsPillRef } from '@/components/NewPostsPill';
 import { formatTimeRemaining } from '@/lib/timeUtils';
@@ -709,6 +710,8 @@ export default function FeedScreen() {
         onClear={handleClearStatus}
         currentStatus={currentUser?.status}
       />
+
+      <OnboardingWelcomeModal />
     </View>
   );
 }
