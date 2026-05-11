@@ -1,0 +1,16 @@
+Beta update notes
+
+Last updated: 2026-05-11
+Branch: copilot/fix-invite-button-state
+Related PR: #77
+
+Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
+
+Current branch highlights:
+- Circle invites now stay in sync right away, so invite buttons and pending state feel more reliable.
+- The feed notification badge now reflects pending circle invites in addition to join and connection requests.
+- The feed and account screens have a clearer “How Angelia works” entry point.
+- Status updates can now stay active until you clear them, which makes the new status picker feel more natural.
+- Daily Circle invite flow is cleaner, with invite, share, and QR actions grouped more clearly.
+
+When this branch ships, turn these notes into a friendly beta modal update.

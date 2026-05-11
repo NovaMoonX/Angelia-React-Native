@@ -241,6 +241,16 @@ Keep the tone warm and encouraging — avoid dry or technical language. Write li
 
 **Never** show the modal in demo mode (`isDemo` guard is already in place).
 
+### Beta update notes (`apps/mobile/BETA_UPDATE_NOTES.txt`)
+
+Keep `apps/mobile/BETA_UPDATE_NOTES.txt` current while working on feature branches that change user-facing behavior.
+
+Use it as the compact source of truth for the next beta update modal:
+- Keep it brief, but include the meaningful user-visible changes from the branch or PR.
+- Update it whenever a branch lands bug fixes, workflow changes, or new features that beta testers should know about.
+- Write the entries in the same warm, friendly tone used in the app modal copy.
+- Include the current branch or PR reference at the top so the next update is easy to trace.
+
 ---
 
 ### APP_STORE_LISTING.txt
