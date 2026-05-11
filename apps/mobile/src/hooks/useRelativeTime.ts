@@ -9,6 +9,10 @@ export function useRelativeTime(timestamp: number): string {
   const [label, setLabel] = useState(() => { return getRelativeTime(timestamp); });
 
   useEffect(() => {
+    // Recompute immediately when the post timestamp changes so recycled list
+    // rows never keep another post's stale time label until the next interval.
+    setLabel(getRelativeTime(timestamp));
+
     const interval = setInterval(() => {
       setLabel(getRelativeTime(timestamp));
     }, 30_000);

@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
+import { useAuth } from '@/hooks/useAuth';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { selectChannelById } from '@/store/slices/channelsSlice';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
@@ -26,6 +27,7 @@ export default function InviteAcceptScreen() {
   const dispatch = useAppDispatch();
   const { addToast } = useToast();
   const { theme } = useTheme();
+  const { firebaseUser } = useAuth();
   const insets = useSafeAreaInsets();
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const currentUser = useAppSelector((state) => state.users.currentUser);
@@ -41,6 +43,7 @@ export default function InviteAcceptScreen() {
 
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const viewerUserId = currentUser?.id ?? firebaseUser?.uid ?? null;
 
   const owner = channel ? usersMap[channel.ownerId] : undefined;
   const colors = channel
@@ -48,8 +51,10 @@ export default function InviteAcceptScreen() {
     : { backgroundColor: '#6366F1', textColor: '#FFF' };
 
   // Check existing relationship
-  const isSubscribed =
-    channel?.subscribers.includes(currentUser?.id || '') || false;
+  const isSubscribed = viewerUserId
+    ? channel?.subscribers.includes(viewerUserId) || false
+    : false;
+  const isOwnCircle = channel?.ownerId === viewerUserId;
   // Ignore a stale 'accepted' request — if the user was previously accepted but is no
   // longer subscribed (e.g. removed from the circle), allow them to request to join again.
   const existingRequest =
@@ -61,6 +66,10 @@ export default function InviteAcceptScreen() {
 
   const handleJoinRequest = async () => {
     if (!currentUser || !channelId || !inviteCode) return;
+    if (channel?.ownerId === currentUser.id) {
+      addToast({ type: 'error', title: 'You are the Host of this Circle already.' });
+      return;
+    }
     setLoading(true);
     try {
       await dispatch(
@@ -153,11 +162,13 @@ export default function InviteAcceptScreen() {
             style={{
               backgroundColor: colors.backgroundColor,
               borderColor: colors.backgroundColor,
+              alignSelf: 'center',
             }}
             textStyle={{
               color: colors.textColor,
               fontSize: 16,
               fontWeight: '600',
+              textAlign: 'center',
             }}
           >
             {channel.name}
@@ -185,26 +196,55 @@ export default function InviteAcceptScreen() {
         </View>
 
         {isSubscribed ? (
-          <Callout variant="info"
-            description="You're already a member of this circle."
-          />
+          <View style={styles.calloutSection}>
+            <Callout variant="info"
+              description="You're already a member of this circle."
+            />
+            <Button
+              variant="outline"
+              onPress={() => router.replace('/(protected)/feed')}
+            >
+              Go to Feed
+            </Button>
+          </View>
+        ) : isOwnCircle ? (
+          <View style={styles.calloutSection}>
+            <Callout
+              variant="info"
+              description="You're the Host of this Circle, so you can't send a join request to yourself."
+            />
+            <Button
+              variant="outline"
+              onPress={() => router.replace('/(protected)/feed')}
+            >
+              Go to Feed
+            </Button>
+          </View>
         ) : existingRequest ? (
-          <Callout
-            variant={
-              existingRequest.status === 'pending'
-                ? 'warning'
-                : existingRequest.status === 'accepted'
-                  ? 'success'
-                  : 'destructive'
-            }
-            description={
-              existingRequest.status === 'pending'
-                ? 'Your join request is pending approval.'
-                : existingRequest.status === 'accepted'
-                  ? 'Your request was accepted! You should see posts from this circle in your feed.'
-                  : 'Your join request was declined.'
-            }
-          />
+          <View style={styles.calloutSection}>
+            <Callout
+              variant={
+                existingRequest.status === 'pending'
+                  ? 'warning'
+                  : existingRequest.status === 'accepted'
+                    ? 'success'
+                    : 'destructive'
+              }
+              description={
+                existingRequest.status === 'pending'
+                  ? 'Your join request is pending approval.'
+                  : existingRequest.status === 'accepted'
+                    ? 'Your request was accepted! You should see posts from this circle in your feed.'
+                    : 'Your join request was declined.'
+              }
+            />
+            <Button
+              variant="outline"
+              onPress={() => router.replace('/(protected)/feed')}
+            >
+              Go to Feed
+            </Button>
+          </View>
         ) : (
           <View style={styles.joinSection}>
             <Text style={[styles.label, { color: theme.foreground }]}>
@@ -254,6 +294,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 20,
+  },
+  calloutSection: {
+    gap: 12,
   },
   description: {
     fontSize: 14,

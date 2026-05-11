@@ -66,8 +66,23 @@ export const ONBOARDING_FEED_GUIDE_STATE_KEY = (userId: string) => `@angelia/onb
  */
 export const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_notes_seen_${postId}`;
 
+/** External Google Form used for collecting beta feedback quickly from testers. */
+export const BETA_FEEDBACK_FORM_URL = 'https://forms.gle/vMoCnBVheTsssTHa8';
+
 /**
  * AsyncStorage key that records when the current user last opened the conversation screen for a post.
  * Used to drive the unread indicator on the chat tab in the post detail screen.
  */
 export const CONVERSATION_LAST_SEEN_KEY = (postId: string) => `@angelia/conversation_last_seen_${postId}`;
+
+/**
+ * AsyncStorage key that tracks which custom circles have already been suggested
+ * to a user after they react to a connection's Daily Circle post.
+ */
+export const JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY = (userId: string) => `@angelia/join_custom_circle_suggestions_seen_${userId}`;
+
+/**
+ * AsyncStorage key that records which beta update version the user has already dismissed.
+ * When BETA_UPDATE_VERSION in BetaUpdateModal is bumped, the modal will show again automatically.
+ */
+export const BETA_UPDATE_MODAL_SEEN_KEY = (version: string) => `@angelia/beta_update_modal_seen_${version}`;

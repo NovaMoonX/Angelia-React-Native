@@ -242,6 +242,39 @@ display name in the toast/push copy.
 
 ---
 
+### Scenario G — Custom Circle Invite (you were invited by a connected Host)
+
+You'll see an in-app toast prompting you to review the invite, and a background
+push titled "✨ Circle Invite". Tapping routes directly to the invite review screen.
+
+Replace `YOUR_USER_ID` with your real user ID and use a real `inviteCode` from
+the Circle you want to test.
+
+```json
+{
+  "id": "test-notif-custom-circle-invite-1",
+  "type": "custom_circle_invite",
+  "actorId": "fake-host-id",
+  "target": {
+    "type": "user",
+    "userId": "YOUR_USER_ID"
+  },
+  "createdAt": 1713484800000,
+  "inviterId": "fake-host-id",
+  "inviterFirstName": "Avery",
+  "inviterLastName": "Host",
+  "requestId": "fake-circle-invite-id",
+  "channelId": "YOUR_CUSTOM_CHANNEL_ID",
+  "channelName": "Book Club",
+  "inviteCode": "ABCDEFGH"
+}
+```
+
+> **Note:** Tap handling sends users to `circle-invite/[requestId]`.
+> If the request id is invalid, the invite screen will show an unavailable state — expected in test mode.
+
+---
+
 | App state | Expected behaviour |
 |---|---|
 | **Foreground** | In-app toast appears (DataListenerWrapper Effect 9). No system push shown. |

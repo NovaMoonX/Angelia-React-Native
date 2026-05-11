@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Input } from './Input';
 import { Textarea } from './Textarea';
 import { Label } from './Label';
@@ -52,7 +52,7 @@ interface FormProps<T extends Record<string, any>> {
   initialData: T;
   onSubmit: (data: T) => void;
   onDataChange?: (data: T) => void;
-  submitButton?: React.ReactNode;
+  submitButton?: (handleSubmit: () => void) => React.ReactNode;
 }
 
 export function Form<T extends Record<string, any>>({
@@ -142,9 +142,7 @@ export function Form<T extends Record<string, any>>({
         </View>
       ))}
 
-      {submitButton ? (
-        <Pressable onPress={handleSubmit}>{submitButton}</Pressable>
-      ) : null}
+      {submitButton ? submitButton(handleSubmit) : null}
     </View>
   );
 }

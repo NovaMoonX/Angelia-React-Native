@@ -99,6 +99,13 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 	} else if (type === 'join_channel_accepted') {
 		const channelName = data?.channelName ?? '';
 		router.push({ pathname: '/(protected)/channel-accepted', params: { channelName } });
+	} else if (type === 'custom_circle_invite') {
+		const requestId = data?.requestId;
+		if (requestId) {
+			router.push({ pathname: '/(protected)/circle-invite/[id]', params: { id: requestId } } as never);
+		} else {
+			router.push('/(protected)/notifications');
+		}
 	} else if (type === 'connection_request') {
 		const requestId = data?.connectionRequestId;
 		if (requestId) {

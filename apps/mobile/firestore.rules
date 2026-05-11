@@ -72,7 +72,8 @@ service cloud.firestore {
       }
 
       // Any authenticated user may read a channel document in order to
-      // look it up by channelId when following an invite URL.
+      // look it up by channelId when following an invite URL and to load a
+      // connected user's active custom Circles for join suggestions.
       allow read: if isSignedIn();
 
       // Create: only authenticated users can create a channel for themselves.
@@ -294,13 +295,53 @@ service cloud.firestore {
       allow create: if isRequesterOnCreate()
         && request.resource.data.status == 'pending'
         && request.resource.data.respondedAt == null
-        && exists(/databases/$(database)/documents/channels/$(request.resource.data.channelId));
+        && request.resource.data.requesterId != request.resource.data.channelOwnerId
+        && exists(/databases/$(database)/documents/channels/$(request.resource.data.channelId))
+        && get(/databases/$(database)/documents/channels/$(request.resource.data.channelId)).data.ownerId == request.resource.data.channelOwnerId;
 
       // Only the channel owner may update status (accept/decline)
       allow update: if isChannelOwner()
         && request.resource.data.requesterId == resource.data.requesterId
         && request.resource.data.channelId == resource.data.channelId
         && request.resource.data.channelOwnerId == resource.data.channelOwnerId;
+
+      allow delete: if false;
+    }
+
+    // Circle invite requests — sent by a host to a connected user asking them
+    // to join one of the host's custom circles.
+    match /circleInviteRequests/{requestId} {
+      function isInviter() {
+        return isSignedIn() && request.auth.uid == resource.data.inviterId;
+      }
+
+      function isInvitee() {
+        return isSignedIn() && request.auth.uid == resource.data.inviteeId;
+      }
+
+      function isInviterOnCreate() {
+        return isSignedIn() && request.auth.uid == request.resource.data.inviterId;
+      }
+
+      allow read: if isInviter() || isInvitee();
+
+      allow create: if isInviterOnCreate()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.respondedAt == null
+        && request.resource.data.channelOwnerId == request.auth.uid
+        && exists(/databases/$(database)/documents/channels/$(request.resource.data.channelId))
+        && exists(/databases/$(database)/documents/usersPublic/$(request.resource.data.inviteeId))
+        && exists(/databases/$(database)/documents/connections/$(request.auth.uid)/people/$(request.resource.data.inviteeId));
+
+      allow update: if isInvitee()
+        && request.resource.data.inviterId == resource.data.inviterId
+        && request.resource.data.inviteeId == resource.data.inviteeId
+        && request.resource.data.channelId == resource.data.channelId
+        && request.resource.data.channelOwnerId == resource.data.channelOwnerId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.status in ['accepted', 'declined']
+        && resource.data.status == 'pending'
+        && request.resource.data.respondedAt != null;
 
       allow delete: if false;
     }

@@ -9,7 +9,7 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
-import { respondToJoinRequest } from '@/store/actions/inviteActions';
+import { respondToJoinRequest, respondToCircleInviteRequest } from '@/store/actions/inviteActions';
 import { ScreenHeader } from '@/components/ScreenHeader';
 
 export default function NotificationsScreen() {
@@ -19,10 +19,12 @@ export default function NotificationsScreen() {
   const { theme } = useTheme();
   const channels = useAppSelector((state) => state.channels.items);
   const incoming = useAppSelector((state) => state.invites.incoming);
+  const incomingCircleInvites = useAppSelector((state) => state.invites.incomingCircleInvites);
   const incomingConnRequests = useAppSelector((state) => state.connections.incomingRequests);
   const usersMap = useAppSelector(selectAllUsersMapById);
 
   const pendingIncoming = incoming.filter((r) => r.status === 'pending');
+  const pendingCircleInvites = incomingCircleInvites.filter((r) => r.status === 'pending');
   const pendingConnRequests = incomingConnRequests.filter((r) => r.status === 'pending');
 
   const handleRespondToRequest = async (
@@ -38,6 +40,23 @@ export default function NotificationsScreen() {
       addToast({
         type: 'success',
         title: accept ? 'Request accepted' : 'Request declined',
+      });
+    } catch {
+      addToast({ type: 'error', title: 'Failed to respond' });
+    }
+  };
+
+  const handleRespondToCircleInvite = async (
+    requestId: string,
+    accept: boolean,
+  ) => {
+    const request = pendingCircleInvites.find((r) => r.id === requestId);
+    if (!request) return;
+    try {
+      await dispatch(respondToCircleInviteRequest({ request, accept })).unwrap();
+      addToast({
+        type: 'success',
+        title: accept ? 'Invite accepted' : 'Invite declined',
       });
     } catch {
       addToast({ type: 'error', title: 'Failed to respond' });
@@ -88,14 +107,14 @@ export default function NotificationsScreen() {
         </Pressable>
 
         {/* Empty state — only shown when both request types are empty */}
-        {pendingIncoming.length === 0 && pendingConnRequests.length === 0 ? (
+        {pendingIncoming.length === 0 && pendingCircleInvites.length === 0 && pendingConnRequests.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🫶</Text>
             <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>
               You're all caught up!
             </Text>
             <Text style={[styles.emptySubtext, { color: theme.mutedForeground }]}>
-              Circle join requests and connection requests will show up here.
+              Circle join requests, Circle invites, and connection requests will show up here.
             </Text>
           </View>
         ) : (
@@ -204,6 +223,48 @@ export default function NotificationsScreen() {
                             handleRespondToRequest(req.id, true)
                           }
                         >
+                          Accept
+                        </Button>
+                      </View>
+                    </Card>
+                  );
+                })}
+              </>
+            )}
+
+            {/* Circle invites */}
+            {pendingCircleInvites.length > 0 && (
+              <>
+                <Text style={[styles.sectionTitle, { color: theme.foreground }]}>Circle Invites ({pendingCircleInvites.length})</Text>
+                {pendingCircleInvites.map((req) => {
+                  const inviter = usersMap[req.inviterId];
+                  const ch = channels.find((c) => c.id === req.channelId);
+                  return (
+                    <Card key={req.id} style={styles.requestCard}>
+                      <View style={styles.requestHeader}>
+                        <Avatar user={inviter} size="sm" showStatus={false} />
+                        <View style={{ flex: 1, marginLeft: 8 }}>
+                          <Text style={[styles.requestName, { color: theme.foreground }]}> 
+                            {inviter?.firstName || 'Unknown'} {inviter?.lastName || 'User'}
+                          </Text>
+                          <Text style={[styles.requestChannel, { color: theme.mutedForeground }]}> 
+                            invited you to join{' '}
+                            <Text style={{ fontWeight: '600' }}>{ch?.name || 'circle'}</Text>
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.requestActions}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onPress={() => router.push({ pathname: '/(protected)/circle-invite/[id]', params: { id: req.id } } as never)}
+                        >
+                          View Invite
+                        </Button>
+                        <Button variant="destructive" size="sm" onPress={() => handleRespondToCircleInvite(req.id, false)}>
+                          Decline
+                        </Button>
+                        <Button size="sm" onPress={() => handleRespondToCircleInvite(req.id, true)}>
                           Accept
                         </Button>
                       </View>

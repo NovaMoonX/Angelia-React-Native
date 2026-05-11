@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -12,7 +13,6 @@ import { Label } from '@/components/ui/Label';
 import { Separator } from '@/components/ui/Separator';
 import { Textarea } from '@/components/ui/Textarea';
 import { NowStatusModal } from '@/components/NowStatusModal';
-import { FeedbackSupportModal } from '@/components/FeedbackSupportModal';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
@@ -20,7 +20,7 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { exitDemoMode } from '@/store/actions/demoActions';
 import { saveProfile, saveStatus, clearStatus, uploadAndSaveAvatar } from '@/store/actions/userActions';
 import { completeTask } from '@/store/actions/taskActions';
-import { AVATAR_PRESETS } from '@/models/constants';
+import { AVATAR_PRESETS, BETA_FEEDBACK_FORM_URL } from '@/models/constants';
 import type { AvatarPreset, UserStatus } from '@/models/types';
 import { formatExactExpiry } from '@/lib/timeUtils';
 
@@ -43,7 +43,6 @@ export function AccountTab() {
   const [editAvatarUri, setEditAvatarUri] = useState<string | null>(currentUser?.avatarUrl ?? null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
-  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
 
   if (!currentUser) return null;
 
@@ -163,6 +162,19 @@ export function AccountTab() {
       setStatusModalOpen(false);
     } catch {
       addToast({ type: 'error', title: 'Failed to clear status' });
+    }
+  };
+
+  const handleOpenBetaFeedbackForm = async () => {
+    try {
+      await Linking.openURL(BETA_FEEDBACK_FORM_URL);
+    } catch {
+      try {
+        await Clipboard.setStringAsync(BETA_FEEDBACK_FORM_URL);
+        addToast({ type: 'success', title: 'Could not open link, so we copied it for you.' });
+      } catch {
+        addToast({ type: 'error', title: 'Could not open or copy the feedback link right now.' });
+      }
     }
   };
 
@@ -296,9 +308,9 @@ export function AccountTab() {
           <Button
             variant="outline"
             textStyle={{ flex: 1 }}
-            onPress={() => setFeedbackModalOpen(true)}
+            onPress={handleOpenBetaFeedbackForm}
           >
-            🛟 Get Help & Feedback
+            📝 Share Beta Feedback
           </Button>
         )}
         <Button variant="destructive" textStyle={{ flex: 1 }} onPress={handleSignOut}>
@@ -312,11 +324,6 @@ export function AccountTab() {
         onSave={handleSaveStatus}
         onClear={handleClearStatus}
         currentStatus={currentUser.status}
-      />
-
-      <FeedbackSupportModal
-        visible={feedbackModalOpen}
-        onClose={() => setFeedbackModalOpen(false)}
       />
     </>
   );

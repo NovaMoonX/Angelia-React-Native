@@ -25,6 +25,9 @@ interface ChannelModalProps {
   removingSubscriberId?: string | null;
   /** Label for the per-subscriber action button. Defaults to "Remove". */
   removeSubscriberLabel?: string;
+  inviteCandidates?: User[];
+  onInviteCandidate?: (userId: string) => void;
+  invitingCandidateId?: string | null;
 }
 
 export function ChannelModal({
@@ -36,6 +39,9 @@ export function ChannelModal({
   onRemoveSubscriber,
   removingSubscriberId,
   removeSubscriberLabel = 'Remove',
+  inviteCandidates = [],
+  onInviteCandidate,
+  invitingCandidateId,
 }: ChannelModalProps) {
   const { theme } = useTheme();
   const colors = getColorPair(channel);
@@ -130,6 +136,36 @@ export function ChannelModal({
         </View>
 
         <Separator />
+
+        {onInviteCandidate && (
+          <>
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.foreground }]}>Invite from My People</Text>
+              {inviteCandidates.length === 0 ? (
+                <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>All your connected people are already in this Circle.</Text>
+              ) : (
+                inviteCandidates.map((person) => (
+                  <View key={person.id} style={styles.subscriberRow}>
+                    <Avatar user={person} size="sm" showStatus={false} />
+                    <Text style={[styles.subscriberName, { color: theme.foreground }]}>
+                      {person.firstName} {person.lastName}
+                    </Text>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onPress={() => onInviteCandidate(person.id)}
+                      loading={invitingCandidateId === person.id}
+                    >
+                      Invite
+                    </Button>
+                  </View>
+                ))
+              )}
+            </View>
+
+            <Separator />
+          </>
+        )}
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.foreground }]}>

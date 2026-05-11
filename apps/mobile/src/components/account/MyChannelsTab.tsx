@@ -17,6 +17,7 @@ import {
   removeChannelSubscriber,
 } from '@/store/actions/channelActions';
 import { disconnectUser } from '@/store/actions/connectionsActions';
+import { sendCustomCircleInvite } from '@/store/actions/inviteActions';
 import { completeTask } from '@/store/actions/taskActions';
 import { CUSTOM_CHANNEL_LIMIT } from '@/models/constants';
 import {
@@ -37,6 +38,7 @@ export function MyChannelsTab() {
   const dailyChannel = useAppSelector(selectCurrentUserDailyChannel);
   const customChannels = useAppSelector(selectCurrentUserCustomChannels);
   const tasks = useAppSelector((state) => state.tasks.items);
+  const connections = useAppSelector((state) => state.connections.connections);
 
   const customChannelCount = customChannels.length;
   const canCreateChannel = (currentUser?.customChannelCount || 0) < CUSTOM_CHANNEL_LIMIT;
@@ -51,11 +53,29 @@ export function MyChannelsTab() {
   const [channelDetailOpen, setChannelDetailOpen] = useState(false);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [removingSubscriberId, setRemovingSubscriberId] = useState<string | null>(null);
+  const [invitingCandidateId, setInvitingCandidateId] = useState<string | null>(null);
 
   const selectedChannel = useMemo(
     () => channels.find((c) => c.id === selectedChannelId) ?? null,
     [channels, selectedChannelId],
   );
+
+  const inviteCandidates = useMemo(() => {
+    if (!selectedChannel || !currentUser) return [];
+    if (selectedChannel.ownerId !== currentUser.id || selectedChannel.isDaily) return [];
+
+    const connectedUsers = connections
+      .map((c) => {
+        return usersMap[c.userId];
+      })
+      .filter((u): u is NonNullable<typeof u> => {
+        return Boolean(u);
+      });
+
+    return connectedUsers.filter((u) => {
+      return !selectedChannel.subscribers.includes(u.id);
+    });
+  }, [selectedChannel, currentUser, connections, usersMap]);
 
   if (!currentUser) return null;
 
@@ -157,6 +177,31 @@ export function MyChannelsTab() {
     return channel.isDaily ? handleDisconnectSubscriber : handleRemoveSubscriber;
   };
 
+  const handleInviteCandidate = async (targetUserId: string) => {
+    if (!selectedChannel) return;
+    try {
+      setInvitingCandidateId(targetUserId);
+      await dispatch(
+        sendCustomCircleInvite({
+          channelId: selectedChannel.id,
+          channelName: selectedChannel.name,
+          inviteCode: selectedChannel.inviteCode ?? '',
+          targetUserId,
+        }),
+      ).unwrap();
+      const invitedUser = usersMap[targetUserId];
+      const firstName = invitedUser?.firstName ?? 'They';
+      addToast({ type: 'success', title: `Invite sent to ${firstName}!` });
+    } catch (err) {
+      addToast({
+        type: 'error',
+        title: err instanceof Error ? err.message : 'Failed to send invite',
+      });
+    } finally {
+      setInvitingCandidateId(null);
+    }
+  };
+
   return (
     <>
       {canCreateChannel ? (
@@ -253,6 +298,9 @@ export function MyChannelsTab() {
           onRemoveSubscriber={getRemoveSubscriberHandler(selectedChannel)}
           removeSubscriberLabel={selectedChannel.isDaily ? 'Disconnect' : 'Remove'}
           removingSubscriberId={removingSubscriberId}
+          inviteCandidates={inviteCandidates}
+          onInviteCandidate={handleInviteCandidate}
+          invitingCandidateId={invitingCandidateId}
         />
       )}
     </>

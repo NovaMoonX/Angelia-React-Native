@@ -44,7 +44,7 @@ app-example
 
 # Firebase
 .firebase
-/firebase-debug.log
+**/firebase-debug.log
 apps/mobile/functions/firebase-debug.log
 apps/mobile/functions/lib
 

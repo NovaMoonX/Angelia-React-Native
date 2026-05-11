@@ -134,16 +134,16 @@ export function ChannelFormModal({
         form={formFields}
         initialData={initialData}
         onSubmit={onSubmit}
-        submitButton={
+        submitButton={(handleSubmit) => (
           <View style={formModalStyles.buttonRow}>
             <Button variant="tertiary" onPress={onClose}>
               Cancel
             </Button>
-            <Button>
+            <Button onPress={handleSubmit}>
               {mode === 'create' ? 'Create Circle' : 'Save Changes'}
             </Button>
           </View>
-        }
+        )}
       />
     </Modal>
   );

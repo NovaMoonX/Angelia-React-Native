@@ -57,6 +57,13 @@ npm run deploy:indexes
   - ❌ `note?: string`
 - Always provide an explicit value (including `null`) when writing documents, so the field is always present in Firestore.
 
+### Firestore subscription snapshots
+
+- Treat every `onSnapshot` callback parameter as potentially nullable in React Native Firebase. Do **not** assume query listeners always receive a non-null snapshot.
+- For collection/query listeners, never access `snap.docs` directly. Always read documents via a null-safe fallback such as `snap?.docs ?? []` or a shared helper in `src/services/firebase/firestore.ts`.
+- For document listeners, guard `snap` before reading `exists` or `data`. If a null snapshot arrives transiently, preserve the previous local state or return early rather than throwing.
+- When adding a new Firestore subscription, include an error callback whenever the caller has a sensible fallback state (`[]`, `null`, or previously cached data). Subscription callbacks must fail closed, not crash the app.
+
 ---
 
 ## Cloud Functions type sync
@@ -209,6 +216,32 @@ The individual `preset` and `uri` props are only for non-User contexts, such as 
 ---
 
 ## Keeping docs up to date
+
+### BetaUpdateModal (`src/components/BetaUpdateModal.tsx`)
+
+`BetaUpdateModal` displays a one-time "what's new" modal to beta testers when a new update is pushed. **Update it whenever:**
+
+- A **bug fix, improvement, or new feature** ships that beta testers should be aware of.
+
+**How to update:**
+
+1. **Bump `BETA_UPDATE_VERSION`** to a new string (e.g. `"1.1.0"` or a date like `"2026-06-01"`). This is the only thing required to make the modal show again for all users — the AsyncStorage key is derived from this version string.
+2. **Update `BETA_UPDATE_TITLE`** if a new headline fits better (optional).
+3. **Replace `BETA_UPDATE_CHANGES`** with the current list of changes. Each entry has:
+   - `emoji` — a single emoji that represents the change type
+   - `title` — a short, friendly headline (max ~6 words)
+   - `description` — (optional) one sentence elaborating on the change
+
+Keep the tone warm and encouraging — avoid dry or technical language. Write like you're texting a friend about something cool.
+
+```ts
+// Example entry
+{ emoji: '🐛', title: 'Bug fixes & stability', description: 'A few rough edges smoothed out.' }
+```
+
+**Never** show the modal in demo mode (`isDemo` guard is already in place).
+
+---
 
 ### APP_STORE_LISTING.txt
 

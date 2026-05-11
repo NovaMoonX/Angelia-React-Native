@@ -170,6 +170,22 @@ export interface ChannelJoinRequest {
   respondedAt: number | null;
 }
 
+/**
+ * A request from a Circle host to a connected user asking them to join a
+ * custom Circle.
+ * Stored in `circleInviteRequests/{requestId}`.
+ */
+export interface CircleInviteRequest {
+  id: string;
+  channelId: string;
+  channelOwnerId: string;
+  inviterId: string;
+  inviteeId: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: number;
+  respondedAt: number | null;
+}
+
 export interface Message {
   id: string;
   authorId: string;
@@ -222,6 +238,7 @@ export interface ConnectionRequest {
 export type AppNotificationType =
   | 'join_channel_request'
   | 'join_channel_accepted'
+  | 'custom_circle_invite'
   | 'connection_request'
   | 'connection_accepted'
   | 'big_news_post'
@@ -268,6 +285,18 @@ export interface JoinChannelAcceptedNotification extends BaseAppNotification {
   channelId: string;
   channelName: string;
   joinRequestId: string;
+}
+
+/** Written when a Host invites a connected user to join one of their custom Circles. */
+export interface CustomCircleInviteNotification extends BaseAppNotification {
+  type: 'custom_circle_invite';
+  requestId: string;
+  inviterId: string;
+  inviterFirstName: string;
+  inviterLastName: string;
+  channelId: string;
+  channelName: string;
+  inviteCode: string;
 }
 
 /** Written when a user sends a connection request — targets the host. */
@@ -317,6 +346,7 @@ export interface PrivateNoteNotification extends BaseAppNotification {
 export type AppNotification =
   | JoinChannelRequestNotification
   | JoinChannelAcceptedNotification
+  | CustomCircleInviteNotification
   | ConnectionRequestNotification
   | ConnectionAcceptedNotification
   | BigNewsPostNotification

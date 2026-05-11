@@ -11,6 +11,8 @@ import { setCurrentUser, setUsers, setCurrentUserNotificationSettings } from '@/
 import {
   setIncomingRequests,
   setOutgoingRequests,
+  setIncomingCircleInvites,
+  setOutgoingCircleInvites,
 } from '@/store/slices/invitesSlice';
 import { setTasks } from '@/store/slices/tasksSlice';
 import {
@@ -28,6 +30,8 @@ import {
   subscribeToPosts,
   subscribeToIncomingJoinRequests,
   subscribeToOutgoingJoinRequests,
+  subscribeToIncomingCircleInviteRequests,
+  subscribeToOutgoingCircleInviteRequests,
   subscribeToChannelUsers,
   subscribeToNotificationSettings,
   subscribeToConnections,
@@ -75,6 +79,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const connections = useAppSelector((state) => state.connections.connections);
   const incomingConnectionRequests = useAppSelector((state) => state.connections.incomingRequests);
   const incomingJoinRequests = useAppSelector((state) => state.invites.incoming);
+  const incomingCircleInvites = useAppSelector((state) => state.invites.incomingCircleInvites);
   const posts = useAppSelector((state) => state.posts.items);
 
   // Whether the current user's daily channel is loaded — used to trigger the member sync
@@ -97,6 +102,8 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const connectionRequestsLoadedRef = useRef(false);
   const seenJoinRequestIdsRef = useRef(new Set<string>());
   const joinRequestsLoadedRef = useRef(false);
+  const seenCircleInviteIdsRef = useRef(new Set<string>());
+  const circleInvitesLoadedRef = useRef(false);
 
   const unsubsRef = useRef<Array<() => void>>([]);
   const postsUnsubRef = useRef<(() => void) | null>(null);
@@ -126,6 +133,8 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
     connectionRequestsLoadedRef.current = false;
     seenJoinRequestIdsRef.current = new Set();
     joinRequestsLoadedRef.current = false;
+    seenCircleInviteIdsRef.current = new Set();
+    circleInvitesLoadedRef.current = false;
 
     const unsubUser = subscribeToCurrentUser(uid, (user: User | null) => {
       dispatch(setCurrentUser(user));
@@ -153,6 +162,24 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       (reqs: ChannelJoinRequest[]) => {
         dispatch(setOutgoingRequests(reqs));
       }
+    );
+
+    const unsubIncomingCircleInvites = subscribeToIncomingCircleInviteRequests(
+      uid,
+      (reqs) => {
+        if (!circleInvitesLoadedRef.current) {
+          reqs.forEach((r) => { seenCircleInviteIdsRef.current.add(r.id); });
+          circleInvitesLoadedRef.current = true;
+        }
+        dispatch(setIncomingCircleInvites(reqs));
+      },
+    );
+
+    const unsubOutgoingCircleInvites = subscribeToOutgoingCircleInviteRequests(
+      uid,
+      (reqs) => {
+        dispatch(setOutgoingCircleInvites(reqs));
+      },
     );
 
     const unsubConnections = subscribeToConnections(uid, (conns: Connection[]) => {
@@ -187,6 +214,8 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       unsubConnections,
       unsubIncomingConns,
       unsubOutgoingConns,
+      unsubIncomingCircleInvites,
+      unsubOutgoingCircleInvites,
     ];
 
     return () => {
@@ -494,6 +523,20 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
           description: `Tap to check out ${channelName} and celebrate!`,
           onPress: () => router.push({ pathname: '/(protected)/channel-accepted', params: { channelName } }),
         });
+      } else if (type === 'custom_circle_invite') {
+        const channelName = data?.channelName ?? 'this Circle';
+        const firstName = data?.inviterFirstName ?? 'Someone';
+        const inviteCode = data?.inviteCode;
+        const requestId = data?.requestId;
+        if (requestId) seenCircleInviteIdsRef.current.add(requestId);
+        addToast({
+          type: 'info',
+          title: `✨ ${firstName} invited you to join ${channelName}`,
+          description: inviteCode ? 'Tap to review the invite' : 'Open notifications to view details',
+          onPress: requestId
+            ? () => router.push({ pathname: '/(protected)/circle-invite/[id]', params: { id: requestId } } as never)
+            : () => router.push('/(protected)/notifications'),
+        });
       } else if (type === 'connection_request') {
         const firstName = data?.fromFirstName ?? 'Someone';
         const requestId = data?.connectionRequestId;
@@ -672,6 +715,29 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       });
     }
   }, [isDemo, incomingJoinRequests, allUsers, channels, addToast]);
+
+  // Effect 14: Show in-app toasts for new pending circle invite requests.
+  useEffect(() => {
+    if (isDemo || !circleInvitesLoadedRef.current) return;
+
+    const freshRequests = incomingCircleInvites.filter(
+      (r) => { return r.status === 'pending' && !seenCircleInviteIdsRef.current.has(r.id); },
+    );
+
+    for (const req of freshRequests) {
+      seenCircleInviteIdsRef.current.add(req.id);
+      const inviter = allUsers.find((u) => { return u.id === req.inviterId; });
+      const circle = channels.find((ch) => { return ch.id === req.channelId; });
+      const firstName = inviter?.firstName ?? 'Someone';
+      const channelName = circle?.name ?? 'your circle';
+      addToast({
+        type: 'info',
+        title: `✨ ${firstName} invited you to join ${channelName}`,
+        description: 'Tap to review the invite',
+          onPress: () => router.push({ pathname: '/(protected)/circle-invite/[id]', params: { id: req.id } } as never),
+      });
+    }
+  }, [isDemo, addToast, allUsers, channels, router, incomingCircleInvites]);
 
   return <>{children}</>;
 }
