@@ -54,6 +54,7 @@ export default function JoinChannelScreen() {
   const codeInputRef = useRef<CodeInputHandle>(null);
 
   const isAuthenticated = !!firebaseUser || isDemo;
+  const viewerUserId = currentUser?.id ?? firebaseUser?.uid ?? null;
 
   // Memoize the selector instance so it re-creates only when the channel changes
   const selectMostRecentRequest = useMemo(
@@ -160,8 +161,8 @@ export default function JoinChannelScreen() {
     router.back();
   }, [step, router, fromOnboarding]);
 
-  const isSubscribed = channel?.subscribers.includes(currentUser?.id || '') || false;
-  const isOwnCircle = channel?.ownerId === currentUser?.id;
+  const isSubscribed = viewerUserId ? channel?.subscribers.includes(viewerUserId) || false : false;
+  const isOwnCircle = channel?.ownerId === viewerUserId;
   // Ignore a stale 'accepted' request — if the user was previously accepted but is no
   // longer subscribed (e.g. removed from the circle), allow them to request to join again.
   const existingRequest =
@@ -302,6 +303,7 @@ export default function JoinChannelScreen() {
                     color: colors.textColor,
                     fontSize: 16,
                     fontWeight: '600',
+                    textAlign: 'center',
                   }}
                 >
                   {channel.name}
