@@ -217,6 +217,32 @@ The individual `preset` and `uri` props are only for non-User contexts, such as 
 
 ## Keeping docs up to date
 
+### BetaUpdateModal (`src/components/BetaUpdateModal.tsx`)
+
+`BetaUpdateModal` displays a one-time "what's new" modal to beta testers when a new update is pushed. **Update it whenever:**
+
+- A **bug fix, improvement, or new feature** ships that beta testers should be aware of.
+
+**How to update:**
+
+1. **Bump `BETA_UPDATE_VERSION`** to a new string (e.g. `"1.1.0"` or a date like `"2026-06-01"`). This is the only thing required to make the modal show again for all users — the AsyncStorage key is derived from this version string.
+2. **Update `BETA_UPDATE_TITLE`** if a new headline fits better (optional).
+3. **Replace `BETA_UPDATE_CHANGES`** with the current list of changes. Each entry has:
+   - `emoji` — a single emoji that represents the change type
+   - `title` — a short, friendly headline (max ~6 words)
+   - `description` — (optional) one sentence elaborating on the change
+
+Keep the tone warm and encouraging — avoid dry or technical language. Write like you're texting a friend about something cool.
+
+```ts
+// Example entry
+{ emoji: '🐛', title: 'Bug fixes & stability', description: 'A few rough edges smoothed out.' }
+```
+
+**Never** show the modal in demo mode (`isDemo` guard is already in place).
+
+---
+
 ### APP_STORE_LISTING.txt
 
 `APP_STORE_LISTING.txt` (repo root) is the source of truth for app store copy — short description, full description, keywords, and reviewer notes. **Keep the full description up to date whenever:**

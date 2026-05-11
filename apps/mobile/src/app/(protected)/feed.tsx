@@ -22,6 +22,7 @@ import { SkeletonPostCard } from '@/components/SkeletonPostCard';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { NowStatusModal } from '@/components/NowStatusModal';
 import { OnboardingWelcomeModal } from '@/components/OnboardingWelcomeModal';
+import { BetaUpdateModal } from '@/components/BetaUpdateModal';
 import { FeedChannelFilterModal, type ChannelFilterState } from '@/components/FeedChannelFilterModal';
 import { NewPostsPill, type NewPostsPillRef } from '@/components/NewPostsPill';
 import { formatTimeRemaining } from '@/lib/timeUtils';
@@ -747,6 +748,7 @@ export default function FeedScreen() {
       />
 
       <OnboardingWelcomeModal />
+      <BetaUpdateModal />
     </View>
   );
 }

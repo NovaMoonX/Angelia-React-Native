@@ -80,3 +80,9 @@ export const CONVERSATION_LAST_SEEN_KEY = (postId: string) => `@angelia/conversa
  * to a user after they react to a connection's Daily Circle post.
  */
 export const JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY = (userId: string) => `@angelia/join_custom_circle_suggestions_seen_${userId}`;
+
+/**
+ * AsyncStorage key that records which beta update version the user has already dismissed.
+ * When BETA_UPDATE_VERSION in BetaUpdateModal is bumped, the modal will show again automatically.
+ */
+export const BETA_UPDATE_MODAL_SEEN_KEY = (version: string) => `@angelia/beta_update_modal_seen_${version}`;
