@@ -261,7 +261,7 @@ export function FeedChannelFilterModal({
               selectedIds={selectedIds}
               onToggleItem={handleToggleItem}
               onToggleGroup={handleToggleGroup}
-              grouped={false}
+              grouped={filteredDailyItems.length >= 2}
             />
           )}
         </>

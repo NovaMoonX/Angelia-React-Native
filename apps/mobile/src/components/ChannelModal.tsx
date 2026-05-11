@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import QRCode from 'react-native-qrcode-svg';
 import { Modal } from '@/components/ui/Modal';
 import { Avatar } from '@/components/ui/Avatar';
@@ -46,14 +47,17 @@ export function ChannelModal({
   onInviteCandidate,
   invitingCandidateId,
 }: ChannelModalProps) {
+  const router = useRouter();
   const { theme } = useTheme();
   const colors = getColorPair(channel);
   const inviteUrl = generateChannelInviteLink(channel);
-  const [inviteSectionOpen, setInviteSectionOpen] = useState(false);
+  const [inviteLinkSectionOpen, setInviteLinkSectionOpen] = useState(false);
+  const [inviteFromPeopleSectionOpen, setInviteFromPeopleSectionOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
-    setInviteSectionOpen(false);
+    setInviteLinkSectionOpen(false);
+    setInviteFromPeopleSectionOpen(false);
   }, [isOpen]);
 
   const pendingInviteeIdSet = useMemo(() => {
@@ -93,68 +97,96 @@ export function ChannelModal({
             <Text style={[styles.dailyInfoText, { color: theme.secondaryForeground }]}>
               Looking to add people? Connect with them from your feed and they’ll appear in your Daily Circle.
             </Text>
+            <View style={styles.dailyActionRow}>
+              <Button
+                variant="outline"
+                size="sm"
+                onPress={() => router.push('/(protected)/share-connection')}
+                style={styles.dailyActionButton}
+              >
+                Share connection link
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onPress={() => router.push('/scan-qr')}
+                style={styles.dailyActionButton}
+              >
+                Scan QR code
+              </Button>
+            </View>
           </View>
         ) : (
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.foreground }]}>
-                Invite Link
-              </Text>
-              {onRefreshInviteCode && (
-                <View style={styles.refreshRow}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onPress={onRefreshInviteCode}
+            <Pressable
+              onPress={() => setInviteLinkSectionOpen((prev) => !prev)}
+              style={styles.collapsibleHeader}
+            >
+              <Text style={[styles.sectionTitle, { color: theme.foreground }]}>Invite Link</Text>
+              <Feather
+                name={inviteLinkSectionOpen ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color={theme.mutedForeground}
+              />
+            </Pressable>
+            {inviteLinkSectionOpen && (
+              <>
+                {onRefreshInviteCode && (
+                  <View style={styles.refreshRow}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onPress={onRefreshInviteCode}
+                    >
+                      Refresh
+                    </Button>
+                    <HelpIcon message="Generates a brand-new invite link and instantly invalidates the old one." />
+                  </View>
+                )}
+                {inviteUrl ? (
+                  <CopyButton
+                    textToCopy={inviteUrl}
+                    variant="secondary"
+                    disabled={!inviteUrl}
                   >
-                    Refresh
-                  </Button>
-                  <HelpIcon message="Generates a brand-new invite link and instantly invalidates the old one." />
-                </View>
-              )}
-            </View>
-            {inviteUrl ? (
-              <CopyButton
-                textToCopy={inviteUrl}
-                variant="secondary"
-                disabled={!inviteUrl}
-              >
-                Copy Invite Link
-              </CopyButton>
-            ) : (
-              <Text
-                style={[styles.noInvite, { color: theme.mutedForeground }]}
-              >
-                No invite link available
-              </Text>
-            )}
+                    Copy Invite Link
+                  </CopyButton>
+                ) : (
+                  <Text
+                    style={[styles.noInvite, { color: theme.mutedForeground }]}
+                  >
+                    No invite link available
+                  </Text>
+                )}
 
-            {channel.inviteCode && (
-              <View style={styles.qrSection}>
-                <View style={styles.qrContainer}>
-                  <QRCode
-                    value={inviteUrl || channel.inviteCode}
-                    size={160}
-                    backgroundColor="#FFFFFF"
-                    color="#111827"
-                  />
-                </View>
-                <View style={styles.inviteCodeRow}>
-                  <Text style={[styles.inviteCodeLabel, { color: theme.mutedForeground }]}>
-                    Invite code:
-                  </Text>
-                  <Text style={[styles.inviteCodeValue, { color: theme.foreground }]}>
-                    {channel.inviteCode}
-                  </Text>
-                </View>
-                <CopyButton
-                  textToCopy={channel.inviteCode}
-                  variant="outline"
-                  size="sm"
-                >
-                  Copy Code
-                </CopyButton>
-              </View>
+                {channel.inviteCode && (
+                  <View style={styles.qrSection}>
+                    <View style={styles.qrContainer}>
+                      <QRCode
+                        value={inviteUrl || channel.inviteCode}
+                        size={160}
+                        backgroundColor="#FFFFFF"
+                        color="#111827"
+                      />
+                    </View>
+                    <View style={styles.inviteCodeRow}>
+                      <Text style={[styles.inviteCodeLabel, { color: theme.mutedForeground }]}> 
+                        Invite code:
+                      </Text>
+                      <Text style={[styles.inviteCodeValue, { color: theme.foreground }]}> 
+                        {channel.inviteCode}
+                      </Text>
+                    </View>
+                    <CopyButton
+                      textToCopy={channel.inviteCode}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Copy Code
+                    </CopyButton>
+                  </View>
+                )}
+              </>
             )}
           </View>
         )}
@@ -165,17 +197,17 @@ export function ChannelModal({
           <>
             <View style={styles.section}>
               <Pressable
-                onPress={() => setInviteSectionOpen((prev) => !prev)}
+                onPress={() => setInviteFromPeopleSectionOpen((prev) => !prev)}
                 style={styles.collapsibleHeader}
               >
                 <Text style={[styles.sectionTitle, { color: theme.foreground }]}>Invite from My People</Text>
                 <Feather
-                  name={inviteSectionOpen ? 'chevron-up' : 'chevron-down'}
+                  name={inviteFromPeopleSectionOpen ? 'chevron-up' : 'chevron-down'}
                   size={18}
                   color={theme.mutedForeground}
                 />
               </Pressable>
-              {inviteSectionOpen && (
+              {inviteFromPeopleSectionOpen && (
                 <>
                   {inviteCandidates.length === 0 ? (
                     <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>All your connected people are already in this Circle.</Text>
@@ -292,6 +324,16 @@ const styles = StyleSheet.create({
   dailyInfoText: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  dailyActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+    marginTop: 6,
+  },
+  dailyActionButton: {
+    flexGrow: 1,
+    minWidth: 132,
   },
   qrSection: {
     alignItems: 'center',

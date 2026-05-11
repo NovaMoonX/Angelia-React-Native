@@ -704,6 +704,25 @@ export default function FeedScreen() {
       {!fabExpanded && (
         <Pressable
           style={[
+            styles.quickGuideButton,
+            {
+              backgroundColor: theme.card,
+              borderColor: theme.border,
+              bottom: insets.bottom + 76,
+            },
+          ]}
+          onPress={() => router.push('/about')}
+          accessibilityRole="button"
+          accessibilityLabel="How Angelia works"
+        >
+          <Feather name="help-circle" size={16} color={theme.primary} />
+        </Pressable>
+      )}
+
+      {/* Beta feedback shortcut */}
+      {!fabExpanded && (
+        <Pressable
+          style={[
             styles.betaFeedbackButton,
             {
               backgroundColor: theme.card,
@@ -946,6 +965,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 6,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.14,
+    shadowRadius: 2,
+    zIndex: 20,
+  },
+  quickGuideButton: {
+    position: 'absolute',
+    left: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
