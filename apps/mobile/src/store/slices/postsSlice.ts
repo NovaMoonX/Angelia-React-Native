@@ -82,6 +82,9 @@ const postsSlice = createSlice({
         );
       }
     },
+    removePost(state, action: PayloadAction<{ postId: string }>) {
+      state.items = state.items.filter((p) => p.id !== action.payload.postId);
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(resetAllState, () => initialState);
@@ -98,6 +101,7 @@ export const {
   revertReactionsOptimistic,
   addConversationEnrollee,
   removeConversationEnrollee,
+  removePost,
 } = postsSlice.actions;
 
 // Selectors

@@ -32,6 +32,7 @@
       "approve": true,
       "matchCommandLine": true
     },
-    "npm run ts:check": true
+    "npm run ts:check": true,
+    "npx tsc": true
   }
 }

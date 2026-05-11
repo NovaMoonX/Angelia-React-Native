@@ -688,6 +688,41 @@ export const onDisconnectRequest = onDocumentCreated(
   },
 );
 
+// ── Helper: Delete a post with all its media ──────────────────────────────
+
+/**
+ * Deletes a post document and all its associated media from Firebase Storage.
+ * Recursively deletes the post to also clean up subcollections (messages,
+ * comments, privateNotes). Media deletion is best-effort — a storage error
+ * will not prevent the Firestore deletion.
+ *
+ * @param postRef The Firestore DocumentReference for the post
+ * @param bucket The Firebase Storage bucket instance
+ * @returns true if deletion succeeded, false otherwise
+ */
+async function deletePostWithMedia(
+  postRef: admin.firestore.DocumentReference,
+  bucket: any,
+): Promise<boolean> {
+  const postId = postRef.id;
+  try {
+    // Delete Firebase Storage media files (best-effort).
+    try {
+      await bucket.deleteFiles({ prefix: `posts/${postId}/` });
+    } catch (err) {
+      console.error(`deletePostWithMedia: failed to delete Storage files for post ${postId}:`, err);
+      // Continue with Firestore deletion even if Storage fails
+    }
+
+    // Recursively delete the post document and all subcollections.
+    await db.recursiveDelete(postRef);
+    return true;
+  } catch (err) {
+    console.error(`deletePostWithMedia: failed to delete post ${postId}:`, err);
+    return false;
+  }
+}
+
 // ── Cloud Function: Cascade-delete circles marked for deletion ─────────────
 
 /**
@@ -715,43 +750,22 @@ export const deleteMarkedChannels = onSchedule('every 24 hours', async () => {
 
   if (channelsSnap.empty) return;
 
-  const bucket = admin.storage().bucket();
-
   for (const channelDoc of channelsSnap.docs) {
     const channelId = channelDoc.id;
     console.log(`deleteMarkedChannels: starting cleanup for channel ${channelId}`);
 
     try {
-      // ── Step 1 & 2: Collect all posts, delete Storage media, then delete docs ─
+      // ── Step 1 & 2: Collect all posts and delete them with their media ────────
       const postsSnap = await db
         .collection('posts')
         .where('channelId', '==', channelId)
         .get();
 
-      // Delete Storage files for all posts in parallel (best-effort).
-      await Promise.all(
-        postsSnap.docs.map(async (postDoc) => {
-          try {
-            await bucket.deleteFiles({ prefix: `posts/${postDoc.id}/` });
-          } catch (err) {
-            console.error(
-              `deleteMarkedChannels: failed to delete Storage files for post ${postDoc.id}:`,
-              err,
-            );
-          }
-        }),
-      );
-
-      // Recursively delete each post document (removes messages/comments/privateNotes subcollections).
+      const bucket = admin.storage().bucket();
+      let deletedPostCount = 0;
       for (const postDoc of postsSnap.docs) {
-        try {
-          await db.recursiveDelete(postDoc.ref);
-        } catch (err) {
-          console.error(
-            `deleteMarkedChannels: failed to recursively delete post ${postDoc.id}:`,
-            err,
-          );
-        }
+        const success = await deletePostWithMedia(postDoc.ref, bucket);
+        if (success) deletedPostCount++;
       }
 
       // ── Step 3: Delete channelJoinRequests for this channel ───────────────────
@@ -789,11 +803,49 @@ export const deleteMarkedChannels = onSchedule('every 24 hours', async () => {
 
       console.log(
         `deleteMarkedChannels: successfully deleted channel ${channelId} ` +
-        `(${postsSnap.size} posts, ${joinRequestsSnap.size} join requests, ${inviteRequestsSnap.size} circle invites)`,
+        `(${deletedPostCount}/${postsSnap.size} posts, ${joinRequestsSnap.size} join requests, ${inviteRequestsSnap.size} circle invites)`,
       );
     } catch (err) {
       console.error(`deleteMarkedChannels: unexpected error processing channel ${channelId}:`, err);
     }
+  }
+});
+
+// ── Cloud Function: Delete posts marked for deletion ────────────────────────
+
+/**
+ * Runs once every 24 hours and permanently removes any post that has been
+ * marked for deletion by its author (markedForDeletionAt is not null).
+ *
+ * Deletion order:
+ *   1. Delete Firebase Storage media files for the post.
+ *   2. Recursively delete the post document (which also removes the
+ *      `messages`, `comments`, and `privateNotes` subcollections).
+ *
+ * Each post is processed independently so a failure on one does not block
+ * the others.
+ */
+export const deleteMarkedPosts = onSchedule('every 24 hours', async () => {
+  const postsSnap = await db
+    .collection('posts')
+    .where('markedForDeletionAt', '!=', null)
+    .get();
+
+  if (postsSnap.empty) return;
+
+  const bucket = admin.storage().bucket();
+  let deleteCount = 0;
+
+  for (const postDoc of postsSnap.docs) {
+    const success = await deletePostWithMedia(postDoc.ref, bucket);
+    if (success) {
+      deleteCount++;
+      console.log(`deleteMarkedPosts: successfully deleted marked post ${postDoc.id}`);
+    }
+  }
+
+  if (deleteCount > 0) {
+    console.log(`deleteMarkedPosts: cleaned up ${deleteCount} marked post(s)`);
   }
 });
 
@@ -841,27 +893,15 @@ export const deleteExpiredPosts = onSchedule('every 24 hours', async () => {
     }
   }
 
-  // Delete all Storage media files for each expired post (best-effort).
-  // Post media is stored under posts/{postId}/ in the default bucket.
+  // Delete all expired posts with their media.
   const bucket = admin.storage().bucket();
-  await Promise.all(
-    toDelete.map(async (ref) => {
-      try {
-        await bucket.deleteFiles({ prefix: `posts/${ref.id}/` });
-      } catch (err) {
-        // Best-effort: a storage failure should not block Firestore cleanup.
-        console.error(`Failed to delete Storage files for post ${ref.id}:`, err);
-      }
-    }),
-  );
+  let deleteCount = 0;
+  for (const postRef of toDelete) {
+    const success = await deletePostWithMedia(postRef, bucket);
+    if (success) deleteCount++;
+  }
 
-  // Firestore batches are limited to 500 operations each.
-  const BATCH_SIZE = 500;
-  for (let i = 0; i < toDelete.length; i += BATCH_SIZE) {
-    const batch = db.batch();
-    for (const ref of toDelete.slice(i, i + BATCH_SIZE)) {
-      batch.delete(ref);
-    }
-    await batch.commit();
+  if (deleteCount > 0) {
+    console.log(`deleteExpiredPosts: cleaned up ${deleteCount} expired post(s)`);
   }
 });

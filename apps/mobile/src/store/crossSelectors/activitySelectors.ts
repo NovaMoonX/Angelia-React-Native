@@ -68,6 +68,7 @@ export const selectAuthorPostActivitySummaries = createSelector(
     return posts
       .filter((post) => {
         if (post.status !== 'ready') return false;
+        if (post.markedForDeletionAt !== null) return false;
         if (post.authorId !== currentUser.id) return false;
         const channel = channelById.get(post.channelId);
         if (!channel) return false;

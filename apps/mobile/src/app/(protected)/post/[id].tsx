@@ -22,6 +22,7 @@ import { usePrivateNotes } from '@/hooks/usePrivateNotes';
 import { useSentPrivateNotes } from '@/hooks/useSentPrivateNotes';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
+import { useActionModal } from '@/hooks/useActionModal';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
@@ -37,7 +38,7 @@ import { EmojiPicker } from '@/components/EmojiPicker';
 import { AddReactionIcon } from '@/components/AddReactionIcon';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { updatePostReactions, removeAllPostReactionsForUser } from '@/store/actions/postActions';
+import { updatePostReactions, removeAllPostReactionsForUser, deletePostAction } from '@/store/actions/postActions';
 import { getActiveCustomChannelsByOwner, subscribeToMessages } from '@/services/firebase/firestore';
 import { CircleJoinSuggestionsModal, type CircleJoinSuggestionItem } from '@/components/CircleJoinSuggestionsModal';
 import { sendJoinRequest } from '@/store/actions/inviteActions';
@@ -50,6 +51,7 @@ export default function PostDetailScreen() {
 	const navigation = useNavigation();
 	const { theme } = useTheme();
 	const { addToast } = useToast();
+	const { confirm } = useActionModal();
 	const insets = useSafeAreaInsets();
 	const post = useAppSelector((state) => selectPostById(state, id || ''));
 	const author = useAppSelector((state) => selectPostAuthor(state, post?.authorId || ''));
@@ -159,37 +161,10 @@ export default function PostDetailScreen() {
 		setActiveCarouselIndex(index);
 	};
 
-	if (!post || !currentUser) {
-		return (
-			<View style={[styles.centered, { backgroundColor: theme.background }]}>
-				<Text style={{ color: theme.mutedForeground }}>Post not found</Text>
-			</View>
-		);
-	}
-
-	const colors = channel ? getColorPair(channel) : { backgroundColor: '#6366F1', textColor: '#FFF' };
-	const channelBadgeLabel = channel?.isDaily ? 'Daily' : channel?.name;
-	const authorName = getPostAuthorName(author, currentUser);
-	const hasReacted = post.reactions.some((r) => r.userId === currentUser.id);
-	const canAccessConversation = hasReacted || isHost;
-	const expiryInfo = channel != null
-		? getPostExpiryInfo(post.timestamp, channel.isDaily === true)
-		: null;
-
-	// Use conversation messages count, falling back to post comments
-	const messageCount = conversationMessages.filter((m) => Boolean(m.isSystem) === false).length || postComments.length;
-	const showHostPrivateNotesAction = isHost && privateNotes.length > 0;
-	const unreadHighlightBorderColor = '#D4A017';
-	const hostPrivateNotesBorderColor = isHost && hasUnreadPrivateNotes
-		? unreadHighlightBorderColor
-		: theme.border;
-	const hostPrivateNotesTextColor = isHost && hasUnreadPrivateNotes
-		? unreadHighlightBorderColor
-		: theme.mutedForeground;
-
-	// Group reactions by user
+	// Group reactions by user — must be before early return to satisfy Rules of Hooks
 	const reactionGroups = useMemo(() => {
 		const groups: Record<string, { emojis: string[]; displayName: string; isCurrentUser: boolean }> = {};
+		if (!post || !currentUser) return groups;
 		post.reactions.forEach((r) => {
 			if (!groups[r.userId]) {
 				const reactingUser = usersMap[r.userId];
@@ -202,34 +177,40 @@ export default function PostDetailScreen() {
 			groups[r.userId].emojis.push(r.emoji);
 		});
 		return groups;
-	}, [post.reactions, currentUser.id, usersMap]);
+	}, [post, currentUser, usersMap]);
 
-	// Filter out emojis the current user has already used
+	// Filter out emojis the current user has already used — must be before early return
 	const availableCommonEmojis = useMemo(() => {
+		if (!currentUser) return COMMON_EMOJIS;
 		const myEmojis = new Set(reactionGroups[currentUser.id]?.emojis ?? []);
-		return COMMON_EMOJIS.filter((emoji) => !myEmojis.has(emoji));
-	}, [reactionGroups, currentUser.id]);
+		return COMMON_EMOJIS.filter((emoji) => { return !myEmojis.has(emoji); });
+	}, [reactionGroups, currentUser]);
 
-	const handleReaction = async (emoji: string) => {
-		// Prevent adding the same reaction twice
-		const alreadyReactedWithEmoji = post.reactions.some((r) => r.userId === currentUser.id && r.emoji === emoji);
-		if (alreadyReactedWithEmoji) return;
-		const newReaction: Reaction = { emoji, userId: currentUser.id, timestamp: Date.now() };
+	// All useCallback/useEffect hooks must be before the early return — Rules of Hooks
+
+	const handleDeletePost = useCallback(async () => {
+		const ok = await confirm({
+			title: 'Delete post?',
+			message: 'This will permanently delete your post and cannot be undone.',
+			destructive: true,
+		});
+		if (!ok) return;
 
 		try {
-			await dispatch(updatePostReactions({ postId: post.id, newReaction })).unwrap();
-		} catch {
-			addToast({ type: 'error', title: 'Failed to add reaction' });
+			await dispatch(deletePostAction({ postId: post?.id ?? '' })).unwrap();
+			addToast({ type: 'success', title: 'Post deleted' });
+			if (router.canGoBack()) {
+				router.back();
+			} else {
+				router.replace('/(protected)/feed');
+			}
+		} catch (err) {
+			addToast({
+				type: 'error',
+				title: err instanceof Error ? err.message : 'Failed to delete post',
+			});
 		}
-	};
-
-	const handleRemoveAllReactions = async () => {
-		try {
-			await dispatch(removeAllPostReactionsForUser({ postId: post.id, userId: currentUser.id })).unwrap();
-		} catch {
-			addToast({ type: 'error', title: 'Failed to remove reactions' });
-		}
-	};
+	}, [post?.id, dispatch, addToast, router, confirm]);
 
 	const markCircleSuggestionsSeen = useCallback(async (channelIds: string[]) => {
 		if (!currentUser || channelIds.length === 0) return;
@@ -373,9 +354,67 @@ export default function PostDetailScreen() {
 		pendingNavigationActionRef.current = null;
 	}, []);
 
+	if (!post || !currentUser) {
+		return (
+			<View style={[styles.centered, { backgroundColor: theme.background }]}>
+				<Text style={{ color: theme.mutedForeground }}>Post not found</Text>
+			</View>
+		);
+	}
+
+	const colors = channel ? getColorPair(channel) : { backgroundColor: '#6366F1', textColor: '#FFF' };
+	const channelBadgeLabel = channel?.isDaily ? 'Daily' : channel?.name;
+	const authorName = getPostAuthorName(author, currentUser);
+	const hasReacted = post.reactions.some((r) => r.userId === currentUser.id);
+	const canAccessConversation = hasReacted || isHost;
+	const expiryInfo = channel != null
+		? getPostExpiryInfo(post.timestamp, channel.isDaily === true)
+		: null;
+
+	// Use conversation messages count, falling back to post comments
+	const messageCount = conversationMessages.filter((m) => Boolean(m.isSystem) === false).length || postComments.length;
+	const showHostPrivateNotesAction = isHost && privateNotes.length > 0;
+	const unreadHighlightBorderColor = '#D4A017';
+	const hostPrivateNotesBorderColor = isHost && hasUnreadPrivateNotes
+		? unreadHighlightBorderColor
+		: theme.border;
+	const hostPrivateNotesTextColor = isHost && hasUnreadPrivateNotes
+		? unreadHighlightBorderColor
+		: theme.mutedForeground;
+
+	const handleReaction = async (emoji: string) => {
+		// Prevent adding the same reaction twice
+		const alreadyReactedWithEmoji = post.reactions.some((r) => r.userId === currentUser.id && r.emoji === emoji);
+		if (alreadyReactedWithEmoji) return;
+		const newReaction: Reaction = { emoji, userId: currentUser.id, timestamp: Date.now() };
+
+		try {
+			await dispatch(updatePostReactions({ postId: post.id, newReaction })).unwrap();
+		} catch {
+			addToast({ type: 'error', title: 'Failed to add reaction' });
+		}
+	};
+
+	const handleRemoveAllReactions = async () => {
+		try {
+			await dispatch(removeAllPostReactionsForUser({ postId: post.id, userId: currentUser.id })).unwrap();
+		} catch {
+			addToast({ type: 'error', title: 'Failed to remove reactions' });
+		}
+	};
+
 	return (
 		<View style={{ flex: 1 }}>
-			<ScreenHeader title="Post" />
+			<ScreenHeader
+			title="Post"
+			rightAction={
+				isHost ? (
+					<Pressable onPress={handleDeletePost} hitSlop={8}>
+						<Feather name='trash-2' size={20} color='#EF4444' />
+					</Pressable>
+				) : undefined
+			}
+		/>
 			<KeyboardAvoidingView
 				style={{ flex: 1 }}
 				behavior={KEYBOARD_BEHAVIOR}
@@ -612,6 +651,8 @@ export default function PostDetailScreen() {
 							</Text>
 						</View>
 					</Pressable>
+
+	
 				</View>
 			</View>
 

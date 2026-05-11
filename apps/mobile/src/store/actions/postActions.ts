@@ -10,6 +10,7 @@ import {
   removeReactionsFromPostByUser,
   addComment,
   createAppNotification,
+  deletePost as firestoreDeletePost,
 } from '@/services/firebase/firestore';
 import { uploadPostMedia } from '@/services/firebase/storage';
 import { generateId } from '@/utils/generateId';
@@ -20,6 +21,7 @@ import {
   revertReactionsOptimistic,
   addConversationEnrollee,
   removeConversationEnrollee,
+  removePost,
 } from '@/store/slices/postsSlice';
 import {
   addCommentOptimistic,
@@ -317,6 +319,29 @@ export const updatePostComments = createAsyncThunk(
       return { postId, newComment };
     } catch (err) {
       dispatch(removeCommentOptimistic({ postId, commentId: newComment.id }));
+      return rejectWithValue(err instanceof Error ? err.message : err);
+    }
+  },
+);
+
+// ── Delete a post ──────────────────────────────────────────────────────────
+
+export const deletePostAction = createAsyncThunk(
+  'posts/deletePost',
+  async (
+    { postId }: { postId: string },
+    { getState, dispatch, rejectWithValue },
+  ) => {
+    if (isDemoActive(getState)) {
+      dispatch(removePost({ postId }));
+      return postId;
+    }
+    
+    try {
+      await firestoreDeletePost(postId);
+      dispatch(removePost({ postId }));
+      return postId;
+    } catch (err) {
       return rejectWithValue(err instanceof Error ? err.message : err);
     }
   },
