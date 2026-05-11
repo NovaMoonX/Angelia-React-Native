@@ -37,7 +37,7 @@ import { EmojiPicker } from '@/components/EmojiPicker';
 import { AddReactionIcon } from '@/components/AddReactionIcon';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { updatePostReactions, removePostReaction } from '@/store/actions/postActions';
+import { updatePostReactions, removeAllPostReactionsForUser } from '@/store/actions/postActions';
 import { getActiveCustomChannelsByOwner, subscribeToMessages } from '@/services/firebase/firestore';
 import { CircleJoinSuggestionsModal, type CircleJoinSuggestionItem } from '@/components/CircleJoinSuggestionsModal';
 import { sendJoinRequest } from '@/store/actions/inviteActions';
@@ -223,11 +223,11 @@ export default function PostDetailScreen() {
 		}
 	};
 
-	const handleRemoveReaction = async (emoji: string) => {
+	const handleRemoveAllReactions = async () => {
 		try {
-			await dispatch(removePostReaction({ postId: post.id, emoji, userId: currentUser.id })).unwrap();
+			await dispatch(removeAllPostReactionsForUser({ postId: post.id, userId: currentUser.id })).unwrap();
 		} catch {
-			addToast({ type: 'error', title: 'Failed to remove reaction' });
+			addToast({ type: 'error', title: 'Failed to remove reactions' });
 		}
 	};
 
@@ -467,7 +467,7 @@ export default function PostDetailScreen() {
 									isCurrentUser={data.isCurrentUser}
 									onClick={() => {
 										if (data.isCurrentUser) {
-											data.emojis.forEach((emoji) => handleRemoveReaction(emoji));
+											handleRemoveAllReactions();
 										}
 									}}
 								/>

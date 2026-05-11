@@ -7,7 +7,7 @@ import {
   updatePost,
   joinConversation as firestoreJoinConversation,
   addReactionToPost,
-  removeReactionFromPost,
+  removeReactionsFromPostByUser,
   addComment,
   createAppNotification,
 } from '@/services/firebase/firestore';
@@ -16,7 +16,7 @@ import { generateId } from '@/utils/generateId';
 import {
   addPost,
   updateReactionsOptimistic,
-  removeReactionOptimistic,
+  removeReactionsByUserOptimistic,
   revertReactionsOptimistic,
   addConversationEnrollee,
   removeConversationEnrollee,
@@ -280,21 +280,19 @@ export const updatePostReactions = createAsyncThunk(
   },
 );
 
-// ── Remove reaction with optimistic update ─────────────────────────────────
-
-export const removePostReaction = createAsyncThunk(
-  'posts/removePostReaction',
+export const removeAllPostReactionsForUser = createAsyncThunk(
+  'posts/removeAllPostReactionsForUser',
   async (
-    { postId, emoji, userId }: { postId: string; emoji: string; userId: string },
+    { postId, userId }: { postId: string; userId: string },
     { getState, dispatch, rejectWithValue },
   ) => {
-    dispatch(removeReactionOptimistic({ postId, emoji, userId }));
+    dispatch(removeReactionsByUserOptimistic({ postId, userId }));
     if (isDemoActive(getState)) {
-      return { postId, emoji, userId };
+      return { postId, userId };
     }
     try {
-      await removeReactionFromPost(postId, { emoji, userId });
-      return { postId, emoji, userId };
+      await removeReactionsFromPostByUser(postId, userId);
+      return { postId, userId };
     } catch (err) {
       dispatch(revertReactionsOptimistic({ postId }));
       return rejectWithValue(err instanceof Error ? err.message : err);

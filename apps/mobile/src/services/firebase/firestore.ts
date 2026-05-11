@@ -566,7 +566,7 @@ export async function addReactionToPost(postId: string, reaction: Reaction): Pro
   });
 }
 
-export async function removeReactionFromPost(postId: string, reaction: { emoji: string; userId: string }): Promise<void> {
+export async function removeReactionsFromPostByUser(postId: string, userId: string): Promise<void> {
   await runTransaction(getDb(), async (transaction) => {
     const postRef = doc(getDb(), 'posts', postId);
     const postSnap = await transaction.get(postRef);
@@ -574,7 +574,7 @@ export async function removeReactionFromPost(postId: string, reaction: { emoji: 
 
     const post = postSnap.data() as Post;
     const nextReactions = (post.reactions ?? []).filter((item) => {
-      return !(item.emoji === reaction.emoji && item.userId === reaction.userId);
+      return item.userId !== userId;
     });
 
     transaction.update(postRef, {
