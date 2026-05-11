@@ -23,6 +23,7 @@ Circles are the backbone of Angelia. Each Circle is a private stream hosted by o
 - **Daily Circles** — Auto-created for every user. A personal stream for everyday moments.
 - **Custom Circles** — Up to 3 additional circles per user (e.g. "Family", "Travel", "Work Friends"), each with a custom color and description.
 - Circles use **invite codes** and **QR codes** for easy, controlled access. New members send a join request that the host approves or declines.
+- Hosts can also send **in-app Circle invite requests** to connected people, and invitees can accept to join instantly.
 
 ### Connections
 
@@ -56,6 +57,7 @@ The main feed aggregates posts from all joined circles. Users can filter by circ
 
 - **Dual Daily Prompts** — Two scheduled local reminders: a mid-day check-in and an evening wind-down prompt. Users set their busy hours during onboarding, and Angelia schedules both nudges around that routine.
 - **Join & Connection Requests** — In-app notifications help hosts review circle join requests and connection requests in one place.
+- **Circle invites** — Invites to custom Circles are stored as pending requests and can be accepted or declined in-app.
 - **Push notifications** — Built with **expo-notifications** and **Firebase Cloud Messaging (FCM)** for timely delivery.
 
 ### Onboarding
@@ -109,3 +111,4 @@ A guided 6-step onboarding flow introduces the product and helps users set up a 
 - **Warm, playful tone** — the UI, copy, and avatar system all reinforce a friendly, human feel
 - **Built for trusted relationships** — circles and connections work together so sharing stays personal, not performative
 - **Minimal friction** — QR codes, invite codes, connection links, and guided onboarding keep setup simple
+- **Gentle recommendations** — The app can suggest relevant custom Circles when people are already engaged with a post.

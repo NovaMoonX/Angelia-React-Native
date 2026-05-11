@@ -74,3 +74,9 @@ export const BETA_FEEDBACK_FORM_URL = 'https://forms.gle/vMoCnBVheTsssTHa8';
  * Used to drive the unread indicator on the chat tab in the post detail screen.
  */
 export const CONVERSATION_LAST_SEEN_KEY = (postId: string) => `@angelia/conversation_last_seen_${postId}`;
+
+/**
+ * AsyncStorage key that tracks which custom circles have already been suggested
+ * to a user after they react to a connection's Daily Circle post.
+ */
+export const JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY = (userId: string) => `@angelia/join_custom_circle_suggestions_seen_${userId}`;

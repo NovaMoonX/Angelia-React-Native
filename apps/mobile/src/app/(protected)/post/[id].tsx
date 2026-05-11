@@ -3,6 +3,7 @@ import { Animated, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
@@ -25,19 +26,27 @@ import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { getUserDisplayName } from '@/lib/user/user.utils';
-import { COMMON_EMOJIS, PRIVATE_NOTES_SEEN_KEY, CONVERSATION_LAST_SEEN_KEY } from '@/models/constants';
+import {
+	COMMON_EMOJIS,
+	PRIVATE_NOTES_SEEN_KEY,
+	CONVERSATION_LAST_SEEN_KEY,
+	JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY,
+} from '@/models/constants';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { AddReactionIcon } from '@/components/AddReactionIcon';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { updatePostReactions, removePostReaction } from '@/store/actions/postActions';
-import { subscribeToMessages } from '@/services/firebase/firestore';
-import type { Reaction, MediaItem } from '@/models/types';
+import { getActiveCustomChannelsByOwner, subscribeToMessages } from '@/services/firebase/firestore';
+import { CircleJoinSuggestionsModal, type CircleJoinSuggestionItem } from '@/components/CircleJoinSuggestionsModal';
+import { sendJoinRequest } from '@/store/actions/inviteActions';
+import type { Reaction, MediaItem, Channel } from '@/models/types';
 
 export default function PostDetailScreen() {
 	const { id } = useLocalSearchParams<{ id: string }>();
 	const dispatch = useAppDispatch();
 	const router = useRouter();
+	const navigation = useNavigation();
 	const { theme } = useTheme();
 	const { addToast } = useToast();
 	const insets = useSafeAreaInsets();
@@ -48,6 +57,7 @@ export default function PostDetailScreen() {
 	const isDemo = useAppSelector((state) => state.demo.isActive);
 	const conversationMessages = useAppSelector((state) => selectMessages(state, id || ''));
 	const usersMap = useAppSelector(selectAllUsersMapById);
+	const outgoingJoinRequests = useAppSelector((state) => state.invites.outgoing);
 	const { comments: postComments } = usePostComments({ postId: id });
 
 	// Determine host role before hook calls (hooks must be unconditional)
@@ -64,6 +74,11 @@ export default function PostDetailScreen() {
 	const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
 	const [unlockEmoji, setUnlockEmoji] = useState<string | null>(null);
 	const [noteModalVisible, setNoteModalVisible] = useState(false);
+	const [circleSuggestions, setCircleSuggestions] = useState<CircleJoinSuggestionItem[]>([]);
+	const [circleSuggestionsVisible, setCircleSuggestionsVisible] = useState(false);
+	const [circleSuggestionsLoading, setCircleSuggestionsLoading] = useState(false);
+	const [requestingChannelId, setRequestingChannelId] = useState<string | null>(null);
+	const pendingNavigationActionRef = useRef<any>(null);
 	// Tracks whether the host has unseen private notes (persisted in AsyncStorage)
 	const [hasUnreadPrivateNotes, setHasUnreadPrivateNotes] = useState(false);
 	// Tracks whether there are new conversation messages the user hasn't seen
@@ -71,6 +86,7 @@ export default function PostDetailScreen() {
 	const chatTabScale = useRef(new Animated.Value(1)).current;
 	const chatTabUnlockOpacity = useRef(new Animated.Value(0)).current;
 	const unlockEmojiY = useRef(new Animated.Value(0)).current;
+	const seenCircleSuggestionIdsRef = useRef<string[]>([]);
 
 	// Memoize the latest note timestamp to avoid AsyncStorage reads on every render
 	const latestNoteTimestamp = useMemo(
@@ -245,6 +261,148 @@ export default function PostDetailScreen() {
 			addToast({ type: 'error', title: 'Failed to remove reaction' });
 		}
 	};
+
+	const markCircleSuggestionsSeen = useCallback(async (channelIds: string[]) => {
+		if (!currentUser || channelIds.length === 0) return;
+		const seenKey = JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY(currentUser.id);
+		const existingSeen = seenCircleSuggestionIdsRef.current;
+		const mergedSeen = Array.from(new Set([...existingSeen, ...channelIds]));
+		seenCircleSuggestionIdsRef.current = mergedSeen;
+		await AsyncStorage.setItem(seenKey, JSON.stringify(mergedSeen)).catch(() => {});
+	}, [currentUser]);
+
+	useEffect(() => {
+		if (!currentUser || !author || !channel || !post) {
+			setCircleSuggestions([]);
+			return;
+		}
+		if (currentUser.id === author.id || channel.isDaily !== true) {
+			setCircleSuggestions([]);
+			return;
+		}
+
+		const reacted = post.reactions.some((r) => {
+			return r.userId === currentUser.id;
+		});
+		if (!reacted) {
+			setCircleSuggestions([]);
+			return;
+		}
+
+		setCircleSuggestionsLoading(true);
+		const seenKey = JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY(currentUser.id);
+		void AsyncStorage.getItem(seenKey)
+			.then((raw) => {
+				if (!raw) {
+					seenCircleSuggestionIdsRef.current = [];
+					return;
+				}
+				try {
+					const parsed = JSON.parse(raw) as unknown;
+					seenCircleSuggestionIdsRef.current = Array.isArray(parsed)
+						? parsed.filter((v): v is string => { return typeof v === 'string'; })
+						: [];
+				} catch {
+					seenCircleSuggestionIdsRef.current = [];
+				}
+			})
+			.catch(() => {
+				seenCircleSuggestionIdsRef.current = [];
+			})
+			.finally(async () => {
+				const ownerCustomCircles = await getActiveCustomChannelsByOwner(author.id).catch(() => {
+					return [];
+				});
+				const filtered = ownerCustomCircles.filter((circle) => {
+					return (
+						Boolean(circle.inviteCode) &&
+						circle.ownerId !== currentUser.id &&
+						!circle.subscribers.includes(currentUser.id) &&
+						!seenCircleSuggestionIdsRef.current.includes(circle.id)
+					);
+				});
+				setCircleSuggestions(
+					filtered.map((circle) => {
+						const isRequested = outgoingJoinRequests.some((request) => {
+							return request.channelId === circle.id && request.status === 'pending';
+						});
+						return {
+							channel: circle,
+							isRequested,
+						};
+					}),
+				);
+				setCircleSuggestionsLoading(false);
+			});
+	}, [author, channel, currentUser, post, outgoingJoinRequests]);
+
+	useEffect(() => {
+		const unsubscribe = navigation.addListener('beforeRemove', (event: any) => {
+			if (circleSuggestionsVisible) return;
+			if (circleSuggestionsLoading || circleSuggestions.length === 0) return;
+			event.preventDefault();
+			pendingNavigationActionRef.current = event.data.action;
+			setCircleSuggestionsVisible(true);
+		});
+
+		return unsubscribe;
+	}, [circleSuggestions.length, circleSuggestionsLoading, circleSuggestionsVisible, navigation]);
+
+	const handleRequestJoinFromSuggestion = useCallback(
+		async (suggestedChannel: Channel) => {
+			if (!currentUser) return;
+			setRequestingChannelId(suggestedChannel.id);
+			try {
+				await dispatch(
+					sendJoinRequest({
+						channelId: suggestedChannel.id,
+						inviteCode: suggestedChannel.inviteCode ?? '',
+						channelOwnerId: suggestedChannel.ownerId,
+						message: '',
+					}),
+				).unwrap();
+				setCircleSuggestions((prev) => {
+					return prev.filter((item) => { return item.channel.id !== suggestedChannel.id; });
+				});
+				await markCircleSuggestionsSeen([suggestedChannel.id]);
+				addToast({ type: 'success', title: 'Join request sent!' });
+			} catch (err) {
+				addToast({
+					type: 'error',
+					title: err instanceof Error ? err.message : 'Failed to send join request',
+				});
+			} finally {
+				setRequestingChannelId(null);
+			}
+		},
+		[addToast, currentUser, dispatch, markCircleSuggestionsSeen],
+	);
+
+	const handleNotInterested = useCallback(
+		async (channelId: string) => {
+			setCircleSuggestions((prev) => {
+				return prev.filter((item) => { return item.channel.id !== channelId; });
+			});
+			await markCircleSuggestionsSeen([channelId]);
+		},
+		[markCircleSuggestionsSeen],
+	);
+
+	const closeSuggestionModalAndLeave = useCallback(async () => {
+		const remainingIds = circleSuggestions.map((item) => { return item.channel.id; });
+		await markCircleSuggestionsSeen(remainingIds);
+		setCircleSuggestionsVisible(false);
+		const action = pendingNavigationActionRef.current;
+		pendingNavigationActionRef.current = null;
+		if (action) {
+			navigation.dispatch(action);
+		}
+	}, [circleSuggestions, markCircleSuggestionsSeen, navigation]);
+
+	const stayOnPage = useCallback(() => {
+		setCircleSuggestionsVisible(false);
+		pendingNavigationActionRef.current = null;
+	}, []);
 
 	return (
 		<View style={{ flex: 1 }}>
@@ -510,6 +668,17 @@ export default function PostDetailScreen() {
 					</Text>
 				</Pressable>
 			)}
+
+			<CircleJoinSuggestionsModal
+				isOpen={circleSuggestionsVisible}
+				authorName={author?.firstName ?? 'their'}
+				items={circleSuggestions}
+				requestingChannelId={requestingChannelId}
+				onRequestJoin={handleRequestJoinFromSuggestion}
+				onNotInterested={handleNotInterested}
+				onLeavePage={closeSuggestionModalAndLeave}
+				onStayHere={stayOnPage}
+			/>
 
 			<EmojiPicker
 				visible={emojiPickerVisible}

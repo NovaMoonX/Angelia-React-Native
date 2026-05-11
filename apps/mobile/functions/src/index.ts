@@ -17,6 +17,7 @@ const DAILY_CHANNEL_SUFFIX = '-daily';
 type AppNotificationType =
   | 'join_channel_request'
   | 'join_channel_accepted'
+  | 'custom_circle_invite'
   | 'connection_request'
   | 'connection_accepted'
   | 'big_news_post'
@@ -56,6 +57,17 @@ interface JoinChannelAcceptedNotification extends BaseAppNotification {
   joinRequestId: string;
 }
 
+interface CustomCircleInviteNotification extends BaseAppNotification {
+  type: 'custom_circle_invite';
+  requestId: string;
+  inviterId: string;
+  inviterFirstName: string;
+  inviterLastName: string;
+  channelId: string;
+  channelName: string;
+  inviteCode: string;
+}
+
 interface ConnectionRequestNotification extends BaseAppNotification {
   type: 'connection_request';
   fromId: string;
@@ -93,6 +105,7 @@ interface PrivateNoteNotification extends BaseAppNotification {
 type AppNotification =
   | JoinChannelRequestNotification
   | JoinChannelAcceptedNotification
+  | CustomCircleInviteNotification
   | ConnectionRequestNotification
   | ConnectionAcceptedNotification
   | BigNewsPostNotification
@@ -115,6 +128,17 @@ interface ChannelJoinRequest {
   channelOwnerId: string;
   requesterId: string;
   message: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: number;
+  respondedAt: number | null;
+}
+
+interface CircleInviteRequest {
+  id: string;
+  channelId: string;
+  channelOwnerId: string;
+  inviterId: string;
+  inviteeId: string;
   status: 'pending' | 'accepted' | 'declined';
   createdAt: number;
   respondedAt: number | null;
@@ -143,6 +167,10 @@ interface Channel {
   ownerId: string;
   subscribers: string[];
   isDaily: boolean | null;
+  name: string;
+  description: string;
+  inviteCode: string | null;
+  markedForDeletionAt: number | null;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -179,6 +207,24 @@ function buildFcmPayload(notification: AppNotification): {
         channelId: n.channelId,
         channelName: n.channelName,
         joinRequestId: n.joinRequestId,
+      },
+    };
+  }
+
+  if (notification.type === 'custom_circle_invite') {
+    const n = notification as CustomCircleInviteNotification;
+    return {
+      title: '✨ Circle Invite',
+      body: `${n.inviterFirstName} ${n.inviterLastName} invited you to join ${n.channelName}`,
+      data: {
+        type: n.type,
+        requestId: n.requestId,
+        inviterId: n.inviterId,
+        inviterFirstName: n.inviterFirstName,
+        inviterLastName: n.inviterLastName,
+        channelId: n.channelId,
+        channelName: n.channelName,
+        inviteCode: n.inviteCode,
       },
     };
   }
@@ -500,6 +546,73 @@ export const onJoinRequestAccepted = onDocumentUpdated(
   },
 );
 
+// ── Cloud Function: Add invited user to circle on invite acceptance ────────
+
+/**
+ * Triggered when a `circleInviteRequests` document is updated.
+ * When the status changes to 'accepted':
+ *   1. Adds the invitee to the channel's subscribers list.
+ *
+ * The function is idempotent: if `before.status` is already 'accepted', the
+ * function exits early so retries do not produce duplicate subscriber writes.
+ */
+export const onCircleInviteRequestAccepted = onDocumentUpdated(
+  'circleInviteRequests/{requestId}',
+  async (event) => {
+    const before = event.data?.before.data() as CircleInviteRequest | undefined;
+    const after = event.data?.after.data() as CircleInviteRequest | undefined;
+
+    if (!before || !after) return;
+    if (before.status === 'accepted' || after.status !== 'accepted') return;
+
+    const batch = db.batch();
+    batch.update(
+      db.collection('channels').doc(after.channelId),
+      { subscribers: FieldValue.arrayUnion(after.inviteeId) },
+    );
+    await batch.commit();
+  },
+);
+
+/**
+ * Triggered when a `circleInviteRequests` document is created.
+ * Writes a `custom_circle_invite` notification for the invitee.
+ */
+export const onCircleInviteRequestCreated = onDocumentCreated(
+  'circleInviteRequests/{requestId}',
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
+    const request = snap.data() as CircleInviteRequest;
+    const channelSnap = await db.collection('channels').doc(request.channelId).get();
+    if (!channelSnap.exists) {
+      await snap.ref.delete();
+      return;
+    }
+
+    const channel = channelSnap.data() as Channel;
+    const inviterSnap = await db.collection('usersPublic').doc(request.inviterId).get();
+    const inviter = inviterSnap.exists ? (inviterSnap.data() as UserPublic) : null;
+
+    const notifRef = db.collection('notifications').doc();
+    await notifRef.set({
+      id: notifRef.id,
+      type: 'custom_circle_invite',
+      actorId: request.inviterId,
+      target: { type: 'user', userId: request.inviteeId },
+      requestId: request.id,
+      inviterId: request.inviterId,
+      inviterFirstName: inviter?.firstName ?? 'Someone',
+      inviterLastName: inviter?.lastName ?? '',
+      channelId: channel.id,
+      channelName: channel.name,
+      inviteCode: channel.inviteCode ?? '',
+      createdAt: request.createdAt,
+    });
+  },
+);
+
 // ── Cloud Function: Disconnect two users ──────────────────────────────────
 
 /**
@@ -656,12 +769,27 @@ export const deleteMarkedChannels = onSchedule('every 24 hours', async () => {
         await batch.commit();
       }
 
+      // ── Step 3b: Delete circleInviteRequests for this channel ────────────────
+      const inviteRequestsSnap = await db
+        .collection('circleInviteRequests')
+        .where('channelId', '==', channelId)
+        .get();
+
+      const inviteRequestRefs = inviteRequestsSnap.docs.map((d) => d.ref);
+      for (let i = 0; i < inviteRequestRefs.length; i += DELETE_BATCH_SIZE) {
+        const batch = db.batch();
+        for (const ref of inviteRequestRefs.slice(i, i + DELETE_BATCH_SIZE)) {
+          batch.delete(ref);
+        }
+        await batch.commit();
+      }
+
       // ── Step 4: Delete the channel document itself ────────────────────────────
       await channelDoc.ref.delete();
 
       console.log(
         `deleteMarkedChannels: successfully deleted channel ${channelId} ` +
-        `(${postsSnap.size} posts, ${joinRequestsSnap.size} join requests)`,
+        `(${postsSnap.size} posts, ${joinRequestsSnap.size} join requests, ${inviteRequestsSnap.size} circle invites)`,
       );
     } catch (err) {
       console.error(`deleteMarkedChannels: unexpected error processing channel ${channelId}:`, err);

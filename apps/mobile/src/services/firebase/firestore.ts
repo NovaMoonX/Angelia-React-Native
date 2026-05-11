@@ -15,7 +15,7 @@ import {
   arrayUnion,
   arrayRemove,
 } from '@react-native-firebase/firestore';
-import type { User, UserPublic, UserPrivate, UserSecret, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, UpdateUserProfileData, UserStatus, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, AppTask, Comment, PrivateNote } from '@/models/types';
+import type { User, UserPublic, UserPrivate, UserSecret, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, CircleInviteRequest, UpdateUserProfileData, UserStatus, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, AppTask, Comment, PrivateNote } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX, DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
@@ -267,6 +267,25 @@ export async function getChannelByInviteCode(inviteCode: string): Promise<Channe
   return snap.docs[0].data() as Channel;
 }
 
+/**
+ * Returns active custom circles owned by `ownerId`.
+ *
+ * Uses an owner-only query and filters client-side to avoid adding a new
+ * composite index for `isDaily` + `markedForDeletionAt`.
+ */
+export async function getActiveCustomChannelsByOwner(ownerId: string): Promise<Channel[]> {
+  const snap = await getDocs(
+    query(collection(getDb(), 'channels'), where('ownerId', '==', ownerId)),
+  );
+  return snap.docs
+    .map((d) => {
+      return d.data() as Channel;
+    })
+    .filter((ch) => {
+      return ch.isDaily !== true && ch.markedForDeletionAt == null;
+    });
+}
+
 export async function createDailyChannel(userId: string): Promise<Channel> {
   const channelId = `${userId}${DAILY_CHANNEL_SUFFIX}`;
   const channel: Channel = {
@@ -388,6 +407,81 @@ export async function createJoinRequest(
   };
   await setDoc(doc(getDb(), 'channelJoinRequests', id), request);
   return request;
+}
+
+export async function createCircleInviteRequest(
+  channelId: string,
+  channelOwnerId: string,
+  inviterId: string,
+  inviteeId: string,
+): Promise<CircleInviteRequest> {
+  const id = generateId('nano');
+  const request: CircleInviteRequest = {
+    id,
+    channelId,
+    channelOwnerId,
+    inviterId,
+    inviteeId,
+    status: 'pending',
+    createdAt: Date.now(),
+    respondedAt: null,
+  };
+  await setDoc(doc(getDb(), 'circleInviteRequests', id), request);
+  return request;
+}
+
+export async function respondToCircleInviteRequest(
+  requestId: string,
+  accept: boolean,
+): Promise<void> {
+  await runTransaction(getDb(), async (transaction) => {
+    const requestRef = doc(getDb(), 'circleInviteRequests', requestId);
+    const requestSnap = await transaction.get(requestRef);
+    if (!requestSnap.exists) throw new Error('Request not found');
+
+    const request = requestSnap.data() as CircleInviteRequest;
+    const status = accept ? 'accepted' : 'declined';
+
+    transaction.update(requestRef, {
+      status,
+      respondedAt: Date.now(),
+    });
+
+    if (accept) {
+      transaction.update(doc(getDb(), 'channels', request.channelId), {
+        subscribers: arrayUnion(request.inviteeId),
+      });
+    }
+  });
+}
+
+export async function getCircleInviteRequest(requestId: string): Promise<CircleInviteRequest | null> {
+  const snap = await getDoc(doc(getDb(), 'circleInviteRequests', requestId));
+  return snap.exists ? (snap.data() as CircleInviteRequest) : null;
+}
+
+export function subscribeToIncomingCircleInviteRequests(
+  uid: string,
+  callback: (requests: CircleInviteRequest[]) => void,
+): () => void {
+  return onSnapshot(
+    query(collection(getDb(), 'circleInviteRequests'), where('inviteeId', '==', uid)),
+    (snap) => {
+      callback(snap.docs.map((d) => d.data() as CircleInviteRequest));
+    },
+  );
+}
+
+export function subscribeToOutgoingCircleInviteRequests(
+  uid: string,
+  callback: (requests: CircleInviteRequest[]) => void,
+): () => void {
+  return onSnapshot(
+    query(collection(getDb(), 'circleInviteRequests'), where('inviterId', '==', uid)),
+    (snap) => {
+      callback(snap.docs.map((d) => d.data() as CircleInviteRequest));
+    },
+  );
 }
 
 export async function respondToJoinRequest(

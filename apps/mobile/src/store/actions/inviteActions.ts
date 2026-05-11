@@ -2,12 +2,20 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 import {
   respondToJoinRequest as firestoreRespondToJoinRequest,
   createJoinRequest as firestoreCreateJoinRequest,
+  createCircleInviteRequest as firestoreCreateCircleInviteRequest,
+  respondToCircleInviteRequest as firestoreRespondToCircleInviteRequest,
+  getCircleInviteRequest as firestoreGetCircleInviteRequest,
   createAppNotification,
 } from '@/services/firebase/firestore';
-import { updateJoinRequest } from '@/store/slices/invitesSlice';
+import { updateJoinRequest, updateCircleInviteRequest } from '@/store/slices/invitesSlice';
 import { clearPendingInvite } from '@/store/slices/pendingInviteSlice';
 import type { RootState } from '@/store';
-import type { ChannelJoinRequest, JoinChannelAcceptedNotification, JoinChannelRequestNotification } from '@/models/types';
+import type {
+  ChannelJoinRequest,
+  CircleInviteRequest,
+  JoinChannelAcceptedNotification,
+  JoinChannelRequestNotification,
+} from '@/models/types';
 import { isDemoActive } from './globalActions';
 import { generateId } from '@/utils/generateId';
 
@@ -151,6 +159,108 @@ export const processPendingInvite = createAsyncThunk(
 
       dispatch(clearPendingInvite());
       return result;
+    } catch (err) {
+      return rejectWithValue(err instanceof Error ? err.message : err);
+    }
+  },
+);
+
+// ── Send a custom circle invite request ──────────────────────────────────
+
+export const sendCustomCircleInvite = createAsyncThunk(
+  'invites/sendCustomCircleInvite',
+  async (
+    {
+      channelId,
+      channelName,
+      inviteCode,
+      targetUserId,
+    }: {
+      channelId: string;
+      channelName: string;
+      inviteCode: string;
+      targetUserId: string;
+    },
+    { getState, rejectWithValue },
+  ) => {
+    const state = getState() as RootState;
+    const user = state.users.currentUser;
+    if (!user) return rejectWithValue('User not authenticated');
+
+    const channel = state.channels.items.find((c) => {
+      return c.id === channelId;
+    });
+    if (!channel) return rejectWithValue('Circle not found');
+    if (channel.ownerId !== user.id) return rejectWithValue('Only the Circle host can send invites.');
+    if (channel.isDaily) return rejectWithValue('Daily Circle invites are not supported here.');
+    if (!inviteCode.trim() || !channel.inviteCode) return rejectWithValue('This Circle does not have a valid invite code yet.');
+    if (targetUserId === user.id) return rejectWithValue('You cannot invite yourself.');
+    const isConnected = state.connections.connections.some((c) => {
+      return c.userId === targetUserId;
+    });
+    if (!isConnected) return rejectWithValue('You can only invite someone you are connected to.');
+    if (channel.subscribers.includes(targetUserId)) {
+      return rejectWithValue('This person is already in your Circle.');
+    }
+    const existingPendingInvite = state.invites.outgoingCircleInvites.find((request) => {
+      return request.channelId === channelId && request.inviteeId === targetUserId && request.status === 'pending';
+    });
+    if (existingPendingInvite) {
+      return rejectWithValue('You already sent this person an invite for this Circle.');
+    }
+
+    if (isDemoActive(getState)) {
+      return { targetUserId };
+    }
+
+    try {
+      const inviteRequest = await firestoreCreateCircleInviteRequest(
+        channelId,
+        channel.ownerId,
+        user.id,
+        targetUserId,
+      );
+      return inviteRequest;
+    } catch (err) {
+      return rejectWithValue(err instanceof Error ? err.message : err);
+    }
+  },
+);
+
+// ── Respond to a custom circle invite request ─────────────────────────────
+
+export const respondToCircleInviteRequest = createAsyncThunk(
+  'invites/respondToCircleInvite',
+  async (
+    { request, accept }: { request: CircleInviteRequest; accept: boolean },
+    { getState, dispatch, rejectWithValue },
+  ) => {
+    const updatedRequest: CircleInviteRequest = {
+      ...request,
+      status: accept ? 'accepted' : 'declined',
+      respondedAt: Date.now(),
+    };
+
+    if (isDemoActive(getState)) {
+      dispatch(updateCircleInviteRequest(updatedRequest));
+      return updatedRequest;
+    }
+
+    try {
+      await firestoreRespondToCircleInviteRequest(request.id, accept);
+      dispatch(updateCircleInviteRequest(updatedRequest));
+      return updatedRequest;
+    } catch (err) {
+      return rejectWithValue(err instanceof Error ? err.message : err);
+    }
+  },
+);
+
+export const getCircleInviteRequest = createAsyncThunk(
+  'invites/getCircleInvite',
+  async (requestId: string, { rejectWithValue }) => {
+    try {
+      return await firestoreGetCircleInviteRequest(requestId);
     } catch (err) {
       return rejectWithValue(err instanceof Error ? err.message : err);
     }
