@@ -20,5 +20,6 @@ Current branch highlights:
 - Post activity now follows the post-detail indicator style: reactions are shown on the card itself, while new private notes/messages use highlighted action pills with unread indicators.
 - Post activity is now simplified to one clear label per post: “New activity since last seen.”
 - Post activity now calls out which reaction emojis are new, and uses smarter seen logic: reaction-only updates clear when the card is viewed, while notes/messages clear when opening that post.
+- Camera: can now zoom
 
 When this branch ships, turn these notes into a friendly beta modal update.
