@@ -91,7 +91,7 @@ export function ChannelModal({
               Daily Circle invites happen through connections
             </Text>
             <Text style={[styles.dailyInfoText, { color: theme.secondaryForeground }]}>
-              Looking to add people? Connect with them from your feed and they&apos;ll appear in your Daily Circle.
+              Looking to add people? Connect with them from your feed and they’ll appear in your Daily Circle.
             </Text>
           </View>
         ) : (

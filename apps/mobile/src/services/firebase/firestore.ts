@@ -463,7 +463,9 @@ export async function respondToCircleInviteRequest(
       const channelRef = doc(getDb(), 'channels', request.channelId);
       const channelSnap = await transaction.get(channelRef);
       if (!channelSnap.exists) throw new Error('Circle not found');
-      const channel = channelSnap.data() as Channel;
+      const channelData = channelSnap.data();
+      if (!channelData) throw new Error('Circle data unavailable');
+      const channel = channelData as Channel;
       const alreadySubscriber = channel.subscribers.includes(request.inviteeId);
       if (!alreadySubscriber) {
         transaction.update(channelRef, {

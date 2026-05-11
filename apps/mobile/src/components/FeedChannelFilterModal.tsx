@@ -176,6 +176,14 @@ export function FeedChannelFilterModal({
     filteredRegular.length === 0 &&
     searchQuery.length > 0;
 
+  const sectionHeaderLabelStyle = useMemo(() => {
+    return {
+      color: theme.mutedForeground,
+      marginBottom: 0,
+      flex: 1,
+    };
+  }, [theme.mutedForeground]);
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Filter Circles">
       {/* Radio — scope */}
@@ -237,7 +245,7 @@ export function FeedChannelFilterModal({
         <>
           <Pressable style={styles.sectionHeader} onPress={() => setDailySectionOpen((prev) => !prev)}>
             <Text style={styles.sectionEmoji}>📅</Text>
-            <Text style={[styles.sectionLabel, { color: theme.mutedForeground, marginBottom: 0, flex: 1 }]}>
+            <Text style={[styles.sectionLabel, sectionHeaderLabelStyle]}>
               Daily Circles
             </Text>
             <Feather
@@ -265,7 +273,7 @@ export function FeedChannelFilterModal({
           {filteredDailyItems.length > 0 && <Separator style={{ marginVertical: 8 }} />}
           <Pressable style={styles.sectionHeader} onPress={() => setRegularSectionOpen((prev) => !prev)}>
             <Text style={styles.sectionEmoji}>📣</Text>
-            <Text style={[styles.sectionLabel, { color: theme.mutedForeground, marginBottom: 0, flex: 1 }]}>
+            <Text style={[styles.sectionLabel, sectionHeaderLabelStyle]}>
               Circles
             </Text>
             <Feather
