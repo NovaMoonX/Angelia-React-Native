@@ -603,7 +603,7 @@ export default function FeedScreen() {
 						}}
 					>
 						<Feather name='camera' size={18} color={theme.secondaryForeground} />
-						<Text style={[styles.fabMenuLabel, { color: theme.secondaryForeground }]}>Media</Text>
+						<Text style={[styles.fabMenuLabel, { color: theme.secondaryForeground }]}>Camera</Text>
 					</Pressable>
 
 					{/* Compose (text post) */}
