@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
-import { Animated, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
@@ -59,6 +59,7 @@ export default function PostDetailScreen() {
 	const usersMap = useAppSelector(selectAllUsersMapById);
 	const outgoingJoinRequests = useAppSelector((state) => state.invites.outgoing);
 	const { comments: postComments } = usePostComments({ postId: id });
+	const currentUserId = currentUser?.id ?? '';
 
 	// Determine host role before hook calls (hooks must be unconditional)
 	const isHost = currentUser?.id === post?.authorId;
@@ -83,9 +84,6 @@ export default function PostDetailScreen() {
 	const [hasUnreadPrivateNotes, setHasUnreadPrivateNotes] = useState(false);
 	// Tracks whether there are new conversation messages the user hasn't seen
 	const [hasUnreadConversation, setHasUnreadConversation] = useState(false);
-	const chatTabScale = useRef(new Animated.Value(1)).current;
-	const chatTabUnlockOpacity = useRef(new Animated.Value(0)).current;
-	const unlockEmojiY = useRef(new Animated.Value(0)).current;
 	const seenCircleSuggestionIdsRef = useRef<string[]>([]);
 
 	// Memoize the latest note timestamp to avoid AsyncStorage reads on every render
@@ -94,13 +92,15 @@ export default function PostDetailScreen() {
 		[privateNotes],
 	);
 
-	// Memoize the latest non-system message timestamp
-	const latestMessageTimestamp = useMemo(
+	// Only count inbound messages for unread state; your own messages should never mark unread.
+	const latestIncomingMessageTimestamp = useMemo(
 		() => {
-			const nonSystem = conversationMessages.filter((m) => { return Boolean(m.isSystem) === false; });
-			return nonSystem.length > 0 ? Math.max(...nonSystem.map((m) => m.timestamp)) : 0;
+			const incoming = conversationMessages.filter((m) => {
+				return Boolean(m.isSystem) === false && m.authorId !== currentUserId;
+			});
+			return incoming.length > 0 ? Math.max(...incoming.map((m) => m.timestamp)) : 0;
 		},
-		[conversationMessages],
+		[conversationMessages, currentUserId],
 	);
 
 	// Subscribe to conversation messages so the unread indicator works without
@@ -134,17 +134,17 @@ export default function PostDetailScreen() {
 	// Re-check conversation unread dot on focus (clears after the user visits conversation screen)
 	useFocusEffect(
 		useCallback(() => {
-			if (!id || latestMessageTimestamp === 0) {
+			if (!id || latestIncomingMessageTimestamp === 0) {
 				setHasUnreadConversation(false);
 				return;
 			}
 			AsyncStorage.getItem(CONVERSATION_LAST_SEEN_KEY(id))
 				.then((val) => {
 					const lastSeen = val ? Number(val) : 0;
-					setHasUnreadConversation(latestMessageTimestamp > lastSeen);
+					setHasUnreadConversation(latestIncomingMessageTimestamp > lastSeen);
 				})
 				.catch(() => setHasUnreadConversation(false));
-		}, [id, latestMessageTimestamp]),
+		}, [id, latestIncomingMessageTimestamp]),
 	);
 
 	const handleCarouselIndexChange = (index: number) => {
@@ -170,6 +170,14 @@ export default function PostDetailScreen() {
 
 	// Use conversation messages count, falling back to post comments
 	const messageCount = conversationMessages.filter((m) => Boolean(m.isSystem) === false).length || postComments.length;
+	const showHostPrivateNotesAction = isHost && privateNotes.length > 0;
+	const unreadHighlightBorderColor = '#D4A017';
+	const hostPrivateNotesBorderColor = isHost && hasUnreadPrivateNotes
+		? unreadHighlightBorderColor
+		: theme.border;
+	const hostPrivateNotesTextColor = isHost && hasUnreadPrivateNotes
+		? unreadHighlightBorderColor
+		: theme.mutedForeground;
 
 	// Group reactions by user
 	const reactionGroups = useMemo(() => {
@@ -194,63 +202,16 @@ export default function PostDetailScreen() {
 		return COMMON_EMOJIS.filter((emoji) => !myEmojis.has(emoji));
 	}, [reactionGroups, currentUser.id]);
 
-	const triggerTabUnlock = (emoji: string) => {
-		setUnlockEmoji(emoji);
-		unlockEmojiY.setValue(0);
-		chatTabUnlockOpacity.setValue(1);
-		chatTabScale.setValue(1);
-
-		Animated.parallel([
-			// Float the emoji upward
-			Animated.timing(unlockEmojiY, {
-				toValue: -30,
-				duration: 600,
-				useNativeDriver: true,
-			}),
-			// Bounce the tab
-			Animated.sequence([
-				Animated.spring(chatTabScale, {
-					toValue: 1.06,
-					friction: 8,
-					tension: 60,
-					useNativeDriver: true,
-				}),
-				Animated.spring(chatTabScale, {
-					toValue: 1,
-					friction: 8,
-					tension: 60,
-					useNativeDriver: true,
-				}),
-			]),
-			// Fade out the floating emoji
-			Animated.sequence([
-				Animated.delay(400),
-				Animated.timing(chatTabUnlockOpacity, {
-					toValue: 0,
-					duration: 200,
-					useNativeDriver: true,
-				}),
-			]),
-		]).start(() => setUnlockEmoji(null));
-	};
-
 	const handleReaction = async (emoji: string) => {
 		// Prevent adding the same reaction twice
 		const alreadyReactedWithEmoji = post.reactions.some((r) => r.userId === currentUser.id && r.emoji === emoji);
 		if (alreadyReactedWithEmoji) return;
-
-		const wasFirstReaction = !hasReacted;
 		const newReaction: Reaction = { emoji, userId: currentUser.id };
 
 		try {
 			await dispatch(updatePostReactions({ postId: post.id, newReaction })).unwrap();
 		} catch {
 			addToast({ type: 'error', title: 'Failed to add reaction' });
-		}
-
-		// Unlock the chat tab on first reaction
-		if (wasFirstReaction) {
-			triggerTabUnlock(emoji);
 		}
 	};
 
@@ -515,28 +476,6 @@ export default function PostDetailScreen() {
 					)}
 				</View>
 
-				{/* Host: private notes badge — only when notes exist */}
-				{isHost && privateNotes.length > 0 && (
-					<Pressable
-						style={[styles.privateNotesBadge, { backgroundColor: theme.card, borderColor: theme.border }]}
-						onPress={() =>
-							router.push({
-								pathname: '/(protected)/private-notes-host/[postId]',
-								params: { postId: post.id },
-							})
-						}
-					>
-						<View style={styles.privateNotesBadgeLeft}>
-							<Feather name='mail' size={16} color={theme.primary} />
-							{hasUnreadPrivateNotes && <View style={[styles.unreadDot, { backgroundColor: theme.primary }]} />}
-						</View>
-						<Text style={[styles.privateNotesBadgeText, { color: theme.primary }]}>
-							{`${privateNotes.length} Private Note${privateNotes.length !== 1 ? 's' : ''}`}
-						</Text>
-						<Feather name='chevron-right' size={14} color={theme.primary} />
-					</Pressable>
-				)}
-
 				{/* Visitor: sent notes badge — navigates to sender notes screen */}
 				{!isHost && sentNotes.length > 0 && (
 					<Pressable
@@ -557,72 +496,8 @@ export default function PostDetailScreen() {
 				)}
 			</ScrollView>
 
-			{/* Bottom bar — chat tab + emoji pill */}
+			{/* Bottom bar — emoji pill + discreet actions */}
 			<View style={styles.bottomBarContainer}>
-				{/* Chat tab — attached to top of pill */}
-				<Animated.View
-					style={[
-						styles.chatTab,
-						{
-							backgroundColor: canAccessConversation ? `${theme.primary}12` : theme.card,
-							borderColor: canAccessConversation ? theme.primary : theme.border,
-							transform: [{ scale: chatTabScale }],
-						},
-					]}
-				>
-					<Pressable
-						onPress={
-							canAccessConversation
-								? () =>
-										router.push({
-											pathname: '/(protected)/conversation',
-											params: { postId: post.id },
-										})
-								: undefined
-						}
-						disabled={!canAccessConversation}
-						style={styles.chatTabInner}
-					>
-						{!canAccessConversation ? (
-							<>
-								<Text style={styles.chatTabLockIcon}>🔒</Text>
-								<Text style={[styles.chatTabText, { color: theme.mutedForeground }]}>React to join! 👋</Text>
-							</>
-						) : (
-							<>
-								<View style={styles.chatTabIconWrapper}>
-									<Feather name='message-circle' size={16} color={theme.primary} />
-									{hasUnreadConversation && (
-										<View style={[styles.unreadDot, { backgroundColor: '#EF4444' }]} />
-									)}
-								</View>
-								<Text style={[styles.chatTabText, { color: theme.primary }]}>
-									{messageCount > 0
-										? `${messageCount} message${messageCount !== 1 ? 's' : ''}`
-										: 'Start the conversation'}
-								</Text>
-								<Feather name='chevron-right' size={14} color={theme.primary} />
-							</>
-						)}
-					</Pressable>
-
-					{/* Floating unlock emoji overlay */}
-					{unlockEmoji != null && (
-						<Animated.Text
-							style={[
-								styles.floatingUnlockEmoji,
-								{
-									transform: [{ translateY: unlockEmojiY }],
-									opacity: chatTabUnlockOpacity,
-								},
-							]}
-							pointerEvents='none'
-						>
-							{unlockEmoji}
-						</Animated.Text>
-					)}
-				</Animated.View>
-
 				{/* Emoji pill */}
 				<View
 					style={[
@@ -651,23 +526,86 @@ export default function PostDetailScreen() {
 						</Pressable>
 					</ScrollView>
 				</View>
-			</View>
 
-			{/* Visitor: private note trigger — below the emoji pill */}
-			{!isHost && (
-				<Pressable
-					style={[
-						styles.privateNoteTrigger,
-						{ backgroundColor: theme.card, borderColor: theme.border },
-					]}
-					onPress={() => setNoteModalVisible(true)}
-				>
-					<Feather name='mail' size={15} color={theme.mutedForeground} />
-					<Text style={[styles.privateNoteTriggerText, { color: theme.mutedForeground }]}>
-						or send {author?.firstName ?? 'them'} a private note
-					</Text>
-				</Pressable>
-			)}
+				<View style={styles.secondaryActionsRow}>
+					{!isHost && (
+						<Pressable
+							style={[
+								styles.secondaryAction,
+								{ backgroundColor: theme.card, borderColor: theme.border },
+							]}
+							onPress={() => setNoteModalVisible(true)}
+						>
+							<View style={styles.secondaryActionContent}>
+								<Feather name='mail' size={15} color={theme.mutedForeground} />
+								<Text style={[styles.secondaryActionText, { color: theme.mutedForeground }]}>Private Note</Text>
+							</View>
+						</Pressable>
+					)}
+
+					{showHostPrivateNotesAction && (
+						<Pressable
+							style={[
+								styles.secondaryAction,
+								{ backgroundColor: theme.card, borderColor: hostPrivateNotesBorderColor },
+							]}
+							onPress={() =>
+								router.push({
+									pathname: '/(protected)/private-notes-host/[postId]',
+									params: { postId: post.id },
+								})
+							}
+						>
+							<View style={styles.secondaryActionContent}>
+								<View style={styles.secondaryActionIconWrap}>
+									<Feather name='mail' size={15} color={hostPrivateNotesTextColor} />
+									{hasUnreadPrivateNotes && <View style={[styles.unreadDot, { backgroundColor: '#EF4444' }]} />}
+								</View>
+								<Text style={[styles.secondaryActionText, { color: hostPrivateNotesTextColor }]}>Private Notes</Text>
+							</View>
+						</Pressable>
+					)}
+
+					<Pressable
+						style={[
+							styles.secondaryAction,
+							{
+								backgroundColor: theme.card,
+								borderColor: theme.border,
+								opacity: canAccessConversation ? 1 : 0.55,
+							},
+						]}
+						onPress={
+							canAccessConversation
+								? () =>
+										router.push({
+											pathname: '/(protected)/conversation',
+											params: { postId: post.id },
+										})
+								: undefined
+						}
+						disabled={!canAccessConversation}
+					>
+						<View style={styles.secondaryActionContent}>
+							<View style={styles.secondaryActionIconWrap}>
+								<Feather
+									name={canAccessConversation ? 'message-circle' : 'lock'}
+									size={15}
+									color={theme.mutedForeground}
+								/>
+								{canAccessConversation && hasUnreadConversation && (
+									<View style={[styles.unreadDot, { backgroundColor: '#EF4444' }]} />
+								)}
+							</View>
+							<Text style={[styles.secondaryActionText, { color: theme.mutedForeground }]}>
+								{canAccessConversation && messageCount > 0
+									? `${messageCount} message${messageCount !== 1 ? 's' : ''}`
+									: 'Conversation'}
+							</Text>
+						</View>
+					</Pressable>
+				</View>
+			</View>
 
 			<CircleJoinSuggestionsModal
 				isOpen={circleSuggestionsVisible}
@@ -811,9 +749,8 @@ const styles = StyleSheet.create({
 	},
 	fixedEmojiBar: {
 		borderWidth: 1.5,
-		borderTopWidth: 0.75,
-		borderBottomLeftRadius: 24,
-		borderBottomRightRadius: 24,
+		borderTopWidth: 1.5,
+		borderRadius: 24,
 		paddingHorizontal: 8,
 		paddingVertical: 4,
 	},
@@ -833,39 +770,7 @@ const styles = StyleSheet.create({
 	},
 	bottomBarContainer: {
 		marginHorizontal: 12,
-		marginBottom: 8,
-	},
-	chatTab: {
-		borderWidth: 1.5,
-		borderBottomWidth: 0,
-		borderTopLeftRadius: 20,
-		borderTopRightRadius: 20,
-		paddingVertical: 10,
-		paddingHorizontal: 16,
-		position: 'relative',
-		overflow: 'visible',
-	},
-	chatTabInner: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'center',
-		gap: 8,
-	},
-	chatTabIconWrapper: {
-		position: 'relative',
-	},
-	chatTabText: {
-		fontSize: 14,
-		fontWeight: '600',
-	},
-	chatTabLockIcon: {
-		fontSize: 14,
-	},
-	floatingUnlockEmoji: {
-		position: 'absolute',
-		alignSelf: 'center',
-		bottom: 4,
-		fontSize: 28,
+		marginBottom: 6,
 	},
 	emptyReactionsContainer: {
 		paddingVertical: 32,
@@ -919,21 +824,33 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		fontWeight: '500',
 	},
-	// ── Visitor: private note trigger (below emoji pill) ────────────────────────
-	privateNoteTrigger: {
+	secondaryActionsRow: {
+		flexDirection: 'row',
+		gap: 8,
+		marginTop: 8,
+	},
+	secondaryAction: {
+		flex: 1,
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		borderWidth: 1,
+		borderRadius: 999,
+		paddingVertical: 11,
+		paddingHorizontal: 12,
+	},
+	secondaryActionContent: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'center',
 		gap: 8,
-		marginHorizontal: 12,
-		marginTop: 4,
-		marginBottom: 6,
-		borderWidth: 1,
-		borderRadius: 20,
-		paddingVertical: 10,
-		paddingHorizontal: 16,
 	},
-	privateNoteTriggerText: {
+	secondaryActionIconWrap: {
+		position: 'relative',
+		width: 18,
+		alignItems: 'center',
+	},
+	secondaryActionText: {
 		fontSize: 14,
 		fontWeight: '500',
 	},

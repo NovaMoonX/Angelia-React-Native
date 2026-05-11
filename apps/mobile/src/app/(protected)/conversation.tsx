@@ -105,6 +105,10 @@ export default function ConversationScreen() {
     useCallback(() => {
       if (!postId || isDemo) return;
       void AsyncStorage.setItem(CONVERSATION_LAST_SEEN_KEY(postId), String(Date.now()));
+
+      return () => {
+        void AsyncStorage.setItem(CONVERSATION_LAST_SEEN_KEY(postId), String(Date.now()));
+      };
     }, [postId, isDemo]),
   );
 
@@ -181,13 +185,15 @@ export default function ConversationScreen() {
         ? userReactions[userReactions.length - 1].emoji
         : '✨';
 
-      await dispatch(
-        sendJoinMessage({ postId, emoji: emoji || '✨' }),
-      ).unwrap();
+      if (isHost === false) {
+        await dispatch(
+          sendJoinMessage({ postId, emoji: emoji || '✨' }),
+        ).unwrap();
+      }
     } catch {
       addToast({ type: 'error', title: 'Failed to join conversation' });
     }
-  }, [postId, currentUser, dispatch, addToast, post]);
+  }, [postId, currentUser, dispatch, addToast, post, isHost]);
 
   const handleReply = useCallback((message: Message) => {
     setReplyingTo(message);
