@@ -225,6 +225,7 @@ function CardMediaItem({
             source={{ uri: item.thumbnailUrl }}
             style={StyleSheet.absoluteFill}
             contentFit="cover"
+            recyclingKey={item.thumbnailUrl}
           />
         ) : null}
         <View style={[styles.videoPlaceholder, item.thumbnailUrl && styles.videoPlaceholderOverlay]}>
@@ -241,6 +242,7 @@ function CardMediaItem({
         source={{ uri: item.url }}
         style={style}
         contentFit="cover"
+        recyclingKey={item.url}
       />
     </Pressable>
   );
