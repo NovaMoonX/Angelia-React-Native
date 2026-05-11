@@ -72,6 +72,15 @@ export const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_note
 /** External Google Form used for collecting beta feedback quickly from testers. */
 export const BETA_FEEDBACK_FORM_URL = 'https://forms.gle/vMoCnBVheTsssTHa8';
 
+/** Android Play Store URL for Angelia app updates. */
+export const ANDROID_PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.angelia.app&hl=en-US&ah=6uqVrWZq1-EB7pajijs0TRHA5IE';
+
+/** Deep link that opens TestFlight directly on iOS devices. */
+export const IOS_TESTFLIGHT_DEEP_LINK = 'itms-beta://';
+
+/** Web fallback for TestFlight in case deep-link opening fails. */
+export const IOS_TESTFLIGHT_WEB_URL = 'https://testflight.apple.com/join/2X3vYWBu';
+
 /**
  * AsyncStorage key that records when the current user last opened the conversation screen for a post.
  * Used to drive the unread indicator on the chat tab in the post detail screen.
@@ -88,7 +97,17 @@ export const JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY = (userId: string) => `@ang
  * AsyncStorage key that records which beta update version the user has already dismissed.
  * When BETA_UPDATE_VERSION in BetaUpdateModal is bumped, the modal will show again automatically.
  */
+export const BETA_UPDATE_VERSION = '2026-05-11';
+
 export const BETA_UPDATE_MODAL_SEEN_KEY = (version: string) => `@angelia/beta_update_modal_seen_${version}`;
+
+/**
+ * AsyncStorage key that records the latest required app version the user has
+ * dismissed for a specific platform update prompt.
+ */
+export const APP_UPDATE_PROMPT_DISMISSED_VERSION_KEY = (platform: 'ios' | 'android') => {
+  return `@angelia/app_update_prompt_dismissed_${platform}`;
+};
 
 /** Sentinel timestamp used for statuses that stay active until manually cleared. */
 export const STATUS_INDEFINITE_EXPIRES_AT = 8_640_000_000_000;

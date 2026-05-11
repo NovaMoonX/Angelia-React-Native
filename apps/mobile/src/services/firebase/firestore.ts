@@ -254,6 +254,71 @@ export function subscribeToNotificationSettings(
   });
 }
 
+export interface LatestAppVersionConfig {
+  iosVersion: string | null;
+  androidVersion: string | null;
+  androidStoreUrl: string | null;
+}
+
+function asNonEmptyString(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed;
+}
+
+/**
+ * Subscribes to a Firestore doc that controls required app versions by platform.
+ *
+ * Expected doc path: `appConfig/mobile`
+ * Supported shapes:
+ * - { iosVersion: '1.2.3', androidVersion: '1.2.3', androidStoreUrl: 'https://...' }
+ * - { minVersions: { ios: '1.2.3', android: '1.2.3' }, androidStoreUrl: 'https://...' }
+ */
+export function subscribeToLatestAppVersion(
+  callback: (config: LatestAppVersionConfig) => void,
+): () => void {
+  return onSnapshot(
+    doc(getDb(), 'appConfig', 'mobile'),
+    (snap) => {
+      const fallback: LatestAppVersionConfig = {
+        iosVersion: null,
+        androidVersion: null,
+        androidStoreUrl: null,
+      };
+
+      if (!snap?.exists) {
+        callback(fallback);
+        return;
+      }
+
+      const raw = snap.data() as Record<string, unknown>;
+      const minVersionsRaw = raw.minVersions;
+      const minVersions =
+        minVersionsRaw && typeof minVersionsRaw === 'object'
+          ? (minVersionsRaw as Record<string, unknown>)
+          : null;
+
+      callback({
+        iosVersion: asNonEmptyString(raw.iosVersion) ?? asNonEmptyString(minVersions?.ios),
+        androidVersion: asNonEmptyString(raw.androidVersion) ?? asNonEmptyString(minVersions?.android),
+        androidStoreUrl: asNonEmptyString(raw.androidStoreUrl),
+      });
+    },
+    () => {
+      callback({
+        iosVersion: null,
+        androidVersion: null,
+        androidStoreUrl: null,
+      });
+    },
+  );
+}
+
 // ---- Channel Operations ----
 
 export async function getChannel(channelId: string): Promise<Channel | null> {

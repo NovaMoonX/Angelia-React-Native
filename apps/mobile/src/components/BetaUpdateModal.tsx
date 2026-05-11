@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { useAppSelector } from '@/store/hooks';
 import { useTheme } from '@/hooks/useTheme';
-import { BETA_UPDATE_MODAL_SEEN_KEY, ONBOARDING_FEED_GUIDE_STATE_KEY } from '@/models/constants';
+import { BETA_UPDATE_MODAL_SEEN_KEY, BETA_UPDATE_VERSION, ONBOARDING_FEED_GUIDE_STATE_KEY } from '@/models/constants';
 
 // ─── HOW TO USE THIS MODAL FOR FUTURE UPDATES ────────────────────────────────
 //
@@ -19,9 +19,6 @@ import { BETA_UPDATE_MODAL_SEEN_KEY, ONBOARDING_FEED_GUIDE_STATE_KEY } from '@/m
 //    Each entry has an emoji, a short title, and an optional description.
 //
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** Bump this whenever you want to show the modal again for a new update. */
-const BETA_UPDATE_VERSION = '2026-05-11';
 
 const BETA_UPDATE_TITLE = "A lot has changed — check it out ✨";
 

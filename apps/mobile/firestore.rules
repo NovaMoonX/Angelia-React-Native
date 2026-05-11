@@ -382,6 +382,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // App configuration (e.g. minimum app versions for update prompts).
+    // Any authenticated user may read; clients cannot write.
+    match /appConfig/{configId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
     // App notifications — written by the app, processed & deleted by Cloud Functions.
     // Clients only need create access; the Admin SDK handles reads and deletes.
     match /notifications/{notificationId} {
