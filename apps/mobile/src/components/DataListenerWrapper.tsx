@@ -61,9 +61,22 @@ interface DataListenerWrapperProps {
  * same notification after a logout/login cycle that remounts this component.
  */
 const handledNotificationKeys = new Set<string>();
+const handledForegroundToastKeys = new Set<string>();
 
 function getNotificationKey(response: Notifications.NotificationResponse): string {
   return `${response.notification.request.identifier}_${response.notification.date}`;
+}
+
+function getForegroundToastKey(notification: Notifications.Notification): string {
+  const data = notification.request.content.data as Record<string, string> | undefined;
+  const type = data?.type ?? 'unknown';
+  const uniqueId =
+    data?.joinRequestId ??
+    data?.requestId ??
+    data?.connectionRequestId ??
+    data?.postId ??
+    notification.request.identifier;
+  return `${type}_${uniqueId}_${notification.date}`;
 }
 
 export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
@@ -135,6 +148,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
     joinRequestsLoadedRef.current = false;
     seenCircleInviteIdsRef.current = new Set();
     circleInvitesLoadedRef.current = false;
+    handledForegroundToastKeys.clear();
 
     const unsubUser = subscribeToCurrentUser(uid, (user: User | null) => {
       dispatch(setCurrentUser(user));
@@ -498,6 +512,9 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   // as seen so that the Firestore-based Effects 12 & 13 don't show a duplicate toast.
   useEffect(() => {
     const subscription = Notifications.addNotificationReceivedListener((notification) => {
+      const toastKey = getForegroundToastKey(notification);
+      if (handledForegroundToastKeys.has(toastKey)) return;
+      handledForegroundToastKeys.add(toastKey);
       const data = notification.request.content.data as Record<string, string> | undefined;
       const type = data?.type as AppNotificationType | undefined;
 

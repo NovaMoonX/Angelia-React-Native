@@ -460,9 +460,16 @@ export async function respondToCircleInviteRequest(
     });
 
     if (accept) {
-      transaction.update(doc(getDb(), 'channels', request.channelId), {
-        subscribers: arrayUnion(request.inviteeId),
-      });
+      const channelRef = doc(getDb(), 'channels', request.channelId);
+      const channelSnap = await transaction.get(channelRef);
+      if (!channelSnap.exists) throw new Error('Circle not found');
+      const channel = channelSnap.data() as Channel;
+      const alreadySubscriber = channel.subscribers.includes(request.inviteeId);
+      if (!alreadySubscriber) {
+        transaction.update(channelRef, {
+          subscribers: arrayUnion(request.inviteeId),
+        });
+      }
     }
   });
 }

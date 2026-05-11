@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { ChannelCard } from '@/components/ChannelCard';
@@ -39,6 +39,7 @@ export function MyChannelsTab() {
   const customChannels = useAppSelector(selectCurrentUserCustomChannels);
   const tasks = useAppSelector((state) => state.tasks.items);
   const connections = useAppSelector((state) => state.connections.connections);
+  const outgoingCircleInvites = useAppSelector((state) => state.invites.outgoingCircleInvites);
 
   const customChannelCount = customChannels.length;
   const canCreateChannel = (currentUser?.customChannelCount || 0) < CUSTOM_CHANNEL_LIMIT;
@@ -54,6 +55,7 @@ export function MyChannelsTab() {
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [removingSubscriberId, setRemovingSubscriberId] = useState<string | null>(null);
   const [invitingCandidateId, setInvitingCandidateId] = useState<string | null>(null);
+  const [optimisticInvitedIds, setOptimisticInvitedIds] = useState<string[]>([]);
 
   const selectedChannel = useMemo(
     () => channels.find((c) => c.id === selectedChannelId) ?? null,
@@ -76,6 +78,22 @@ export function MyChannelsTab() {
       return !selectedChannel.subscribers.includes(u.id);
     });
   }, [selectedChannel, currentUser, connections, usersMap]);
+
+  const pendingInviteeIds = useMemo(() => {
+    if (!selectedChannel) return [];
+    const pendingIds = outgoingCircleInvites
+      .filter((request) => {
+        return request.channelId === selectedChannel.id && request.status === 'pending';
+      })
+      .map((request) => {
+        return request.inviteeId;
+      });
+    return Array.from(new Set([...pendingIds, ...optimisticInvitedIds]));
+  }, [selectedChannel, outgoingCircleInvites, optimisticInvitedIds]);
+
+  useEffect(() => {
+    setOptimisticInvitedIds([]);
+  }, [selectedChannelId]);
 
   if (!currentUser) return null;
 
@@ -191,6 +209,9 @@ export function MyChannelsTab() {
       ).unwrap();
       const invitedUser = usersMap[targetUserId];
       const firstName = invitedUser?.firstName ?? 'They';
+      setOptimisticInvitedIds((prev) => {
+        return Array.from(new Set([...prev, targetUserId]));
+      });
       addToast({ type: 'success', title: `Invite sent to ${firstName}!` });
     } catch (err) {
       addToast({
@@ -284,7 +305,7 @@ export function MyChannelsTab() {
             .map((id) => usersMap[id])
             .filter(Boolean)}
           onRefreshInviteCode={
-            selectedChannel.ownerId === currentUser.id
+            selectedChannel.ownerId === currentUser.id && !selectedChannel.isDaily
               ? async () => {
                   try {
                     await dispatch(refreshChannelInviteCode(selectedChannel.id)).unwrap();
@@ -299,6 +320,7 @@ export function MyChannelsTab() {
           removeSubscriberLabel={selectedChannel.isDaily ? 'Disconnect' : 'Remove'}
           removingSubscriberId={removingSubscriberId}
           inviteCandidates={inviteCandidates}
+          pendingInviteeIds={pendingInviteeIds}
           onInviteCandidate={handleInviteCandidate}
           invitingCandidateId={invitingCandidateId}
         />

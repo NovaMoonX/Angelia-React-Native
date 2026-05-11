@@ -12,9 +12,11 @@ import type { RootState } from '@/store';
 export const selectHasAnyPendingActivity = createSelector(
   [
     (state: RootState) => state.invites.incoming,
+    (state: RootState) => state.invites.incomingCircleInvites,
     (state: RootState) => state.connections.incomingRequests,
   ],
-  (incomingInvites, incomingConnRequests) =>
+  (incomingInvites, incomingCircleInvites, incomingConnRequests) =>
     incomingInvites.some((r) => r.status === 'pending') ||
+    incomingCircleInvites.some((r) => r.status === 'pending') ||
     incomingConnRequests.some((r) => r.status === 'pending'),
 );

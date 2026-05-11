@@ -86,3 +86,6 @@ export const JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY = (userId: string) => `@ang
  * When BETA_UPDATE_VERSION in BetaUpdateModal is bumped, the modal will show again automatically.
  */
 export const BETA_UPDATE_MODAL_SEEN_KEY = (version: string) => `@angelia/beta_update_modal_seen_${version}`;
+
+/** Sentinel timestamp used for statuses that stay active until manually cleared. */
+export const STATUS_INDEFINITE_EXPIRES_AT = 8_640_000_000_000;

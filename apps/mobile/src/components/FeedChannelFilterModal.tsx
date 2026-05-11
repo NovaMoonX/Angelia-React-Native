@@ -39,12 +39,16 @@ export function FeedChannelFilterModal({
 
   const [localFilter, setLocalFilter] = useState<ChannelFilterState>(value);
   const [searchQuery, setSearchQuery] = useState('');
+  const [dailySectionOpen, setDailySectionOpen] = useState(false);
+  const [regularSectionOpen, setRegularSectionOpen] = useState(false);
 
   // Sync local state when modal opens
   useEffect(() => {
     if (isOpen) {
       setLocalFilter(value);
       setSearchQuery('');
+      setDailySectionOpen(false);
+      setRegularSectionOpen(false);
     }
     // Intentionally only sync when the modal opens — we don't want parent
     // value changes to clobber in-progress edits while the modal is open.
@@ -231,20 +235,27 @@ export function FeedChannelFilterModal({
       {/* Daily channels — flat list with a section label */}
       {filteredDailyItems.length > 0 && (
         <>
-          <View style={styles.sectionHeader}>
+          <Pressable style={styles.sectionHeader} onPress={() => setDailySectionOpen((prev) => !prev)}>
             <Text style={styles.sectionEmoji}>📅</Text>
-            <Text style={[styles.sectionLabel, { color: theme.mutedForeground, marginBottom: 0 }]}>
+            <Text style={[styles.sectionLabel, { color: theme.mutedForeground, marginBottom: 0, flex: 1 }]}>
               Daily Circles
             </Text>
-          </View>
-          <CheckboxGroup
-            label="Daily Circles"
-            items={filteredDailyItems}
-            selectedIds={selectedIds}
-            onToggleItem={handleToggleItem}
-            onToggleGroup={handleToggleGroup}
-            grouped={false}
-          />
+            <Feather
+              name={dailySectionOpen ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={theme.mutedForeground}
+            />
+          </Pressable>
+          {dailySectionOpen && (
+            <CheckboxGroup
+              label="Daily Circles"
+              items={filteredDailyItems}
+              selectedIds={selectedIds}
+              onToggleItem={handleToggleItem}
+              onToggleGroup={handleToggleGroup}
+              grouped={false}
+            />
+          )}
         </>
       )}
 
@@ -252,13 +263,18 @@ export function FeedChannelFilterModal({
       {filteredRegularGroups.length > 0 && (
         <>
           {filteredDailyItems.length > 0 && <Separator style={{ marginVertical: 8 }} />}
-          <View style={styles.sectionHeader}>
+          <Pressable style={styles.sectionHeader} onPress={() => setRegularSectionOpen((prev) => !prev)}>
             <Text style={styles.sectionEmoji}>📣</Text>
-            <Text style={[styles.sectionLabel, { color: theme.mutedForeground, marginBottom: 0 }]}>
+            <Text style={[styles.sectionLabel, { color: theme.mutedForeground, marginBottom: 0, flex: 1 }]}>
               Circles
             </Text>
-          </View>
-          {filteredRegularGroups.map(({ ownerId, label, items }) => (
+            <Feather
+              name={regularSectionOpen ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={theme.mutedForeground}
+            />
+          </Pressable>
+          {regularSectionOpen && filteredRegularGroups.map(({ ownerId, label, items }) => (
             <CheckboxGroup
               key={ownerId}
               label={label}
@@ -348,4 +364,3 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
 });
-
