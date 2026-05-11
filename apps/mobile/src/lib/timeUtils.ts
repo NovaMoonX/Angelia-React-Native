@@ -1,4 +1,5 @@
 import { formatDistanceToNowStrict, format, differenceInHours } from 'date-fns';
+import { STATUS_INDEFINITE_EXPIRES_AT } from '@/models/constants';
 
 /**
  * Returns a human-friendly relative or absolute timestamp.
@@ -26,6 +27,7 @@ export function getRelativeTime(timestamp: number): string {
  * Returns a human-friendly "Xm left / Xh left / Xd left" string for a status.
  */
 export function formatTimeRemaining(expiresAt: number): string {
+  if (expiresAt >= STATUS_INDEFINITE_EXPIRES_AT) return 'Until you clear it';
   const remaining = expiresAt - Date.now();
   if (remaining <= 0) return 'Expired';
 
@@ -47,6 +49,7 @@ export function formatTimeRemaining(expiresAt: number): string {
  * "Expires Mon, Apr 18 at 5:30 PM" for multi-day statuses.
  */
 export function formatExactExpiry(expiresAt: number): string {
+  if (expiresAt >= STATUS_INDEFINITE_EXPIRES_AT) return 'Stays until you clear it';
   const now = new Date();
   const expiry = new Date(expiresAt);
 

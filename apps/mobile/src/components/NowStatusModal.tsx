@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { EmojiPicker } from '@/components/EmojiPicker';
+import { STATUS_INDEFINITE_EXPIRES_AT } from '@/models/constants';
 import type { UserStatus } from '@/models/types';
 
 interface NowStatusModalProps {
@@ -27,6 +28,7 @@ const DURATION_OPTIONS = [
   { label: '1 hour', ms: 60 * 60 * 1000 },
   { label: '4 hours', ms: 4 * 60 * 60 * 1000 },
   { label: '8 hours', ms: 8 * 60 * 60 * 1000 },
+  { label: 'Until I clear it', ms: Number.POSITIVE_INFINITY },
   { label: 'Today', ms: 0 },         // calculated at save time
   { label: 'Custom', ms: -1 },       // shows date-time inputs
 ];
@@ -108,11 +110,13 @@ export function NowStatusModal({
     let expiresAt: number;
     const option = DURATION_OPTIONS[selectedDuration];
 
-    if (option.label === 'Today') {
+    if (option.label === 'Until I clear it') {
+      expiresAt = STATUS_INDEFINITE_EXPIRES_AT;
+    } else if (option.label === 'Today') {
       expiresAt = endOfToday();
     } else if (option.label === 'Custom') {
-      const h = parseInt(customHours, 10) || 0;
-      const m = parseInt(customMinutes, 10) || 0;
+      const h = Number(customHours) || 0;
+      const m = Number(customMinutes) || 0;
       const totalMs = (h * 60 + m) * 60 * 1000;
       expiresAt = now + (totalMs > 0 ? totalMs : 60 * 60 * 1000); // fallback 1h
     } else {

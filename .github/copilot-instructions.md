@@ -232,6 +232,8 @@ The individual `preset` and `uri` props are only for non-User contexts, such as 
    - `title` — a short, friendly headline (max ~6 words)
    - `description` — (optional) one sentence elaborating on the change
 
+**Keep the list to 5 entries maximum.** Focus on the most impactful user-facing changes. Minor improvements and multiple bug fixes should be collapsed into a single `{ emoji: '🐛', title: 'Bug fixes & reliability', description: '...' }` entry rather than listed individually. If you have more than 5 things, cut the least impactful ones — users don't need to be told about every tweak.
+
 Keep the tone warm and encouraging — avoid dry or technical language. Write like you're texting a friend about something cool.
 
 ```ts
@@ -240,6 +242,24 @@ Keep the tone warm and encouraging — avoid dry or technical language. Write li
 ```
 
 **Never** show the modal in demo mode (`isDemo` guard is already in place).
+
+### Beta update notes (`apps/mobile/BETA_UPDATE_NOTES.txt`)
+
+Keep `apps/mobile/BETA_UPDATE_NOTES.txt` current while working on feature branches that change user-facing behavior.
+
+Use it as the compact source of truth for the next beta update modal:
+- Keep it brief, but include the meaningful user-visible changes from the branch or PR.
+- Update it whenever a branch lands bug fixes, workflow changes, or new features that beta testers should know about.
+- Write the entries in the same warm, friendly tone used in the app modal copy.
+- Include the current branch or PR reference at the top so the next update is easy to trace.
+
+**You MUST update `apps/mobile/BETA_UPDATE_NOTES.txt` as part of any task that introduces:**
+- A new screen, feature, or user-visible workflow
+- A bug fix that users would notice
+- A change to existing UI, labels, or copy
+- Any change that would appear in a "what's new" list
+
+Do this proactively — do not wait to be asked. If a task changes user-facing behavior, updating `BETA_UPDATE_NOTES.txt` is part of completing that task. Add a bullet under "Current branch highlights" describing the change in plain, friendly language.
 
 ---
 
@@ -436,6 +456,70 @@ See `src/components/PrivateNoteModal.tsx` and `src/components/FeedbackSupportMod
 **Fix:** Bypass `KeyboardAvoidingView` on Android entirely. Use `Keyboard.addListener('keyboardDidShow')` and `'keyboardDidHide'` to track keyboard height in state, and apply that height directly as `paddingBottom` on the sheet `View`. On iOS, `KeyboardAvoidingView behavior='padding'` still works correctly and is kept.
 
 **Canonical implementation:** `src/components/ModalKeyboardView.tsx` — exposes `ModalKeyboardView` (wrapper component) and `useModalSheetPadding` (hook). Used by `PrivateNoteModal.tsx` and `FeedbackSupportModal.tsx`.
+
+---
+
+### Reanimated warning: "shared value's .value inside reanimated inline style"
+
+**Symptom:** Reanimated console warning: `"It looks like you might be using shared value's .value inside reanimated inline style"` when rendering animated components. This typically occurs with styles that reference animated values.
+
+**Root cause:** Creating new style objects with animated values directly in JSX inline styles (e.g., `style={[{ transform: [{ scale: scaleValue }] }]}`). On every render, a new style object is created, which Reanimated detects as an unsafe pattern. This is especially problematic in components that animate frequently or use `Animated.Value` from the React Native built-in Animated API.
+
+**Fix:** Extract animated style objects into a `useMemo` computed reference. This ensures the style object is stable and only recalculated when its dependencies change:
+
+```tsx
+// ✅ correct — computed style in useMemo prevents Reanimated warnings
+const pulseStyle = useMemo(
+  () => ({
+    transform: [{ scale: pulseValue }],
+  }),
+  [pulseValue]
+);
+
+return <Animated.View style={pulseStyle}>...</Animated.View>;
+```
+
+```tsx
+// ❌ wrong — inline style object recreated on every render
+return (
+  <Animated.View
+    style={{
+      transform: [{ scale: pulseValue }], // Reanimated warning here
+    }}
+  >
+    ...
+  </Animated.View>
+);
+```
+
+Also incorrect (even with array syntax):
+
+```tsx
+// ❌ wrong — inline array of styles still creates new objects
+return (
+  <Animated.View
+    style={[
+      { transform: [{ scale: pulseValue }] }, // Still a new object every render
+    ]}
+  >
+    ...
+  </Animated.View>
+);
+```
+
+**When to apply:** Any component using `Animated.Value`, `Animated.ValueXY`, or other animated values passed directly to a style property should use this pattern. Examples: animating transforms (scale, rotate, translateX/Y), opacity, or other numeric style properties.
+
+**Implementation checklist:**
+- ✅ `useMemo` wraps the style object/array
+- ✅ Animated/Reanimated value is a dependency: `[pulseValue]`
+- ✅ Style object is stable across renders (same reference unless dependencies change)
+- ✅ No console warnings on render cycles
+
+**Examples in codebase:**
+- `src/components/FeedChannelFilterModal.tsx` — three animated dots (dot1/2/3AnimatedStyle)
+- `src/app/(protected)/camera.tsx` — shutter button scale animation (shutterScaleStyle)
+- `src/app/complete-profile.tsx` — loading overlay animations (pulseAnimStyle, fadeAnimStyle)
+- `src/app/(protected)/post/uploading.tsx` — rocket emoji pulse (pulseScaleStyle)
 
 ---
 

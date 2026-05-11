@@ -7,19 +7,21 @@ import {
   updatePost,
   joinConversation as firestoreJoinConversation,
   addReactionToPost,
-  removeReactionFromPost,
+  removeReactionsFromPostByUser,
   addComment,
   createAppNotification,
+  deletePost as firestoreDeletePost,
 } from '@/services/firebase/firestore';
 import { uploadPostMedia } from '@/services/firebase/storage';
 import { generateId } from '@/utils/generateId';
 import {
   addPost,
   updateReactionsOptimistic,
-  removeReactionOptimistic,
+  removeReactionsByUserOptimistic,
   revertReactionsOptimistic,
   addConversationEnrollee,
   removeConversationEnrollee,
+  removePost,
 } from '@/store/slices/postsSlice';
 import {
   addCommentOptimistic,
@@ -280,21 +282,19 @@ export const updatePostReactions = createAsyncThunk(
   },
 );
 
-// ── Remove reaction with optimistic update ─────────────────────────────────
-
-export const removePostReaction = createAsyncThunk(
-  'posts/removePostReaction',
+export const removeAllPostReactionsForUser = createAsyncThunk(
+  'posts/removeAllPostReactionsForUser',
   async (
-    { postId, emoji, userId }: { postId: string; emoji: string; userId: string },
+    { postId, userId }: { postId: string; userId: string },
     { getState, dispatch, rejectWithValue },
   ) => {
-    dispatch(removeReactionOptimistic({ postId, emoji, userId }));
+    dispatch(removeReactionsByUserOptimistic({ postId, userId }));
     if (isDemoActive(getState)) {
-      return { postId, emoji, userId };
+      return { postId, userId };
     }
     try {
-      await removeReactionFromPost(postId, { emoji, userId });
-      return { postId, emoji, userId };
+      await removeReactionsFromPostByUser(postId, userId);
+      return { postId, userId };
     } catch (err) {
       dispatch(revertReactionsOptimistic({ postId }));
       return rejectWithValue(err instanceof Error ? err.message : err);
@@ -319,6 +319,29 @@ export const updatePostComments = createAsyncThunk(
       return { postId, newComment };
     } catch (err) {
       dispatch(removeCommentOptimistic({ postId, commentId: newComment.id }));
+      return rejectWithValue(err instanceof Error ? err.message : err);
+    }
+  },
+);
+
+// ── Delete a post ──────────────────────────────────────────────────────────
+
+export const deletePostAction = createAsyncThunk(
+  'posts/deletePost',
+  async (
+    { postId }: { postId: string },
+    { getState, dispatch, rejectWithValue },
+  ) => {
+    if (isDemoActive(getState)) {
+      dispatch(removePost({ postId }));
+      return postId;
+    }
+    
+    try {
+      await firestoreDeletePost(postId);
+      dispatch(removePost({ postId }));
+      return postId;
+    } catch (err) {
       return rejectWithValue(err instanceof Error ? err.message : err);
     }
   },

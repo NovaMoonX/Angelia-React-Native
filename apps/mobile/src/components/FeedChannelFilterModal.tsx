@@ -10,7 +10,7 @@ import { useAppSelector } from '@/store/hooks';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import type { Channel } from '@/models/types';
 
-export type ChannelFilterMode = 'all' | 'others' | 'specific';
+export type ChannelFilterMode = 'all' | 'specific';
 
 export interface ChannelFilterState {
   mode: ChannelFilterMode;
@@ -39,24 +39,28 @@ export function FeedChannelFilterModal({
 
   const [localFilter, setLocalFilter] = useState<ChannelFilterState>(value);
   const [searchQuery, setSearchQuery] = useState('');
+  const [dailySectionOpen, setDailySectionOpen] = useState(false);
+  const [regularSectionOpen, setRegularSectionOpen] = useState(true);
 
   // Sync local state when modal opens
   useEffect(() => {
     if (isOpen) {
       setLocalFilter(value);
       setSearchQuery('');
+      setDailySectionOpen(false);
+      setRegularSectionOpen(true);
     }
     // Intentionally only sync when the modal opens — we don't want parent
     // value changes to clobber in-progress edits while the modal is open.
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dailyChannels = useMemo(
-    () => channels.filter((ch) => ch.isDaily === true),
-    [channels],
+    () => channels.filter((ch) => ch.isDaily === true && ch.ownerId !== currentUserId),
+    [channels, currentUserId],
   );
   const regularChannels = useMemo(
-    () => channels.filter((ch) => !ch.isDaily),
-    [channels],
+    () => channels.filter((ch) => !ch.isDaily && ch.ownerId !== currentUserId),
+    [channels, currentUserId],
   );
   const showSearch = channels.length >= 5;
 
@@ -84,12 +88,10 @@ export function FeedChannelFilterModal({
     });
   }, [regularChannels, searchQuery, usersById]);
 
-  // Daily items sorted: current user first, then by owner name
+  // Daily items sorted alphabetically by owner name.
   const filteredDailyItems = useMemo(() => {
     return [...filteredDaily]
       .sort((a, b) => {
-        if (a.ownerId === currentUserId) return -1;
-        if (b.ownerId === currentUserId) return 1;
         const ownerA = usersById[a.ownerId];
         const ownerB = usersById[b.ownerId];
         return (ownerA ? `${ownerA.firstName} ${ownerA.lastName}` : '').localeCompare(
@@ -98,12 +100,7 @@ export function FeedChannelFilterModal({
       })
       .map((ch) => {
         const owner = usersById[ch.ownerId];
-        const label =
-          ch.ownerId === currentUserId
-            ? 'Yours'
-            : owner
-            ? `${owner.firstName} ${owner.lastName[0]}.`
-            : ch.name;
+        const label = owner ? `${owner.firstName} ${owner.lastName[0]}.` : ch.name;
         return { id: ch.id, label };
       });
   }, [filteredDaily, usersById, currentUserId]);
@@ -118,26 +115,15 @@ export function FeedChannelFilterModal({
     return Array.from(groupMap.entries())
       .map(([ownerId, chs]) => {
         const owner = usersById[ownerId];
-        const label =
-          ownerId === currentUserId
-            ? 'Yours'
-            : owner
-            ? `${owner.firstName} ${owner.lastName[0]}.`
-            : 'Unknown';
+        const label = owner ? `${owner.firstName} ${owner.lastName[0]}.` : 'Unknown';
         return { ownerId, label, items: chs.map((ch) => ({ id: ch.id, label: ch.name })) };
       })
       .sort((a, b) => {
-        if (a.ownerId === currentUserId) return -1;
-        if (b.ownerId === currentUserId) return 1;
         return a.label.localeCompare(b.label);
       });
   }, [filteredRegular, usersById, currentUserId]);
 
   const selectedIds = localFilter.mode === 'specific' ? localFilter.specificIds : [];
-
-  const handleRadioSelect = (mode: 'all' | 'others') => {
-    setLocalFilter({ mode, specificIds: [] });
-  };
 
   const handleToggleItem = (channelId: string) => {
     setLocalFilter((prev) => {
@@ -172,37 +158,26 @@ export function FeedChannelFilterModal({
     filteredRegular.length === 0 &&
     searchQuery.length > 0;
 
+  const sectionHeaderLabelStyle = useMemo(() => {
+    return {
+      color: theme.mutedForeground,
+      marginBottom: 0,
+      flex: 1,
+    };
+  }, [theme.mutedForeground]);
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Filter Circles">
-      {/* Radio — scope */}
-      <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>Scope</Text>
-      {(['all', 'others'] as const).map((mode) => {
-        const isActive = localFilter.mode === mode;
-        return (
-          <Pressable key={mode} onPress={() => handleRadioSelect(mode)} style={styles.radioRow}>
-            <View
-              style={[
-                styles.radioCircle,
-                { borderColor: isActive ? theme.primary : theme.border },
-              ]}
-            >
-              {isActive && (
-                <View style={[styles.radioFill, { backgroundColor: theme.primary }]} />
-              )}
-            </View>
-            <Text style={[styles.radioLabel, { color: theme.foreground }]}>
-              {mode === 'all' ? 'All Circles' : "Others' Circles"}
-            </Text>
-          </Pressable>
-        );
-      })}
-
-      <Separator />
-
-      {/* Specific channel picker */}
-      <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>
-        Or pick specific circles
-      </Text>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Filter Circles"
+      footer={(
+        <Button onPress={handleApply} style={styles.applyButton}>
+          Apply
+        </Button>
+      )}
+    >
+    <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>Choose Circles</Text>
 
       {showSearch && (
         <View
@@ -231,20 +206,27 @@ export function FeedChannelFilterModal({
       {/* Daily channels — flat list with a section label */}
       {filteredDailyItems.length > 0 && (
         <>
-          <View style={styles.sectionHeader}>
+          <Pressable style={styles.sectionHeader} onPress={() => setDailySectionOpen((prev) => !prev)}>
             <Text style={styles.sectionEmoji}>📅</Text>
-            <Text style={[styles.sectionLabel, { color: theme.mutedForeground, marginBottom: 0 }]}>
+            <Text style={[styles.sectionLabel, sectionHeaderLabelStyle]}>
               Daily Circles
             </Text>
-          </View>
-          <CheckboxGroup
-            label="Daily Circles"
-            items={filteredDailyItems}
-            selectedIds={selectedIds}
-            onToggleItem={handleToggleItem}
-            onToggleGroup={handleToggleGroup}
-            grouped={false}
-          />
+            <Feather
+              name={dailySectionOpen ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={theme.mutedForeground}
+            />
+          </Pressable>
+          {dailySectionOpen && (
+            <CheckboxGroup
+              label="Daily Circles"
+              items={filteredDailyItems}
+              selectedIds={selectedIds}
+              onToggleItem={handleToggleItem}
+              onToggleGroup={handleToggleGroup}
+              grouped={filteredDailyItems.length >= 2}
+            />
+          )}
         </>
       )}
 
@@ -252,13 +234,18 @@ export function FeedChannelFilterModal({
       {filteredRegularGroups.length > 0 && (
         <>
           {filteredDailyItems.length > 0 && <Separator style={{ marginVertical: 8 }} />}
-          <View style={styles.sectionHeader}>
+          <Pressable style={styles.sectionHeader} onPress={() => setRegularSectionOpen((prev) => !prev)}>
             <Text style={styles.sectionEmoji}>📣</Text>
-            <Text style={[styles.sectionLabel, { color: theme.mutedForeground, marginBottom: 0 }]}>
+            <Text style={[styles.sectionLabel, sectionHeaderLabelStyle]}>
               Circles
             </Text>
-          </View>
-          {filteredRegularGroups.map(({ ownerId, label, items }) => (
+            <Feather
+              name={regularSectionOpen ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={theme.mutedForeground}
+            />
+          </Pressable>
+          {regularSectionOpen && filteredRegularGroups.map(({ ownerId, label, items }) => (
             <CheckboxGroup
               key={ownerId}
               label={label}
@@ -277,9 +264,6 @@ export function FeedChannelFilterModal({
         </Text>
       )}
 
-      <Button onPress={handleApply} style={styles.applyButton}>
-        Apply
-      </Button>
     </Modal>
   );
 }
@@ -307,23 +291,6 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 10,
   },
-  radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioFill: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  radioLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -345,7 +312,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   applyButton: {
-    marginTop: 20,
+    width: '100%',
   },
 });
-

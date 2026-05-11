@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   AppState,
@@ -70,6 +70,9 @@ export default function PostUploadingScreen() {
   const pulseScale = useRef(new Animated.Value(1)).current;
   const successScale = useRef(new Animated.Value(0)).current;
   const successOpacity = useRef(new Animated.Value(0)).current;
+
+  // Computed animated style to avoid inline animation warnings
+  const pulseScaleStyle = useMemo(() => ({ transform: [{ scale: pulseScale }] }), []);
 
   const appStateRef = useRef(AppState.currentState);
 
@@ -296,7 +299,7 @@ export default function PostUploadingScreen() {
             />
             {/* Pulsing emoji inside */}
             <Animated.Text
-              style={[styles.centerEmoji, { transform: [{ scale: pulseScale }] }]}
+              style={[styles.centerEmoji, pulseScaleStyle]}
             >
               🚀
             </Animated.Text>

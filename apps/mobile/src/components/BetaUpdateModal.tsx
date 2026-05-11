@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { useAppSelector } from '@/store/hooks';
 import { useTheme } from '@/hooks/useTheme';
-import { BETA_UPDATE_MODAL_SEEN_KEY, ONBOARDING_FEED_GUIDE_STATE_KEY } from '@/models/constants';
+import { BETA_UPDATE_MODAL_SEEN_KEY, BETA_UPDATE_VERSION, ONBOARDING_FEED_GUIDE_STATE_KEY } from '@/models/constants';
 
 // ─── HOW TO USE THIS MODAL FOR FUTURE UPDATES ────────────────────────────────
 //
@@ -20,10 +20,7 @@ import { BETA_UPDATE_MODAL_SEEN_KEY, ONBOARDING_FEED_GUIDE_STATE_KEY } from '@/m
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Bump this whenever you want to show the modal again for a new update. */
-const BETA_UPDATE_VERSION = '1.0.0';
-
-const BETA_UPDATE_TITLE = "What's new in this update ✨";
+const BETA_UPDATE_TITLE = "A lot has changed — check it out ✨";
 
 interface ChangeEntry {
   emoji: string;
@@ -31,26 +28,34 @@ interface ChangeEntry {
   description?: string;
 }
 
+// Keep this list to 5 entries max. Focus on the most impactful user-facing
+// changes. Minor improvements and bug fixes should be rolled into a single
+// "Bug fixes & reliability" entry rather than called out individually.
 const BETA_UPDATE_CHANGES: ChangeEntry[] = [
   {
-    emoji: '🔧',
-    title: 'Fixed: creating a circle was broken',
+    emoji: '📋',
+    title: 'Your Post Activity view',
+    description: 'See your posts with reaction, private note, and message counts — all in one place. Unread indicators clear as you go.',
   },
   {
-    emoji: '💬',
-    title: 'New in-app beta feedback button',
+    emoji: '🗑️',
+    title: 'Delete your posts',
+    description: "You can now remove posts you've shared.",
   },
   {
-    emoji: '✉️',
-    title: 'Invite people to your circle directly in the app',
+    emoji: '📸',
+    title: 'Camera zoom',
+    description: 'Pinch to zoom when taking a photo.',
   },
   {
-    emoji: '🐛',
-    title: 'Fixed stale posts showing old content',
+    emoji: '⏱️',
+    title: 'Status can stay on until you clear it',
+    description: 'The new "until cleared" option makes statuses feel a lot more natural.',
   },
   {
-    emoji: '✨',
-    title: 'Refreshed layout for post details',
+    emoji: '❓',
+    title: 'How Angelia works',
+    description: 'A quick explainer is now available in the feed and your account screen — handy if you want a refresher.',
   },
 ];
 
@@ -98,53 +103,52 @@ export function BetaUpdateModal() {
   }, []);
 
   return (
-    <Modal isOpen={isOpen} onClose={handleDismiss} title={BETA_UPDATE_TITLE}>
-      <View style={styles.content}>
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {BETA_UPDATE_CHANGES.map((entry, index) => {
-            return (
-              <View
-                key={`change-${index}`}
-                style={styles.changeRow}
-              >
-                <Text style={styles.changeEmoji}>{entry.emoji}</Text>
-                <View style={styles.changeText}>
-                  <Text style={[styles.changeTitle, { color: theme.foreground }]}>
-                    {entry.title}
-                  </Text>
-                  {entry.description ? (
-                    <Text style={[styles.changeDescription, { color: theme.mutedForeground }]}>
-                      {entry.description}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-            );
-          })}
-        </ScrollView>
-
+    <Modal
+      isOpen={isOpen}
+      onClose={handleDismiss}
+      title={BETA_UPDATE_TITLE}
+      footer={
         <Button onPress={handleDismiss} style={styles.doneButton}>
           Got it, thanks!
         </Button>
-      </View>
+      }
+    >
+      <ScrollView
+        style={styles.changeList}
+        contentContainerStyle={styles.changeListContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {BETA_UPDATE_CHANGES.map((entry, index) => {
+          return (
+            <View
+              key={`change-${index}`}
+              style={styles.changeRow}
+            >
+              <Text style={styles.changeEmoji}>{entry.emoji}</Text>
+              <View style={styles.changeText}>
+                <Text style={[styles.changeTitle, { color: theme.foreground }]}>
+                  {entry.title}
+                </Text>
+                {entry.description ? (
+                  <Text style={[styles.changeDescription, { color: theme.mutedForeground }]}>
+                    {entry.description}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          );
+        })}
+      </ScrollView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    gap: 16,
+  changeList: {
+    maxHeight: 500,
   },
-  scrollView: {
-    maxHeight: 340,
-  },
-  scrollContent: {
+  changeListContent: {
     gap: 12,
-    paddingBottom: 4,
   },
   changeRow: {
     flexDirection: 'row',

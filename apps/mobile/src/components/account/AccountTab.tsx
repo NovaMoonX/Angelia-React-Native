@@ -178,6 +178,10 @@ export function AccountTab() {
     }
   };
 
+  const handleOpenQuickGuide = () => {
+    router.push({ pathname: '/about', params: { from: 'account' } });
+  };
+
   return (
     <>
       <Card style={styles.profileCard}>
@@ -304,6 +308,16 @@ export function AccountTab() {
 
       <Separator style={{ marginVertical: 16 }} />
       <View style={styles.bottomSection}>
+        <Button
+          variant="outline"
+          textStyle={{ flex: 1 }}
+          onPress={handleOpenQuickGuide}
+        >
+          <View style={styles.helpButtonContent}>
+            <MaterialCommunityIcons name="help-circle-outline" size={16} color={theme.primary} />
+            <Text style={[styles.helpButtonText, { color: theme.primary }]}>How Angelia works</Text>
+          </View>
+        </Button>
         {!isDemo && (
           <Button
             variant="outline"
@@ -422,5 +436,14 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     gap: 8,
+  },
+  helpButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  helpButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

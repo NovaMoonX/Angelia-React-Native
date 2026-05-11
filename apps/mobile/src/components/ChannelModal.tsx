@@ -1,5 +1,7 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import QRCode from 'react-native-qrcode-svg';
 import { Modal } from '@/components/ui/Modal';
 import { Avatar } from '@/components/ui/Avatar';
@@ -26,6 +28,7 @@ interface ChannelModalProps {
   /** Label for the per-subscriber action button. Defaults to "Remove". */
   removeSubscriberLabel?: string;
   inviteCandidates?: User[];
+  pendingInviteeIds?: string[];
   onInviteCandidate?: (userId: string) => void;
   invitingCandidateId?: string | null;
 }
@@ -40,12 +43,26 @@ export function ChannelModal({
   removingSubscriberId,
   removeSubscriberLabel = 'Remove',
   inviteCandidates = [],
+  pendingInviteeIds = [],
   onInviteCandidate,
   invitingCandidateId,
 }: ChannelModalProps) {
+  const router = useRouter();
   const { theme } = useTheme();
   const colors = getColorPair(channel);
   const inviteUrl = generateChannelInviteLink(channel);
+  const [inviteLinkSectionOpen, setInviteLinkSectionOpen] = useState(false);
+  const [inviteFromPeopleSectionOpen, setInviteFromPeopleSectionOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setInviteLinkSectionOpen(false);
+    setInviteFromPeopleSectionOpen(false);
+  }, [isOpen]);
+
+  const pendingInviteeIdSet = useMemo(() => {
+    return new Set(pendingInviteeIds);
+  }, [pendingInviteeIds]);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={channel.name}>
@@ -72,94 +89,151 @@ export function ChannelModal({
 
         <Separator />
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.foreground }]}>
-              Invite Link
+        {channel.isDaily ? (
+          <View style={[styles.dailyInfoBox, { backgroundColor: theme.secondary }]}>
+            <Text style={[styles.dailyInfoTitle, { color: theme.secondaryForeground }]}>
+              Daily Circle invites happen through connections
             </Text>
-            {onRefreshInviteCode && (
-              <View style={styles.refreshRow}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onPress={onRefreshInviteCode}
-                >
-                  Refresh
-                </Button>
-                <HelpIcon message="Generates a brand-new invite link and instantly invalidates the old one." />
-              </View>
-            )}
-          </View>
-          {inviteUrl ? (
-            <CopyButton
-              textToCopy={inviteUrl}
-              variant="secondary"
-              disabled={!inviteUrl}
-            >
-              Copy Invite Link
-            </CopyButton>
-          ) : (
-            <Text
-              style={[styles.noInvite, { color: theme.mutedForeground }]}
-            >
-              No invite link available
+            <Text style={[styles.dailyInfoText, { color: theme.secondaryForeground }]}>
+              Looking to add people? Connect with them from your feed and they’ll appear in your Daily Circle.
             </Text>
-          )}
-
-          {channel.inviteCode && (
-            <View style={styles.qrSection}>
-              <View style={styles.qrContainer}>
-                <QRCode
-                  value={inviteUrl || channel.inviteCode}
-                  size={160}
-                  backgroundColor="#FFFFFF"
-                  color="#111827"
-                />
-              </View>
-              <View style={styles.inviteCodeRow}>
-                <Text style={[styles.inviteCodeLabel, { color: theme.mutedForeground }]}>
-                  Invite code:
-                </Text>
-                <Text style={[styles.inviteCodeValue, { color: theme.foreground }]}>
-                  {channel.inviteCode}
-                </Text>
-              </View>
-              <CopyButton
-                textToCopy={channel.inviteCode}
+            <View style={styles.dailyActionRow}>
+              <Button
                 variant="outline"
                 size="sm"
+                onPress={() => router.push('/(protected)/share-connection')}
+                style={styles.dailyActionButton}
               >
-                Copy Code
-              </CopyButton>
+                Share connection link
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onPress={() => router.push('/scan-qr')}
+                style={styles.dailyActionButton}
+              >
+                Scan QR code
+              </Button>
             </View>
-          )}
-        </View>
-
-        <Separator />
-
-        {onInviteCandidate && (
-          <>
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.foreground }]}>Invite from My People</Text>
-              {inviteCandidates.length === 0 ? (
-                <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>All your connected people are already in this Circle.</Text>
-              ) : (
-                inviteCandidates.map((person) => (
-                  <View key={person.id} style={styles.subscriberRow}>
-                    <Avatar user={person} size="sm" showStatus={false} />
-                    <Text style={[styles.subscriberName, { color: theme.foreground }]}>
-                      {person.firstName} {person.lastName}
-                    </Text>
+          </View>
+        ) : (
+          <View style={styles.section}>
+            <Pressable
+              onPress={() => setInviteLinkSectionOpen((prev) => !prev)}
+              style={styles.collapsibleHeader}
+            >
+              <Text style={[styles.sectionTitle, { color: theme.foreground }]}>Invite Link</Text>
+              <Feather
+                name={inviteLinkSectionOpen ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color={theme.mutedForeground}
+              />
+            </Pressable>
+            {inviteLinkSectionOpen && (
+              <>
+                {onRefreshInviteCode && (
+                  <View style={styles.refreshRow}>
                     <Button
                       variant="outline"
                       size="sm"
-                      onPress={() => onInviteCandidate(person.id)}
-                      loading={invitingCandidateId === person.id}
+                      onPress={onRefreshInviteCode}
                     >
-                      Invite
+                      Refresh
                     </Button>
+                    <HelpIcon message="Generates a brand-new invite link and instantly invalidates the old one." />
                   </View>
-                ))
+                )}
+                {inviteUrl ? (
+                  <CopyButton
+                    textToCopy={inviteUrl}
+                    variant="secondary"
+                    disabled={!inviteUrl}
+                  >
+                    Copy Invite Link
+                  </CopyButton>
+                ) : (
+                  <Text
+                    style={[styles.noInvite, { color: theme.mutedForeground }]}
+                  >
+                    No invite link available
+                  </Text>
+                )}
+
+                {channel.inviteCode && (
+                  <View style={styles.qrSection}>
+                    <View style={styles.qrContainer}>
+                      <QRCode
+                        value={inviteUrl || channel.inviteCode}
+                        size={160}
+                        backgroundColor="#FFFFFF"
+                        color="#111827"
+                      />
+                    </View>
+                    <View style={styles.inviteCodeRow}>
+                      <Text style={[styles.inviteCodeLabel, { color: theme.mutedForeground }]}> 
+                        Invite code:
+                      </Text>
+                      <Text style={[styles.inviteCodeValue, { color: theme.foreground }]}> 
+                        {channel.inviteCode}
+                      </Text>
+                    </View>
+                    <CopyButton
+                      textToCopy={channel.inviteCode}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Copy Code
+                    </CopyButton>
+                  </View>
+                )}
+              </>
+            )}
+          </View>
+        )}
+
+        <Separator />
+
+        {onInviteCandidate && !channel.isDaily && (
+          <>
+            <View style={styles.section}>
+              <Pressable
+                onPress={() => setInviteFromPeopleSectionOpen((prev) => !prev)}
+                style={styles.collapsibleHeader}
+              >
+                <Text style={[styles.sectionTitle, { color: theme.foreground }]}>Invite from My People</Text>
+                <Feather
+                  name={inviteFromPeopleSectionOpen ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color={theme.mutedForeground}
+                />
+              </Pressable>
+              {inviteFromPeopleSectionOpen && (
+                <>
+                  {inviteCandidates.length === 0 ? (
+                    <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>All your connected people are already in this Circle.</Text>
+                  ) : (
+                    inviteCandidates.map((person) => {
+                      const isInvited = pendingInviteeIdSet.has(person.id);
+                      return (
+                        <View key={person.id} style={styles.subscriberRow}>
+                          <Avatar user={person} size="sm" showStatus={false} />
+                          <Text style={[styles.subscriberName, { color: theme.foreground }]}>
+                            {person.firstName} {person.lastName}
+                          </Text>
+                          <Button
+                            variant={isInvited ? 'secondary' : 'outline'}
+                            size="sm"
+                            onPress={() => onInviteCandidate(person.id)}
+                            loading={invitingCandidateId === person.id}
+                            disabled={isInvited}
+                          >
+                            {isInvited ? 'Invited' : 'Invite'}
+                          </Button>
+                        </View>
+                      );
+                    })
+                  )}
+                </>
               )}
             </View>
 
@@ -220,6 +294,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  collapsibleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
@@ -232,6 +311,29 @@ const styles = StyleSheet.create({
   noInvite: {
     fontSize: 13,
     fontStyle: 'italic',
+  },
+  dailyInfoBox: {
+    borderRadius: 12,
+    padding: 12,
+    gap: 4,
+  },
+  dailyInfoTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  dailyInfoText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  dailyActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+    marginTop: 6,
+  },
+  dailyActionButton: {
+    flexGrow: 1,
+    minWidth: 132,
   },
   qrSection: {
     alignItems: 'center',

@@ -16,7 +16,7 @@ import {
   arrayRemove,
 } from '@react-native-firebase/firestore';
 import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
-import type { User, UserPublic, UserPrivate, UserSecret, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, CircleInviteRequest, UpdateUserProfileData, UserStatus, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, AppTask, Comment, PrivateNote } from '@/models/types';
+import type { User, UserPublic, UserPrivate, UserSecret, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, CircleInviteRequest, UpdateUserProfileData, UserStatus, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, AppTask, Comment, PrivateNote, Reaction } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX, DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
@@ -254,6 +254,71 @@ export function subscribeToNotificationSettings(
   });
 }
 
+export interface LatestAppVersionConfig {
+  iosVersion: string | null;
+  androidVersion: string | null;
+  androidStoreUrl: string | null;
+}
+
+function asNonEmptyString(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed;
+}
+
+/**
+ * Subscribes to a Firestore doc that controls required app versions by platform.
+ *
+ * Expected doc path: `appConfig/mobile`
+ * Supported shapes:
+ * - { iosVersion: '1.2.3', androidVersion: '1.2.3', androidStoreUrl: 'https://...' }
+ * - { minVersions: { ios: '1.2.3', android: '1.2.3' }, androidStoreUrl: 'https://...' }
+ */
+export function subscribeToLatestAppVersion(
+  callback: (config: LatestAppVersionConfig) => void,
+): () => void {
+  return onSnapshot(
+    doc(getDb(), 'appConfig', 'mobile'),
+    (snap) => {
+      const fallback: LatestAppVersionConfig = {
+        iosVersion: null,
+        androidVersion: null,
+        androidStoreUrl: null,
+      };
+
+      if (!snap?.exists) {
+        callback(fallback);
+        return;
+      }
+
+      const raw = snap.data() as Record<string, unknown>;
+      const minVersionsRaw = raw.minVersions;
+      const minVersions =
+        minVersionsRaw && typeof minVersionsRaw === 'object'
+          ? (minVersionsRaw as Record<string, unknown>)
+          : null;
+
+      callback({
+        iosVersion: asNonEmptyString(raw.iosVersion) ?? asNonEmptyString(minVersions?.ios),
+        androidVersion: asNonEmptyString(raw.androidVersion) ?? asNonEmptyString(minVersions?.android),
+        androidStoreUrl: asNonEmptyString(raw.androidStoreUrl),
+      });
+    },
+    () => {
+      callback({
+        iosVersion: null,
+        androidVersion: null,
+        androidStoreUrl: null,
+      });
+    },
+  );
+}
+
 // ---- Channel Operations ----
 
 export async function getChannel(channelId: string): Promise<Channel | null> {
@@ -460,9 +525,18 @@ export async function respondToCircleInviteRequest(
     });
 
     if (accept) {
-      transaction.update(doc(getDb(), 'channels', request.channelId), {
-        subscribers: arrayUnion(request.inviteeId),
-      });
+      const channelRef = doc(getDb(), 'channels', request.channelId);
+      const channelSnap = await transaction.get(channelRef);
+      if (!channelSnap.exists) throw new Error('Circle not found');
+      const channelData = channelSnap.data();
+      if (!channelData) throw new Error('Circle data unavailable');
+      const channel = channelData as Channel;
+      const alreadySubscriber = channel.subscribers.includes(request.inviteeId);
+      if (!alreadySubscriber) {
+        transaction.update(channelRef, {
+          subscribers: arrayUnion(request.inviteeId),
+        });
+      }
     }
   });
 }
@@ -551,15 +625,26 @@ export async function updatePostReactions(postId: string, reactions: unknown[]):
   await updateDoc(doc(getDb(), 'posts', postId), { reactions });
 }
 
-export async function addReactionToPost(postId: string, reaction: { emoji: string; userId: string }): Promise<void> {
+export async function addReactionToPost(postId: string, reaction: Reaction): Promise<void> {
   await updateDoc(doc(getDb(), 'posts', postId), {
     reactions: arrayUnion(reaction),
   });
 }
 
-export async function removeReactionFromPost(postId: string, reaction: { emoji: string; userId: string }): Promise<void> {
-  await updateDoc(doc(getDb(), 'posts', postId), {
-    reactions: arrayRemove(reaction),
+export async function removeReactionsFromPostByUser(postId: string, userId: string): Promise<void> {
+  await runTransaction(getDb(), async (transaction) => {
+    const postRef = doc(getDb(), 'posts', postId);
+    const postSnap = await transaction.get(postRef);
+    if (!postSnap.exists) return;
+
+    const post = postSnap.data() as Post;
+    const nextReactions = (post.reactions ?? []).filter((item) => {
+      return item.userId !== userId;
+    });
+
+    transaction.update(postRef, {
+      reactions: nextReactions,
+    });
   });
 }
 
@@ -715,7 +800,18 @@ export function subscribeToPosts(
       ),
       (snap) => {
         for (const d of getSnapshotDocs(snap)) {
-          allPosts.set(d.id, d.data() as Post);
+          const post = d.data() as Post;
+          const normalizedPost: Post = {
+            ...post,
+            reactions: (post.reactions ?? []).map((reaction) => {
+              return {
+                emoji: reaction.emoji,
+                userId: reaction.userId,
+                timestamp: typeof reaction.timestamp === 'number' ? reaction.timestamp : null,
+              };
+            }),
+          };
+          allPosts.set(d.id, normalizedPost);
         }
         callback(Array.from(allPosts.values()));
       },

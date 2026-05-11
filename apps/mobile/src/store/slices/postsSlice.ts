@@ -44,16 +44,14 @@ const postsSlice = createSlice({
         post.reactions = [...post.reactions, action.payload.newReaction];
       }
     },
-    removeReactionOptimistic(
+    removeReactionsByUserOptimistic(
       state,
-      action: PayloadAction<{ postId: string; emoji: string; userId: string }>
+      action: PayloadAction<{ postId: string; userId: string }>
     ) {
       const post = state.items.find((p) => p.id === action.payload.postId);
       if (post) {
         state.previousReactions[action.payload.postId] = [...post.reactions];
-        post.reactions = post.reactions.filter(
-          (r) => !(r.emoji === action.payload.emoji && r.userId === action.payload.userId)
-        );
+        post.reactions = post.reactions.filter((r) => r.userId !== action.payload.userId);
       }
     },
     revertReactionsOptimistic(state, action: PayloadAction<{ postId: string }>) {
@@ -84,6 +82,9 @@ const postsSlice = createSlice({
         );
       }
     },
+    removePost(state, action: PayloadAction<{ postId: string }>) {
+      state.items = state.items.filter((p) => p.id !== action.payload.postId);
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(resetAllState, () => initialState);
@@ -96,10 +97,11 @@ export const {
   clearPosts,
   loadDemoPosts,
   updateReactionsOptimistic,
-  removeReactionOptimistic,
+  removeReactionsByUserOptimistic,
   revertReactionsOptimistic,
   addConversationEnrollee,
   removeConversationEnrollee,
+  removePost,
 } = postsSlice.actions;
 
 // Selectors

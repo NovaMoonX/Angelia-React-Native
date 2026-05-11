@@ -9,7 +9,7 @@ import {
   View,
   type ViewToken,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, {
@@ -65,6 +65,9 @@ const STEPS: Step[] = [
   'personas',
   'vs-social',
   'vs-groupchat',
+  'daily-circle',
+  'custom-circles',
+  'your-space',
   'compare',
   'start',
 ];
@@ -75,6 +78,9 @@ type Step =
   | 'personas'
   | 'vs-social'
   | 'vs-groupchat'
+  | 'daily-circle'
+  | 'custom-circles'
+  | 'your-space'
   | 'compare'
   | 'start';
 
@@ -89,6 +95,9 @@ const STEP_DURATIONS: Record<Step, number> = {
   personas: 15000,
   'vs-social': 16000,
   'vs-groupchat': 16000,
+  'daily-circle': 15000,
+  'custom-circles': 15000,
+  'your-space': 14000,
   compare: 18000,
   start: 15000,
 };
@@ -151,6 +160,10 @@ function AnimatedStepContent({
 export default function AboutScreen() {
   const { theme } = useTheme();
   const router = useRouter();
+  const params = useLocalSearchParams<{ from?: string; fromApp?: string }>();
+  const source = params.from === 'account' ? 'account' : params.from === 'feed' || params.fromApp === '1' ? 'feed' : null;
+  const fromApp = source !== null;
+  const returnLabel = source === 'account' ? 'Back to Account' : 'Back to Feed';
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList>(null);
@@ -385,6 +398,39 @@ export default function AboutScreen() {
                       "Family updates without the noise.{'\n'}Curate, subscribe, connect."
                     </Text>
                   </View>
+                  {fromApp && (
+                    <View style={styles.jumpBox}>
+                      <Text style={[styles.jumpLabel, { color: theme.mutedForeground }]}>
+                        Confused about circles? Jump straight to their explanation:
+                      </Text>
+                      <View style={styles.jumpLinks}>
+                        <Pressable
+                          onPress={() => goToStep(STEPS.indexOf('daily-circle'))}
+                          style={[styles.jumpChip, { backgroundColor: theme.secondary }]}
+                        >
+                          <Text style={[styles.jumpChipText, { color: theme.secondaryForeground }]}>
+                            🌞 Daily Circle
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => goToStep(STEPS.indexOf('custom-circles'))}
+                          style={[styles.jumpChip, { backgroundColor: theme.secondary }]}
+                        >
+                          <Text style={[styles.jumpChipText, { color: theme.secondaryForeground }]}>
+                            🎯 Custom Circles
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => goToStep(STEPS.indexOf('your-space'))}
+                          style={[styles.jumpChip, { backgroundColor: theme.secondary }]}
+                        >
+                          <Text style={[styles.jumpChipText, { color: theme.secondaryForeground }]}> 
+                            📫 Posting in Circles
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  )}
                 </ScrollView>
               </AnimatedStepContent>
             </View>
@@ -462,11 +508,11 @@ export default function AboutScreen() {
                   <Card style={styles.solutionCard}>
                     <Text style={styles.solutionIcon}>⏳</Text>
                     <Text style={[styles.solutionTitle, { color: theme.foreground }]}>
-                      Posts Expire After 6 Months
+                      Posts Expire Automatically
                     </Text>
                     <Text style={[styles.solutionBody, { color: theme.mutedForeground }]}>
-                      This keeps things fresh and real. Share in the moment
-                      without worrying about a permanent record.
+                      Your updates fade away naturally — so you can share freely
+                      without worrying about building a permanent record.
                     </Text>
                   </Card>
                 </ScrollView>
@@ -588,6 +634,136 @@ export default function AboutScreen() {
             </View>
           );
 
+        case 'daily-circle':
+          return (
+            <View style={[styles.stepContainer, { width: SCREEN_WIDTH }]}>
+              <AnimatedStepContent isActive={isActive}>
+                <ScrollView
+                  contentContainerStyle={[styles.stepContent, { minHeight: contentHeight }]}
+                  showsVerticalScrollIndicator={false}
+                  onTouchStart={pauseAndScheduleResume}
+                >
+                  <Text style={styles.stepEmoji}>🌞</Text>
+                  <Text style={[styles.stepTitle, { color: theme.foreground }]}>
+                    Your Daily Circle
+                  </Text>
+                  <Text style={[styles.stepBody, { color: theme.mutedForeground }]}>
+                    Your Daily Circle is for the little moments that come up
+                    day to day — quick updates, today's mood, a funny thing
+                    that happened. No polish needed.
+                  </Text>
+                  <Text style={[styles.stepBody, { color: theme.mutedForeground }]}>
+                    It's a place to share what's real without pretense. A
+                    sentence, a photo, a random thought — that's exactly right
+                    here. Your people get to just be themselves around you.
+                  </Text>
+                  <View style={styles.examplePostsContainer}>
+                    <View style={[styles.examplePost, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                      <Text style={styles.examplePostAuthor}>Sarah M.</Text>
+                      <Text style={[styles.examplePostText, { color: theme.foreground }]}>finally got the kids to bed before 9 😮‍💨 small win but I'll take it</Text>
+                    </View>
+                    <View style={[styles.examplePost, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                      <Text style={styles.examplePostAuthor}>Dad</Text>
+                      <Text style={[styles.examplePostText, { color: theme.foreground }]}>Made your grandma's soup recipe today. Turned out pretty good I think 🍲</Text>
+                    </View>
+                    <View style={[styles.examplePost, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                      <Text style={styles.examplePostAuthor}>Jordan K.</Text>
+                      <Text style={[styles.examplePostText, { color: theme.foreground }]}>rainy morning, good coffee, no complaints ☕</Text>
+                    </View>
+                  </View>
+                </ScrollView>
+              </AnimatedStepContent>
+            </View>
+          );
+
+        case 'custom-circles':
+          return (
+            <View style={[styles.stepContainer, { width: SCREEN_WIDTH }]}>
+              <AnimatedStepContent isActive={isActive}>
+                <ScrollView
+                  contentContainerStyle={[styles.stepContent, { minHeight: contentHeight }]}
+                  showsVerticalScrollIndicator={false}
+                  onTouchStart={pauseAndScheduleResume}
+                >
+                  <Text style={styles.stepEmoji}>🎯</Text>
+                  <Text style={[styles.stepTitle, { color: theme.foreground }]}>
+                    Custom Circles
+                  </Text>
+                  <Text style={[styles.stepBody, { color: theme.mutedForeground }]}>
+                    Create circles for the specific things you want to share —
+                    a hobby, a close friend group, a project, photos from a
+                    trip. Each circle is its own space.
+                  </Text>
+                  <Text style={[styles.stepBody, { color: theme.mutedForeground }]}>
+                    When people join your Custom Circle, they're choosing to
+                    hear about exactly that thing. You give them control over
+                    what they want to know more about.
+                  </Text>
+                  <View style={styles.circleChipsContainer}>
+                    <View style={[styles.circleChip, { backgroundColor: theme.card, borderColor: theme.border, alignSelf: 'flex-start' }]}>
+                      <Text style={styles.circleChipName}>🏕️ Summer Trip 2025</Text>
+                      <Text style={[styles.circleChipDesc, { color: theme.mutedForeground }]}>Photos &amp; updates from the road</Text>
+                    </View>
+                    <View style={[styles.circleChip, { backgroundColor: theme.card, borderColor: theme.border, alignSelf: 'flex-end' }]}>
+                      <Text style={styles.circleChipName}>👶 Baby Updates</Text>
+                      <Text style={[styles.circleChipDesc, { color: theme.mutedForeground }]}>For the grandparents &amp; aunts</Text>
+                    </View>
+                    <View style={[styles.circleChip, { backgroundColor: theme.card, borderColor: theme.border, alignSelf: 'center' }]}>
+                      <Text style={styles.circleChipName}>🏋️ Gym Accountability</Text>
+                      <Text style={[styles.circleChipDesc, { color: theme.mutedForeground }]}>Just us keeping each other honest</Text>
+                    </View>
+                    <View style={[styles.circleChip, { backgroundColor: theme.card, borderColor: theme.border, alignSelf: 'flex-start' }]}>
+                      <Text style={styles.circleChipName}>🍳 Recipes We Love</Text>
+                      <Text style={[styles.circleChipDesc, { color: theme.mutedForeground }]}>Family favorites &amp; new finds</Text>
+                    </View>
+                  </View>
+                </ScrollView>
+              </AnimatedStepContent>
+            </View>
+          );
+
+        case 'your-space':
+          return (
+            <View style={[styles.stepContainer, { width: SCREEN_WIDTH }]}> 
+              <AnimatedStepContent isActive={isActive}>
+                <ScrollView
+                  contentContainerStyle={[styles.stepContent, { minHeight: contentHeight }]}
+                  showsVerticalScrollIndicator={false}
+                  onTouchStart={pauseAndScheduleResume}
+                >
+                  <Text style={styles.stepEmoji}>🫶</Text>
+                  <Text style={[styles.stepTitle, { color: theme.foreground }]}> 
+                    Your Circle, Your Voice
+                  </Text>
+                  <Text style={[styles.stepBody, { color: theme.mutedForeground }]}> 
+                    Each circle is your space to share what you want, how you
+                    want. You set the tone and shape the experience.
+                  </Text>
+                  <Text style={[styles.stepBody, { color: theme.mutedForeground }]}> 
+                    Your people can follow along at their own pace, so updates
+                    feel clear, calm, and personal.
+                  </Text>
+                  <Card style={{ ...styles.yourSpaceCard, borderColor: theme.border, backgroundColor: theme.card }}> 
+                    <Text style={styles.yourSpaceCardEmoji}>🌿</Text>
+                    <Text style={[styles.yourSpaceCardTitle, { color: theme.foreground }]}>You create the experience</Text>
+                    <Text style={[styles.yourSpaceCardBody, { color: theme.mutedForeground }]}> 
+                      Share out what matters. Your circle receives it in one
+                      simple, focused place.
+                    </Text>
+                  </Card>
+                  <Card style={{ ...styles.yourSpaceCard, borderColor: theme.border, backgroundColor: theme.card }}>
+                    <Text style={styles.yourSpaceCardEmoji}>🔒</Text>
+                    <Text style={[styles.yourSpaceCardTitle, { color: theme.foreground }]}>Posting stays with you</Text>
+                    <Text style={[styles.yourSpaceCardBody, { color: theme.mutedForeground }]}>
+                      Members can follow and receive your updates, but they
+                      cannot post in your circle (at least for now).
+                    </Text>
+                  </Card>
+                </ScrollView>
+              </AnimatedStepContent>
+            </View>
+          );
+
         case 'compare':
           return (
             <View style={[styles.stepContainer, { width: SCREEN_WIDTH }]}>
@@ -611,6 +787,33 @@ export default function AboutScreen() {
           );
 
         case 'start':
+          if (fromApp) {
+            return (
+              <View style={[styles.stepContainer, { width: SCREEN_WIDTH }]}>
+                <AnimatedStepContent isActive={isActive}>
+                  <View style={[styles.stepContent, styles.ctaStep, { minHeight: contentHeight }]}>
+                    <Text style={styles.stepEmoji}>✨</Text>
+                    <Text style={[styles.stepTitle, { color: theme.foreground }]}>
+                      Now you know!
+                    </Text>
+                    <Text style={[styles.stepSubtitle, { color: theme.mutedForeground }]}>
+                      Go share something with your circles.
+                    </Text>
+                    <View style={styles.ctaButtons}>
+                      <Button
+                        onPress={() => router.back()}
+                        size="lg"
+                        style={{ width: '100%' }}
+                      >
+                        {returnLabel}
+                      </Button>
+                    </View>
+                  </View>
+                </AnimatedStepContent>
+              </View>
+            );
+          }
+          
           return (
             <View style={[styles.stepContainer, { width: SCREEN_WIDTH }]}>
               <AnimatedStepContent isActive={isActive}>
@@ -654,7 +857,7 @@ export default function AboutScreen() {
           return null;
       }
     },
-    [theme, contentHeight, router, dispatch, handleTryDemo, currentIndex, pauseAndScheduleResume]
+    [theme, contentHeight, router, dispatch, handleTryDemo, currentIndex, pauseAndScheduleResume, fromApp, source, returnLabel]
   );
 
   return (
@@ -839,6 +1042,99 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  jumpBox: {
+    marginTop: 20,
+    alignItems: 'center',
+    gap: 10,
+  },
+  jumpLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+    paddingBlockEnd: 4,
+  },
+  jumpLinks: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  jumpChip: {
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+  },
+  jumpChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  // Daily Circle examples
+  examplePostsContainer: {
+    marginTop: 16,
+    gap: 10,
+    width: '100%',
+  },
+  examplePost: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    gap: 4,
+  },
+  examplePostAuthor: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#f59e0b',
+  },
+  examplePostText: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  // Custom Circles examples
+  circleChipsContainer: {
+    marginTop: 16,
+    gap: 10,
+    width: '100%',
+  },
+  circleChip: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    maxWidth: '80%',
+    gap: 2,
+  },
+  circleChipName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#f59e0b',
+  },
+  circleChipDesc: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  // Your space step
+  yourSpaceCard: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    gap: 6,
+  },
+  yourSpaceCardEmoji: {
+    fontSize: 22,
+  },
+  yourSpaceCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  yourSpaceCardBody: {
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
   },
   // Problem step
   problemCard: {

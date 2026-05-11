@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Animated,
@@ -332,6 +332,10 @@ export default function CompleteProfileScreen() {
   const [loadingMessage, setLoadingMessage] = useState('');
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Computed animated styles to avoid inline animation warnings
+  const pulseAnimStyle = useMemo(() => ({ transform: [{ scale: pulseAnim }] }), []);
+  const fadeAnimStyle = useMemo(() => ({ opacity: fadeAnim }), []);
 
   // Pulse animation for the loading overlay
   useEffect(() => {
@@ -1811,7 +1815,7 @@ export default function CompleteProfileScreen() {
   if (loading && loadingMessage) {
     return (
       <View style={[styles.loadingOverlay, { backgroundColor: theme.background }]}>
-        <Animated.Text style={[styles.loadingEmoji, { transform: [{ scale: pulseAnim }] }]}>
+        <Animated.Text style={[styles.loadingEmoji, pulseAnimStyle]}>
           ✨
         </Animated.Text>
         <Text style={[styles.loadingHeading, { color: theme.foreground }]}>
@@ -1837,7 +1841,7 @@ export default function CompleteProfileScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <TopBar />
-        <Animated.View style={{ opacity: fadeAnim }}>
+        <Animated.View style={fadeAnimStyle}>
           {STEP_RENDERERS[step]()}
         </Animated.View>
       </ScrollView>
