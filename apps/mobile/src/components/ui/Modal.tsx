@@ -16,9 +16,10 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
 }
 
-export function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const sheetBottomPadding = useModalSheetPadding(insets.bottom + 16);
@@ -44,11 +45,16 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             </View>
             <ScrollView
               style={styles.body}
-              contentContainerStyle={[styles.bodyContent, { paddingBottom: sheetBottomPadding }]}
+              contentContainerStyle={styles.bodyContent}
               showsVerticalScrollIndicator={false}
             >
               {children}
             </ScrollView>
+            {footer ? (
+              <View style={[styles.footer, { paddingBottom: sheetBottomPadding }]}>
+                {footer}
+              </View>
+            ) : null}
           </View>
         </Pressable>
       </ModalKeyboardView>
@@ -95,5 +101,9 @@ const styles = StyleSheet.create({
   },
   bodyContent: {
     padding: 16,
+  },
+  footer: {
+    padding: 16,
+    paddingTop: 8,
   },
 });

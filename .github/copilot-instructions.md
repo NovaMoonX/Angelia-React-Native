@@ -232,6 +232,8 @@ The individual `preset` and `uri` props are only for non-User contexts, such as 
    - `title` — a short, friendly headline (max ~6 words)
    - `description` — (optional) one sentence elaborating on the change
 
+**Keep the list to 5 entries maximum.** Focus on the most impactful user-facing changes. Minor improvements and multiple bug fixes should be collapsed into a single `{ emoji: '🐛', title: 'Bug fixes & reliability', description: '...' }` entry rather than listed individually. If you have more than 5 things, cut the least impactful ones — users don't need to be told about every tweak.
+
 Keep the tone warm and encouraging — avoid dry or technical language. Write like you're texting a friend about something cool.
 
 ```ts
@@ -250,6 +252,14 @@ Use it as the compact source of truth for the next beta update modal:
 - Update it whenever a branch lands bug fixes, workflow changes, or new features that beta testers should know about.
 - Write the entries in the same warm, friendly tone used in the app modal copy.
 - Include the current branch or PR reference at the top so the next update is easy to trace.
+
+**You MUST update `apps/mobile/BETA_UPDATE_NOTES.txt` as part of any task that introduces:**
+- A new screen, feature, or user-visible workflow
+- A bug fix that users would notice
+- A change to existing UI, labels, or copy
+- Any change that would appear in a "what's new" list
+
+Do this proactively — do not wait to be asked. If a task changes user-facing behavior, updating `BETA_UPDATE_NOTES.txt` is part of completing that task. Add a bullet under "Current branch highlights" describing the change in plain, friendly language.
 
 ---
 

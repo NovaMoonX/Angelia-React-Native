@@ -40,7 +40,7 @@ export function FeedChannelFilterModal({
   const [localFilter, setLocalFilter] = useState<ChannelFilterState>(value);
   const [searchQuery, setSearchQuery] = useState('');
   const [dailySectionOpen, setDailySectionOpen] = useState(false);
-  const [regularSectionOpen, setRegularSectionOpen] = useState(false);
+  const [regularSectionOpen, setRegularSectionOpen] = useState(true);
 
   // Sync local state when modal opens
   useEffect(() => {
@@ -48,7 +48,7 @@ export function FeedChannelFilterModal({
       setLocalFilter(value);
       setSearchQuery('');
       setDailySectionOpen(false);
-      setRegularSectionOpen(false);
+      setRegularSectionOpen(true);
     }
     // Intentionally only sync when the modal opens — we don't want parent
     // value changes to clobber in-progress edits while the modal is open.
@@ -167,7 +167,16 @@ export function FeedChannelFilterModal({
   }, [theme.mutedForeground]);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Filter Circles">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Filter Circles"
+      footer={(
+        <Button onPress={handleApply} style={styles.applyButton}>
+          Apply
+        </Button>
+      )}
+    >
     <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>Choose Circles</Text>
 
       {showSearch && (
@@ -255,9 +264,6 @@ export function FeedChannelFilterModal({
         </Text>
       )}
 
-      <Button onPress={handleApply} style={styles.applyButton}>
-        Apply
-      </Button>
     </Modal>
   );
 }
@@ -306,6 +312,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   applyButton: {
-    marginTop: 20,
+    width: '100%',
   },
 });
