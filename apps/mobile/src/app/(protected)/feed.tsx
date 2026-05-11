@@ -717,7 +717,7 @@ export default function FeedScreen() {
               bottom: insets.bottom + 76,
             },
           ]}
-          onPress={() => router.push('/about')}
+          onPress={() => router.push({ pathname: '/about', params: { from: 'feed' } })}
           accessibilityRole="button"
           accessibilityLabel="How Angelia works"
         >

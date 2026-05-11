@@ -179,7 +179,7 @@ export function AccountTab() {
   };
 
   const handleOpenQuickGuide = () => {
-    router.push('/about');
+    router.push({ pathname: '/about', params: { from: 'account' } });
   };
 
   return (
