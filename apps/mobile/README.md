@@ -190,3 +190,13 @@ See [NOTIFICATION_TESTING.md](./NOTIFICATION_TESTING.md) for a step-by-step guid
 **Cause:** Using `behavior='height'` on the `<KeyboardAvoidingView>` inside a Modal animates the KAV container height on keyboard hide. Because the backdrop uses `justifyContent: 'flex-end'`, the height restoration re-triggers flex layout and the sheet visibly snaps.
 
 **Fix:** Use `behavior='padding'` on both iOS and Android for `<KeyboardAvoidingView>` inside a bottom-sheet Modal. `padding` adjusts only internal spacing and never changes the container height, eliminating the snap. See `src/components/PrivateNoteModal.tsx`.
+
+---
+
+#### Firestore subscription crashes with `Cannot read property 'docs' of null`
+
+**Symptom:** The app throws `TypeError: Cannot read property 'docs' of null` from Firestore listeners, often in request/task/private-note subscriptions.
+
+**Cause:** In React Native Firebase, `onSnapshot` query callbacks can surface a null snapshot transiently. Any listener that assumes `snap.docs` always exists will crash as soon as that happens.
+
+**Fix:** Treat Firestore snapshots as nullable. For query listeners, always read docs through a null-safe fallback such as `snap?.docs ?? []` or the shared helper in `src/services/firebase/firestore.ts`. For document listeners, guard `snap` before reading `exists` or `data`. See `src/services/firebase/firestore.ts` and `.github/copilot-instructions.md`.

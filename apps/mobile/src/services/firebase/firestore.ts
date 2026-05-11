@@ -15,12 +15,19 @@ import {
   arrayUnion,
   arrayRemove,
 } from '@react-native-firebase/firestore';
+import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 import type { User, UserPublic, UserPrivate, UserSecret, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, CircleInviteRequest, UpdateUserProfileData, UserStatus, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, AppTask, Comment, PrivateNote } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX, DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
 // const db = getFirestore();
 const getDb = () => getFirestore();
+
+function getSnapshotDocs(
+  snap: FirebaseFirestoreTypes.QuerySnapshot<FirebaseFirestoreTypes.DocumentData> | null | undefined,
+): FirebaseFirestoreTypes.QueryDocumentSnapshot<FirebaseFirestoreTypes.DocumentData>[] {
+  return snap?.docs ?? [];
+}
 
 // ---- User Operations ----
 
@@ -472,7 +479,9 @@ export function subscribeToIncomingCircleInviteRequests(
   return onSnapshot(
     query(collection(getDb(), 'circleInviteRequests'), where('inviteeId', '==', uid)),
     (snap) => {
-      callback(snap.docs.map((d) => d.data() as CircleInviteRequest));
+      callback(getSnapshotDocs(snap).map((d) => {
+        return d.data() as CircleInviteRequest;
+      }));
     },
   );
 }
@@ -484,7 +493,9 @@ export function subscribeToOutgoingCircleInviteRequests(
   return onSnapshot(
     query(collection(getDb(), 'circleInviteRequests'), where('inviterId', '==', uid)),
     (snap) => {
-      callback(snap.docs.map((d) => d.data() as CircleInviteRequest));
+      callback(getSnapshotDocs(snap).map((d) => {
+        return d.data() as CircleInviteRequest;
+      }));
     },
   );
 }
@@ -602,18 +613,21 @@ export function subscribeToCurrentUser(
   }
 
   const unsubPublic = onSnapshot(doc(getDb(), 'usersPublic', uid), (snap) => {
+    if (!snap) return;
     publicData = snap.exists ? (snap.data() as UserPublic) : null;
     ready.public = true;
     emit();
   });
 
   const unsubPrivate = onSnapshot(doc(getDb(), 'usersPrivate', uid), (snap) => {
+    if (!snap) return;
     privateData = snap.exists ? (snap.data() as UserPrivate) : null;
     ready.private = true;
     emit();
   });
 
   const unsubSecret = onSnapshot(doc(getDb(), 'usersSecret', uid), (snap) => {
+    if (!snap) return;
     secretData = snap.exists ? (snap.data() as UserSecret) : null;
     ready.secret = true;
     emit();
@@ -651,7 +665,7 @@ export function subscribeToChannels(
     query(collection(getDb(), 'channels'), where('ownerId', '==', uid)),
     (snap) => {
       ownedMap.clear();
-      for (const d of snap.docs) ownedMap.set(d.id, d.data() as Channel);
+      for (const d of getSnapshotDocs(snap)) ownedMap.set(d.id, d.data() as Channel);
       emit();
     },
     (_err) => { emit(); },
@@ -661,7 +675,7 @@ export function subscribeToChannels(
     query(collection(getDb(), 'channels'), where('subscribers', 'array-contains', uid)),
     (snap) => {
       subscribedMap.clear();
-      for (const d of snap.docs) subscribedMap.set(d.id, d.data() as Channel);
+      for (const d of getSnapshotDocs(snap)) subscribedMap.set(d.id, d.data() as Channel);
       emit();
     },
     (_err) => { emit(); },
@@ -700,8 +714,7 @@ export function subscribeToPosts(
         where('markedForDeletionAt', '==', null),
       ),
       (snap) => {
-        if (!snap) return;
-        for (const d of snap.docs) {
+        for (const d of getSnapshotDocs(snap)) {
           allPosts.set(d.id, d.data() as Post);
         }
         callback(Array.from(allPosts.values()));
@@ -724,7 +737,9 @@ export function subscribeToIncomingJoinRequests(
   return onSnapshot(
     query(collection(getDb(), 'channelJoinRequests'), where('channelOwnerId', '==', uid)),
     (snap) => {
-      callback(snap.docs.map((d) => d.data() as ChannelJoinRequest));
+      callback(getSnapshotDocs(snap).map((d) => {
+        return d.data() as ChannelJoinRequest;
+      }));
     },
   );
 }
@@ -736,7 +751,9 @@ export function subscribeToOutgoingJoinRequests(
   return onSnapshot(
     query(collection(getDb(), 'channelJoinRequests'), where('requesterId', '==', uid)),
     (snap) => {
-      callback(snap.docs.map((d) => d.data() as ChannelJoinRequest));
+      callback(getSnapshotDocs(snap).map((d) => {
+        return d.data() as ChannelJoinRequest;
+      }));
     },
   );
 }
@@ -784,7 +801,7 @@ export function subscribeToChannelUsers(
     const unsubPub = onSnapshot(
       query(collection(getDb(), 'usersPublic'), where('__name__', 'in', batch)),
       (snap) => {
-        for (const d of snap.docs) {
+        for (const d of getSnapshotDocs(snap)) {
           publicDataMap.set(d.id, d.data() as UserPublic);
         }
         if (!publicBatchFired[batchIdx]) {
@@ -803,7 +820,7 @@ export function subscribeToChannelUsers(
     const unsubPriv = onSnapshot(
       query(collection(getDb(), 'usersPrivate'), where('__name__', 'in', batch)),
       (snap) => {
-        for (const d of snap.docs) {
+        for (const d of getSnapshotDocs(snap)) {
           privateDataMap.set(d.id, d.data() as UserPrivate);
         }
         if (!privateBatchFired[batchIdx]) {
@@ -940,7 +957,9 @@ export function subscribeToIncomingConnectionRequests(
   return onSnapshot(
     query(collection(getDb(), 'connectionRequests'), where('toId', '==', uid)),
     (snap) => {
-      callback(snap.docs.map((d) => d.data() as ConnectionRequest));
+      callback(getSnapshotDocs(snap).map((d) => {
+        return d.data() as ConnectionRequest;
+      }));
     },
   );
 }
@@ -953,7 +972,9 @@ export function subscribeToOutgoingConnectionRequests(
   return onSnapshot(
     query(collection(getDb(), 'connectionRequests'), where('fromId', '==', uid)),
     (snap) => {
-      callback(snap.docs.map((d) => d.data() as ConnectionRequest));
+      callback(getSnapshotDocs(snap).map((d) => {
+        return d.data() as ConnectionRequest;
+      }));
     },
   );
 }
@@ -970,7 +991,9 @@ export function subscribeToConnections(
   return onSnapshot(
     collection(getDb(), 'connections', uid, 'people'),
     (snap) => {
-      callback(snap.docs.map((d) => d.data() as Connection));
+      callback(getSnapshotDocs(snap).map((d) => {
+        return d.data() as Connection;
+      }));
     },
   );
 }
@@ -1002,7 +1025,7 @@ export function subscribeToConnectionChannels(
     const unsub = onSnapshot(
       query(collection(getDb(), 'channels'), where('__name__', 'in', batch)),
       (snap) => {
-        for (const d of snap.docs) {
+        for (const d of getSnapshotDocs(snap)) {
           allChannels.set(d.id, d.data() as Channel);
         }
         callback(Array.from(allChannels.values()));
@@ -1070,7 +1093,9 @@ export function subscribeToPrivateNotesForPost(
       orderBy('timestamp', 'asc'),
     ),
     (snap) => {
-      callback(snap.docs.map((d) => d.data() as PrivateNote));
+      callback(getSnapshotDocs(snap).map((d) => {
+        return d.data() as PrivateNote;
+      }));
     },
     (_error) => {
       onError?.();
@@ -1098,7 +1123,9 @@ export function subscribeToMyPrivateNotesForPost(
       where('authorId', '==', authorId),
     ),
     (snap) => {
-      const notes = snap.docs.map((d) => d.data() as PrivateNote);
+      const notes = getSnapshotDocs(snap).map((d) => {
+        return d.data() as PrivateNote;
+      });
       notes.sort((a, b) => a.timestamp - b.timestamp);
       callback(notes);
     },
@@ -1143,7 +1170,9 @@ export function subscribeToTasks(
       where('completedAt', '==', null),
     ),
     (snap) => {
-      callback(snap.docs.map((d) => d.data() as AppTask));
+      callback(getSnapshotDocs(snap).map((d) => {
+        return d.data() as AppTask;
+      }));
     },
     (_error) => {
       callback([]);

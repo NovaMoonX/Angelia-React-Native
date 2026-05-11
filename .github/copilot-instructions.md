@@ -57,6 +57,13 @@ npm run deploy:indexes
   - ❌ `note?: string`
 - Always provide an explicit value (including `null`) when writing documents, so the field is always present in Firestore.
 
+### Firestore subscription snapshots
+
+- Treat every `onSnapshot` callback parameter as potentially nullable in React Native Firebase. Do **not** assume query listeners always receive a non-null snapshot.
+- For collection/query listeners, never access `snap.docs` directly. Always read documents via a null-safe fallback such as `snap?.docs ?? []` or a shared helper in `src/services/firebase/firestore.ts`.
+- For document listeners, guard `snap` before reading `exists` or `data`. If a null snapshot arrives transiently, preserve the previous local state or return early rather than throwing.
+- When adding a new Firestore subscription, include an error callback whenever the caller has a sensible fallback state (`[]`, `null`, or previously cached data). Subscription callbacks must fail closed, not crash the app.
+
 ---
 
 ## Cloud Functions type sync
