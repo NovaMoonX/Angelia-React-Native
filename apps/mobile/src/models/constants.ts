@@ -57,6 +57,9 @@ export const ALL_POST_TIERS: PostTier[] = POST_TIERS.map((t) => t.value);
 /** AsyncStorage key that persists the newest post timestamp the user has acknowledged on the feed. */
 export const FEED_LAST_SEEN_TIMESTAMP_KEY = '@angelia/feed_last_seen_timestamp';
 
+/** AsyncStorage key storing the latest per-post activity snapshot the user has reviewed. */
+export const POST_ACTIVITY_SEEN_KEY = (userId: string) => `@angelia/post_activity_seen_${userId}`;
+
 /** AsyncStorage key that tracks whether the new-user feed guide is still pending or has been dismissed. */
 export const ONBOARDING_FEED_GUIDE_STATE_KEY = (userId: string) => `@angelia/onboarding_feed_guide_${userId}`;
 

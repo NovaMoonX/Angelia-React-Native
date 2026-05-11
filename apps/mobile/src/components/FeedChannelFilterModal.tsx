@@ -10,7 +10,7 @@ import { useAppSelector } from '@/store/hooks';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import type { Channel } from '@/models/types';
 
-export type ChannelFilterMode = 'all' | 'others' | 'specific';
+export type ChannelFilterMode = 'all' | 'specific';
 
 export interface ChannelFilterState {
   mode: ChannelFilterMode;
@@ -55,12 +55,12 @@ export function FeedChannelFilterModal({
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dailyChannels = useMemo(
-    () => channels.filter((ch) => ch.isDaily === true),
-    [channels],
+    () => channels.filter((ch) => ch.isDaily === true && ch.ownerId !== currentUserId),
+    [channels, currentUserId],
   );
   const regularChannels = useMemo(
-    () => channels.filter((ch) => !ch.isDaily),
-    [channels],
+    () => channels.filter((ch) => !ch.isDaily && ch.ownerId !== currentUserId),
+    [channels, currentUserId],
   );
   const showSearch = channels.length >= 5;
 
@@ -88,12 +88,10 @@ export function FeedChannelFilterModal({
     });
   }, [regularChannels, searchQuery, usersById]);
 
-  // Daily items sorted: current user first, then by owner name
+  // Daily items sorted alphabetically by owner name.
   const filteredDailyItems = useMemo(() => {
     return [...filteredDaily]
       .sort((a, b) => {
-        if (a.ownerId === currentUserId) return -1;
-        if (b.ownerId === currentUserId) return 1;
         const ownerA = usersById[a.ownerId];
         const ownerB = usersById[b.ownerId];
         return (ownerA ? `${ownerA.firstName} ${ownerA.lastName}` : '').localeCompare(
@@ -102,12 +100,7 @@ export function FeedChannelFilterModal({
       })
       .map((ch) => {
         const owner = usersById[ch.ownerId];
-        const label =
-          ch.ownerId === currentUserId
-            ? 'Yours'
-            : owner
-            ? `${owner.firstName} ${owner.lastName[0]}.`
-            : ch.name;
+        const label = owner ? `${owner.firstName} ${owner.lastName[0]}.` : ch.name;
         return { id: ch.id, label };
       });
   }, [filteredDaily, usersById, currentUserId]);
@@ -122,26 +115,15 @@ export function FeedChannelFilterModal({
     return Array.from(groupMap.entries())
       .map(([ownerId, chs]) => {
         const owner = usersById[ownerId];
-        const label =
-          ownerId === currentUserId
-            ? 'Yours'
-            : owner
-            ? `${owner.firstName} ${owner.lastName[0]}.`
-            : 'Unknown';
+        const label = owner ? `${owner.firstName} ${owner.lastName[0]}.` : 'Unknown';
         return { ownerId, label, items: chs.map((ch) => ({ id: ch.id, label: ch.name })) };
       })
       .sort((a, b) => {
-        if (a.ownerId === currentUserId) return -1;
-        if (b.ownerId === currentUserId) return 1;
         return a.label.localeCompare(b.label);
       });
   }, [filteredRegular, usersById, currentUserId]);
 
   const selectedIds = localFilter.mode === 'specific' ? localFilter.specificIds : [];
-
-  const handleRadioSelect = (mode: 'all' | 'others') => {
-    setLocalFilter({ mode, specificIds: [] });
-  };
 
   const handleToggleItem = (channelId: string) => {
     setLocalFilter((prev) => {
@@ -186,35 +168,7 @@ export function FeedChannelFilterModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Filter Circles">
-      {/* Radio — scope */}
-      <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>Scope</Text>
-      {(['all', 'others'] as const).map((mode) => {
-        const isActive = localFilter.mode === mode;
-        return (
-          <Pressable key={mode} onPress={() => handleRadioSelect(mode)} style={styles.radioRow}>
-            <View
-              style={[
-                styles.radioCircle,
-                { borderColor: isActive ? theme.primary : theme.border },
-              ]}
-            >
-              {isActive && (
-                <View style={[styles.radioFill, { backgroundColor: theme.primary }]} />
-              )}
-            </View>
-            <Text style={[styles.radioLabel, { color: theme.foreground }]}>
-              {mode === 'all' ? 'All Circles' : "Others' Circles"}
-            </Text>
-          </Pressable>
-        );
-      })}
-
-      <Separator />
-
-      {/* Specific channel picker */}
-      <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>
-        Or pick specific circles
-      </Text>
+    <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>Choose Circles</Text>
 
       {showSearch && (
         <View
@@ -330,23 +284,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     paddingVertical: 10,
-  },
-  radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioFill: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  radioLabel: {
-    fontSize: 15,
-    fontWeight: '500',
   },
   searchRow: {
     flexDirection: 'row',

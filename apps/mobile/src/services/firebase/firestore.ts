@@ -16,7 +16,7 @@ import {
   arrayRemove,
 } from '@react-native-firebase/firestore';
 import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
-import type { User, UserPublic, UserPrivate, UserSecret, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, CircleInviteRequest, UpdateUserProfileData, UserStatus, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, AppTask, Comment, PrivateNote } from '@/models/types';
+import type { User, UserPublic, UserPrivate, UserSecret, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, CircleInviteRequest, UpdateUserProfileData, UserStatus, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, AppTask, Comment, PrivateNote, Reaction } from '@/models/types';
 import { DAILY_CHANNEL_SUFFIX, DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
@@ -560,15 +560,26 @@ export async function updatePostReactions(postId: string, reactions: unknown[]):
   await updateDoc(doc(getDb(), 'posts', postId), { reactions });
 }
 
-export async function addReactionToPost(postId: string, reaction: { emoji: string; userId: string }): Promise<void> {
+export async function addReactionToPost(postId: string, reaction: Reaction): Promise<void> {
   await updateDoc(doc(getDb(), 'posts', postId), {
     reactions: arrayUnion(reaction),
   });
 }
 
 export async function removeReactionFromPost(postId: string, reaction: { emoji: string; userId: string }): Promise<void> {
-  await updateDoc(doc(getDb(), 'posts', postId), {
-    reactions: arrayRemove(reaction),
+  await runTransaction(getDb(), async (transaction) => {
+    const postRef = doc(getDb(), 'posts', postId);
+    const postSnap = await transaction.get(postRef);
+    if (!postSnap.exists) return;
+
+    const post = postSnap.data() as Post;
+    const nextReactions = (post.reactions ?? []).filter((item) => {
+      return !(item.emoji === reaction.emoji && item.userId === reaction.userId);
+    });
+
+    transaction.update(postRef, {
+      reactions: nextReactions,
+    });
   });
 }
 
@@ -724,7 +735,18 @@ export function subscribeToPosts(
       ),
       (snap) => {
         for (const d of getSnapshotDocs(snap)) {
-          allPosts.set(d.id, d.data() as Post);
+          const post = d.data() as Post;
+          const normalizedPost: Post = {
+            ...post,
+            reactions: (post.reactions ?? []).map((reaction) => {
+              return {
+                emoji: reaction.emoji,
+                userId: reaction.userId,
+                timestamp: typeof reaction.timestamp === 'number' ? reaction.timestamp : null,
+              };
+            }),
+          };
+          allPosts.set(d.id, normalizedPost);
         }
         callback(Array.from(allPosts.values()));
       },

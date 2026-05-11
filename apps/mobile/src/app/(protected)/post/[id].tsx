@@ -28,6 +28,7 @@ import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { getUserDisplayName } from '@/lib/user/user.utils';
 import {
 	COMMON_EMOJIS,
+	POST_ACTIVITY_SEEN_KEY,
 	PRIVATE_NOTES_SEEN_KEY,
 	CONVERSATION_LAST_SEEN_KEY,
 	JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY,
@@ -118,6 +119,13 @@ export default function PostDetailScreen() {
 	// gets written). Using useFocusEffect ensures the dot clears on return.
 	useFocusEffect(
 		useCallback(() => {
+			if (!currentUser?.id) return;
+			void AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUser.id), String(Date.now())).catch(() => {});
+		}, [currentUser?.id]),
+	);
+
+	useFocusEffect(
+		useCallback(() => {
 			if (!isHost || !id || latestNoteTimestamp === 0) {
 				setHasUnreadPrivateNotes(false);
 				return;
@@ -206,7 +214,7 @@ export default function PostDetailScreen() {
 		// Prevent adding the same reaction twice
 		const alreadyReactedWithEmoji = post.reactions.some((r) => r.userId === currentUser.id && r.emoji === emoji);
 		if (alreadyReactedWithEmoji) return;
-		const newReaction: Reaction = { emoji, userId: currentUser.id };
+		const newReaction: Reaction = { emoji, userId: currentUser.id, timestamp: Date.now() };
 
 		try {
 			await dispatch(updatePostReactions({ postId: post.id, newReaction })).unwrap();

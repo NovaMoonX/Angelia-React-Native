@@ -132,6 +132,7 @@ export interface MediaItem {
 export interface Reaction {
   emoji: string;
   userId: string;
+  timestamp: number | null;
 }
 
 export interface Comment {

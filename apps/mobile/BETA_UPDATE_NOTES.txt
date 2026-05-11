@@ -12,5 +12,13 @@ Current branch highlights:
 - The feed and account screens have a clearer “How Angelia works” entry point.
 - Status updates can now stay active until you clear them, which makes the new status picker feel more natural.
 - Daily Circle invite flow is cleaner, with invite, share, and QR actions grouped more clearly.
+- The feed now stays focused on other people’s posts, while your own post engagement moved to a dedicated activity view.
+- There is a new post activity icon in the feed header that opens “Your Post Activity,” where your posts are grouped with reaction, private-note, and message counts.
+- Your post activity screen includes Circle filtering so it is easier to spot which posts are getting attention.
+- Feed circle filtering now excludes your own circles entirely, and the scope picker has been removed to keep the filter focused on other people’s circles.
+- Post activity now uses the same post cards as feed, and its Circle chips include all of your circles (even before a circle has posts).
+- Post activity now follows the post-detail indicator style: reactions are shown on the card itself, while new private notes/messages use highlighted action pills with unread indicators.
+- Post activity is now simplified to one clear label per post: “New activity since last seen.”
+- Post activity now calls out which reaction emojis are new, and uses smarter seen logic: reaction-only updates clear when the card is viewed, while notes/messages clear when opening that post.
 
 When this branch ships, turn these notes into a friendly beta modal update.
