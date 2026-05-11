@@ -66,6 +66,9 @@ export const ONBOARDING_FEED_GUIDE_STATE_KEY = (userId: string) => `@angelia/onb
  */
 export const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_notes_seen_${postId}`;
 
+/** External Google Form used for collecting beta feedback quickly from testers. */
+export const BETA_FEEDBACK_FORM_URL = 'https://forms.gle/vMoCnBVheTsssTHa8';
+
 /**
  * AsyncStorage key that records when the current user last opened the conversation screen for a post.
  * Used to drive the unread indicator on the chat tab in the post detail screen.

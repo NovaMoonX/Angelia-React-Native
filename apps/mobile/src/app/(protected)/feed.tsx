@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   Animated,
+  Linking,
   NativeSyntheticEvent,
   NativeScrollEvent,
   Pressable,
@@ -8,6 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -31,7 +33,7 @@ import { selectAllChannels } from '@/store/slices/channelsSlice';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { useAutoCompleteTasks } from '@/hooks/useAutoCompleteTasks';
-import { POST_TIERS } from '@/models/constants';
+import { BETA_FEEDBACK_FORM_URL, POST_TIERS } from '@/models/constants';
 import type { Post, PostTier, UserStatus } from '@/models/types';
 
 const INITIAL_PAGE = 10;
@@ -332,6 +334,19 @@ export default function FeedScreen() {
       addToast({ type: 'error', title: 'Failed to clear status' });
     }
   }, [dispatch, addToast]);
+
+  const handleOpenBetaFeedbackForm = useCallback(async () => {
+    try {
+      await Linking.openURL(BETA_FEEDBACK_FORM_URL);
+    } catch {
+      try {
+        await Clipboard.setStringAsync(BETA_FEEDBACK_FORM_URL);
+        addToast({ type: 'success', title: 'Could not open link, so we copied it for you.' });
+      } catch {
+        addToast({ type: 'error', title: 'Could not open or copy the feedback link right now.' });
+      }
+    }
+  }, [addToast]);
 
   const renderPost = useCallback(
     ({ item }: { item: Post }) => (
@@ -684,6 +699,26 @@ export default function FeedScreen() {
         />
       </Pressable>
 
+      {/* Beta feedback shortcut */}
+      {!fabExpanded && (
+        <Pressable
+          style={[
+            styles.betaFeedbackButton,
+            {
+              backgroundColor: theme.card,
+              borderColor: theme.border,
+              bottom: insets.bottom + 24,
+            },
+          ]}
+          onPress={handleOpenBetaFeedbackForm}
+          accessibilityRole="button"
+          accessibilityLabel="Open beta feedback form"
+        >
+          <Feather name="message-square" size={16} color={theme.primary} />
+          <Text style={[styles.betaFeedbackButtonText, { color: theme.foreground }]}>Beta Feedback</Text>
+        </Pressable>
+      )}
+
       {/* Scroll to Top FAB — only when feed has posts and user has scrolled past first post */}
       {!fabExpanded && scrolledPast && filteredPosts.length > 0 && (
         <Pressable
@@ -898,6 +933,27 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     zIndex: 20,
+  },
+  betaFeedbackButton: {
+    position: 'absolute',
+    left: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 6,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.14,
+    shadowRadius: 2,
+    zIndex: 20,
+  },
+  betaFeedbackButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   scrollTopFab: {
     position: 'absolute',
