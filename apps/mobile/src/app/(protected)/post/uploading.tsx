@@ -71,6 +71,9 @@ export default function PostUploadingScreen() {
   const successScale = useRef(new Animated.Value(0)).current;
   const successOpacity = useRef(new Animated.Value(0)).current;
 
+  // Computed animated style to avoid inline animation warnings
+  const pulseScaleStyle = useMemo(() => ({ transform: [{ scale: pulseScale }] }), []);
+
   const appStateRef = useRef(AppState.currentState);
 
   useEffect(() => {
@@ -296,7 +299,7 @@ export default function PostUploadingScreen() {
             />
             {/* Pulsing emoji inside */}
             <Animated.Text
-              style={[styles.centerEmoji, { transform: [{ scale: pulseScale }] }]}
+              style={[styles.centerEmoji, pulseScaleStyle]}
             >
               🚀
             </Animated.Text>

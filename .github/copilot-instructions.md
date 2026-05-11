@@ -439,6 +439,70 @@ See `src/components/PrivateNoteModal.tsx` and `src/components/FeedbackSupportMod
 
 ---
 
+### Reanimated warning: "shared value's .value inside reanimated inline style"
+
+**Symptom:** Reanimated console warning: `"It looks like you might be using shared value's .value inside reanimated inline style"` when rendering animated components. This typically occurs with styles that reference animated values.
+
+**Root cause:** Creating new style objects with animated values directly in JSX inline styles (e.g., `style={[{ transform: [{ scale: scaleValue }] }]}`). On every render, a new style object is created, which Reanimated detects as an unsafe pattern. This is especially problematic in components that animate frequently or use `Animated.Value` from the React Native built-in Animated API.
+
+**Fix:** Extract animated style objects into a `useMemo` computed reference. This ensures the style object is stable and only recalculated when its dependencies change:
+
+```tsx
+// ✅ correct — computed style in useMemo prevents Reanimated warnings
+const pulseStyle = useMemo(
+  () => ({
+    transform: [{ scale: pulseValue }],
+  }),
+  [pulseValue]
+);
+
+return <Animated.View style={pulseStyle}>...</Animated.View>;
+```
+
+```tsx
+// ❌ wrong — inline style object recreated on every render
+return (
+  <Animated.View
+    style={{
+      transform: [{ scale: pulseValue }], // Reanimated warning here
+    }}
+  >
+    ...
+  </Animated.View>
+);
+```
+
+Also incorrect (even with array syntax):
+
+```tsx
+// ❌ wrong — inline array of styles still creates new objects
+return (
+  <Animated.View
+    style={[
+      { transform: [{ scale: pulseValue }] }, // Still a new object every render
+    ]}
+  >
+    ...
+  </Animated.View>
+);
+```
+
+**When to apply:** Any component using `Animated.Value`, `Animated.ValueXY`, or other animated values passed directly to a style property should use this pattern. Examples: animating transforms (scale, rotate, translateX/Y), opacity, or other numeric style properties.
+
+**Implementation checklist:**
+- ✅ `useMemo` wraps the style object/array
+- ✅ Animated/Reanimated value is a dependency: `[pulseValue]`
+- ✅ Style object is stable across renders (same reference unless dependencies change)
+- ✅ No console warnings on render cycles
+
+**Examples in codebase:**
+- `src/components/FeedChannelFilterModal.tsx` — three animated dots (dot1/2/3AnimatedStyle)
+- `src/app/(protected)/camera.tsx` — shutter button scale animation (shutterScaleStyle)
+- `src/app/complete-profile.tsx` — loading overlay animations (pulseAnimStyle, fadeAnimStyle)
+- `src/app/(protected)/post/uploading.tsx` — rocket emoji pulse (pulseScaleStyle)
+
+---
+
 ## Mono Repo Structure
 
 This repo is organized as a mono repo under `apps/`:

@@ -82,6 +82,12 @@ export default function FeedScreen() {
   // Animated header (slides up on scroll-down, back on scroll-up)
   const [headerHeight, setHeaderHeight] = useState(0);
   const headerTranslateY = useRef(new Animated.Value(0)).current;
+
+  // Computed animated styles for filtering dots to avoid inline style warnings
+  const dot1AnimatedStyle = useMemo(() => ({ transform: [{ scale: dot1Scale }] }), []);
+  const dot2AnimatedStyle = useMemo(() => ({ transform: [{ scale: dot2Scale }] }), []);
+  const dot3AnimatedStyle = useMemo(() => ({ transform: [{ scale: dot3Scale }] }), []);
+
   const prevScrollY = useRef(0);
   const headerVisible = useRef(true);
   const headerAnimation = useRef<Animated.CompositeAnimation | null>(null);
@@ -435,9 +441,9 @@ export default function FeedScreen() {
         style={[styles.filteringBanner, { top: headerHeight - 2, opacity: filteringOpacity }]}
         pointerEvents="none"
       >
-        <Animated.View style={[styles.filteringDot, { backgroundColor: theme.primary, transform: [{ scale: dot1Scale }] }]} />
-        <Animated.View style={[styles.filteringDot, { backgroundColor: theme.primary, transform: [{ scale: dot2Scale }] }]} />
-        <Animated.View style={[styles.filteringDot, { backgroundColor: theme.primary, transform: [{ scale: dot3Scale }] }]} />
+        <Animated.View style={[styles.filteringDot, { backgroundColor: theme.primary }, dot1AnimatedStyle]} />
+        <Animated.View style={[styles.filteringDot, { backgroundColor: theme.primary }, dot2AnimatedStyle]} />
+        <Animated.View style={[styles.filteringDot, { backgroundColor: theme.primary }, dot3AnimatedStyle]} />
       </Animated.View>
 
       {/* New-posts pill — always rendered; the component decides its own visibility */}

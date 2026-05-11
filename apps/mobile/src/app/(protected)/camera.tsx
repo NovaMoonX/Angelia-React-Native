@@ -56,6 +56,9 @@ export default function CameraScreen() {
   const shutterScale = useRef(new Animated.Value(1)).current;
   const edgeGlow = useRef(new Animated.Value(0)).current;
 
+  // Computed animated styles to avoid inline animation warnings
+  const shutterScaleStyle = useMemo(() => ({ transform: [{ scale: shutterScale }] }), []);
+
   const { hasPermission: hasCameraPermission, requestPermission: requestCamera } =
     useCameraPermission();
   const { hasPermission: hasMicPermission, requestPermission: requestMic } =
@@ -296,7 +299,7 @@ export default function CameraScreen() {
         )}
 
         {/* Shutter */}
-        <Animated.View style={{ transform: [{ scale: shutterScale }] }}>
+        <Animated.View style={shutterScaleStyle}>
           <Pressable
             style={[styles.shutter, recording && styles.shutterRecording, atMax && !recording && styles.shutterDisabled]}
             onPress={recording ? stopRecording : videoMode ? startRecording : takePhoto}
