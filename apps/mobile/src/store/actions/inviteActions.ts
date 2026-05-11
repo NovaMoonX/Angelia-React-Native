@@ -90,6 +90,9 @@ export const sendJoinRequest = createAsyncThunk(
     const state = getState() as RootState;
     const user = state.users.currentUser;
     if (!user) return rejectWithValue('User not authenticated');
+    if (channelOwnerId === user.id) {
+      return rejectWithValue('You cannot request to join your own Circle.');
+    }
 
     if (isDemoActive(getState)) {
       return { channelId, message: message.trim() };

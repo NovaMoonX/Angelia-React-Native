@@ -394,7 +394,12 @@ export async function createJoinRequest(
   channelOwnerId: string,
   message: string
 ): Promise<ChannelJoinRequest> {
+  if (requesterId === channelOwnerId) {
+    throw new Error('You cannot request to join your own Circle.');
+  }
+
   const id = generateId('nano');
+  void inviteCode;
   const request: ChannelJoinRequest = {
     id,
     channelId,

@@ -122,6 +122,10 @@ export default function JoinChannelScreen() {
     }
 
     if (!currentUser) return;
+    if (channel.ownerId === currentUser.id) {
+      addToast({ type: 'error', title: 'You are the Host of this Circle already.' });
+      return;
+    }
 
     setJoinLoading(true);
     try {
@@ -157,6 +161,7 @@ export default function JoinChannelScreen() {
   }, [step, router, fromOnboarding]);
 
   const isSubscribed = channel?.subscribers.includes(currentUser?.id || '') || false;
+  const isOwnCircle = channel?.ownerId === currentUser?.id;
   // Ignore a stale 'accepted' request — if the user was previously accepted but is no
   // longer subscribed (e.g. removed from the circle), allow them to request to join again.
   const existingRequest =
@@ -318,6 +323,13 @@ export default function JoinChannelScreen() {
                 <Feather name="check-circle" size={20} color={theme.success} />
                 <Text style={[styles.statusText, { color: theme.success }]}>
                   You're already a member of this circle!
+                </Text>
+              </View>
+            ) : isAuthenticated && isOwnCircle ? (
+              <View style={styles.statusSection}>
+                <Feather name="user-check" size={20} color={theme.primary} />
+                <Text style={[styles.statusText, { color: theme.primary }]}> 
+                  You're the Host of this Circle, so you can't send a join request to yourself.
                 </Text>
               </View>
             ) : isAuthenticated && existingRequest ? (
