@@ -17,6 +17,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { uploadPost } from '@/store/actions/postActions';
 import { saveStatus } from '@/store/actions/userActions';
 import { completeTask } from '@/store/actions/taskActions';
+import { dismissDailyPromptNotifications } from '@/services/notifications';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 import type { PostTier, UserStatus } from '@/models/types';
 
@@ -194,6 +195,10 @@ export default function PostUploadingScreen() {
       .then(async () => {
         clearTimeout(revealTimer);
         clearTimeout(bgTimer);
+
+        // Dismiss any lingering daily prompt notifications from the tray now
+        // that the user has posted.
+        dismissDailyPromptNotifications();
 
         // Save pending status
         if (pendingStatus) {

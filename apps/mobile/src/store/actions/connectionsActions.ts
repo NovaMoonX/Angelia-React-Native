@@ -12,6 +12,7 @@ import type { RootState } from '@/store';
 import type { ConnectionRequestNotification } from '@/models/types';
 import { isDemoActive } from './globalActions';
 import { generateId } from '@/utils/generateId';
+import { dismissNotificationsByData } from '@/services/notifications';
 
 // ── Send a connection request ──────────────────────────────────────────────
 
@@ -110,6 +111,8 @@ export const respondToConnectionRequest = createAsyncThunk(
     try {
       await firestoreRespondToConnectionRequest(requestId, accept);
       dispatch(updateConnectionRequest(updatedRequest));
+      // Dismiss the matching FCM push from the tray regardless of accept/decline
+      dismissNotificationsByData({ type: 'connection_request', connectionRequestId: requestId });
       return updatedRequest;
     } catch (err) {
       return rejectWithValue(err instanceof Error ? err.message : err);
