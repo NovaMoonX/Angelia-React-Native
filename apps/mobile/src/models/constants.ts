@@ -88,6 +88,12 @@ export const IOS_TESTFLIGHT_WEB_URL = 'https://testflight.apple.com/join/2X3vYWB
 export const CONVERSATION_LAST_SEEN_KEY = (postId: string) => `@angelia/conversation_last_seen_${postId}`;
 
 /**
+ * AsyncStorage key that records whether the user has already seen the "hold to reply" hint in conversations.
+ * Once dismissed or used, it is never shown again.
+ */
+export const CONVERSATION_REPLY_HINT_SEEN_KEY = '@angelia/conversation_reply_hint_seen';
+
+/**
  * AsyncStorage key that tracks which custom circles have already been suggested
  * to a user after they react to a connection's Daily Circle post.
  */
