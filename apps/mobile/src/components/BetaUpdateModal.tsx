@@ -17,7 +17,7 @@ import { useTheme } from '@/hooks/useTheme';
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BETA_UPDATE_TITLE = "A lot has changed — check it out ✨";
+const BETA_UPDATE_TITLE = "Fresh updates — take a look ✨";
 
 interface ChangeEntry {
   emoji: string;
@@ -30,29 +30,29 @@ interface ChangeEntry {
 // "Bug fixes & reliability" entry rather than called out individually.
 const BETA_UPDATE_CHANGES: ChangeEntry[] = [
   {
-    emoji: '📋',
-    title: 'Your Post Activity view',
-    description: 'See your posts with reaction, private note, and message counts — all in one place. Unread indicators clear as you go.',
-  },
-  {
-    emoji: '🗑️',
-    title: 'Delete your posts',
-    description: "You can now remove posts you've shared.",
-  },
-  {
-    emoji: '📸',
-    title: 'Camera zoom',
-    description: 'Pinch to zoom when taking a photo.',
+    emoji: '🌐',
+    title: 'Posts from everyone you know',
+    description: 'We fixed a sneaky issue that was silently hiding some posts from your feed.',
   },
   {
     emoji: '⏱️',
-    title: 'Status can stay on until you clear it',
-    description: 'The new "until cleared" option makes statuses feel a lot more natural.',
+    title: '3-second posting countdown',
+    description: 'A quick heads-up before every post — catch any mistakes or tap "Post Now" to skip the wait.',
   },
   {
-    emoji: '❓',
-    title: 'How Angelia works',
-    description: 'A quick explainer is now available in the feed and your account screen — handy if you want a refresher.',
+    emoji: '📋',
+    title: 'Smarter post activity',
+    description: 'Sort by newest or oldest, and the screen now auto-jumps to your unread activity when you arrive.',
+  },
+  {
+    emoji: '😊',
+    title: 'Status emoji fixed on iPhone',
+    description: 'Tapping the emoji button in the status sheet now opens the picker correctly.',
+  },
+  {
+    emoji: '🐛',
+    title: 'Bug fixes & polish',
+    description: 'A few rough edges smoothed out across the app.',
   },
 ];
 

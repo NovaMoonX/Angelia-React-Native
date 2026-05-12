@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +22,16 @@ export default function PostActivityScreen() {
   const [selectedCircleId, setSelectedCircleId] = useState<string>('all');
   const [activityScope, setActivityScope] = useState<'all' | 'unread'>('all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
+
+  // Auto-select 'unread' the first time unread activity is detected after load.
+  const hasAutoSelectedUnread = useRef(false);
+  useEffect(() => {
+    if (hasAutoSelectedUnread.current) return;
+    if (Object.keys(unreadDetailsByPostId).length > 0) {
+      hasAutoSelectedUnread.current = true;
+      setActivityScope('unread');
+    }
+  }, [unreadDetailsByPostId]);
 
   const filteredByCircle = useMemo(() => {
     if (selectedCircleId === 'all') return summaries;
