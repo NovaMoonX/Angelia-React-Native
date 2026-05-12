@@ -8,5 +8,6 @@ Use this file as the source for the next beta update modal. Keep it short, warm,
 
 Current branch highlights:
 - Feed now shows posts from all your connected friends — we fixed a sneaky permissions issue that was silently hiding some posts from the feed.
+- You can now sort your post activity by newest or oldest posts — giving you more control over how you browse your activity.
 
 When this branch ships, turn these notes into a friendly beta modal update.
