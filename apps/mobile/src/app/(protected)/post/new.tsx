@@ -272,9 +272,10 @@ export default function PostCreateScreen() {
         {/* Compose area: avatar + text */}
         <View style={styles.composeRow}>
           <Avatar
-            preset={currentUser?.avatar || 'moon'}
+            user={currentUser}
             size="md"
             style={{ marginTop: 2 }}
+            showStatus={false}
           />
           <TextInput
             value={text}
