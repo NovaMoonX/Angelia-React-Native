@@ -251,10 +251,9 @@ export default function PostActivityScreen() {
         ) : (
           filtered.map((summary) => {
             const detail = unreadDetailsByPostId[summary.post.id];
-            const hasUnreadActivity = unreadPostIdSet.has(summary.post.id);
-            const shouldShowNewActivityLabel = detail != null
-              ? detail.hasNewReactions || detail.hasNewPrivateNotes || detail.hasNewMessages
-              : hasUnreadActivity;
+            const shouldShowNewActivityLabel = detail != null && (
+              detail.hasNewReactions || detail.hasNewPrivateNotes || detail.hasNewMessages
+            );
 
             return (
               <View key={summary.post.id}>
