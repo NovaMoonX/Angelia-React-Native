@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
@@ -18,6 +19,7 @@ import { Badge } from '@/components/ui/Badge';
 import { NowStatusModal } from '@/components/NowStatusModal';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { MediaViewerModal } from '@/components/MediaViewerModal';
+import { PostCountdownOverlay } from '@/components/PostCountdownOverlay';
 import { useAppSelector } from '@/store/hooks';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
@@ -94,6 +96,79 @@ export default function PostCreateScreen() {
 
   const atMaxFiles = media.length >= MAX_FILES;
 
+  // Countdown confirmation state
+  const [countdownVisible, setCountdownVisible] = useState(false);
+  const [countdownSeconds, setCountdownSeconds] = useState(3);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const getSelectedChannelName = (): string => {
+    const ch = sortedUserChannels.find((c) => { return c.id === selectedChannel; });
+    if (!ch) return 'Unknown Circle';
+    if (ch.isDaily) return 'Daily';
+    return ch.name;
+  };
+
+  const executePost = () => {
+    router.replace({
+      pathname: '/(protected)/post/uploading',
+      params: {
+        channelId: selectedChannel,
+        text,
+        mediaJson: JSON.stringify(media),
+        tier: selectedTier,
+        pendingStatusJson: pendingStatus ? JSON.stringify(pendingStatus) : '',
+      },
+    });
+  };
+
+  const handleCancelCountdown = () => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setCountdownVisible(false);
+    setCountdownSeconds(5);
+  };
+
+  const handlePostNow = () => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setCountdownVisible(false);
+    executePost();
+  };
+
+  useEffect(() => {
+    if (!countdownVisible) return;
+
+    countdownIntervalRef.current = setInterval(() => {
+      setCountdownSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownIntervalRef.current!);
+          countdownIntervalRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+      }
+    };
+  }, [countdownVisible]);
+
+  useEffect(() => {
+    if (countdownVisible && countdownSeconds === 0) {
+      setCountdownVisible(false);
+      setCountdownSeconds(3);
+      executePost();
+    }
+  }, [countdownSeconds, countdownVisible]);
+
   // Generate thumbnails for video items whenever media changes
   useEffect(() => {
     media.forEach((item, index) => {
@@ -139,16 +214,9 @@ export default function PostCreateScreen() {
     }
     if (!currentUser) return;
 
-    router.replace({
-      pathname: '/(protected)/post/uploading',
-      params: {
-        channelId: selectedChannel,
-        text,
-        mediaJson: JSON.stringify(media),
-        tier: selectedTier,
-        pendingStatusJson: pendingStatus ? JSON.stringify(pendingStatus) : '',
-      },
-    });
+    setCountdownSeconds(3);
+    setCountdownVisible(true);
+    Keyboard.dismiss();
   };
 
   return (
@@ -452,6 +520,17 @@ export default function PostCreateScreen() {
           setStatusModalOpen(false);
         }}
         currentStatus={pendingStatus}
+      />
+
+      <PostCountdownOverlay
+        visible={countdownVisible}
+        circleName={getSelectedChannelName()}
+        seconds={countdownSeconds}
+        tier={selectedTier}
+        mediaCount={media.length}
+        pendingStatus={pendingStatus}
+        onCancel={handleCancelCountdown}
+        onPostNow={handlePostNow}
       />
     </KeyboardAvoidingView>
   );
