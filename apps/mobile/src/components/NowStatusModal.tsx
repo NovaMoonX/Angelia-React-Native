@@ -55,8 +55,11 @@ export function NowStatusModal({ visible, onClose, onSave, onClear, currentStatu
 	const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 	const [customHours, setCustomHours] = useState('');
 	const [customMinutes, setCustomMinutes] = useState('');
+	// Snapshot whether a status was active at open time so the UI stays
+	// stable during the close animation (Redux clears currentStatus immediately).
+	const [hadExistingStatus, setHadExistingStatus] = useState(false);
 
-	const hasExistingStatus = currentStatus != null && Date.now() < (currentStatus.expiresAt ?? 0);
+	const hasExistingStatus = hadExistingStatus;
 
 	// Sync form with currentStatus every time the modal opens so it always
 	// reflects the latest active status instead of the stale initial state.
@@ -69,21 +72,12 @@ export function NowStatusModal({ visible, onClose, onSave, onClear, currentStatu
 		setShowEmojiPicker(false);
 		setCustomHours('');
 		setCustomMinutes('');
+		setHadExistingStatus(active != null);
 	}, [visible, currentStatus]);
 
-	const resetForm = useCallback(() => {
-		setEmoji('😊');
-		setText('');
-		setSelectedDuration(2);
-		setShowEmojiPicker(false);
-		setCustomHours('');
-		setCustomMinutes('');
-	}, []);
-
 	const handleClose = useCallback(() => {
-		resetForm();
 		onClose();
-	}, [onClose, resetForm]);
+	}, [onClose]);
 
 	const handleSave = useCallback(() => {
 		if (!text.trim()) return;
@@ -111,13 +105,11 @@ export function NowStatusModal({ visible, onClose, onSave, onClear, currentStatu
 			updatedAt: now,
 			expiresAt,
 		});
-		resetForm();
-	}, [text, emoji, selectedDuration, customHours, customMinutes, onSave, resetForm]);
+	}, [text, emoji, selectedDuration, customHours, customMinutes, onSave]);
 
 	const handleClear = useCallback(() => {
 		onClear();
-		resetForm();
-	}, [onClear, resetForm]);
+	}, [onClear]);
 
 	const handleSuggestion = useCallback((s: { emoji: string; text: string }) => {
 		setEmoji(s.emoji);
