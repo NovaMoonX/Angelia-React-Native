@@ -354,6 +354,13 @@ export default function PostDetailScreen() {
 		pendingNavigationActionRef.current = null;
 	}, []);
 
+	// Auto-close and navigate away when all suggestions have been acted upon
+	useEffect(() => {
+		if (circleSuggestionsVisible && circleSuggestions.length === 0) {
+			void closeSuggestionModalAndLeave();
+		}
+	}, [circleSuggestions.length, circleSuggestionsVisible, closeSuggestionModalAndLeave]);
+
 	if (!post || !currentUser) {
 		return (
 			<View style={[styles.centered, { backgroundColor: theme.background }]}>
