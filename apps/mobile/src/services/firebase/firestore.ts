@@ -438,7 +438,6 @@ export function subscribeToMobileAppConfig(
   const unsubFeedback = onSnapshot(
     doc(getDb(), 'appConfig', 'feedbackForm'),
     (snap) => {
-      console.log('[AppConfig] feedbackForm snapshot exists:', snap?.exists, 'data:', snap?.exists ? snap.data() : 'N/A');
       if (!snap?.exists) {
         feedbackData = { ...DEFAULT_FEEDBACK_FORM };
       } else {
@@ -449,7 +448,6 @@ export function subscribeToMobileAppConfig(
           topic: asNonEmptyString(raw.topic),
         };
       }
-      console.log('[AppConfig] emitting feedbackData:', feedbackData);
       emit();
     },
     () => {

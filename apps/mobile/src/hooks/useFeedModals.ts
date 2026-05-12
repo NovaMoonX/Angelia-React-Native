@@ -133,50 +133,31 @@ export function useFeedModals(): FeedModalsState {
   }, [mobileConfig]);
 
   const activeModal = useMemo((): FeedModalId | null => {
-    console.log('[useFeedModals] computing activeModal', {
-      hasUser: !!currentUser,
-      isDemo,
-      localStorageLoaded,
-      onboardingDismissed,
-      betaUpdateSeen,
-      targetVersion,
-      dismissedAppVersion,
-      deviceVersion,
-      mobileConfig,
-      appMessageDismissedId,
-      feedbackFormDismissedUrl,
-    });
-
     if (!currentUser || isDemo || !localStorageLoaded) return null;
 
     // 1. Onboarding — blocks everything else.
     if (!onboardingDismissed) {
-      console.log('[useFeedModals] blocked by onboarding');
       return 'onboarding';
     }
 
     // 2. Beta update — see what's new.
     if (!betaUpdateSeen) {
-      console.log('[useFeedModals] blocked by betaUpdate');
       return 'betaUpdate';
     }
 
     // 3. App version — required update prompt.
     if (targetVersion && dismissedAppVersion !== targetVersion && compareVersions(deviceVersion, targetVersion) < 0) {
-      console.log('[useFeedModals] blocked by appVersion');
       return 'appVersion';
     }
 
     // 4. Broadcast message.
     const msg = mobileConfig?.broadcastMessage;
     if (msg?.active && msg.id && msg.id !== appMessageDismissedId && msg.title && msg.body) {
-      console.log('[useFeedModals] blocked by appMessage');
       return 'appMessage';
     }
 
     // 5. Feedback form.
     const form = mobileConfig?.feedbackForm;
-    console.log('[useFeedModals] feedbackForm check', { form, feedbackFormDismissedUrl });
     if (form?.active && form.url && form.url !== feedbackFormDismissedUrl) {
       return 'feedbackForm';
     }
