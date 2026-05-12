@@ -217,6 +217,18 @@ The individual `preset` and `uri` props are only for non-User contexts, such as 
 
 ## Keeping docs up to date
 
+### OTA / server-side feed modals (`apps/mobile/docs/ota-modals.md`)
+
+`apps/mobile/docs/ota-modals.md` is the reference for all three Firestore-driven feed modals (app version update, broadcast message, feedback form). **Update it whenever:**
+
+- A Firestore field is added, renamed, or removed from `appConfig/mobile`.
+- A new modal type or priority level is added to `useFeedModals` (`src/hooks/useFeedModals.ts`).
+- The dismissal logic for any modal changes (new or renamed AsyncStorage key).
+- The `broadcastMessage` type → emoji / accent color mapping changes.
+- The iOS or Android update destination changes (TestFlight → App Store, etc.).
+
+Update the relevant section in the doc — the Firestore field table, behavior notes, and "To show / stop showing" instructions.
+
 ### BetaUpdateModal (`src/components/BetaUpdateModal.tsx`)
 
 `BetaUpdateModal` displays a one-time "what's new" modal to beta testers when a new update is pushed. **Update it whenever:**

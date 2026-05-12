@@ -5,7 +5,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { AppVersionUpdateModal } from './AppVersionUpdateModal';
 import { setPosts } from '@/store/slices/postsSlice';
 import { setChannels, setConnectionChannels, syncDailyChannelMembers } from '@/store/slices/channelsSlice';
 import { setCurrentUser, setUsers, setCurrentUserNotificationSettings } from '@/store/slices/usersSlice';
@@ -812,10 +811,5 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
     }
   }, [isDemo, addToast, allUsers, channels, router, incomingCircleInvites]);
 
-  return (
-    <>
-      {children}
-      <AppVersionUpdateModal />
-    </>
-  );
+  return <>{children}</>;
 }

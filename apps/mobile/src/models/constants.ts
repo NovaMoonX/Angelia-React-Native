@@ -109,5 +109,17 @@ export const APP_UPDATE_PROMPT_DISMISSED_VERSION_KEY = (platform: 'ios' | 'andro
   return `@angelia/app_update_prompt_dismissed_${platform}`;
 };
 
+/**
+ * AsyncStorage key that records which broadcast message ID the user has dismissed.
+ * When the `id` field changes in Firestore, the modal shows again.
+ */
+export const APP_MESSAGE_DISMISSED_KEY = '@angelia/app_message_dismissed_id';
+
+/**
+ * AsyncStorage key that records which feedback form URL the user has dismissed.
+ * When the `url` changes in Firestore (new form), the modal shows again.
+ */
+export const FEEDBACK_FORM_DISMISSED_URL_KEY = '@angelia/feedback_form_dismissed_url';
+
 /** Sentinel timestamp used for statuses that stay active until manually cleared. */
 export const STATUS_INDEFINITE_EXPIRES_AT = 8_640_000_000_000;

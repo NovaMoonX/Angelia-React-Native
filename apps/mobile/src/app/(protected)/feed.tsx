@@ -24,6 +24,9 @@ import { isStatusActive } from '@/components/NowStatusBadge';
 import { NowStatusModal } from '@/components/NowStatusModal';
 import { OnboardingWelcomeModal } from '@/components/OnboardingWelcomeModal';
 import { BetaUpdateModal } from '@/components/BetaUpdateModal';
+import { AppVersionUpdateModal } from '@/components/AppVersionUpdateModal';
+import { AppMessageModal } from '@/components/AppMessageModal';
+import { FeedbackFormModal } from '@/components/FeedbackFormModal';
 import { FeedChannelFilterModal, type ChannelFilterState } from '@/components/FeedChannelFilterModal';
 import { NewPostsPill, type NewPostsPillRef } from '@/components/NewPostsPill';
 import { formatTimeRemaining } from '@/lib/timeUtils';
@@ -36,6 +39,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { useAutoCompleteTasks } from '@/hooks/useAutoCompleteTasks';
 import { useAuthorPostActivity } from '../../hooks/useAuthorPostActivity';
+import { useFeedModals } from '@/hooks/useFeedModals';
 import { BETA_FEEDBACK_FORM_URL, POST_TIERS } from '@/models/constants';
 import type { Post, PostTier, UserStatus } from '@/models/types';
 
@@ -68,6 +72,9 @@ export default function FeedScreen() {
 	// Auto-complete tasks when their conditions are already met on load.
 	// Returns true while auto-completion is in progress to suppress banner flicker.
 	const isAutoCompletingTasks = useAutoCompleteTasks();
+
+	// Centralized feed modal priority system.
+	const { activeModal, mobileConfig, deviceVersion, targetVersion, closeOnboarding, closeBetaUpdate, closeAppVersion, closeAppMessage, closeFeedbackForm } = useFeedModals();
 
 	const [channelFilter, setChannelFilter] = useState<ChannelFilterState>({ mode: 'all', specificIds: [] });
 	const [channelFilterOpen, setChannelFilterOpen] = useState(false);
@@ -331,17 +338,18 @@ export default function FeedScreen() {
 	}, [dispatch, addToast]);
 
 	const handleOpenBetaFeedbackForm = useCallback(async () => {
+		const url = mobileConfig?.feedbackForm?.url ?? BETA_FEEDBACK_FORM_URL;
 		try {
-			await Linking.openURL(BETA_FEEDBACK_FORM_URL);
+			await Linking.openURL(url);
 		} catch {
 			try {
-				await Clipboard.setStringAsync(BETA_FEEDBACK_FORM_URL);
+				await Clipboard.setStringAsync(url);
 				addToast({ type: 'success', title: 'Could not open link, so we copied it for you.' });
 			} catch {
 				addToast({ type: 'error', title: 'Could not open or copy the feedback link right now.' });
 			}
 		}
-	}, [addToast]);
+	}, [mobileConfig, addToast]);
 
 	const renderPost = useCallback(
 		({ item }: { item: Post }) => (
@@ -709,8 +717,31 @@ export default function FeedScreen() {
 				currentStatus={currentUser?.status}
 			/>
 
-			<OnboardingWelcomeModal />
-			<BetaUpdateModal />
+			<OnboardingWelcomeModal
+				visible={activeModal === 'onboarding'}
+				onClose={closeOnboarding}
+			/>
+			<BetaUpdateModal
+				visible={activeModal === 'betaUpdate'}
+				onClose={closeBetaUpdate}
+			/>
+			<AppVersionUpdateModal
+				visible={activeModal === 'appVersion'}
+				onClose={closeAppVersion}
+				mobileConfig={mobileConfig}
+				deviceVersion={deviceVersion}
+				targetVersion={targetVersion}
+			/>
+			<AppMessageModal
+				visible={activeModal === 'appMessage'}
+				onClose={closeAppMessage}
+				config={mobileConfig?.broadcastMessage ?? null}
+			/>
+			<FeedbackFormModal
+				visible={activeModal === 'feedbackForm'}
+				onClose={closeFeedbackForm}
+				config={mobileConfig?.feedbackForm ?? null}
+			/>
 		</View>
 	);
 }
