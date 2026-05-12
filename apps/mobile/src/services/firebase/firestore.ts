@@ -775,7 +775,8 @@ export function subscribeToChannels(
 export function subscribeToPosts(
   uid: string,
   channelIds: string[],
-  callback: (posts: Post[]) => void
+  callback: (posts: Post[]) => void,
+  onError?: (error: unknown, batch: string[]) => void,
 ): () => void {
   if (channelIds.length === 0) {
     callback([]);
@@ -817,6 +818,9 @@ export function subscribeToPosts(
       },
       (error) => {
         // Query failed (missing index or rules denial) — return what we have so far
+        if (onError) {
+          onError(error, batch);
+        }
         callback(Array.from(allPosts.values()));
       },
     );
@@ -1101,6 +1105,7 @@ export function subscribeToConnections(
 export function subscribeToConnectionChannels(
   connectedUserIds: string[],
   callback: (channels: Channel[]) => void,
+  onError?: (error: unknown, batch: string[]) => void,
 ): () => void {
   if (connectedUserIds.length === 0) {
     callback([]);
@@ -1123,6 +1128,12 @@ export function subscribeToConnectionChannels(
       (snap) => {
         for (const d of getSnapshotDocs(snap)) {
           allChannels.set(d.id, d.data() as Channel);
+        }
+        callback(Array.from(allChannels.values()));
+      },
+      (error) => {
+        if (onError) {
+          onError(error, batch);
         }
         callback(Array.from(allChannels.values()));
       },
