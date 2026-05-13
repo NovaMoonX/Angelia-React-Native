@@ -130,7 +130,7 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
     }
     return { sections: items, offsets: cumulativeOffsets, categoryOffsets: catOffsets };
   }, [search]);
-  const customEmojiEntry = useMemo(() => {
+  const manualEmojiInput = useMemo(() => {
     return search.trim();
   }, [search]);
 
@@ -301,12 +301,12 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
                   </Pressable>
                 )}
               </View>
-              {customEmojiEntry.length > 0 && (
+              {manualEmojiInput.length > 0 && (
                 <Pressable
-                  onPress={() => handleSelect(customEmojiEntry)}
+                  onPress={() => handleSelect(manualEmojiInput)}
                   style={[styles.customEntryButton, { borderColor: theme.border, backgroundColor: theme.background }]}
                 >
-                  <Text style={styles.customEntryEmoji}>{customEmojiEntry}</Text>
+                  <Text style={styles.customEntryEmoji}>{manualEmojiInput}</Text>
                   <Text style={[styles.customEntryText, { color: theme.foreground }]}>
                     Use this emoji
                   </Text>
