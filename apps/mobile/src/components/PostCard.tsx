@@ -66,6 +66,9 @@ export function PostCard({ post, onNavigate, onLongPress }: PostCardProps) {
     onLongPress?.();
   }, [cardScale, onLongPress]);
   const cardLongPressHandler = onLongPress ? handleCardLongPress : undefined;
+  const cardScaleStyle = useMemo(() => {
+    return { transform: [{ scale: cardScale }] };
+  }, [cardScale]);
 
   const hasTierBadge = post.tier === 'worth-knowing' || post.tier === 'big-news';
 
@@ -100,7 +103,7 @@ export function PostCard({ post, onNavigate, onLongPress }: PostCardProps) {
           </Text>
         </View>
       )}
-      <Animated.View style={{ transform: [{ scale: cardScale }] }}>
+      <Animated.View style={cardScaleStyle}>
       <Card style={styles.card}>
         {/* Tappable header + text area */}
         <Pressable onPress={onNavigate} onLongPress={cardLongPressHandler} delayLongPress={220}>
