@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  APP_LAST_OPENED_AT_KEY,
   CONVERSATION_LAST_SEEN_KEY,
   POST_ACTIVITY_SEEN_KEY,
   PRIVATE_NOTES_SEEN_KEY,
@@ -75,17 +76,24 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
     const rawPostActivitySeen = await AsyncStorage.getItem(POST_ACTIVITY_SEEN_KEY(currentUserId)).catch(() => {
       return null;
     });
+    const rawAppLastOpenedAt = await AsyncStorage.getItem(APP_LAST_OPENED_AT_KEY(currentUserId)).catch(() => {
+      return null;
+    });
 
     const parsedPostActivitySeen = parseEpochMs(rawPostActivitySeen);
-    if (parsedPostActivitySeen > 0) {
-      setPostActivitySeenAt(parsedPostActivitySeen);
-    } else if (rawPostActivitySeen) {
+    const parsedAppLastOpenedAt = parseEpochMs(rawAppLastOpenedAt);
+    if (parsedPostActivitySeen === 0 && rawPostActivitySeen) {
       // Migrate legacy JSON snapshot data to timestamp format without showing false unread states.
       const migratedTimestamp = Date.now();
       setPostActivitySeenAt(migratedTimestamp);
       await AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUserId), String(migratedTimestamp)).catch(() => {});
     } else {
-      setPostActivitySeenAt(0);
+      const fallbackTimestamp = parsedAppLastOpenedAt > 0 ? parsedAppLastOpenedAt : Date.now();
+      const effectiveSeenAt = Math.max(parsedPostActivitySeen, fallbackTimestamp);
+      setPostActivitySeenAt(effectiveSeenAt);
+      if (effectiveSeenAt !== parsedPostActivitySeen) {
+        await AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUserId), String(effectiveSeenAt)).catch(() => {});
+      }
     }
 
     if (subscribedPostIds.length === 0) {
@@ -162,10 +170,18 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
       const latestReactionTimestamp = getLatestReactionTimestamp(summary.post.reactions);
       const latestPrivateNoteTimestamp = summary.latestNoteTimestamp;
       const latestMessageTimestamp = summary.latestMessageTimestamp;
+      const privateNotesSeenBaseline = Math.max(
+        postActivitySeenAt,
+        seenMaps.privateNotesByPostId[postId] ?? 0,
+      );
+      const conversationSeenBaseline = Math.max(
+        postActivitySeenAt,
+        seenMaps.conversationByPostId[postId] ?? 0,
+      );
 
       const hasNewReactions = latestReactionTimestamp > postActivitySeenAt;
-      const hasNewPrivateNotes = latestPrivateNoteTimestamp > (seenMaps.privateNotesByPostId[postId] ?? 0);
-      const hasNewMessages = latestMessageTimestamp > (seenMaps.conversationByPostId[postId] ?? 0);
+      const hasNewPrivateNotes = latestPrivateNoteTimestamp > privateNotesSeenBaseline;
+      const hasNewMessages = latestMessageTimestamp > conversationSeenBaseline;
 
       if (!hasNewReactions && !hasNewPrivateNotes && !hasNewMessages) {
         return;

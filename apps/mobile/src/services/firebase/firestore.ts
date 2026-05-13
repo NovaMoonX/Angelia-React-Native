@@ -934,9 +934,11 @@ export function subscribeToPosts(
   }
 
   const allPosts: Map<string, Post> = new Map();
+  const postsByBatchKey: Map<string, Set<string>> = new Map();
   const unsubscribes: Array<() => void> = [];
 
   for (const batch of batches) {
+    const batchKey = batch.join('|');
     const unsub = onSnapshot(
       query(
         collection(getDb(), 'posts'),
@@ -944,6 +946,7 @@ export function subscribeToPosts(
         where('markedForDeletionAt', '==', null),
       ),
       (snap) => {
+        const nextBatchPostIds: Set<string> = new Set();
         for (const d of getSnapshotDocs(snap)) {
           const post = d.data() as Post;
           const normalizedPost: Post = {
@@ -956,8 +959,17 @@ export function subscribeToPosts(
               };
             }),
           };
+          nextBatchPostIds.add(d.id);
           allPosts.set(d.id, normalizedPost);
         }
+
+        const previousBatchPostIds = postsByBatchKey.get(batchKey) ?? new Set<string>();
+        previousBatchPostIds.forEach((postId) => {
+          if (!nextBatchPostIds.has(postId)) {
+            allPosts.delete(postId);
+          }
+        });
+        postsByBatchKey.set(batchKey, nextBatchPostIds);
         callback(Array.from(allPosts.values()));
       },
       (error) => {

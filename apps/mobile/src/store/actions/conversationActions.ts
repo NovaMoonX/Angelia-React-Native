@@ -22,15 +22,46 @@ export const sendMessage = createAsyncThunk(
     const state = getState() as RootState;
     const user = state.users.currentUser;
     if (!user) return rejectWithValue('User not authenticated');
+    const post = state.posts.items.find((item) => {
+      return item.id === postId;
+    });
+    const isHost = post?.authorId === user.id;
+    const existingMessages = state.conversation.messagesByPost[postId] ?? [];
+    const hasExistingNonSystemMessage = existingMessages.some((existingMessage) => {
+      return existingMessage.authorId === user.id && existingMessage.isSystem !== true;
+    });
+    const shouldSendJoinMessage = !isHost && !hasExistingNonSystemMessage;
+    const latestReaction = [...(post?.reactions ?? [])]
+      .reverse()
+      .find((reaction) => {
+        return reaction.userId === user.id;
+      });
+    const joinEmoji = latestReaction?.emoji ?? '✨';
+    const now = Date.now();
 
     const message: Message = {
       id: generateId('nano'),
       authorId: user.id,
       text: text.trim(),
-      timestamp: Date.now(),
+      timestamp: now,
       parentId,
       reactions: {},
     };
+    const joinMessage: Message | null = shouldSendJoinMessage
+      ? {
+          id: generateId('nano'),
+          authorId: user.id,
+          text: `joined the conversation with ${joinEmoji}`,
+          timestamp: now - 1,
+          parentId: null,
+          reactions: {},
+          isSystem: true,
+        }
+      : null;
+
+    if (joinMessage) {
+      dispatch(addMessageOptimistic({ postId, message: joinMessage }));
+    }
 
     dispatch(addMessageOptimistic({ postId, message }));
 
@@ -39,6 +70,9 @@ export const sendMessage = createAsyncThunk(
     }
 
     try {
+      if (joinMessage) {
+        await firestoreAddMessage(postId, joinMessage);
+      }
       await firestoreAddMessage(postId, message);
       return message;
     } catch (err) {

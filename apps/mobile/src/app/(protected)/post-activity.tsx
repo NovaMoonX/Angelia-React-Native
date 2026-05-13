@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card } from '@/components/ui/Card';
@@ -22,6 +22,7 @@ export default function PostActivityScreen() {
   const [selectedCircleId, setSelectedCircleId] = useState<string>('all');
   const [activityScope, setActivityScope] = useState<'all' | 'unread'>('all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
+  const [refreshing, setRefreshing] = useState(false);
 
   // Auto-select 'unread' the first time unread activity is detected after load.
   const hasAutoSelectedUnread = useRef(false);
@@ -32,6 +33,14 @@ export default function PostActivityScreen() {
       setActivityScope('unread');
     }
   }, [unreadDetailsByPostId]);
+
+  useEffect(() => {
+    if (Object.keys(unreadDetailsByPostId).length > 0) return;
+    hasAutoSelectedUnread.current = false;
+    if (activityScope === 'unread') {
+      setActivityScope('all');
+    }
+  }, [activityScope, unreadDetailsByPostId]);
 
   const filteredByCircle = useMemo(() => {
     if (selectedCircleId === 'all') return summaries;
@@ -45,6 +54,12 @@ export default function PostActivityScreen() {
       void refreshSeenState();
     }, [refreshSeenState]),
   );
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refreshSeenState().catch(() => {});
+    setRefreshing(false);
+  }, [refreshSeenState]);
 
   const circles = useMemo(() => {
     if (!currentUser) return [];
@@ -108,6 +123,14 @@ export default function PostActivityScreen() {
       <ScreenHeader title='Your Post Activity' />
       <ScrollView
         style={{ flex: 1, backgroundColor: theme.background }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        }
         contentContainerStyle={[
           styles.content,
           {
@@ -264,6 +287,13 @@ export default function PostActivityScreen() {
             const shouldShowNewActivityLabel = detail != null && (
               detail.hasNewReactions || detail.hasNewPrivateNotes || detail.hasNewMessages
             );
+            const activityDetailBits = [
+              detail?.hasNewReactions ? 'reactions' : null,
+              detail?.hasNewPrivateNotes ? 'private notes' : null,
+              detail?.hasNewMessages ? 'messages' : null,
+            ].filter((part): part is string => {
+              return part != null;
+            });
 
             return (
               <View key={summary.post.id}>
@@ -274,7 +304,9 @@ export default function PostActivityScreen() {
                   }}
                 />
                 {shouldShowNewActivityLabel ? (
-                  <Text style={[styles.newActivityText, { color: theme.primary }]}>New activity since last seen</Text>
+                  <Text style={[styles.newActivityText, { color: theme.primary }]}>
+                    {`New ${activityDetailBits.join(' + ')} since your last app open`}
+                  </Text>
                 ) : null}
               </View>
             );

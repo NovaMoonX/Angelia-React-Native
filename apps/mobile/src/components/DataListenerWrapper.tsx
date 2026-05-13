@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { router } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState, type AppStateStatus } from 'react-native';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -46,6 +47,7 @@ import {
   WIND_DOWN_NOTIFICATION_ID,
   getFollowUpForPrompt,
 } from '@/services/notifications';
+import { APP_LAST_OPENED_AT_KEY } from '@/models/constants';
 import type { AppNotificationType, Channel, ChannelJoinRequest, Connection, ConnectionRequest, NotificationSettings, Post, User } from '@/models/types';
 
 /** AsyncStorage key that tracks the calendar date when the daily in-app notice was last shown. */
@@ -134,6 +136,27 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
    * not yet exist.
    */
   const notifInitInFlight = useRef(false);
+
+  // Effect 0: Track local "last app open" timestamp for the signed-in user.
+  useEffect(() => {
+    const currentUserId = currentUser?.id ?? null;
+    if (!currentUserId) return;
+
+    const writeLastOpened = async () => {
+      await AsyncStorage.setItem(APP_LAST_OPENED_AT_KEY(currentUserId), String(Date.now())).catch(() => {});
+    };
+
+    void writeLastOpened();
+
+    const appStateSubscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      if (nextState !== 'active') return;
+      void writeLastOpened();
+    });
+
+    return () => {
+      appStateSubscription.remove();
+    };
+  }, [currentUser?.id]);
 
   // Effect 1: Auth state — subscribe to user, channels, join requests, connections
   useEffect(() => {

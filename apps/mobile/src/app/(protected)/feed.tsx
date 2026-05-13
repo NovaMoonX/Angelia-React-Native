@@ -5,6 +5,7 @@ import {
 	NativeSyntheticEvent,
 	NativeScrollEvent,
 	Pressable,
+	RefreshControl,
 	StyleSheet,
 	Text,
 	View,
@@ -84,6 +85,7 @@ export default function FeedScreen() {
 	const [fabExpanded, setFabExpanded] = useState(false);
 	const [statusModalOpen, setStatusModalOpen] = useState(false);
 	const [isFiltering, setIsFiltering] = useState(false);
+	const [isRefreshing, setIsRefreshing] = useState(false);
 	const isMountedRef = useRef(false);
 	const flatListRef = useRef<FlashListRef<Post>>(null);
 
@@ -201,6 +203,12 @@ export default function FeedScreen() {
 			setDisplayCount((prev) => prev + LOAD_MORE);
 		}
 	}, [hasMore]);
+
+	const handleRefresh = useCallback(async () => {
+		setIsRefreshing(true);
+		await refreshSeenState().catch(() => {});
+		setIsRefreshing(false);
+	}, [refreshSeenState]);
 
 	const isChannelFiltered = channelFilter.mode === 'specific' && channelFilter.specificIds.length > 0;
 
@@ -387,6 +395,14 @@ export default function FeedScreen() {
 					showsVerticalScrollIndicator={false}
 					onEndReached={loadMore}
 					onEndReachedThreshold={0.3}
+					refreshControl={
+						<RefreshControl
+							refreshing={isRefreshing}
+							onRefresh={handleRefresh}
+							tintColor={theme.primary}
+							colors={[theme.primary]}
+						/>
+					}
 					ListEmptyComponent={
 						hasActiveFilters ? (
 							<View style={styles.emptyState}>

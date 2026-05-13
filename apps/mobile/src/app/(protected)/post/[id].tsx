@@ -8,6 +8,7 @@ import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { Carousel } from '@/components/ui/Carousel';
 import { ReactionDisplay } from '@/components/ReactionDisplay';
 import { UserProfileModal } from '@/components/UserProfileModal';
@@ -364,7 +365,18 @@ export default function PostDetailScreen() {
 	if (!post || !currentUser) {
 		return (
 			<View style={[styles.centered, { backgroundColor: theme.background }]}>
-				<Text style={{ color: theme.mutedForeground }}>Post not found</Text>
+				<Text style={[styles.deletedPostTitle, { color: theme.foreground }]}>This post is not available</Text>
+				<Text style={[styles.deletedPostBody, { color: theme.mutedForeground }]}>
+					It may have been deleted by the author.
+				</Text>
+				<Button
+					variant='outline'
+					onPress={() => {
+						router.replace('/(protected)/feed');
+					}}
+				>
+					Back to Feed
+				</Button>
 			</View>
 		);
 	}
@@ -728,6 +740,19 @@ const styles = StyleSheet.create({
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
+		paddingHorizontal: 20,
+		gap: 10,
+	},
+	deletedPostTitle: {
+		fontSize: 18,
+		fontWeight: '700',
+		textAlign: 'center',
+	},
+	deletedPostBody: {
+		fontSize: 14,
+		textAlign: 'center',
+		lineHeight: 20,
+		marginBottom: 4,
 	},
 	header: {
 		flexDirection: 'row',

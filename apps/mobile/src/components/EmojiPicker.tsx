@@ -130,6 +130,9 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
     }
     return { sections: items, offsets: cumulativeOffsets, categoryOffsets: catOffsets };
   }, [search]);
+  const customEmojiEntry = useMemo(() => {
+    return search.trim();
+  }, [search]);
 
   const handleSelect = useCallback(
     (emoji: string) => {
@@ -298,6 +301,17 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
                   </Pressable>
                 )}
               </View>
+              {customEmojiEntry.length > 0 && (
+                <Pressable
+                  onPress={() => handleSelect(customEmojiEntry)}
+                  style={[styles.customEntryButton, { borderColor: theme.border, backgroundColor: theme.background }]}
+                >
+                  <Text style={styles.customEntryEmoji}>{customEmojiEntry}</Text>
+                  <Text style={[styles.customEntryText, { color: theme.foreground }]}>
+                    Use this emoji
+                  </Text>
+                </Pressable>
+              )}
             </View>
 
             {/* Category tabs */}
@@ -420,6 +434,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 8,
     paddingVertical: 4,
+  },
+  customEntryButton: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  customEntryEmoji: {
+    fontSize: 22,
+  },
+  customEntryText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   categoryTab: {
     flex: 1,
