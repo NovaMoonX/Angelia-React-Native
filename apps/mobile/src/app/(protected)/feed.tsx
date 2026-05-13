@@ -238,7 +238,7 @@ export default function FeedScreen() {
 			setShowFeedReactionHint(!dismissed && !used);
 		}).catch(() => {
 			if (!isMounted) return;
-			setShowFeedReactionHint(true);
+			setShowFeedReactionHint(false);
 		});
 		return () => {
 			isMounted = false;
