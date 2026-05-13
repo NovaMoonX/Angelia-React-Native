@@ -926,15 +926,17 @@ export function subscribeToPosts(
     callback([]);
     return () => {};
   }
+  const uniqueChannelIds = Array.from(new Set(channelIds));
 
   // Firestore `in` queries limited to 30 values — batch if needed
   const batches: string[][] = [];
-  for (let i = 0; i < channelIds.length; i += 30) {
-    batches.push(channelIds.slice(i, i + 30));
+  for (let i = 0; i < uniqueChannelIds.length; i += 30) {
+    batches.push(uniqueChannelIds.slice(i, i + 30));
   }
 
   const allPosts: Map<string, Post> = new Map();
   const postsByBatchKey: Map<string, Set<string>> = new Map();
+  const postBatchMembership: Map<string, Set<string>> = new Map();
   const unsubscribes: Array<() => void> = [];
 
   for (const batch of batches) {
@@ -966,9 +968,23 @@ export function subscribeToPosts(
         const previousBatchPostIds = postsByBatchKey.get(batchKey) ?? new Set<string>();
         previousBatchPostIds.forEach((postId) => {
           if (!nextBatchPostIds.has(postId)) {
-            allPosts.delete(postId);
+            const membership = postBatchMembership.get(postId) ?? new Set<string>();
+            membership.delete(batchKey);
+            if (membership.size === 0) {
+              postBatchMembership.delete(postId);
+              allPosts.delete(postId);
+              return;
+            }
+            postBatchMembership.set(postId, membership);
           }
         });
+
+        nextBatchPostIds.forEach((postId) => {
+          const membership = postBatchMembership.get(postId) ?? new Set<string>();
+          membership.add(batchKey);
+          postBatchMembership.set(postId, membership);
+        });
+
         postsByBatchKey.set(batchKey, nextBatchPostIds);
         callback(Array.from(allPosts.values()));
       },

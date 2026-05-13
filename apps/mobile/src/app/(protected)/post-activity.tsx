@@ -287,13 +287,10 @@ export default function PostActivityScreen() {
             const shouldShowNewActivityLabel = detail != null && (
               detail.hasNewReactions || detail.hasNewPrivateNotes || detail.hasNewMessages
             );
-            const newActivityTypes = [
-              detail?.hasNewReactions ? 'reactions' : null,
-              detail?.hasNewPrivateNotes ? 'private notes' : null,
-              detail?.hasNewMessages ? 'messages' : null,
-            ].filter((part): part is string => {
-              return part != null;
-            });
+            const newActivityTypes: string[] = [];
+            if (detail?.hasNewReactions) newActivityTypes.push('reactions');
+            if (detail?.hasNewPrivateNotes) newActivityTypes.push('private notes');
+            if (detail?.hasNewMessages) newActivityTypes.push('messages');
 
             return (
               <View key={summary.post.id}>
@@ -305,7 +302,7 @@ export default function PostActivityScreen() {
                 />
                 {shouldShowNewActivityLabel ? (
                   <Text style={[styles.newActivityText, { color: theme.primary }]}>
-                    {`New ${newActivityTypes.join(' + ')} since your last app open`}
+                    {'New ' + newActivityTypes.join(' + ') + ' since your last app open'}
                   </Text>
                 ) : null}
               </View>

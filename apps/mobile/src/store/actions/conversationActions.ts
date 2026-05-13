@@ -28,7 +28,7 @@ export const sendMessage = createAsyncThunk(
     const isHost = post?.authorId === user.id;
     const existingMessages = state.conversation.messagesByPost[postId] ?? [];
     const hasExistingNonSystemMessage = existingMessages.some((existingMessage) => {
-      return existingMessage.authorId === user.id && existingMessage.isSystem !== true;
+      return existingMessage.authorId === user.id && Boolean(existingMessage.isSystem) === false;
     });
     const shouldSendJoinMessage = !isHost && !hasExistingNonSystemMessage;
     const latestReaction = [...(post?.reactions ?? [])]
