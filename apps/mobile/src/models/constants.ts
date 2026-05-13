@@ -66,6 +66,12 @@ export const APP_LAST_OPENED_AT_KEY = (userId: string) => `@angelia/app_last_ope
 /** AsyncStorage key that tracks whether the new-user feed guide is still pending or has been dismissed. */
 export const ONBOARDING_FEED_GUIDE_STATE_KEY = (userId: string) => `@angelia/onboarding_feed_guide_${userId}`;
 
+/** AsyncStorage key that records whether the feed long-press reaction hint was manually dismissed. */
+export const FEED_REACTION_HINT_DISMISSED_KEY = (userId: string) => `@angelia/feed_reaction_hint_dismissed_${userId}`;
+
+/** AsyncStorage key that records whether the user has reacted from feed via long-press at least once. */
+export const FEED_REACTION_HINT_USED_KEY = (userId: string) => `@angelia/feed_reaction_hint_used_${userId}`;
+
 /**
  * AsyncStorage key that records when a post host last opened the private notes screen for a post.
  * Used to drive the unread indicator on the host's private-notes badge.
