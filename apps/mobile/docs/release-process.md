@@ -44,13 +44,15 @@ npm run prod:android
 
 This triggers an EAS production build for Android. Once complete, **download the `.aab` file** from the EAS dashboard and **manually upload it** in the [Google Play Console](https://play.google.com/console) under the appropriate track (Internal Testing → expand to Open/Closed testing as needed).
 
+> **Note:** Android builds can take a while to complete — up to an hour in some cases. Keep an eye on the EAS dashboard for progress.
+
 ### iOS
 
 ```bash
 npm run prod:ios
 ```
 
-This triggers an EAS production build for iOS. Once the build completes, **submit it to App Store Connect / TestFlight directly from the terminal**:
+This triggers an EAS production build for iOS. iOS builds tend to complete more quickly than Android. Once the build completes, **submit it to App Store Connect / TestFlight directly from the terminal**:
 
 ```bash
 eas submit --platform ios
