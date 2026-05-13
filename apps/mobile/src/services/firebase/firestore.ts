@@ -926,6 +926,7 @@ export function subscribeToPosts(
     callback([]);
     return () => {};
   }
+  // Defensively dedupe in case callers pass overlapping channel IDs.
   const uniqueChannelIds = Array.from(new Set(channelIds));
 
   // Firestore `in` queries limited to 30 values — batch if needed

@@ -33,9 +33,9 @@ export const sendMessage = createAsyncThunk(
     const shouldSendJoinMessage = !isHost && !hasExistingNonSystemMessage;
     let latestReactionEmoji: string | null = null;
     const reactions = post?.reactions ?? [];
-    for (let index = reactions.length - 1; index >= 0; index--) {
-      if (reactions[index].userId === user.id) {
-        latestReactionEmoji = reactions[index].emoji;
+    for (let reactionIndex = reactions.length - 1; reactionIndex >= 0; reactionIndex--) {
+      if (reactions[reactionIndex].userId === user.id) {
+        latestReactionEmoji = reactions[reactionIndex].emoji;
         break;
       }
     }
