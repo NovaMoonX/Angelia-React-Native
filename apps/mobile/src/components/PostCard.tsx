@@ -68,7 +68,7 @@ export function PostCard({ post, onNavigate, onLongPress }: PostCardProps) {
   const cardLongPressHandler = onLongPress ? handleCardLongPress : undefined;
   const cardScaleStyle = useMemo(() => {
     return { transform: [{ scale: cardScale }] };
-  }, [cardScale]);
+  }, []);
 
   const hasTierBadge = post.tier === 'worth-knowing' || post.tier === 'big-news';
 

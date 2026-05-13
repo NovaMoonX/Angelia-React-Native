@@ -233,8 +233,9 @@ export default function FeedScreen() {
 			FEED_REACTION_HINT_USED_KEY(userId),
 		]).then((pairs) => {
 			if (!isMounted) return;
-			const dismissed = pairs[0]?.[1] === 'true';
-			const used = pairs[1]?.[1] === 'true';
+			const [dismissedPair, usedPair] = pairs;
+			const dismissed = dismissedPair?.[1] === 'true';
+			const used = usedPair?.[1] === 'true';
 			setShowFeedReactionHint(!dismissed && !used);
 		}).catch(() => {
 			if (!isMounted) return;
