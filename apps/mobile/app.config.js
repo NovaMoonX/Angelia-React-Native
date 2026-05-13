@@ -25,7 +25,7 @@ export default {
 	expo: {
 		name: 'Angelia',
 		slug: 'angelia',
-		version: '1.0.0',
+		version: '1.0.5',
 		orientation: 'portrait',
 		icon: './assets/images/icon.png',
 		scheme: 'angelia',

@@ -143,6 +143,12 @@ scripts/        # Build/CI helper scripts
 
 ---
 
+### Releasing a New Version
+
+See [docs/release-process.md](./docs/release-process.md) for the full step-by-step guide: pre-release prep (beta notes, beta modal, version bump), production builds, submission, verifying availability on each platform, and triggering the in-app update alert.
+
+---
+
 ### Testing Notifications
 
 See [NOTIFICATION_TESTING.md](./NOTIFICATION_TESTING.md) for a step-by-step guide to manually testing push notifications via Firestore, including ready-to-paste JSON payloads and troubleshooting tips.
