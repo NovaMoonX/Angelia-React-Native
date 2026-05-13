@@ -143,7 +143,9 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
     if (!currentUserId) return;
 
     const writeLastOpened = async () => {
-      await AsyncStorage.setItem(APP_LAST_OPENED_AT_KEY(currentUserId), String(Date.now())).catch(() => {});
+      await AsyncStorage.setItem(APP_LAST_OPENED_AT_KEY(currentUserId), String(Date.now())).catch((error) => {
+        console.warn('Failed to persist app last opened timestamp', error);
+      });
     };
     const handleAppStateChange = (nextState: AppStateStatus) => {
       if (nextState !== 'active') return;

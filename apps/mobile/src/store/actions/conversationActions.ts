@@ -28,15 +28,18 @@ export const sendMessage = createAsyncThunk(
     const isHost = post?.authorId === user.id;
     const existingMessages = state.conversation.messagesByPost[postId] ?? [];
     const hasExistingNonSystemMessage = existingMessages.some((existingMessage) => {
-      return existingMessage.authorId === user.id && Boolean(existingMessage.isSystem) === false;
+      return existingMessage.authorId === user.id && !existingMessage.isSystem;
     });
     const shouldSendJoinMessage = !isHost && !hasExistingNonSystemMessage;
-    const latestReaction = [...(post?.reactions ?? [])]
-      .reverse()
-      .find((reaction) => {
-        return reaction.userId === user.id;
-      });
-    const joinEmoji = latestReaction?.emoji ?? '✨';
+    let latestReactionEmoji: string | null = null;
+    const reactions = post?.reactions ?? [];
+    for (let index = reactions.length - 1; index >= 0; index--) {
+      if (reactions[index].userId === user.id) {
+        latestReactionEmoji = reactions[index].emoji;
+        break;
+      }
+    }
+    const joinEmoji = latestReactionEmoji ?? '✨';
     const now = Date.now();
 
     const message: Message = {
