@@ -145,13 +145,14 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
     const writeLastOpened = async () => {
       await AsyncStorage.setItem(APP_LAST_OPENED_AT_KEY(currentUserId), String(Date.now())).catch(() => {});
     };
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState !== 'active') return;
+      void writeLastOpened();
+    };
 
     void writeLastOpened();
 
-    const appStateSubscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
-      if (nextState !== 'active') return;
-      void writeLastOpened();
-    });
+    const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
 
     return () => {
       appStateSubscription.remove();

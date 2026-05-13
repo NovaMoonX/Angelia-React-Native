@@ -88,6 +88,8 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
       setPostActivitySeenAt(migratedTimestamp);
       await AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUserId), String(migratedTimestamp)).catch(() => {});
     } else {
+      // When both stored timestamps are unavailable, default to "now"
+      // so users do not see a false backlog of unread activity.
       const fallbackTimestamp = parsedAppLastOpenedAt > 0 ? parsedAppLastOpenedAt : Date.now();
       const effectiveSeenAt = Math.max(parsedPostActivitySeen, fallbackTimestamp);
       setPostActivitySeenAt(effectiveSeenAt);

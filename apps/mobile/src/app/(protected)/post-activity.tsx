@@ -287,7 +287,7 @@ export default function PostActivityScreen() {
             const shouldShowNewActivityLabel = detail != null && (
               detail.hasNewReactions || detail.hasNewPrivateNotes || detail.hasNewMessages
             );
-            const activityDetailBits = [
+            const newActivityTypes = [
               detail?.hasNewReactions ? 'reactions' : null,
               detail?.hasNewPrivateNotes ? 'private notes' : null,
               detail?.hasNewMessages ? 'messages' : null,
@@ -305,7 +305,7 @@ export default function PostActivityScreen() {
                 />
                 {shouldShowNewActivityLabel ? (
                   <Text style={[styles.newActivityText, { color: theme.primary }]}>
-                    {`New ${activityDetailBits.join(' + ')} since your last app open`}
+                    {`New ${newActivityTypes.join(' + ')} since your last app open`}
                   </Text>
                 ) : null}
               </View>
