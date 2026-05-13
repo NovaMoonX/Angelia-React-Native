@@ -1,12 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { useAppSelector } from '@/store/hooks';
 import { selectCurrentUserCustomChannels } from '@/store/crossSelectors/channelSelectors';
 import { useTheme } from '@/hooks/useTheme';
-import { CUSTOM_CHANNEL_LIMIT, CUSTOM_POST_RETENTION_DAYS, DAILY_POST_RETENTION_DAYS, ONBOARDING_FEED_GUIDE_STATE_KEY } from '@/models/constants';
+import { CUSTOM_CHANNEL_LIMIT, CUSTOM_POST_RETENTION_DAYS, DAILY_POST_RETENTION_DAYS } from '@/models/constants';
 
 interface GuideStep {
   emoji: string;
@@ -14,47 +13,17 @@ interface GuideStep {
   body: string | React.ReactNode;
 }
 
-export function OnboardingWelcomeModal() {
+interface OnboardingWelcomeModalProps {
+  visible: boolean;
+  onClose: () => void;
+}
+
+export function OnboardingWelcomeModal({ visible, onClose }: OnboardingWelcomeModalProps) {
   const { theme } = useTheme();
-  const currentUser = useAppSelector((state) => state.users.currentUser);
-  const isDemo = useAppSelector((state) => state.demo.isActive);
   const customChannels = useAppSelector(selectCurrentUserCustomChannels);
   const customCircleCount = customChannels.length;
 
-  const [isOpen, setIsOpen] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    if (!currentUser || isDemo) {
-      setIsOpen(false);
-      return () => {};
-    }
-
-    AsyncStorage.getItem(ONBOARDING_FEED_GUIDE_STATE_KEY(currentUser.id))
-      .then((value) => {
-        if (cancelled) return;
-        // Show if never seen (null) or explicitly pending — only hide if dismissed
-        setIsOpen(value !== 'dismissed');
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setIsOpen(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [currentUser, isDemo]);
-
-  const handleDismiss = useCallback(async () => {
-    setIsOpen(false);
-    if (!currentUser) return;
-    try {
-      await AsyncStorage.setItem(ONBOARDING_FEED_GUIDE_STATE_KEY(currentUser.id), 'dismissed');
-    } catch {
-      // Best-effort
-    }
-  }, [currentUser]);
 
   const steps = useMemo((): GuideStep[] => {
     const nextSteps: GuideStep[] = [
@@ -119,14 +88,14 @@ export function OnboardingWelcomeModal() {
   }, [customCircleCount]);
 
   useEffect(() => {
-    if (isOpen) setStepIndex(0);
-  }, [isOpen]);
+    if (visible) setStepIndex(0);
+  }, [visible]);
 
   const currentStep = steps[stepIndex];
   const isLastStep = stepIndex === steps.length - 1;
 
   return (
-    <Modal isOpen={isOpen} onClose={handleDismiss} title="A tiny tour ✨">
+    <Modal isOpen={visible} onClose={onClose} title="A tiny tour ✨">
       <View style={styles.content}>
         <View style={[styles.card, { backgroundColor: theme.background, borderColor: theme.border }]}> 
           <Text style={styles.emoji}>{currentStep.emoji}</Text>
@@ -156,7 +125,7 @@ export function OnboardingWelcomeModal() {
         <View style={styles.actions}>
           {!isLastStep ? (
             <>
-              <Button variant="tertiary" onPress={handleDismiss} style={styles.actionButton}>
+              <Button variant="tertiary" onPress={onClose} style={styles.actionButton}>
                 Skip
               </Button>
               <Button onPress={() => setStepIndex((prev) => { return prev + 1; })} style={styles.actionButton}>
@@ -164,7 +133,7 @@ export function OnboardingWelcomeModal() {
               </Button>
             </>
           ) : (
-            <Button onPress={handleDismiss} style={styles.doneButton}>
+            <Button onPress={onClose} style={styles.doneButton}>
               Got it
             </Button>
           )}

@@ -1,11 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { useAppSelector } from '@/store/hooks';
 import { useTheme } from '@/hooks/useTheme';
-import { BETA_UPDATE_MODAL_SEEN_KEY, BETA_UPDATE_VERSION, ONBOARDING_FEED_GUIDE_STATE_KEY } from '@/models/constants';
 
 // ─── HOW TO USE THIS MODAL FOR FUTURE UPDATES ────────────────────────────────
 //
@@ -20,7 +17,7 @@ import { BETA_UPDATE_MODAL_SEEN_KEY, BETA_UPDATE_VERSION, ONBOARDING_FEED_GUIDE_
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BETA_UPDATE_TITLE = "A lot has changed — check it out ✨";
+const BETA_UPDATE_TITLE = "Fresh updates — take a look ✨";
 
 interface ChangeEntry {
   emoji: string;
@@ -33,82 +30,47 @@ interface ChangeEntry {
 // "Bug fixes & reliability" entry rather than called out individually.
 const BETA_UPDATE_CHANGES: ChangeEntry[] = [
   {
-    emoji: '📋',
-    title: 'Your Post Activity view',
-    description: 'See your posts with reaction, private note, and message counts — all in one place. Unread indicators clear as you go.',
-  },
-  {
-    emoji: '🗑️',
-    title: 'Delete your posts',
-    description: "You can now remove posts you've shared.",
-  },
-  {
-    emoji: '📸',
-    title: 'Camera zoom',
-    description: 'Pinch to zoom when taking a photo.',
+    emoji: '🌐',
+    title: 'Posts from everyone you know',
+    description: 'We fixed a sneaky issue that was silently hiding some posts from your feed.',
   },
   {
     emoji: '⏱️',
-    title: 'Status can stay on until you clear it',
-    description: 'The new "until cleared" option makes statuses feel a lot more natural.',
+    title: '3-second posting countdown',
+    description: 'A quick heads-up before every post — catch any mistakes or tap "Post Now" to skip the wait.',
   },
   {
-    emoji: '❓',
-    title: 'How Angelia works',
-    description: 'A quick explainer is now available in the feed and your account screen — handy if you want a refresher.',
+    emoji: '📋',
+    title: 'Smarter post activity',
+    description: 'Sort by newest or oldest, and the screen now auto-jumps to your unread activity when you arrive.',
+  },
+  {
+    emoji: '😊',
+    title: 'Status emoji fixed on iPhone',
+    description: 'Tapping the emoji button in the status sheet now opens the picker correctly.',
+  },
+  {
+    emoji: '🐛',
+    title: 'Bug fixes & polish',
+    description: 'A few rough edges smoothed out across the app.',
   },
 ];
 
-export function BetaUpdateModal() {
+interface BetaUpdateModalProps {
+  visible: boolean;
+  onClose: () => void;
+}
+
+export function BetaUpdateModal({ visible, onClose }: BetaUpdateModalProps) {
   const { theme } = useTheme();
-  const currentUser = useAppSelector((state) => state.users.currentUser);
-  const isDemo = useAppSelector((state) => state.demo.isActive);
-
-  const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    if (!currentUser || isDemo) {
-      setIsOpen(false);
-      return () => {};
-    }
-
-    AsyncStorage.multiGet([
-      BETA_UPDATE_MODAL_SEEN_KEY(BETA_UPDATE_VERSION),
-      ONBOARDING_FEED_GUIDE_STATE_KEY(currentUser.id),
-    ])
-      .then((results) => {
-        if (cancelled) return;
-        const betaSeen = results[0][1];
-        const onboardingDismissed = results[1][1] === 'dismissed';
-        // Only show if the update hasn't been seen AND the user is past onboarding
-        setIsOpen(betaSeen !== 'seen' && onboardingDismissed);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setIsOpen(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [currentUser, isDemo]);
-
-  const handleDismiss = useCallback(async () => {
-    setIsOpen(false);
-    try {
-      await AsyncStorage.setItem(BETA_UPDATE_MODAL_SEEN_KEY(BETA_UPDATE_VERSION), 'seen');
-    } catch {
-      // Best-effort
-    }
-  }, []);
 
   return (
     <Modal
-      isOpen={isOpen}
-      onClose={handleDismiss}
+      isOpen={visible}
+      onClose={onClose}
       title={BETA_UPDATE_TITLE}
       footer={
-        <Button onPress={handleDismiss} style={styles.doneButton}>
+        <Button onPress={onClose} style={styles.doneButton}>
           Got it, thanks!
         </Button>
       }

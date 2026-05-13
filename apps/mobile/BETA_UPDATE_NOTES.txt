@@ -1,26 +1,20 @@
 Beta update notes
 
-Last updated: 2026-05-11
-Branch: copilot/fix-invite-button-state
-Related PR: #77
+Last updated: 2026-05-12
+Branch: feed-modal-system
+Related PR: TBD
 
 Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
 
 Current branch highlights:
-- Circle invites now stay in sync right away, so invite buttons and pending state feel more reliable.
-- The feed notification badge now reflects pending circle invites in addition to join and connection requests.
-- The feed and account screens have a clearer “How Angelia works” entry point.
-- Status updates can now stay active until you clear them, which makes the new status picker feel more natural.
-- Daily Circle invite flow is cleaner, with invite, share, and QR actions grouped more clearly.
-- The feed now stays focused on other people’s posts, while your own post engagement moved to a dedicated activity view.
-- There is a new post activity icon in the feed header that opens “Your Post Activity,” where your posts are grouped with reaction, private-note, and message counts.
-- Your post activity screen includes Circle filtering so it is easier to spot which posts are getting attention.
-- Feed circle filtering now excludes your own circles entirely, and the scope picker has been removed to keep the filter focused on other people’s circles.
-- Post activity now uses the same post cards as feed, and its Circle chips include all of your circles (even before a circle has posts).
-- Post activity now follows the post-detail indicator style: reactions are shown on the card itself, while new private notes/messages use highlighted action pills with unread indicators.
-- Post activity is now simplified to one clear label per post: “New activity since last seen.”
-- Post activity now calls out which reaction emojis are new, and uses smarter seen logic: reaction-only updates clear when the card is viewed, while notes/messages clear when opening that post.
-- Posts can now be deleted
-- Camera: can now zoom
+- Feed now shows posts from all your connected friends — we fixed a sneaky permissions issue that was silently hiding some posts from the feed.
+- You can now sort your post activity by newest or oldest posts — giving you more control over how you browse your activity.
+- Post Activity now auto-jumps to your unread activity when you open the screen — so you see what matters right away.
+- Your uploaded avatar photo now shows on the compose screen — no more missing profile pictures!
+- Before posting, you'll now see a quick 5-second countdown with your circle name and attachment count — so you can catch any mistakes. Cancel it or tap "Post Now" to skip the wait.
+- We can now send you a message right inside the app (info, warning, or important heads-up) — no app update needed.
+- We can now prompt you to fill out a feedback form from inside the app, and we can update the form link anytime without a new release.
+- App update prompts are now part of the same priority system as all other feed modals — so they never compete or stack on top of each other unexpectedly.
+- Status emoji picker now works correctly on iPhone — tapping the emoji in the status sheet opens the picker as expected.
 
 When this branch ships, turn these notes into a friendly beta modal update.

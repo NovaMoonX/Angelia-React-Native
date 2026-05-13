@@ -18,6 +18,7 @@ import type {
 } from '@/models/types';
 import { isDemoActive } from './globalActions';
 import { generateId } from '@/utils/generateId';
+import { dismissNotificationsByData } from '@/services/notifications';
 
 // ── Respond to a channel join request ──────────────────────────────────────
 
@@ -41,6 +42,8 @@ export const respondToJoinRequest = createAsyncThunk(
     try {
       await firestoreRespondToJoinRequest(request.id, accept);
       dispatch(updateJoinRequest(updatedRequest));
+      // Dismiss the matching FCM push from the host's tray regardless of accept/decline
+      dismissNotificationsByData({ type: 'join_channel_request', joinRequestId: request.id });
 
       if (accept) {
         const state = getState() as RootState;
@@ -252,6 +255,8 @@ export const respondToCircleInviteRequest = createAsyncThunk(
     try {
       await firestoreRespondToCircleInviteRequest(request.id, accept);
       dispatch(updateCircleInviteRequest(updatedRequest));
+      // Dismiss the matching FCM push from the invitee's tray regardless of accept/decline
+      dismissNotificationsByData({ type: 'custom_circle_invite', requestId: request.id });
       return updatedRequest;
     } catch (err) {
       return rejectWithValue(err instanceof Error ? err.message : err);

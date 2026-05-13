@@ -88,6 +88,12 @@ export const IOS_TESTFLIGHT_WEB_URL = 'https://testflight.apple.com/join/2X3vYWB
 export const CONVERSATION_LAST_SEEN_KEY = (postId: string) => `@angelia/conversation_last_seen_${postId}`;
 
 /**
+ * AsyncStorage key that records whether the user has already seen the "hold to reply" hint in conversations.
+ * Once dismissed or used, it is never shown again.
+ */
+export const CONVERSATION_REPLY_HINT_SEEN_KEY = '@angelia/conversation_reply_hint_seen';
+
+/**
  * AsyncStorage key that tracks which custom circles have already been suggested
  * to a user after they react to a connection's Daily Circle post.
  */
@@ -97,7 +103,7 @@ export const JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY = (userId: string) => `@ang
  * AsyncStorage key that records which beta update version the user has already dismissed.
  * When BETA_UPDATE_VERSION in BetaUpdateModal is bumped, the modal will show again automatically.
  */
-export const BETA_UPDATE_VERSION = '2026-05-11';
+export const BETA_UPDATE_VERSION = '2026-05-12b';
 
 export const BETA_UPDATE_MODAL_SEEN_KEY = (version: string) => `@angelia/beta_update_modal_seen_${version}`;
 
@@ -108,6 +114,18 @@ export const BETA_UPDATE_MODAL_SEEN_KEY = (version: string) => `@angelia/beta_up
 export const APP_UPDATE_PROMPT_DISMISSED_VERSION_KEY = (platform: 'ios' | 'android') => {
   return `@angelia/app_update_prompt_dismissed_${platform}`;
 };
+
+/**
+ * AsyncStorage key that records which broadcast message ID the user has dismissed.
+ * When the `id` field changes in Firestore, the modal shows again.
+ */
+export const APP_MESSAGE_DISMISSED_KEY = '@angelia/app_message_dismissed_id';
+
+/**
+ * AsyncStorage key that records which feedback form URL the user has dismissed.
+ * When the `url` changes in Firestore (new form), the modal shows again.
+ */
+export const FEEDBACK_FORM_DISMISSED_URL_KEY = '@angelia/feedback_form_dismissed_url';
 
 /** Sentinel timestamp used for statuses that stay active until manually cleared. */
 export const STATUS_INDEFINITE_EXPIRES_AT = 8_640_000_000_000;

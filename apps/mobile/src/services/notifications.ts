@@ -352,3 +352,52 @@ export async function cancelDailyPrompt(): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(NOTIFICATION_ID);
   await Notifications.cancelScheduledNotificationAsync(WIND_DOWN_NOTIFICATION_ID);
 }
+
+/**
+ * Dismisses any currently-presented daily prompt or wind-down notifications
+ * from the device notification tray. Call this after the user makes a post so
+ * the "time to share!" reminder is automatically cleared.
+ */
+export async function dismissDailyPromptNotifications(): Promise<void> {
+  try {
+    // Dismiss the local scheduled notification identifiers directly
+    await Promise.allSettled([
+      Notifications.dismissNotificationAsync(NOTIFICATION_ID),
+      Notifications.dismissNotificationAsync(WIND_DOWN_NOTIFICATION_ID),
+    ]);
+    // Belt-and-suspenders: also scan presented notifications for daily/winddown types
+    const presented = await Notifications.getPresentedNotificationsAsync();
+    const toRemove = presented.filter((n) => {
+      const type = (n.request.content.data as Record<string, unknown>)?.type;
+      return type === 'daily' || type === 'winddown';
+    });
+    await Promise.allSettled(
+      toRemove.map((n) => { return Notifications.dismissNotificationAsync(n.request.identifier); }),
+    );
+  } catch {
+    // Best-effort — never block the user's action on a dismiss failure
+  }
+}
+
+/**
+ * Dismisses any currently-presented notifications whose FCM data payload
+ * matches ALL of the provided key/value pairs. Use this to clear stale push
+ * notifications when the user takes the relevant in-app action (e.g. accepting
+ * a connection request clears the corresponding connection_request push).
+ */
+export async function dismissNotificationsByData(
+  filter: Record<string, string>,
+): Promise<void> {
+  try {
+    const presented = await Notifications.getPresentedNotificationsAsync();
+    const toRemove = presented.filter((n) => {
+      const data = n.request.content.data as Record<string, unknown>;
+      return Object.entries(filter).every(([k, v]) => { return data[k] === v; });
+    });
+    await Promise.allSettled(
+      toRemove.map((n) => { return Notifications.dismissNotificationAsync(n.request.identifier); }),
+    );
+  } catch {
+    // Best-effort
+  }
+}

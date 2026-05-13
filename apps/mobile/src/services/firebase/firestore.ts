@@ -260,6 +260,27 @@ export interface LatestAppVersionConfig {
   androidStoreUrl: string | null;
 }
 
+export interface FeedbackFormConfig {
+  active: boolean;
+  url: string | null;
+  topic: string | null;
+}
+
+export type BroadcastMessageType = 'info' | 'warning' | 'success' | 'urgent';
+
+export interface BroadcastMessageConfig {
+  active: boolean;
+  id: string | null;
+  type: BroadcastMessageType;
+  title: string | null;
+  body: string | null;
+}
+
+export interface MobileAppConfig extends LatestAppVersionConfig {
+  feedbackForm: FeedbackFormConfig;
+  broadcastMessage: BroadcastMessageConfig;
+}
+
 function asNonEmptyString(value: unknown): string | null {
   if (typeof value !== 'string') {
     return null;
@@ -317,6 +338,129 @@ export function subscribeToLatestAppVersion(
       });
     },
   );
+}
+
+const DEFAULT_FEEDBACK_FORM: FeedbackFormConfig = { active: false, url: null, topic: null };
+const DEFAULT_BROADCAST_MESSAGE: BroadcastMessageConfig = {
+  active: false,
+  id: null,
+  type: 'info',
+  title: null,
+  body: null,
+};
+
+/**
+ * Subscribes to the full mobile app config from three separate flat Firestore
+ * documents (no nested maps — each field is a top-level scalar so they can be
+ * edited individually in the Firestore console without recreating a map).
+ *
+ * Documents:
+ *   appConfig/mobile           → iosVersion, androidVersion, androidStoreUrl
+ *   appConfig/broadcastMessage → active, id, type, title, body
+ *   appConfig/feedbackForm     → active, url
+ *
+ * All three listeners run in parallel. A merged MobileAppConfig is emitted
+ * whenever any document changes. Missing documents (not yet created in Firestore)
+ * are treated as their safe defaults and do not block the first emission.
+ */
+export function subscribeToMobileAppConfig(
+  callback: (config: MobileAppConfig) => void,
+): () => void {
+  let versionData: LatestAppVersionConfig = { iosVersion: null, androidVersion: null, androidStoreUrl: null };
+  let broadcastData: BroadcastMessageConfig = { ...DEFAULT_BROADCAST_MESSAGE };
+  let feedbackData: FeedbackFormConfig = { ...DEFAULT_FEEDBACK_FORM };
+
+  // Each listener emits independently as soon as its own snapshot arrives.
+  // Missing documents fall back to their safe defaults so one absent document
+  // never blocks the others from taking effect.
+  function emit() {
+    callback({
+      ...versionData,
+      broadcastMessage: broadcastData,
+      feedbackForm: feedbackData,
+    });
+  }
+
+  const unsubVersion = onSnapshot(
+    doc(getDb(), 'appConfig', 'mobile'),
+    (snap) => {
+      if (!snap?.exists) {
+        versionData = { iosVersion: null, androidVersion: null, androidStoreUrl: null };
+      } else {
+        const raw = snap.data() as Record<string, unknown>;
+        const minVersionsRaw = raw.minVersions;
+        const minVersions =
+          minVersionsRaw && typeof minVersionsRaw === 'object'
+            ? (minVersionsRaw as Record<string, unknown>)
+            : null;
+        versionData = {
+          iosVersion: asNonEmptyString(raw.iosVersion) ?? asNonEmptyString(minVersions?.ios),
+          androidVersion: asNonEmptyString(raw.androidVersion) ?? asNonEmptyString(minVersions?.android),
+          androidStoreUrl: asNonEmptyString(raw.androidStoreUrl),
+        };
+      }
+      emit();
+    },
+    () => {
+      versionData = { iosVersion: null, androidVersion: null, androidStoreUrl: null };
+      emit();
+    },
+  );
+
+  const unsubBroadcast = onSnapshot(
+    doc(getDb(), 'appConfig', 'broadcastMessage'),
+    (snap) => {
+      if (!snap?.exists) {
+        broadcastData = { ...DEFAULT_BROADCAST_MESSAGE };
+      } else {
+        const raw = snap.data() as Record<string, unknown>;
+        const msgType = asNonEmptyString(raw.type);
+        const validMsgType: BroadcastMessageType =
+          msgType === 'info' || msgType === 'warning' || msgType === 'success' || msgType === 'urgent'
+            ? msgType
+            : 'info';
+        broadcastData = {
+          active: raw.active === true,
+          id: asNonEmptyString(raw.id),
+          type: validMsgType,
+          title: asNonEmptyString(raw.title),
+          body: asNonEmptyString(raw.body),
+        };
+      }
+      emit();
+    },
+    () => {
+      broadcastData = { ...DEFAULT_BROADCAST_MESSAGE };
+      emit();
+    },
+  );
+
+  const unsubFeedback = onSnapshot(
+    doc(getDb(), 'appConfig', 'feedbackForm'),
+    (snap) => {
+      if (!snap?.exists) {
+        feedbackData = { ...DEFAULT_FEEDBACK_FORM };
+      } else {
+        const raw = snap.data() as Record<string, unknown>;
+        feedbackData = {
+          active: raw.active === true,
+          url: asNonEmptyString(raw.url),
+          topic: asNonEmptyString(raw.topic),
+        };
+      }
+      emit();
+    },
+    () => {
+      feedbackData = { ...DEFAULT_FEEDBACK_FORM };
+      emit();
+    },
+  );
+
+  return () => {
+    unsubVersion();
+    unsubBroadcast();
+    unsubFeedback();
+  };
 }
 
 // ---- Channel Operations ----
@@ -775,7 +919,8 @@ export function subscribeToChannels(
 export function subscribeToPosts(
   uid: string,
   channelIds: string[],
-  callback: (posts: Post[]) => void
+  callback: (posts: Post[]) => void,
+  onError?: (error: unknown, batch: string[]) => void,
 ): () => void {
   if (channelIds.length === 0) {
     callback([]);
@@ -817,6 +962,9 @@ export function subscribeToPosts(
       },
       (error) => {
         // Query failed (missing index or rules denial) — return what we have so far
+        if (onError) {
+          onError(error, batch);
+        }
         callback(Array.from(allPosts.values()));
       },
     );
@@ -1101,6 +1249,7 @@ export function subscribeToConnections(
 export function subscribeToConnectionChannels(
   connectedUserIds: string[],
   callback: (channels: Channel[]) => void,
+  onError?: (error: unknown, batch: string[]) => void,
 ): () => void {
   if (connectedUserIds.length === 0) {
     callback([]);
@@ -1123,6 +1272,12 @@ export function subscribeToConnectionChannels(
       (snap) => {
         for (const d of getSnapshotDocs(snap)) {
           allChannels.set(d.id, d.data() as Channel);
+        }
+        callback(Array.from(allChannels.values()));
+      },
+      (error) => {
+        if (onError) {
+          onError(error, batch);
         }
         callback(Array.from(allChannels.values()));
       },

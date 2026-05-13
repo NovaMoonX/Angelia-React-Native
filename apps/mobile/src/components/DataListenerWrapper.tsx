@@ -5,7 +5,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { AppVersionUpdateModal } from './AppVersionUpdateModal';
 import { setPosts } from '@/store/slices/postsSlice';
 import { setChannels, setConnectionChannels, syncDailyChannelMembers } from '@/store/slices/channelsSlice';
 import { setCurrentUser, setUsers, setCurrentUserNotificationSettings } from '@/store/slices/usersSlice';
@@ -86,6 +85,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const { addToast } = useToast();
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const channels = useAppSelector(selectAllChannels);
+  const connectionChannels = useAppSelector((state) => state.channels.connectionChannels);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const allUsers = useAppSelector((state) => state.users.users);
   const pendingInviteChannel = useAppSelector((state) => state.pendingInvite.channel);
@@ -240,27 +240,80 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   }, [firebaseUser, isDemo, dispatch]);
 
   // Effect 2: Channel changes → re-subscribe to posts.
-  // `channels` (from selectAllChannels) already includes both owned/subscribed channels
-  // and connected users' daily channels, so we subscribe to all of them directly.
+  //
+  // IMPORTANT — split into two separate Firestore queries:
+  //   1. Own/subscribed channels  → user is owner or subscriber, so `isChannelMember`
+  //      evaluates to true for every channelId in the `in` list. No rule-chaining needed.
+  //   2. Connected users' daily channels → user is connected but not a member. The rule
+  //      must evaluate `isConnectedToAuthorDailyChannel` for each channelId. Keeping these
+  //      in a SEPARATE query (away from the owned channels) gives Firestore's list-query
+  //      security evaluator a homogeneous set where the connection check is deterministic.
+  //
+  // Merging happens via local closure variables that are updated by whichever callback
+  // fires first and combined before each `setPosts` dispatch.
   useEffect(() => {
     if (isDemo || !firebaseUser) return;
 
     const uid = firebaseUser.uid;
-    const channelIds = channels.map((c) => c.id);
 
-    if (channelIds.length === 0) return;
+    // Build the two mutually-exclusive channel ID sets.
+    const connectionChannelIdSet = new Set(connectionChannels.map((c) => { return c.id; }));
+    const ownChannelIds = channels
+      .filter((c) => { return !connectionChannelIdSet.has(c.id); })
+      .map((c) => { return c.id; });
+    const connectionDailyIds = connectionChannels.map((c) => { return c.id; });
+
+    if (ownChannelIds.length === 0 && connectionDailyIds.length === 0) {
+      return;
+    }
 
     if (postsUnsubRef.current) {
       postsUnsubRef.current();
     }
 
-    postsUnsubRef.current = subscribeToPosts(
-      uid,
-      channelIds,
-      (posts: Post[]) => {
-        dispatch(setPosts(posts));
-      }
-    );
+    // Local accumulator vars shared across both subscription callbacks.
+    // Each callback replaces its own bucket and dispatches the merged total.
+    let ownPosts: Post[] = [];
+    let connectionPosts: Post[] = [];
+
+    const dispatchMerged = () => {
+      dispatch(setPosts([...ownPosts, ...connectionPosts]));
+    };
+
+    // ── Subscription 1: own / subscribed channels ──────────────────────────
+    const unsubOwn = ownChannelIds.length > 0
+      ? subscribeToPosts(
+          uid,
+          ownChannelIds,
+          (posts: Post[]) => {
+            ownPosts = posts;
+            dispatchMerged();
+          },
+          (error, batch) => {
+            dispatchMerged();
+          },
+        )
+      : () => {};
+
+    // ── Subscription 2: connected users' daily channels ────────────────────
+    const unsubConnection = connectionDailyIds.length > 0
+      ? subscribeToPosts(
+          uid,
+          connectionDailyIds,
+          (posts: Post[]) => {
+            connectionPosts = posts;
+            dispatchMerged();
+          },
+          (error, batch) => {
+            dispatchMerged();
+          },
+        )
+      : () => {};
+
+    postsUnsubRef.current = () => {
+      unsubOwn();
+      unsubConnection();
+    };
 
     return () => {
       if (postsUnsubRef.current) {
@@ -268,7 +321,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
         postsUnsubRef.current = null;
       }
     };
-  }, [firebaseUser, isDemo, channels, dispatch]);
+  }, [firebaseUser, isDemo, channels, connectionChannels, dispatch]);
 
   // Effect 3: User set changes → re-subscribe to channel users
   // Also includes connected users so their profiles are available in usersMap
@@ -373,6 +426,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       (connChannels: Channel[]) => {
         dispatch(setConnectionChannels(connChannels));
       },
+      (error, batch) => {},
     );
 
     return () => {
@@ -757,10 +811,5 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
     }
   }, [isDemo, addToast, allUsers, channels, router, incomingCircleInvites]);
 
-  return (
-    <>
-      {children}
-      <AppVersionUpdateModal />
-    </>
-  );
+  return <>{children}</>;
 }

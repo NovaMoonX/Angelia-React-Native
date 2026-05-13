@@ -217,6 +217,18 @@ The individual `preset` and `uri` props are only for non-User contexts, such as 
 
 ## Keeping docs up to date
 
+### OTA / server-side feed modals (`apps/mobile/docs/ota-modals.md`)
+
+`apps/mobile/docs/ota-modals.md` is the reference for all three Firestore-driven feed modals (app version update, broadcast message, feedback form). **Update it whenever:**
+
+- A Firestore field is added, renamed, or removed from `appConfig/mobile`.
+- A new modal type or priority level is added to `useFeedModals` (`src/hooks/useFeedModals.ts`).
+- The dismissal logic for any modal changes (new or renamed AsyncStorage key).
+- The `broadcastMessage` type → emoji / accent color mapping changes.
+- The iOS or Android update destination changes (TestFlight → App Store, etc.).
+
+Update the relevant section in the doc — the Firestore field table, behavior notes, and "To show / stop showing" instructions.
+
 ### BetaUpdateModal (`src/components/BetaUpdateModal.tsx`)
 
 `BetaUpdateModal` displays a one-time "what's new" modal to beta testers when a new update is pushed. **Update it whenever:**
@@ -253,13 +265,20 @@ Use it as the compact source of truth for the next beta update modal:
 - Write the entries in the same warm, friendly tone used in the app modal copy.
 - Include the current branch or PR reference at the top so the next update is easy to trace.
 
-**You MUST update `apps/mobile/BETA_UPDATE_NOTES.txt` as part of any task that introduces:**
+**⚠️ CRITICAL: You MUST update `apps/mobile/BETA_UPDATE_NOTES.txt` before marking any task complete if it involves:**
 - A new screen, feature, or user-visible workflow
-- A bug fix that users would notice
+- A new control (button, toggle, sort/filter option) that changes how users interact with data
+- A bug fix that users would notice (visual issues, missing features, broken functionality)
 - A change to existing UI, labels, or copy
 - Any change that would appear in a "what's new" list
+- Any enhancement that significantly impacts user experience
 
-Do this proactively — do not wait to be asked. If a task changes user-facing behavior, updating `BETA_UPDATE_NOTES.txt` is part of completing that task. Add a bullet under "Current branch highlights" describing the change in plain, friendly language.
+**This is mandatory, not optional.** Before ending your work on any user-visible task:
+1. ✅ Make all code changes
+2. ✅ **Update `BETA_UPDATE_NOTES.txt` with a user-friendly bullet** describing what changed
+3. ✅ Confirm both files are committed together
+
+If you forget to update the beta notes after making user-facing changes, the task is not complete. Add a bullet under "Current branch highlights" in plain, warm, friendly language that explains the benefit to users (not just what was changed).
 
 ---
 

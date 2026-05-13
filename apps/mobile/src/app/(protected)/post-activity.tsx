@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,8 @@ import { PostCard } from '@/components/PostCard';
 import { useAppSelector } from '@/store/hooks';
 import { selectAllChannels } from '@/store/slices/channelsSlice';
 
+type SortOrder = 'newest' | 'oldest';
+
 export default function PostActivityScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -19,6 +21,17 @@ export default function PostActivityScreen() {
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const [selectedCircleId, setSelectedCircleId] = useState<string>('all');
   const [activityScope, setActivityScope] = useState<'all' | 'unread'>('all');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
+
+  // Auto-select 'unread' the first time unread activity is detected after load.
+  const hasAutoSelectedUnread = useRef(false);
+  useEffect(() => {
+    if (hasAutoSelectedUnread.current) return;
+    if (Object.keys(unreadDetailsByPostId).length > 0) {
+      hasAutoSelectedUnread.current = true;
+      setActivityScope('unread');
+    }
+  }, [unreadDetailsByPostId]);
 
   const filteredByCircle = useMemo(() => {
     if (selectedCircleId === 'all') return summaries;
@@ -67,11 +80,28 @@ export default function PostActivityScreen() {
   }, [unreadDetailsByPostId]);
 
   const filtered = useMemo(() => {
-    if (activityScope === 'all') return filteredByCircle;
-    return filteredByCircle.filter((summary) => {
-      return unreadPostIdSet.has(summary.post.id);
+    let result = filteredByCircle;
+    
+    if (activityScope === 'unread') {
+      result = result.filter((summary) => {
+        return unreadPostIdSet.has(summary.post.id);
+      });
+    }
+
+    // Sort based on sortOrder
+    const sorted = [...result].sort((a, b) => {
+      const aTimestamp = a.post.timestamp;
+      const bTimestamp = b.post.timestamp;
+      
+      if (sortOrder === 'newest') {
+        return bTimestamp - aTimestamp;
+      } else {
+        return aTimestamp - bTimestamp;
+      }
     });
-  }, [activityScope, filteredByCircle, unreadPostIdSet]);
+
+    return sorted;
+  }, [activityScope, filteredByCircle, unreadPostIdSet, sortOrder]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -173,6 +203,49 @@ export default function PostActivityScreen() {
               </Text>
             </Pressable>
           </View>
+
+          <Text style={[styles.filterLabel, { color: theme.mutedForeground }]}>Sort by</Text>
+          <View style={styles.scopeRow}>
+            <Pressable
+              onPress={() => setSortOrder('newest')}
+              style={[
+                styles.filterChip,
+                {
+                  borderColor: sortOrder === 'newest' ? theme.primary : theme.border,
+                  backgroundColor: sortOrder === 'newest' ? `${theme.primary}18` : theme.card,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  { color: sortOrder === 'newest' ? theme.primary : theme.foreground },
+                ]}
+              >
+                Newest
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setSortOrder('oldest')}
+              style={[
+                styles.filterChip,
+                {
+                  borderColor: sortOrder === 'oldest' ? theme.primary : theme.border,
+                  backgroundColor: sortOrder === 'oldest' ? `${theme.primary}18` : theme.card,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  { color: sortOrder === 'oldest' ? theme.primary : theme.foreground },
+                ]}
+              >
+                Oldest
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         {filtered.length === 0 ? (
@@ -188,10 +261,9 @@ export default function PostActivityScreen() {
         ) : (
           filtered.map((summary) => {
             const detail = unreadDetailsByPostId[summary.post.id];
-            const hasUnreadActivity = unreadPostIdSet.has(summary.post.id);
-            const shouldShowNewActivityLabel = detail != null
-              ? detail.hasNewReactions || detail.hasNewPrivateNotes || detail.hasNewMessages
-              : hasUnreadActivity;
+            const shouldShowNewActivityLabel = detail != null && (
+              detail.hasNewReactions || detail.hasNewPrivateNotes || detail.hasNewMessages
+            );
 
             return (
               <View key={summary.post.id}>

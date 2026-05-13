@@ -2,6 +2,8 @@ import React, { useState, useCallback, useMemo, memo, useRef } from 'react';
 import {
   FlatList,
   Modal,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   StyleSheet,
   Text,
@@ -202,6 +204,23 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
     setSearch('');
   }, []);
 
+  const handleScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (search) return;
+      const scrollOffset = e.nativeEvent.contentOffset.y;
+      // Find the last category whose offset is <= current scroll position
+      let newCategory = EMOJI_CATEGORIES[0].key;
+      for (const cat of EMOJI_CATEGORIES) {
+        const offset = categoryOffsets[cat.key];
+        if (offset !== undefined && offset <= scrollOffset + 1) {
+          newCategory = cat.key;
+        }
+      }
+      setActiveCategory(newCategory);
+    },
+    [categoryOffsets, search],
+  );
+
   return (
     <Modal
       visible={visible}
@@ -329,6 +348,8 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
               style={styles.list}
               contentContainerStyle={styles.listContent}
               keyboardShouldPersistTaps="handled"
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
             />
           </View>
       </View>

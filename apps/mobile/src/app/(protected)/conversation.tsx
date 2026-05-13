@@ -40,7 +40,7 @@ import { getTierTheme } from '@/lib/conversation/tierTheme';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { isStatusActive } from '@/components/NowStatusBadge';
-import { POST_TIERS, CONVERSATION_LAST_SEEN_KEY } from '@/models/constants';
+import { POST_TIERS, CONVERSATION_LAST_SEEN_KEY, CONVERSATION_REPLY_HINT_SEEN_KEY } from '@/models/constants';
 import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import type { Message } from '@/models/types';
 
@@ -63,6 +63,7 @@ export default function ConversationScreen() {
   const [messageText, setMessageText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [hasPlayedEntry, setHasPlayedEntry] = useState(false);
+  const [showReplyHint, setShowReplyHint] = useState(false);
 
   // Tier theming
   const tierTheme = getTierTheme(post?.tier);
@@ -113,6 +114,13 @@ export default function ConversationScreen() {
   );
 
   usePostComments({ postId });
+
+  // Load reply hint seen flag — only show the hint if user hasn't dismissed/used it before
+  useEffect(() => {
+    void AsyncStorage.getItem(CONVERSATION_REPLY_HINT_SEEN_KEY).then((val) => {
+      if (!val) setShowReplyHint(true);
+    });
+  }, []);
 
   // Entry animation for Big News and Worth Knowing tiers
   useEffect(() => {
@@ -197,6 +205,16 @@ export default function ConversationScreen() {
 
   const handleReply = useCallback((message: Message) => {
     setReplyingTo(message);
+    // Dismiss the hint the first time the user actually uses reply
+    if (showReplyHint) {
+      setShowReplyHint(false);
+      void AsyncStorage.setItem(CONVERSATION_REPLY_HINT_SEEN_KEY, 'true');
+    }
+  }, [showReplyHint]);
+
+  const handleDismissReplyHint = useCallback(() => {
+    setShowReplyHint(false);
+    void AsyncStorage.setItem(CONVERSATION_REPLY_HINT_SEEN_KEY, 'true');
   }, []);
 
   const renderMessage = useCallback(
@@ -355,6 +373,19 @@ export default function ConversationScreen() {
               },
             ]}
           >
+            {/* Reply hint — shown once until used or dismissed */}
+            {showReplyHint && messages.length > 0 && !replyingTo && (
+              <View style={[styles.replyHint, { backgroundColor: theme.muted, borderColor: theme.border }]}>
+                <Feather name="corner-up-left" size={13} color={theme.mutedForeground} />
+                <Text style={[styles.replyHintText, { color: theme.mutedForeground }]}>
+                  Hold any message to reply to it
+                </Text>
+                <Pressable onPress={handleDismissReplyHint} hitSlop={8}>
+                  <Feather name="x" size={13} color={theme.mutedForeground} />
+                </Pressable>
+              </View>
+            )}
+
             {replyingTo && (
               <View style={styles.replyBanner}>
                 <Text style={[styles.replyText, { color: theme.mutedForeground }]}>
@@ -495,6 +526,20 @@ const styles = StyleSheet.create({
   replyText: {
     fontSize: 13,
     fontStyle: 'italic',
+  },
+  replyHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 8,
+  },
+  replyHintText: {
+    flex: 1,
+    fontSize: 12,
   },
   inputRow: {
     flexDirection: 'row',
