@@ -32,6 +32,10 @@ interface NewPostsPillProps {
   topOffset: number;
   /** Called when the user taps the pill so the parent can scroll the list to the top. */
   onRequestScrollToTop: () => void;
+  /** Current first post id in the feed list. */
+  firstPostId: string | null;
+  /** Post id that is currently fully visible at index 0, or null if none. */
+  firstFullyVisiblePostId: string | null;
 }
 
 /**
@@ -45,7 +49,7 @@ interface NewPostsPillProps {
  * – Last-seen timestamp is persisted in AsyncStorage (device-only, not cloud)
  */
 export const NewPostsPill = forwardRef<NewPostsPillRef, NewPostsPillProps>(
-  function NewPostsPill({ topOffset, onRequestScrollToTop }, ref) {
+  function NewPostsPill({ topOffset, onRequestScrollToTop, firstPostId, firstFullyVisiblePostId }, ref) {
     const { theme } = useTheme();
 
     const posts = useAppSelector((state) => state.posts.items);
@@ -59,12 +63,11 @@ export const NewPostsPill = forwardRef<NewPostsPillRef, NewPostsPillProps>(
     const [lastSeenLoaded, setLastSeenLoaded] = useState(false);
 
     const [newPosts, setNewPosts] = useState<Post[]>([]);
+    const [displayedNewPostCount, setDisplayedNewPostCount] = useState(0);
     // Ref mirror of newPosts.length so notifyScrollY (in useImperativeHandle)
     // can read it without being included in the imperative handle's deps.
     const hasNewPostsRef = useRef(false);
-    // Tracks the most recent scroll Y so we can suppress the pill when the
-    // user is already at/near the top when new posts arrive.
-    const lastScrollYRef = useRef(0);
+    const hasBeenAwayFromTopRef = useRef(false);
     // True only while the feed screen has focus — prevents suppressing the
     // pill when the user is on a different screen (e.g. post detail).
     const isFocusedRef = useRef(false);
@@ -81,17 +84,26 @@ export const NewPostsPill = forwardRef<NewPostsPillRef, NewPostsPillProps>(
     // Stable ref to markPostsSeen so notifyScrollY and handleTap never need to
     // be recreated when the posts list changes.
     const markPostsSeenRef = useRef<() => void>(() => {});
+    const isCurrentFirstPostFullyVisible = firstPostId != null && firstPostId === firstFullyVisiblePostId;
 
     // ── Imperative handle ───────────────────────────────────────────────────
 
     useImperativeHandle(ref, () => ({
       notifyScrollY(y: number) {
-        lastScrollYRef.current = y;
-        if (y <= 50 && hasNewPostsRef.current) {
+        if (y > 20) {
+          hasBeenAwayFromTopRef.current = true;
+        }
+        if (
+          y <= 2 &&
+          hasBeenAwayFromTopRef.current &&
+          isCurrentFirstPostFullyVisible &&
+          hasNewPostsRef.current
+        ) {
+          hasBeenAwayFromTopRef.current = false;
           markPostsSeenRef.current();
         }
       },
-    }));
+    }), [isCurrentFirstPostFullyVisible]);
 
     // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -114,12 +126,18 @@ export const NewPostsPill = forwardRef<NewPostsPillRef, NewPostsPillProps>(
       hasNewPostsRef.current = newPosts.length > 0;
     }, [newPosts]);
 
+    useEffect(() => {
+      if (newPosts.length > 0) {
+        setDisplayedNewPostCount(newPosts.length);
+      }
+    }, [newPosts.length]);
+
     // ── AsyncStorage bootstrap ───────────────────────────────────────────────
 
     useEffect(() => {
       AsyncStorage.getItem(FEED_LAST_SEEN_TIMESTAMP_KEY)
         .then((val) => {
-          lastSeenTimestampRef.current = val ? parseInt(val, 10) : 0;
+          lastSeenTimestampRef.current = val ? Number(val) : 0;
         })
         .catch(() => {
           // Fall back to 0 (first-visit behaviour) if storage is unavailable.
@@ -158,16 +176,20 @@ export const NewPostsPill = forwardRef<NewPostsPillRef, NewPostsPillProps>(
           p.authorId !== currentUser.id &&
           p.timestamp > threshold,
       );
-      // If the feed is focused and the user is already at/near the top, the
-      // new posts are already visible — mark them seen so the pill doesn't
-      // appear. Only do this while the feed is actually in view; if the user
-      // is on a different screen we still want to show the pill when they return.
-      if (incoming.length > 0 && isFocusedRef.current && lastScrollYRef.current <= 50) {
+      // Suppress the pill before it is shown when the current top post is
+      // already fully visible; once the pill is showing, we wait for a real
+      // return-to-top scroll gesture (handled in notifyScrollY) to dismiss.
+      if (
+        incoming.length > 0 &&
+        newPosts.length === 0 &&
+        isFocusedRef.current &&
+        isCurrentFirstPostFullyVisible
+      ) {
         markPostsSeenRef.current();
         return;
       }
       setNewPosts(incoming);
-    }, [posts, postsLoaded, currentUser, lastSeenLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [posts, postsLoaded, currentUser, lastSeenLoaded, isCurrentFirstPostFullyVisible, newPosts.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── Animation ───────────────────────────────────────────────────────────
 
@@ -248,7 +270,7 @@ export const NewPostsPill = forwardRef<NewPostsPillRef, NewPostsPillProps>(
             </View>
           )}
           <Text style={[styles.text, { color: theme.background }]}>
-            {newPosts.length} new {newPosts.length === 1 ? 'post' : 'posts'}
+            {displayedNewPostCount} new {displayedNewPostCount === 1 ? 'post' : 'posts'}
           </Text>
           <Feather name="arrow-up" size={13} color={theme.background} />
         </Pressable>

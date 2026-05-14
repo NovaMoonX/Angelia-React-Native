@@ -8,6 +8,7 @@ import {
 	RefreshControl,
 	StyleSheet,
 	Text,
+	type ViewToken,
 	View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -150,9 +151,22 @@ export default function FeedScreen() {
 	const headerVisible = useRef(true);
 	const headerAnimation = useRef<Animated.CompositeAnimation | null>(null);
 	const [scrolledPast, setScrolledPast] = useState(false);
+	const [firstFullyVisiblePostId, setFirstFullyVisiblePostId] = useState<string | null>(null);
 
 	// Ref to the new-posts pill so onScroll can notify it of the current Y position.
 	const newPostsPillRef = useRef<NewPostsPillRef>(null);
+	const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+		const firstVisibleToken = viewableItems.find((token) => {
+			return token.index === 0 && token.isViewable;
+		});
+		const firstVisibleTokenItem = firstVisibleToken?.item as { id?: string } | undefined;
+		const firstVisibleId = typeof firstVisibleTokenItem?.id === 'string' ? firstVisibleTokenItem.id : null;
+		setFirstFullyVisiblePostId((prev) => {
+			if (prev === firstVisibleId) return prev;
+			return firstVisibleId;
+		});
+	}).current;
+	const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 98 }).current;
 
 	const channelFilterLabel = useMemo(() => {
 		if (channelFilter.mode === 'all') return 'All Circles';
@@ -568,6 +582,8 @@ export default function FeedScreen() {
 					data={filteredPosts}
 					keyExtractor={(item) => item.id}
 					renderItem={renderPost}
+					onViewableItemsChanged={onViewableItemsChanged}
+					viewabilityConfig={viewabilityConfig}
 					onScroll={onScroll}
 					scrollEventThrottle={16}
 					contentContainerStyle={[
@@ -633,7 +649,13 @@ export default function FeedScreen() {
 			</Animated.View>
 
 			{/* New-posts pill — always rendered; the component decides its own visibility */}
-			<NewPostsPill ref={newPostsPillRef} topOffset={headerHeight + 10} onRequestScrollToTop={scrollToTop} />
+			<NewPostsPill
+				ref={newPostsPillRef}
+				topOffset={headerHeight + 10}
+				onRequestScrollToTop={scrollToTop}
+				firstPostId={filteredPosts[0]?.id ?? null}
+				firstFullyVisiblePostId={firstFullyVisiblePostId}
+			/>
 
 			{/* Animated header — absolute so it slides up without affecting FlashList layout */}
 			<Animated.View

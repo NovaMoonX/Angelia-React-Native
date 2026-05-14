@@ -13,6 +13,9 @@ Current branch highlights:
 - Reaction alerts now avoid spam by cooling down repeats from the same person on the same post for 10 minutes, while still delivering conversation message alerts right away.
 - You can now react to posts directly from your Feed — long-press a post to open a quick reaction peel right under it, so reacting feels instant and keeps your place.
 - Feed reaction peel is now more compact with smaller emoji chips, so it takes up less vertical space while still staying easy to tap.
+- New-post feed notice now checks the current top post after fresh posts arrive, and only auto-dismisses when that new first card is actually fully visible.
+- New-post feed notice now keeps its count stable while fading out, so you never see a quick “0 new posts” flash.
+- New-post feed notice now waits for a real scroll-back-to-top before dismissing after it appears, so it no longer vanishes instantly.
 - When you open the feed emoji picker, we now keep the reaction peel visible, nudge the selected post higher, and show a much shorter picker (about half the previous height) so more of the post stays in view.
 - Reaction suggestions now prioritize emojis other people already used on that post, while still keeping the familiar common emoji options in the mix.
 - Post Activity now keys off your local app-open time, so you only see truly new activity (no more giant “everything is new” moments after updates or sign-ins).
