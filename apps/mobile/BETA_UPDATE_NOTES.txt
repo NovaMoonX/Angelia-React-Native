@@ -11,7 +11,7 @@ Current branch highlights:
 - Notification Settings now includes a dedicated Reply Notifications toggle, so you can choose whether direct replies to your messages should send a push.
 - Post notifications are now per-circle: each circle has its own toggles for Big News, Worth Knowing, Everyday updates, and posts with attachments, grouped by person so it is easy to tune everyone at once.
 - New notification defaults are simpler: by default, users only get Big News notifications, and they can opt into extra activity alerts whenever they want.
-- Post-activity alerts now clear at the exact moments you review them: tapping a reaction/message/private-note notification clears that alert, opening Notifications clears new message alerts, opening Post Activity clears reaction alerts, and opening Private Notes clears private-note alerts.
+- Post-activity alerts now clear at the exact moments you review them: tapping a reaction/message/private-note notification clears that alert, opening Notifications clears new message alerts, and opening Private Notes clears private-note alerts.
 - The top card in Notifications is now a one-time release notice for new notification controls, and it disappears after you actually open Notification Settings.
 - When that release notice is waiting for you, the feed bell now shows a separate blue dot that clears once you visit Notifications, while the notice card itself stays until you open Notification Settings.
 - You can now choose exactly which post activity should ping you: reactions, private notes, and conversation messages each have their own toggle in Notification Settings (all on by default).
@@ -37,6 +37,8 @@ Current branch highlights:
 - We can now prompt you to fill out a feedback form from inside the app, and we can update the form link anytime without a new release.
 - App update prompts are now part of the same priority system as all other feed modals — so they never compete or stack on top of each other unexpectedly.
 - Status emoji picker now works correctly on iPhone — tapping the emoji in the status sheet opens the picker as expected.
-- Post-activity alert dots now clear more naturally: tapping a notification, opening your feed/post/conversation, or visiting Post Activity will mark those new reaction/message alerts as seen.
+- Post-activity alert dots now clear more naturally: tapping a notification or opening the relevant post/conversation/notes view will mark those reaction/message alerts as seen.
+- Post Activity now marks items as seen only when that post card is fully visible on screen (or when you open the post details screen), so unread highlights no longer disappear just from opening the screen.
+- Emoji picker now validates typed input before letting you submit: valid emoji can be used instantly, and non-emoji text shows a clear inline error state.
 
 When this branch ships, turn these notes into a friendly beta modal update.

@@ -4,6 +4,7 @@ import {
   APP_LAST_OPENED_AT_KEY,
   CONVERSATION_LAST_SEEN_KEY,
   POST_ACTIVITY_SEEN_KEY,
+  POST_REACTIONS_SEEN_KEY,
   PRIVATE_NOTES_SEEN_KEY,
 } from '@/models/constants';
 import { subscribeToMessages, subscribeToPrivateNotesForPost } from '@/services/firebase/firestore';
@@ -16,6 +17,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import type { Reaction } from '@/models/types';
 
 interface SeenMaps {
+  reactionsByPostId: Record<string, number>;
   privateNotesByPostId: Record<string, number>;
   conversationByPostId: Record<string, number>;
 }
@@ -59,7 +61,7 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
     () => seenStateCache[currentUserId ?? '']?.postActivitySeenAt ?? null,
   );
   const [seenMaps, setSeenMaps] = useState<SeenMaps>(
-    () => seenStateCache[currentUserId ?? '']?.seenMaps ?? { privateNotesByPostId: {}, conversationByPostId: {} },
+    () => seenStateCache[currentUserId ?? '']?.seenMaps ?? { reactionsByPostId: {}, privateNotesByPostId: {}, conversationByPostId: {} },
   );
 
   const postIds = useMemo(() => {
@@ -80,7 +82,7 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
   const refreshSeenState = useCallback(async () => {
     if (!currentUserId) {
       setPostActivitySeenAt(0);
-      setSeenMaps({ privateNotesByPostId: {}, conversationByPostId: {} });
+      setSeenMaps({ reactionsByPostId: {}, privateNotesByPostId: {}, conversationByPostId: {} });
       return;
     }
 
@@ -97,7 +99,7 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
       // Migrate legacy JSON snapshot data to timestamp format without showing false unread states.
       const migratedTimestamp = Date.now();
       setPostActivitySeenAt(migratedTimestamp);
-      seenStateCache[currentUserId] = { postActivitySeenAt: migratedTimestamp, seenMaps: seenStateCache[currentUserId]?.seenMaps ?? { privateNotesByPostId: {}, conversationByPostId: {} } };
+      seenStateCache[currentUserId] = { postActivitySeenAt: migratedTimestamp, seenMaps: seenStateCache[currentUserId]?.seenMaps ?? { reactionsByPostId: {}, privateNotesByPostId: {}, conversationByPostId: {} } };
       await AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUserId), String(migratedTimestamp)).catch(() => {});
     } else {
       // Prefer app-last-opened when available; otherwise default to "now"
@@ -105,18 +107,26 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
       const fallbackTimestamp = parsedAppLastOpenedAt > 0 ? parsedAppLastOpenedAt : Date.now();
       const effectiveSeenAt = Math.max(parsedPostActivitySeen, fallbackTimestamp);
       setPostActivitySeenAt(effectiveSeenAt);
-      seenStateCache[currentUserId] = { postActivitySeenAt: effectiveSeenAt, seenMaps: seenStateCache[currentUserId]?.seenMaps ?? { privateNotesByPostId: {}, conversationByPostId: {} } };
+      seenStateCache[currentUserId] = { postActivitySeenAt: effectiveSeenAt, seenMaps: seenStateCache[currentUserId]?.seenMaps ?? { reactionsByPostId: {}, privateNotesByPostId: {}, conversationByPostId: {} } };
       if (effectiveSeenAt !== parsedPostActivitySeen) {
         await AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUserId), String(effectiveSeenAt)).catch(() => {});
       }
     }
 
     if (subscribedPostIds.length === 0) {
-      const emptySeen: SeenMaps = { privateNotesByPostId: {}, conversationByPostId: {} };
+      const emptySeen: SeenMaps = { reactionsByPostId: {}, privateNotesByPostId: {}, conversationByPostId: {} };
       setSeenMaps(emptySeen);
       seenStateCache[currentUserId] = { postActivitySeenAt: seenStateCache[currentUserId]?.postActivitySeenAt ?? null, seenMaps: emptySeen };
       return;
     }
+
+    const reactionPairs = await AsyncStorage.multiGet(
+      subscribedPostIds.map((postId) => {
+        return POST_REACTIONS_SEEN_KEY(currentUserId, postId);
+      }),
+    ).catch(() => {
+      return [] as [string, string | null][];
+    });
 
     const privateNotePairs = await AsyncStorage.multiGet(
       subscribedPostIds.map((postId) => {
@@ -134,16 +144,19 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
       return [] as [string, string | null][];
     });
 
+    const reactionsByPostId: Record<string, number> = {};
     const privateNotesByPostId: Record<string, number> = {};
     const conversationByPostId: Record<string, number> = {};
 
     subscribedPostIds.forEach((postId, index) => {
+      reactionsByPostId[postId] = parseEpochMs(reactionPairs[index]?.[1] ?? null);
       privateNotesByPostId[postId] = parseEpochMs(privateNotePairs[index]?.[1] ?? null);
       conversationByPostId[postId] = parseEpochMs(conversationPairs[index]?.[1] ?? null);
     });
 
-    setSeenMaps({ privateNotesByPostId, conversationByPostId });
-    seenStateCache[currentUserId] = { postActivitySeenAt: seenStateCache[currentUserId]?.postActivitySeenAt ?? null, seenMaps: { privateNotesByPostId, conversationByPostId } };
+    const nextSeenMaps: SeenMaps = { reactionsByPostId, privateNotesByPostId, conversationByPostId };
+    setSeenMaps(nextSeenMaps);
+    seenStateCache[currentUserId] = { postActivitySeenAt: seenStateCache[currentUserId]?.postActivitySeenAt ?? null, seenMaps: nextSeenMaps };
   }, [currentUserId, subscribedPostIds]);
 
   useEffect(() => {
@@ -180,13 +193,47 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
     };
   }, [dispatch, enableSubscriptions, currentUserId, isDemo, subscribedPostIds]);
 
-  const markActivitySeen = useCallback(async () => {
-    if (!currentUserId) return;
-    await AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUserId), String(Date.now())).catch(() => {});
-    // Intentionally NOT updating postActivitySeenAt in state — the current view
-    // stays stable so the user can review unread items; the new timestamp takes
-    // effect on the next refreshSeenState() call (next screen focus).
-  }, [currentUserId]);
+  const markPostsSeen = useCallback(async (postIdsToMark: string[]) => {
+    if (!currentUserId || postIdsToMark.length === 0) return;
+
+    const seenAt = Date.now();
+    await AsyncStorage.multiSet(
+      postIdsToMark.flatMap((postId) => {
+        return [
+          [POST_REACTIONS_SEEN_KEY(currentUserId, postId), String(seenAt)] as [string, string],
+          [PRIVATE_NOTES_SEEN_KEY(postId), String(seenAt)] as [string, string],
+          [CONVERSATION_LAST_SEEN_KEY(postId), String(seenAt)] as [string, string],
+        ];
+      }),
+    ).catch(() => {
+      return null;
+    });
+
+    setSeenMaps((prev) => {
+      const nextReactionsByPostId = { ...prev.reactionsByPostId };
+      const nextPrivateNotesByPostId = { ...prev.privateNotesByPostId };
+      const nextConversationByPostId = { ...prev.conversationByPostId };
+
+      postIdsToMark.forEach((postId) => {
+        nextReactionsByPostId[postId] = seenAt;
+        nextPrivateNotesByPostId[postId] = seenAt;
+        nextConversationByPostId[postId] = seenAt;
+      });
+
+      const nextSeenMaps: SeenMaps = {
+        reactionsByPostId: nextReactionsByPostId,
+        privateNotesByPostId: nextPrivateNotesByPostId,
+        conversationByPostId: nextConversationByPostId,
+      };
+
+      seenStateCache[currentUserId] = {
+        postActivitySeenAt: seenStateCache[currentUserId]?.postActivitySeenAt ?? postActivitySeenAt,
+        seenMaps: nextSeenMaps,
+      };
+
+      return nextSeenMaps;
+    });
+  }, [currentUserId, postActivitySeenAt]);
 
   const markConversationSeen = useCallback(async (postIdsToMark?: string[]) => {
     if (!currentUserId) return;
@@ -210,6 +257,7 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
       });
 
       const nextSeenMaps: SeenMaps = {
+        reactionsByPostId: prev.reactionsByPostId,
         privateNotesByPostId: prev.privateNotesByPostId,
         conversationByPostId: nextConversationByPostId,
       };
@@ -236,6 +284,10 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
       const latestReactionTimestamp = getLatestReactionTimestamp(summary.post.reactions);
       const latestPrivateNoteTimestamp = summary.latestNoteTimestamp;
       const latestMessageTimestamp = summary.latestMessageTimestamp;
+      const reactionsSeenBaseline = Math.max(
+        postActivitySeenAt,
+        seenMaps.reactionsByPostId[postId] ?? 0,
+      );
       const privateNotesSeenBaseline = Math.max(
         postActivitySeenAt,
         seenMaps.privateNotesByPostId[postId] ?? 0,
@@ -245,7 +297,7 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
         seenMaps.conversationByPostId[postId] ?? 0,
       );
 
-      const hasNewReactions = latestReactionTimestamp > postActivitySeenAt;
+      const hasNewReactions = latestReactionTimestamp > reactionsSeenBaseline;
       const hasNewPrivateNotes = latestPrivateNoteTimestamp > privateNotesSeenBaseline;
       const hasNewMessages = latestMessageTimestamp > conversationSeenBaseline;
 
@@ -261,7 +313,7 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
     });
 
     return details;
-  }, [postActivitySeenAt, seenMaps.conversationByPostId, seenMaps.privateNotesByPostId, summaries]);
+  }, [postActivitySeenAt, seenMaps.conversationByPostId, seenMaps.privateNotesByPostId, seenMaps.reactionsByPostId, summaries]);
 
   const hasUnread = useMemo(() => {
     return Object.keys(unreadDetailsByPostId).length > 0;
@@ -277,7 +329,7 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
     unreadPostIds,
     unreadDetailsByPostId,
     refreshSeenState,
-    markActivitySeen,
+    markPostsSeen,
     markConversationSeen,
   };
 }

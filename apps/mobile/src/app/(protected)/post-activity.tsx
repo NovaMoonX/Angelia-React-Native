@@ -1,7 +1,8 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, type ViewToken, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FlashList } from '@shopify/flash-list';
 import { Card } from '@/components/ui/Card';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useTheme } from '@/hooks/useTheme';
@@ -17,15 +18,20 @@ export default function PostActivityScreen() {
   const { scope } = useLocalSearchParams<{ scope?: string }>();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { summaries, unreadDetailsByPostId, refreshSeenState, markActivitySeen } = useAuthorPostActivity({ enableSubscriptions: true });
+  const { summaries, unreadDetailsByPostId, refreshSeenState, markPostsSeen } = useAuthorPostActivity({ enableSubscriptions: true });
   const channels = useAppSelector(selectAllChannels);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const [selectedCircleId, setSelectedCircleId] = useState<string>('all');
   const [activityScope, setActivityScope] = useState<'all' | 'unread'>(scope === 'unread' ? 'unread' : 'all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [refreshing, setRefreshing] = useState(false);
+  const markPostsSeenRef = useRef(markPostsSeen);
+  const lastVisibleKeyRef = useRef('');
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 98 }).current;
 
-  const userHasManuallySelectedScope = useRef(false);
+  useEffect(() => {
+    markPostsSeenRef.current = markPostsSeen;
+  }, [markPostsSeen]);
 
   const filteredByCircle = useMemo(() => {
     if (selectedCircleId === 'all') return summaries;
@@ -36,16 +42,9 @@ export default function PostActivityScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void (async () => {
-        await markActivitySeen().catch(() => {});
-        await refreshSeenState().catch(() => {});
-      })();
-      return () => {
-        // Mark all post activity as seen when leaving the screen so the next
-        // visit does not re-show the same reactions/notes as "unread".
-        void markActivitySeen();
-      };
-    }, [refreshSeenState, markActivitySeen]),
+      void refreshSeenState().catch(() => {});
+      return undefined;
+    }, [refreshSeenState]),
   );
 
   const handleRefresh = useCallback(async () => {
@@ -111,11 +110,217 @@ export default function PostActivityScreen() {
     return sorted;
   }, [activityScope, filteredByCircle, unreadPostIdSet, sortOrder]);
 
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    const fullyVisiblePostIds = viewableItems
+      .map((token) => {
+        const summary = token.item as (typeof filtered)[number] | undefined;
+        if (!summary?.post?.id || token.isViewable !== true) return null;
+        return summary.post.id;
+      })
+      .filter((id): id is string => {
+        return id != null;
+      });
+
+    if (fullyVisiblePostIds.length === 0) {
+      lastVisibleKeyRef.current = '';
+      return;
+    }
+
+    const nextKey = fullyVisiblePostIds.join('|');
+    if (nextKey === lastVisibleKeyRef.current) return;
+    lastVisibleKeyRef.current = nextKey;
+    void markPostsSeenRef.current(fullyVisiblePostIds);
+  }).current;
+
+  const renderSummaryCard = useCallback(({ item }: { item: (typeof filtered)[number] }) => {
+    const detail = unreadDetailsByPostId[item.post.id];
+    const shouldShowNewActivityLabel = detail != null && (
+      detail.hasNewReactions || detail.hasNewPrivateNotes || detail.hasNewMessages
+    );
+    const newActivityTypes: string[] = [];
+    if (detail?.hasNewReactions) newActivityTypes.push('reactions');
+    if (detail?.hasNewPrivateNotes) newActivityTypes.push('private notes');
+    if (detail?.hasNewMessages) newActivityTypes.push('messages');
+
+    return (
+      <View>
+        <PostCard
+          post={item.post}
+          onNavigate={() => {
+            router.push(`/(protected)/post/${item.post.id}`);
+          }}
+        />
+        {shouldShowNewActivityLabel ? (
+          <Text style={[styles.newActivityText, { color: theme.primary }]}>
+            {`New ${newActivityTypes.join(' + ')} since your last app open`}
+          </Text>
+        ) : null}
+      </View>
+    );
+  }, [router, theme.primary, unreadDetailsByPostId]);
+
+  const listHeader = (
+    <View style={styles.filterSection}>
+      <Text style={[styles.filterLabel, { color: theme.mutedForeground }]}>Filter by Circle</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+        <Pressable
+          onPress={() => setSelectedCircleId('all')}
+          style={[
+            styles.filterChip,
+            {
+              borderColor: selectedCircleId === 'all' ? theme.primary : theme.border,
+              backgroundColor: selectedCircleId === 'all' ? `${theme.primary}18` : theme.card,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.filterChipText,
+              { color: selectedCircleId === 'all' ? theme.primary : theme.foreground },
+            ]}
+          >
+            All Circles
+          </Text>
+        </Pressable>
+
+        {circles.map((circle) => {
+          const active = selectedCircleId === circle.id;
+          return (
+            <Pressable
+              key={circle.id}
+              onPress={() => setSelectedCircleId(circle.id)}
+              style={[
+                styles.filterChip,
+                {
+                  borderColor: active ? theme.primary : theme.border,
+                  backgroundColor: active ? `${theme.primary}18` : theme.card,
+                },
+              ]}
+            >
+              <Text style={[styles.filterChipText, { color: active ? theme.primary : theme.foreground }]}> 
+                {circle.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      <Text style={[styles.filterLabel, { color: theme.mutedForeground }]}>Show</Text>
+      <View style={styles.scopeRow}>
+        <Pressable
+          onPress={() => {
+            setActivityScope('all');
+          }}
+          style={[
+            styles.filterChip,
+            {
+              borderColor: activityScope === 'all' ? theme.primary : theme.border,
+              backgroundColor: activityScope === 'all' ? `${theme.primary}18` : theme.card,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.filterChipText,
+              { color: activityScope === 'all' ? theme.primary : theme.foreground },
+            ]}
+          >
+            All Activity
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            setActivityScope('unread');
+          }}
+          style={[
+            styles.filterChip,
+            {
+              borderColor: activityScope === 'unread' ? theme.primary : theme.border,
+              backgroundColor: activityScope === 'unread' ? `${theme.primary}18` : theme.card,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.filterChipText,
+              { color: activityScope === 'unread' ? theme.primary : theme.foreground },
+            ]}
+          >
+            Unread Only
+          </Text>
+        </Pressable>
+      </View>
+
+      <Text style={[styles.filterLabel, { color: theme.mutedForeground }]}>Sort by</Text>
+      <View style={styles.scopeRow}>
+        <Pressable
+          onPress={() => setSortOrder('newest')}
+          style={[
+            styles.filterChip,
+            {
+              borderColor: sortOrder === 'newest' ? theme.primary : theme.border,
+              backgroundColor: sortOrder === 'newest' ? `${theme.primary}18` : theme.card,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.filterChipText,
+              { color: sortOrder === 'newest' ? theme.primary : theme.foreground },
+            ]}
+          >
+            Newest
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => setSortOrder('oldest')}
+          style={[
+            styles.filterChip,
+            {
+              borderColor: sortOrder === 'oldest' ? theme.primary : theme.border,
+              backgroundColor: sortOrder === 'oldest' ? `${theme.primary}18` : theme.card,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.filterChipText,
+              { color: sortOrder === 'oldest' ? theme.primary : theme.foreground },
+            ]}
+          >
+            Oldest
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+
   return (
     <View style={{ flex: 1 }}>
       <ScreenHeader title='Your Post Activity' />
-      <ScrollView
+      <FlashList
         style={{ flex: 1, backgroundColor: theme.background }}
+        data={filtered}
+        keyExtractor={(item) => {
+          return item.post.id;
+        }}
+        renderItem={renderSummaryCard}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={
+          <Card style={styles.emptyCard}>
+            <Text style={styles.emptyEmoji}>📬</Text>
+            <Text style={[styles.emptyTitle, { color: theme.foreground }]}>No posts here yet</Text>
+            <Text style={[styles.emptyBody, { color: theme.mutedForeground }]}> 
+              {activityScope === 'unread'
+                ? 'You are all caught up in this Circle.'
+                : 'Your activity shows up here once you share in this Circle.'}
+            </Text>
+          </Card>
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -131,184 +336,7 @@ export default function PostActivityScreen() {
             paddingBottom: insets.bottom + 36,
           },
         ]}
-      >
-        <View style={styles.filterSection}>
-          <Text style={[styles.filterLabel, { color: theme.mutedForeground }]}>Filter by Circle</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-            <Pressable
-              onPress={() => setSelectedCircleId('all')}
-              style={[
-                styles.filterChip,
-                {
-                  borderColor: selectedCircleId === 'all' ? theme.primary : theme.border,
-                  backgroundColor: selectedCircleId === 'all' ? `${theme.primary}18` : theme.card,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  { color: selectedCircleId === 'all' ? theme.primary : theme.foreground },
-                ]}
-              >
-                All Circles
-              </Text>
-            </Pressable>
-
-            {circles.map((circle) => {
-              const active = selectedCircleId === circle.id;
-              return (
-                <Pressable
-                  key={circle.id}
-                  onPress={() => setSelectedCircleId(circle.id)}
-                  style={[
-                    styles.filterChip,
-                    {
-                      borderColor: active ? theme.primary : theme.border,
-                      backgroundColor: active ? `${theme.primary}18` : theme.card,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.filterChipText, { color: active ? theme.primary : theme.foreground }]}>
-                    {circle.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-
-          <Text style={[styles.filterLabel, { color: theme.mutedForeground }]}>Show</Text>
-          <View style={styles.scopeRow}>
-            <Pressable
-              onPress={() => {
-                userHasManuallySelectedScope.current = true;
-                setActivityScope('all');
-              }}
-              style={[
-                styles.filterChip,
-                {
-                  borderColor: activityScope === 'all' ? theme.primary : theme.border,
-                  backgroundColor: activityScope === 'all' ? `${theme.primary}18` : theme.card,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  { color: activityScope === 'all' ? theme.primary : theme.foreground },
-                ]}
-              >
-                All Activity
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => {
-                userHasManuallySelectedScope.current = true;
-                setActivityScope('unread');
-              }}
-              style={[
-                styles.filterChip,
-                {
-                  borderColor: activityScope === 'unread' ? theme.primary : theme.border,
-                  backgroundColor: activityScope === 'unread' ? `${theme.primary}18` : theme.card,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  { color: activityScope === 'unread' ? theme.primary : theme.foreground },
-                ]}
-              >
-                Unread Only
-              </Text>
-            </Pressable>
-          </View>
-
-          <Text style={[styles.filterLabel, { color: theme.mutedForeground }]}>Sort by</Text>
-          <View style={styles.scopeRow}>
-            <Pressable
-              onPress={() => setSortOrder('newest')}
-              style={[
-                styles.filterChip,
-                {
-                  borderColor: sortOrder === 'newest' ? theme.primary : theme.border,
-                  backgroundColor: sortOrder === 'newest' ? `${theme.primary}18` : theme.card,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  { color: sortOrder === 'newest' ? theme.primary : theme.foreground },
-                ]}
-              >
-                Newest
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => setSortOrder('oldest')}
-              style={[
-                styles.filterChip,
-                {
-                  borderColor: sortOrder === 'oldest' ? theme.primary : theme.border,
-                  backgroundColor: sortOrder === 'oldest' ? `${theme.primary}18` : theme.card,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  { color: sortOrder === 'oldest' ? theme.primary : theme.foreground },
-                ]}
-              >
-                Oldest
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {filtered.length === 0 ? (
-          <Card style={styles.emptyCard}>
-            <Text style={styles.emptyEmoji}>📬</Text>
-            <Text style={[styles.emptyTitle, { color: theme.foreground }]}>No posts here yet</Text>
-            <Text style={[styles.emptyBody, { color: theme.mutedForeground }]}>
-              {activityScope === 'unread'
-                ? 'You are all caught up in this Circle.'
-                : 'Your activity shows up here once you share in this Circle.'}
-            </Text>
-          </Card>
-        ) : (
-          filtered.map((summary) => {
-            const detail = unreadDetailsByPostId[summary.post.id];
-            const shouldShowNewActivityLabel = detail != null && (
-              detail.hasNewReactions || detail.hasNewPrivateNotes || detail.hasNewMessages
-            );
-            const newActivityTypes: string[] = [];
-            if (detail?.hasNewReactions) newActivityTypes.push('reactions');
-            if (detail?.hasNewPrivateNotes) newActivityTypes.push('private notes');
-            if (detail?.hasNewMessages) newActivityTypes.push('messages');
-
-            return (
-              <View key={summary.post.id}>
-                <PostCard
-                  post={summary.post}
-                  onNavigate={() => {
-                    router.push(`/(protected)/post/${summary.post.id}`);
-                  }}
-                />
-                {shouldShowNewActivityLabel ? (
-                  <Text style={[styles.newActivityText, { color: theme.primary }]}>
-                    {`New ${newActivityTypes.join(' + ')} since your last app open`}
-                  </Text>
-                ) : null}
-              </View>
-            );
-          })
-        )}
-      </ScrollView>
+      />
     </View>
   );
 }

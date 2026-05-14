@@ -89,6 +89,11 @@ export const FEED_LAST_SEEN_TIMESTAMP_KEY = '@angelia/feed_last_seen_timestamp';
 /** AsyncStorage key storing the latest per-post activity snapshot the user has reviewed. */
 export const POST_ACTIVITY_SEEN_KEY = (userId: string) => `@angelia/post_activity_seen_${userId}`;
 
+/** AsyncStorage key storing when the user last reviewed reactions for a specific post. */
+export const POST_REACTIONS_SEEN_KEY = (userId: string, postId: string) => {
+  return `@angelia/post_reactions_seen_${userId}_${postId}`;
+};
+
 /** AsyncStorage key storing when the user last opened the app on this device. */
 export const APP_LAST_OPENED_AT_KEY = (userId: string) => `@angelia/app_last_opened_at_${userId}`;
 

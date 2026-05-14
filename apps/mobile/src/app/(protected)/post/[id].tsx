@@ -31,7 +31,7 @@ import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { getUserDisplayName } from '@/lib/user/user.utils';
 import {
-	POST_ACTIVITY_SEEN_KEY,
+	POST_REACTIONS_SEEN_KEY,
 	PRIVATE_NOTES_SEEN_KEY,
 	CONVERSATION_LAST_SEEN_KEY,
 	JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY,
@@ -124,7 +124,12 @@ export default function PostDetailScreen() {
 	useFocusEffect(
 		useCallback(() => {
 			if (!currentUser?.id || !id) return;
-			void AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUser.id), String(Date.now())).catch(() => {});
+			const seenAt = String(Date.now());
+			void AsyncStorage.multiSet([
+				[POST_REACTIONS_SEEN_KEY(currentUser.id, id), seenAt],
+				[PRIVATE_NOTES_SEEN_KEY(id), seenAt],
+				[CONVERSATION_LAST_SEEN_KEY(id), seenAt],
+			]).catch(() => {});
 			// Dismiss reaction notifications for this specific post
 			void dismissNotificationsByData({ type: 'post_reaction', postId: id }).catch(() => {});
 		}, [currentUser?.id, id]),

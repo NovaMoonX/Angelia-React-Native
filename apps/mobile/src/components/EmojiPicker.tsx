@@ -18,6 +18,11 @@ import { EMOJI_CATEGORIES, type EmojiCategory } from '@/constants/emojiData';
 const NUM_COLUMNS = 8;
 const EMOJI_CELL_SIZE = 44;
 const HEADER_HEIGHT = 36;
+const SINGLE_EMOJI_REGEX = /^(?:\p{Extended_Pictographic}(?:\uFE0F|\uFE0E)?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F|\uFE0E)?)*|\p{Regional_Indicator}{2}|[#*0-9]\uFE0F?\u20E3)$/u;
+
+function isValidSingleEmoji(value: string): boolean {
+  return SINGLE_EMOJI_REGEX.test(value.trim());
+}
 
 interface EmojiPickerProps {
   visible: boolean;
@@ -136,6 +141,10 @@ export function EmojiPicker({ visible, onSelect, onClose, variant = 'default' }:
   const manualEmojiInput = useMemo(() => {
     return search.trim();
   }, [search]);
+  const isManualEmojiValid = useMemo(() => {
+    if (manualEmojiInput.length === 0) return false;
+    return isValidSingleEmoji(manualEmojiInput);
+  }, [manualEmojiInput]);
   const sheetHeight = useMemo(() => {
     const isCompact = variant === 'compact';
     const ratio = isCompact ? 0.55 : 0.75;
@@ -312,15 +321,33 @@ export function EmojiPicker({ visible, onSelect, onClose, variant = 'default' }:
                 )}
               </View>
               {manualEmojiInput.length > 0 && (
-                <Pressable
-                  onPress={() => handleSelect(manualEmojiInput)}
-                  style={[styles.customEntryButton, { borderColor: theme.border, backgroundColor: theme.background }]}
+                <View
+                  style={[
+                    styles.customEntryButton,
+                    {
+                      borderColor: isManualEmojiValid ? theme.border : '#DC2626',
+                      backgroundColor: theme.background,
+                    },
+                  ]}
                 >
                   <Text style={styles.customEntryEmoji}>{manualEmojiInput}</Text>
-                  <Text style={[styles.customEntryText, { color: theme.foreground }]}>
-                    Use this emoji
+                  <Text
+                    style={[
+                      styles.customEntryText,
+                      { color: isManualEmojiValid ? theme.foreground : '#DC2626' },
+                    ]}
+                  >
+                    {isManualEmojiValid ? 'Use this emoji' : 'That is not a valid emoji yet'}
                   </Text>
-                </Pressable>
+                  {isManualEmojiValid ? (
+                    <Pressable
+                      onPress={() => handleSelect(manualEmojiInput)}
+                      style={[styles.customEntryAction, { borderColor: theme.border }]}
+                    >
+                      <Text style={[styles.customEntryActionText, { color: theme.foreground }]}>Use</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
               )}
             </View>
 
@@ -460,6 +487,17 @@ const styles = StyleSheet.create({
   customEntryText: {
     fontSize: 13,
     fontWeight: '600',
+    flex: 1,
+  },
+  customEntryAction: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  customEntryActionText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   categoryTab: {
     flex: 1,
