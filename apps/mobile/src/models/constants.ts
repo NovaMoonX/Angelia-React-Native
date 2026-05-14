@@ -141,6 +141,14 @@ export const NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY = (version: string) => {
 };
 
 /**
+ * AsyncStorage key recording whether the user has already seen the release
+ * notice bell badge for a specific notification settings notice version.
+ */
+export const NOTIFICATION_SETTINGS_NOTICE_BADGE_SEEN_KEY = (version: string) => {
+  return `@angelia/notification_settings_notice_badge_seen_${version}`;
+};
+
+/**
  * AsyncStorage key that records the latest required app version the user has
  * dismissed for a specific platform update prompt.
  */

@@ -14,6 +14,7 @@ import { respondToJoinRequest, respondToCircleInviteRequest } from '@/store/acti
 import { ScreenHeader } from '@/components/ScreenHeader';
 import {
   NOTIFICATION_SETTINGS_NOTICE_ACCENT,
+  NOTIFICATION_SETTINGS_NOTICE_BADGE_SEEN_KEY,
   NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY,
   NOTIFICATION_SETTINGS_NOTICE_VERSION,
 } from '@/models/constants';
@@ -53,6 +54,12 @@ export default function NotificationsScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      void AsyncStorage.setItem(
+        NOTIFICATION_SETTINGS_NOTICE_BADGE_SEEN_KEY(NOTIFICATION_SETTINGS_NOTICE_VERSION),
+        'true',
+      ).catch(() => {
+        return null;
+      });
       refreshSettingsReleaseNotice();
       return undefined;
     }, [refreshSettingsReleaseNotice]),

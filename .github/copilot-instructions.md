@@ -289,8 +289,10 @@ The top callout area in the Notifications screen is a **release-scoped, one-time
 - Visibility is versioned by:
   - `NOTIFICATION_SETTINGS_NOTICE_VERSION`
   - `NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY(version)`
+  - `NOTIFICATION_SETTINGS_NOTICE_BADGE_SEEN_KEY(version)`
   in `src/models/constants.ts`.
-- The notice should be dismissed **only after the user actually opens** Notification Settings (`/(protected)/notification-settings`), not merely when the card is rendered.
+- The notice card should be dismissed **only after the user actually opens** Notification Settings (`/(protected)/notification-settings`), not merely when the card is rendered.
+- The feed bell's release-notice dot should clear once the user visits Notifications (`/(protected)/notifications`), even if the notice card still shows.
 - When a new notification-control release ships, bump the notice version and refresh the card copy.
 
 ---

@@ -50,6 +50,7 @@ import { useFeedModals } from '@/hooks/useFeedModals';
 import {
 	BETA_FEEDBACK_FORM_URL,
 	NOTIFICATION_SETTINGS_NOTICE_ACCENT,
+	NOTIFICATION_SETTINGS_NOTICE_BADGE_SEEN_KEY,
 	NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY,
 	NOTIFICATION_SETTINGS_NOTICE_VERSION,
 	POST_TIERS,
@@ -79,11 +80,18 @@ export default function FeedScreen() {
 	useFocusEffect(
 		useCallback(() => {
 			void refreshSeenState();
-			void AsyncStorage.getItem(
-				NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY(NOTIFICATION_SETTINGS_NOTICE_VERSION),
-			)
-				.then((seenValue) => {
-					setHasNotificationSettingsNotice(seenValue !== 'true');
+			void Promise.all([
+				AsyncStorage.getItem(
+					NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY(NOTIFICATION_SETTINGS_NOTICE_VERSION),
+				),
+				AsyncStorage.getItem(
+					NOTIFICATION_SETTINGS_NOTICE_BADGE_SEEN_KEY(NOTIFICATION_SETTINGS_NOTICE_VERSION),
+				),
+			])
+				.then(([noticeSeenValue, badgeSeenValue]) => {
+					const noticeUnseen = noticeSeenValue !== 'true';
+					const badgeUnseen = badgeSeenValue !== 'true';
+					setHasNotificationSettingsNotice(noticeUnseen && badgeUnseen);
 					return null;
 				})
 				.catch(() => {
