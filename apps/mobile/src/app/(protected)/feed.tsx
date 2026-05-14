@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
 	Animated,
 	Linking,
@@ -21,6 +20,7 @@ import { Button } from '@/components/ui/Button';
 import { BellIcon } from '@/components/BellIcon';
 import { PostActivityIcon } from '@/components/PostActivityIcon';
 import { PostCard } from '@/components/PostCard';
+import { ReactionPeel } from '@/components/ReactionPeel';
 import { SkeletonPostCard } from '@/components/SkeletonPostCard';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { NowStatusModal } from '@/components/NowStatusModal';
@@ -32,6 +32,7 @@ import { FeedbackFormModal } from '@/components/FeedbackFormModal';
 import { FeedChannelFilterModal, type ChannelFilterState } from '@/components/FeedChannelFilterModal';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { NewPostsPill, type NewPostsPillRef } from '@/components/NewPostsPill';
+import { getSuggestedReactionEmojis } from '@/lib/reaction/reaction.utils';
 import { formatTimeRemaining } from '@/lib/timeUtils';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { updatePostReactions } from '@/store/actions/postActions';
@@ -43,11 +44,10 @@ import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { useAutoCompleteTasks } from '@/hooks/useAutoCompleteTasks';
 import { useAuthorPostActivity } from '../../hooks/useAuthorPostActivity';
+import { useFeedReactionHint } from '@/hooks/useFeedReactionHint';
 import { useFeedModals } from '@/hooks/useFeedModals';
 import {
 	BETA_FEEDBACK_FORM_URL,
-	FEED_REACTION_HINT_DISMISSED_KEY,
-	FEED_REACTION_HINT_USED_KEY,
 	POST_TIERS,
 } from '@/models/constants';
 import type { Post, PostTier, Reaction, UserStatus } from '@/models/types';
@@ -84,6 +84,7 @@ export default function FeedScreen() {
 
 	// Centralized feed modal priority system.
 	const { activeModal, mobileConfig, deviceVersion, targetVersion, closeOnboarding, closeBetaUpdate, closeAppVersion, closeAppMessage, closeFeedbackForm } = useFeedModals();
+	const { showFeedReactionHint, dismissFeedReactionHint, markFeedReactionHintUsed } = useFeedReactionHint(currentUser?.id);
 
 	const [channelFilter, setChannelFilter] = useState<ChannelFilterState>({ mode: 'all', specificIds: [] });
 	const [channelFilterOpen, setChannelFilterOpen] = useState(false);
@@ -96,8 +97,9 @@ export default function FeedScreen() {
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [reactionPickerVisible, setReactionPickerVisible] = useState(false);
 	const [reactionTargetPostId, setReactionTargetPostId] = useState<string | null>(null);
-	const [showFeedReactionHint, setShowFeedReactionHint] = useState(false);
+	const [activeReactionPeelPostId, setActiveReactionPeelPostId] = useState<string | null>(null);
 	const isMountedRef = useRef(false);
+	const reactionPickerOpenRef = useRef(false);
 	const flatListRef = useRef<FlashListRef<Post>>(null);
 
 	// Animated dots for filtering indicator
@@ -221,74 +223,53 @@ export default function FeedScreen() {
 		setIsRefreshing(false);
 	}, [refreshSeenState]);
 
-	useEffect(() => {
-		const userId = currentUser?.id ?? null;
-		if (!userId) {
-			setShowFeedReactionHint(false);
-			return;
-		}
-		let isMounted = true;
-		void AsyncStorage.multiGet([
-			FEED_REACTION_HINT_DISMISSED_KEY(userId),
-			FEED_REACTION_HINT_USED_KEY(userId),
-		]).then((pairs) => {
-			if (!isMounted) return;
-			const valuesByKey = new Map(pairs);
-			const dismissed = valuesByKey.get(FEED_REACTION_HINT_DISMISSED_KEY(userId)) === 'true';
-			const used = valuesByKey.get(FEED_REACTION_HINT_USED_KEY(userId)) === 'true';
-			setShowFeedReactionHint(!dismissed && !used);
-		}).catch(() => {
-			if (!isMounted) return;
-			setShowFeedReactionHint(false);
+	const openFeedReactionPeel = useCallback((postId: string) => {
+		setActiveReactionPeelPostId((prev) => {
+			if (prev === postId) {
+				return null;
+			}
+			return postId;
 		});
-		return () => {
-			isMounted = false;
-		};
-	}, [currentUser?.id]);
-
-	const dismissFeedReactionHint = useCallback(async () => {
-		const userId = currentUser?.id ?? null;
-		setShowFeedReactionHint(false);
-		if (!userId) return;
-		await AsyncStorage.setItem(FEED_REACTION_HINT_DISMISSED_KEY(userId), 'true').catch(() => {});
-	}, [currentUser?.id]);
-
-	const markFeedReactionHintUsed = useCallback(async () => {
-		const userId = currentUser?.id ?? null;
-		setShowFeedReactionHint(false);
-		if (!userId) return;
-		await AsyncStorage.setItem(FEED_REACTION_HINT_USED_KEY(userId), 'true').catch(() => {});
-	}, [currentUser?.id]);
-
-	const openFeedReactionPicker = useCallback((postId: string) => {
-		setReactionTargetPostId(postId);
-		setReactionPickerVisible(true);
 	}, []);
 
+	const openFeedReactionPicker = useCallback((postId: string) => {
+		reactionPickerOpenRef.current = true;
+		setReactionTargetPostId(postId);
+		setReactionPickerVisible(true);
+
+		const targetIndex = filteredPosts.findIndex((post) => {
+			return post.id === postId;
+		});
+		if (targetIndex >= 0) {
+			flatListRef.current?.scrollToIndex({
+				index: targetIndex,
+				animated: true,
+				viewPosition: 0,
+			});
+		}
+	}, [filteredPosts]);
+
 	const closeFeedReactionPicker = useCallback(() => {
+		reactionPickerOpenRef.current = false;
 		setReactionPickerVisible(false);
 		setReactionTargetPostId(null);
 	}, []);
 
-	const handleFeedReactionSelect = useCallback(async (emoji: string) => {
+	const submitFeedReaction = useCallback(async (postId: string, emoji: string) => {
 		const userId = currentUser?.id ?? null;
-		const targetPostId = reactionTargetPostId;
-		if (!userId || !targetPostId) {
-			closeFeedReactionPicker();
-			return;
-		}
+		if (!userId) return;
+
 		const targetPost = posts.find((post) => {
-			return post.id === targetPostId;
+			return post.id === postId;
 		});
 		if (!targetPost) {
-			closeFeedReactionPicker();
 			addToast({ type: 'error', title: 'That post is no longer available.' });
 			return;
 		}
+
 		const alreadyReactedWithEmoji = targetPost.reactions.some((reaction) => {
 			return reaction.userId === userId && reaction.emoji === emoji;
 		});
-		closeFeedReactionPicker();
 		if (alreadyReactedWithEmoji) return;
 
 		const newReaction: Reaction = {
@@ -298,7 +279,7 @@ export default function FeedScreen() {
 		};
 
 		try {
-			await dispatch(updatePostReactions({ postId: targetPostId, newReaction })).unwrap();
+			await dispatch(updatePostReactions({ postId, newReaction })).unwrap();
 			if (showFeedReactionHint) {
 				await markFeedReactionHintUsed();
 			}
@@ -307,13 +288,30 @@ export default function FeedScreen() {
 		}
 	}, [
 		addToast,
-		closeFeedReactionPicker,
 		currentUser?.id,
 		dispatch,
 		markFeedReactionHintUsed,
 		posts,
-		reactionTargetPostId,
 		showFeedReactionHint,
+	]);
+
+	const handleFeedReactionSelectFromPeel = useCallback(async (postId: string, emoji: string) => {
+		setActiveReactionPeelPostId(null);
+		await submitFeedReaction(postId, emoji);
+	}, [submitFeedReaction]);
+
+	const handleFeedReactionSelect = useCallback(async (emoji: string) => {
+		const targetPostId = reactionTargetPostId;
+		if (!targetPostId) {
+			closeFeedReactionPicker();
+			return;
+		}
+		closeFeedReactionPicker();
+		await submitFeedReaction(targetPostId, emoji);
+	}, [
+		closeFeedReactionPicker,
+		reactionTargetPostId,
+		submitFeedReaction,
 	]);
 
 	const isChannelFiltered = channelFilter.mode === 'specific' && channelFilter.specificIds.length > 0;
@@ -341,6 +339,16 @@ export default function FeedScreen() {
 		const timer = setTimeout(() => setIsFiltering(false), FILTERING_INDICATOR_DURATION);
 		return () => clearTimeout(timer);
 	}, [channelFilter, priorityFilter, sortOrder]);
+
+	useEffect(() => {
+		if (!activeReactionPeelPostId) return;
+		const stillVisible = filteredPosts.some((post) => {
+			return post.id === activeReactionPeelPostId;
+		});
+		if (!stillVisible) {
+			setActiveReactionPeelPostId(null);
+		}
+	}, [activeReactionPeelPostId, filteredPosts]);
 
 	// Animated bouncing dots for filter loading indicator
 	useEffect(() => {
@@ -395,6 +403,10 @@ export default function FeedScreen() {
 			const delta = currentY - prevScrollY.current;
 			const threshold = headerHeight;
 
+			if (Math.abs(delta) > 4 && activeReactionPeelPostId && !reactionPickerOpenRef.current) {
+				setActiveReactionPeelPostId(null);
+			}
+
 			if (currentY <= 0 && !headerVisible.current) {
 				headerVisible.current = true;
 				animateHeader(0, 150);
@@ -413,7 +425,7 @@ export default function FeedScreen() {
 			setScrolledPast(currentY > 100);
 			prevScrollY.current = currentY;
 		},
-		[animateHeader, headerHeight],
+		[activeReactionPeelPostId, animateHeader, headerHeight],
 	);
 
 	const handleSaveStatus = useCallback(
@@ -467,15 +479,45 @@ export default function FeedScreen() {
 
 	const renderPost = useCallback(
 		({ item }: { item: Post }) => {
+			const suggestedReactionEmojis = getSuggestedReactionEmojis({
+				reactions: item.reactions,
+				currentUserId: currentUser?.id ?? null,
+				max: 10,
+			});
+
 			return (
 				<PostCard
 					post={item}
-					onNavigate={() => router.push(`/(protected)/post/${item.id}`)}
-					onLongPress={() => openFeedReactionPicker(item.id)}
+					onNavigate={() => {
+						setActiveReactionPeelPostId(null);
+						router.push(`/(protected)/post/${item.id}`);
+					}}
+					onLongPress={() => openFeedReactionPeel(item.id)}
+					reactionPeel={
+						activeReactionPeelPostId === item.id ? (
+							<ReactionPeel
+								emojis={suggestedReactionEmojis}
+								onSelect={(emoji) => {
+									void handleFeedReactionSelectFromPeel(item.id, emoji);
+								}}
+								onOpenPicker={() => openFeedReactionPicker(item.id)}
+								size='compact'
+								highlighted
+								style={styles.inlineReactionPeel}
+							/>
+						) : null
+					}
 				/>
 			);
 		},
-		[openFeedReactionPicker, router],
+		[
+			activeReactionPeelPostId,
+			currentUser?.id,
+			handleFeedReactionSelectFromPeel,
+			openFeedReactionPeel,
+			openFeedReactionPicker,
+			router,
+		],
 	);
 
 	// In demo mode the DemoModeBanner already consumes the top safe-area inset,
@@ -524,7 +566,7 @@ export default function FeedScreen() {
 										Long-press any post to react right from your feed. Go ahead — give it a try!
 									</Text>
 								</View>
-								<Pressable onPress={dismissFeedReactionHint} hitSlop={8}>
+								<Pressable onPress={() => { void dismissFeedReactionHint(); }} hitSlop={8}>
 									<Feather name='x' size={18} color={theme.mutedForeground} />
 								</Pressable>
 							</View>
@@ -889,6 +931,7 @@ export default function FeedScreen() {
 				visible={reactionPickerVisible}
 				onSelect={handleFeedReactionSelect}
 				onClose={closeFeedReactionPicker}
+				variant='compact'
 			/>
 		</View>
 	);
@@ -1179,6 +1222,9 @@ const styles = StyleSheet.create({
 		width: 7,
 		height: 7,
 		borderRadius: 3.5,
+	},
+	inlineReactionPeel: {
+		marginTop: 8,
 	},
 	clearFiltersButton: {
 		marginTop: 4,

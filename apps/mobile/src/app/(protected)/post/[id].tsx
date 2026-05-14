@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Carousel } from '@/components/ui/Carousel';
 import { ReactionDisplay } from '@/components/ReactionDisplay';
+import { ReactionPeel } from '@/components/ReactionPeel';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { MediaViewerModal } from '@/components/MediaViewerModal';
 import { PrivateNoteModal } from '@/components/PrivateNoteModal';
@@ -24,19 +25,18 @@ import { useSentPrivateNotes } from '@/hooks/useSentPrivateNotes';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { useActionModal } from '@/hooks/useActionModal';
+import { getSuggestedReactionEmojis } from '@/lib/reaction/reaction.utils';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { getUserDisplayName } from '@/lib/user/user.utils';
 import {
-	COMMON_EMOJIS,
 	POST_ACTIVITY_SEEN_KEY,
 	PRIVATE_NOTES_SEEN_KEY,
 	CONVERSATION_LAST_SEEN_KEY,
 	JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY,
 } from '@/models/constants';
 import { EmojiPicker } from '@/components/EmojiPicker';
-import { AddReactionIcon } from '@/components/AddReactionIcon';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { updatePostReactions, removeAllPostReactionsForUser, deletePostAction } from '@/store/actions/postActions';
@@ -180,12 +180,16 @@ export default function PostDetailScreen() {
 		return groups;
 	}, [post, currentUser, usersMap]);
 
-	// Filter out emojis the current user has already used — must be before early return
-	const availableCommonEmojis = useMemo(() => {
-		if (!currentUser) return COMMON_EMOJIS;
-		const myEmojis = new Set(reactionGroups[currentUser.id]?.emojis ?? []);
-		return COMMON_EMOJIS.filter((emoji) => { return !myEmojis.has(emoji); });
-	}, [reactionGroups, currentUser]);
+	const suggestedReactionEmojis = useMemo(() => {
+		if (!post || !currentUser) {
+			return [];
+		}
+		return getSuggestedReactionEmojis({
+			reactions: post.reactions,
+			currentUserId: currentUser.id,
+			max: 12,
+		});
+	}, [post, currentUser]);
 
 	// All useCallback/useEffect hooks must be before the early return — Rules of Hooks
 
@@ -564,34 +568,14 @@ export default function PostDetailScreen() {
 
 			{/* Bottom bar — emoji pill + discreet actions */}
 			<View style={styles.bottomBarContainer}>
-				{/* Emoji pill */}
-				<View
-					style={[
-						styles.fixedEmojiBar,
-						{
-							borderColor: hasReacted ? theme.primary : theme.border,
-							backgroundColor: theme.background,
-						},
-					]}
-				>
-					<ScrollView
-						horizontal
-						showsHorizontalScrollIndicator={false}
-						contentContainerStyle={styles.fixedEmojiBarContent}
-					>
-						{availableCommonEmojis.map((emoji) => (
-							<Pressable key={emoji} onPress={() => handleReaction(emoji)} style={styles.emojiButton}>
-								<Text style={styles.emojiText}>{emoji}</Text>
-							</Pressable>
-						))}
-						<Pressable
-							onPress={() => setEmojiPickerVisible(true)}
-							style={[styles.emojiButton, { borderColor: theme.border }]}
-						>
-							<AddReactionIcon size={28} color={theme.mutedForeground} />
-						</Pressable>
-					</ScrollView>
-				</View>
+				<ReactionPeel
+					emojis={suggestedReactionEmojis}
+					onSelect={(emoji) => {
+						void handleReaction(emoji);
+					}}
+					onOpenPicker={() => setEmojiPickerVisible(true)}
+					highlighted={hasReacted}
+				/>
 
 				<View style={styles.secondaryActionsRow}>
 					{!isHost && (
@@ -817,29 +801,6 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		fontWeight: '700',
 		letterSpacing: 0.5,
-	},
-	emojiButton: {
-		width: 44,
-		height: 44,
-		borderRadius: 8,
-		justifyContent: 'center',
-		alignItems: 'center',
-	},
-	emojiText: {
-		fontSize: 24,
-	},
-	fixedEmojiBar: {
-		borderWidth: 1.5,
-		borderTopWidth: 1.5,
-		borderRadius: 24,
-		paddingHorizontal: 8,
-		paddingVertical: 4,
-	},
-	fixedEmojiBarContent: {
-		flexGrow: 1,
-		gap: 6,
-		alignItems: 'center',
-		justifyContent: 'center',
 	},
 	reactionsSection: {
 		marginTop: 16,

@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +23,7 @@ interface EmojiPickerProps {
   visible: boolean;
   onSelect: (emoji: string) => void;
   onClose: () => void;
+  variant?: 'default' | 'compact';
 }
 
 /* ── Individual emoji cell (pure) ───────────────────────────── */
@@ -104,9 +106,10 @@ const EmojiRow = memo(function EmojiRow({
 });
 
 /* ── Main component ─────────────────────────────────────────── */
-export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
+export function EmojiPicker({ visible, onSelect, onClose, variant = 'default' }: EmojiPickerProps) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState(
     EMOJI_CATEGORIES[0].key,
@@ -133,6 +136,12 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
   const manualEmojiInput = useMemo(() => {
     return search.trim();
   }, [search]);
+  const sheetHeight = useMemo(() => {
+    const isCompact = variant === 'compact';
+    const ratio = isCompact ? 0.55 : 0.75;
+    const minHeight = isCompact ? 340 : 360;
+    return Math.max(minHeight, Math.floor(windowHeight * ratio));
+  }, [variant, windowHeight]);
 
   const handleSelect = useCallback(
     (emoji: string) => {
@@ -242,6 +251,7 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
               {
                 backgroundColor: theme.card,
                 paddingBottom: insets.bottom + 8,
+                height: sheetHeight,
               },
             ]}
           >
@@ -381,7 +391,6 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   sheet: {
-    flex: 3,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     shadowColor: '#000',

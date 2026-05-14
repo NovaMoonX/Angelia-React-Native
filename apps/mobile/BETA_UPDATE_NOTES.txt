@@ -7,7 +7,10 @@ Related PR: TBD
 Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
 
 Current branch highlights:
-- You can now react to posts directly from your Feed — just long-press a post to pop open the emoji picker without leaving the screen.
+- You can now react to posts directly from your Feed — long-press a post to open a quick reaction peel right under it, so reacting feels instant and keeps your place.
+- Feed reaction peel is now more compact with smaller emoji chips, so it takes up less vertical space while still staying easy to tap.
+- When you open the feed emoji picker, we now keep the reaction peel visible, nudge the selected post higher, and show a much shorter picker (about half the previous height) so more of the post stays in view.
+- Reaction suggestions now prioritize emojis other people already used on that post, while still keeping the familiar common emoji options in the mix.
 - Post Activity now keys off your local app-open time, so you only see truly new activity (no more giant “everything is new” moments after updates or sign-ins).
 - You can now pull to refresh in both Feed and Post Activity whenever you want a quick manual sync.
 - Deleted posts now disappear cleanly from live lists, and if a post vanishes while you are viewing it (or its conversation), you now get a friendly “post may be deleted” message with a one-tap path back to Feed.

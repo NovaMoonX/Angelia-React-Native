@@ -24,9 +24,10 @@ interface PostCardProps {
   post: Post;
   onNavigate?: () => void;
   onLongPress?: () => void;
+  reactionPeel?: React.ReactNode;
 }
 
-export function PostCard({ post, onNavigate, onLongPress }: PostCardProps) {
+export function PostCard({ post, onNavigate, onLongPress, reactionPeel }: PostCardProps) {
   const author = useAppSelector((state) =>
     selectPostAuthor(state, post.authorId)
   );
@@ -229,6 +230,7 @@ export function PostCard({ post, onNavigate, onLongPress }: PostCardProps) {
       )}
     </Card>
     </Animated.View>
+    {reactionPeel}
     </View>
   );
 }
