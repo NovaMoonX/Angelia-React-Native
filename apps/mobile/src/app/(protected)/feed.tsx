@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/Button';
 import { BellIcon } from '@/components/BellIcon';
 import { PostActivityIcon } from '@/components/PostActivityIcon';
 import { PostCard } from '@/components/PostCard';
-import { ReactionPeel } from '@/components/ReactionPeel';
+import { ReactionPill } from '@/components/ReactionPill';
 import { SkeletonPostCard } from '@/components/SkeletonPostCard';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { NowStatusModal } from '@/components/NowStatusModal';
@@ -97,7 +97,7 @@ export default function FeedScreen() {
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [reactionPickerVisible, setReactionPickerVisible] = useState(false);
 	const [reactionTargetPostId, setReactionTargetPostId] = useState<string | null>(null);
-	const [activeReactionPeelPostId, setActiveReactionPeelPostId] = useState<string | null>(null);
+	const [activeReactionPillPostId, setActiveReactionPeelPostId] = useState<string | null>(null);
 	const isMountedRef = useRef(false);
 	const reactionPickerOpenRef = useRef(false);
 	const flatListRef = useRef<FlashListRef<Post>>(null);
@@ -223,7 +223,7 @@ export default function FeedScreen() {
 		setIsRefreshing(false);
 	}, [refreshSeenState]);
 
-	const openFeedReactionPeel = useCallback((postId: string) => {
+	const openFeedReactionPill = useCallback((postId: string) => {
 		setActiveReactionPeelPostId((prev) => {
 			if (prev === postId) {
 				return null;
@@ -295,7 +295,7 @@ export default function FeedScreen() {
 		showFeedReactionHint,
 	]);
 
-	const handleFeedReactionSelectFromPeel = useCallback(async (postId: string, emoji: string) => {
+	const handleFeedReactionSelectFromPill = useCallback(async (postId: string, emoji: string) => {
 		setActiveReactionPeelPostId(null);
 		await submitFeedReaction(postId, emoji);
 	}, [submitFeedReaction]);
@@ -341,14 +341,14 @@ export default function FeedScreen() {
 	}, [channelFilter, priorityFilter, sortOrder]);
 
 	useEffect(() => {
-		if (!activeReactionPeelPostId) return;
+		if (!activeReactionPillPostId) return;
 		const stillVisible = filteredPosts.some((post) => {
-			return post.id === activeReactionPeelPostId;
+			return post.id === activeReactionPillPostId;
 		});
 		if (!stillVisible) {
 			setActiveReactionPeelPostId(null);
 		}
-	}, [activeReactionPeelPostId, filteredPosts]);
+	}, [activeReactionPillPostId, filteredPosts]);
 
 	// Animated bouncing dots for filter loading indicator
 	useEffect(() => {
@@ -403,7 +403,7 @@ export default function FeedScreen() {
 			const delta = currentY - prevScrollY.current;
 			const threshold = headerHeight;
 
-			if (Math.abs(delta) > 4 && activeReactionPeelPostId && !reactionPickerOpenRef.current) {
+			if (Math.abs(delta) > 4 && activeReactionPillPostId && !reactionPickerOpenRef.current) {
 				setActiveReactionPeelPostId(null);
 			}
 
@@ -425,7 +425,7 @@ export default function FeedScreen() {
 			setScrolledPast(currentY > 100);
 			prevScrollY.current = currentY;
 		},
-		[activeReactionPeelPostId, animateHeader, headerHeight],
+		[activeReactionPillPostId, animateHeader, headerHeight],
 	);
 
 	const handleSaveStatus = useCallback(
@@ -492,13 +492,13 @@ export default function FeedScreen() {
 						setActiveReactionPeelPostId(null);
 						router.push(`/(protected)/post/${item.id}`);
 					}}
-					onLongPress={() => openFeedReactionPeel(item.id)}
-					reactionPeel={
-						activeReactionPeelPostId === item.id ? (
-							<ReactionPeel
+					onLongPress={() => openFeedReactionPill(item.id)}
+					reactionPill={
+						activeReactionPillPostId === item.id ? (
+							<ReactionPill
 								emojis={suggestedReactionEmojis}
 								onSelect={(emoji) => {
-									void handleFeedReactionSelectFromPeel(item.id, emoji);
+									void handleFeedReactionSelectFromPill(item.id, emoji);
 								}}
 								onOpenPicker={() => openFeedReactionPicker(item.id)}
 								size='compact'
@@ -511,10 +511,10 @@ export default function FeedScreen() {
 			);
 		},
 		[
-			activeReactionPeelPostId,
+			activeReactionPillPostId,
 			currentUser?.id,
-			handleFeedReactionSelectFromPeel,
-			openFeedReactionPeel,
+			handleFeedReactionSelectFromPill,
+			openFeedReactionPill,
 			openFeedReactionPicker,
 			router,
 		],

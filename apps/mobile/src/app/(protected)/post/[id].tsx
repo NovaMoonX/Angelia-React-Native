@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Carousel } from '@/components/ui/Carousel';
 import { ReactionDisplay } from '@/components/ReactionDisplay';
-import { ReactionPeel } from '@/components/ReactionPeel';
+import { ReactionPill } from '@/components/ReactionPill';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { MediaViewerModal } from '@/components/MediaViewerModal';
 import { PrivateNoteModal } from '@/components/PrivateNoteModal';
@@ -568,7 +568,7 @@ export default function PostDetailScreen() {
 
 			{/* Bottom bar — emoji pill + discreet actions */}
 			<View style={styles.bottomBarContainer}>
-				<ReactionPeel
+				<ReactionPill
 					emojis={suggestedReactionEmojis}
 					onSelect={(emoji) => {
 						void handleReaction(emoji);
