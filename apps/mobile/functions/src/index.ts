@@ -380,14 +380,18 @@ function buildUnifiedPostPayload(n: UnifiedPostNotificationInput): {
 } {
 	const fullName = `${n.authorFirstName} ${n.authorLastName}`.trim();
 	const ownerName = fullName || n.authorFirstName || 'Someone';
-	const tierText =
-		n.tier === 'big-news' ? 'big news' : n.tier === 'worth-knowing' ? 'worth knowing' : 'everyday update';
 	const attachmentText = n.hasAttachments ? ' with attachments' : '';
 	const circleLabel = n.isDaily ? 'Daily Circle' : `"${n.channelName}"`;
+	const title =
+		n.tier === 'big-news'
+			? `🚨 Big News from ${ownerName}`
+			: n.tier === 'worth-knowing'
+				? `💡 Worth Knowing from ${ownerName}`
+				: `${ownerName} shared a new post`;
 
 	return {
-		title: `${ownerName} shared a new post`,
-		body: `New ${tierText}${attachmentText} in ${circleLabel}`,
+		title,
+		body: `New post${attachmentText} in ${circleLabel}`,
 		data: {
 			type: 'new_post',
 			postId: n.postId,

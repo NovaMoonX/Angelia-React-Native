@@ -664,12 +664,12 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
         const channelName = data?.channelName ?? '';
         const tier = data?.tier ?? 'everyday';
         const hasAttachments = data?.hasAttachments === 'true';
-        const tierText =
+        const toastTitle =
           tier === 'big-news'
-            ? 'big news'
+            ? `🚨 Big News from ${name}`
             : tier === 'worth-knowing'
-              ? 'worth knowing'
-              : 'everyday update';
+              ? `💡 Worth Knowing from ${name}`
+              : `📝 ${name} shared a new post`;
         const circleDescription = isDaily
           ? 'their Daily Circle'
           : channelName
@@ -679,8 +679,8 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
 
         addToast({
           type: 'info',
-          title: `📝 ${name} shared a new post`,
-          description: `Tap to see their ${tierText}${attachmentText} in ${circleDescription}`,
+          title: toastTitle,
+          description: `Tap to see their new post${attachmentText} in ${circleDescription}`,
           onPress: postId
             ? () => router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } })
             : undefined,
