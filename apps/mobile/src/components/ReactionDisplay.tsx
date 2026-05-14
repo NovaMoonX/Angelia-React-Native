@@ -2,45 +2,54 @@ import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 
+function formatNames(names: string[]): string {
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+}
+
 interface ReactionDisplayProps {
-  emojis: string[];
-  displayName: string;
-  isCurrentUser: boolean;
+  emoji: string;
+  count: number;
+  names: string[];
+  currentUserReacted: boolean;
   onClick: () => void;
 }
 
 export function ReactionDisplay({
-  emojis,
-  displayName,
-  isCurrentUser,
+  emoji,
+  count,
+  names,
+  currentUserReacted,
   onClick,
 }: ReactionDisplayProps) {
   const { theme } = useTheme();
 
   return (
     <Pressable
-      onPress={isCurrentUser ? onClick : undefined}
+      onPress={currentUserReacted ? onClick : undefined}
       style={[
         styles.container,
         {
-          borderColor: isCurrentUser ? theme.primary : theme.border,
-          backgroundColor: isCurrentUser
+          borderColor: currentUserReacted ? theme.primary : theme.border,
+          backgroundColor: currentUserReacted
             ? `${theme.primary}20`
             : theme.card,
         },
       ]}
     >
-      <Text style={styles.emoji}>{emojis.join('')}</Text>
+      <Text style={styles.emoji}>{emoji}</Text>
       <Text
         style={[
-          styles.name,
+          styles.label,
           {
-            color: isCurrentUser ? theme.primary : theme.foreground,
-            fontWeight: isCurrentUser ? '700' : '500',
+            color: currentUserReacted ? theme.primary : theme.foreground,
+            fontWeight: currentUserReacted ? '700' : '500',
           },
         ]}
       >
-        {displayName}
+        {formatNames(names)}
       </Text>
     </Pressable>
   );
@@ -59,7 +68,7 @@ const styles = StyleSheet.create({
   emoji: {
     fontSize: 16,
   },
-  name: {
+  label: {
     fontSize: 12,
   },
 });

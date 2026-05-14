@@ -162,22 +162,26 @@ export default function PostDetailScreen() {
 		setActiveCarouselIndex(index);
 	};
 
-	// Group reactions by user — must be before early return to satisfy Rules of Hooks
+	// Group reactions by emoji, sorted by count descending — must be before early return to satisfy Rules of Hooks
 	const reactionGroups = useMemo(() => {
-		const groups: Record<string, { emojis: string[]; displayName: string; isCurrentUser: boolean }> = {};
-		if (!post || !currentUser) return groups;
+		if (!post || !currentUser) return [] as { emoji: string; count: number; currentUserReacted: boolean; names: string[] }[];
+		const groups: Record<string, { count: number; currentUserReacted: boolean; names: string[] }> = {};
 		post.reactions.forEach((r) => {
-			if (!groups[r.userId]) {
-				const reactingUser = usersMap[r.userId];
-				groups[r.userId] = {
-					emojis: [],
-					displayName: getUserDisplayName(reactingUser, currentUser.id, r.userId),
-					isCurrentUser: r.userId === currentUser.id,
-				};
+			if (!groups[r.emoji]) {
+				groups[r.emoji] = { count: 0, currentUserReacted: false, names: [] };
 			}
-			groups[r.userId].emojis.push(r.emoji);
+			groups[r.emoji].count += 1;
+			if (r.userId === currentUser.id) {
+				groups[r.emoji].currentUserReacted = true;
+				groups[r.emoji].names.unshift('You');
+			} else {
+				const reactingUser = usersMap[r.userId];
+				groups[r.emoji].names.push(getUserDisplayName(reactingUser, currentUser.id, r.userId, 'first-last-initial'));
+			}
 		});
-		return groups;
+		return Object.entries(groups)
+			.sort((a, b) => { return b[1].count - a[1].count; })
+			.map(([emoji, data]) => { return { emoji, count: data.count, currentUserReacted: data.currentUserReacted, names: data.names }; });
 	}, [post, currentUser, usersMap]);
 
 	const suggestedReactionEmojis = useMemo(() => {
@@ -519,16 +523,17 @@ export default function PostDetailScreen() {
 
 				{/* Reactions — inline Slack-like layout */}
 				<View style={styles.reactionsSection}>
-					{Object.keys(reactionGroups).length > 0 ? (
+					{reactionGroups.length > 0 ? (
 						<View style={styles.reactionGroups}>
-							{Object.entries(reactionGroups).map(([userId, data]) => (
+							{reactionGroups.map((group) => (
 								<ReactionDisplay
-									key={userId}
-									emojis={data.emojis}
-									displayName={data.displayName}
-									isCurrentUser={data.isCurrentUser}
+									key={group.emoji}
+									emoji={group.emoji}
+									count={group.count}
+									names={group.names}
+									currentUserReacted={group.currentUserReacted}
 									onClick={() => {
-										if (data.isCurrentUser) {
+										if (group.currentUserReacted) {
 											handleRemoveAllReactions();
 										}
 									}}
