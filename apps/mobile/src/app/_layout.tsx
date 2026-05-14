@@ -120,6 +120,16 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 		if (postId) {
 			router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } });
 		}
+	} else if (type === 'post_reaction') {
+		const postId = data?.postId;
+		if (postId) {
+			router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } });
+		}
+	} else if (type === 'conversation_message') {
+		const postId = data?.postId;
+		if (postId) {
+			router.push({ pathname: '/(protected)/conversation', params: { postId } });
+		}
 	} else if (type === 'private_note') {
 		const postId = data?.postId;
 		if (postId) {

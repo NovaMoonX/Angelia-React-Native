@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -11,6 +12,11 @@ import { useTheme } from '@/hooks/useTheme';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { respondToJoinRequest, respondToCircleInviteRequest } from '@/store/actions/inviteActions';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import {
+  NOTIFICATION_SETTINGS_NOTICE_ACCENT,
+  NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY,
+  NOTIFICATION_SETTINGS_NOTICE_VERSION,
+} from '@/models/constants';
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -26,6 +32,31 @@ export default function NotificationsScreen() {
   const pendingIncoming = incoming.filter((r) => r.status === 'pending');
   const pendingCircleInvites = incomingCircleInvites.filter((r) => r.status === 'pending');
   const pendingConnRequests = incomingConnRequests.filter((r) => r.status === 'pending');
+  const [showSettingsReleaseNotice, setShowSettingsReleaseNotice] = useState(false);
+  const settingsNoticeAccent = NOTIFICATION_SETTINGS_NOTICE_ACCENT;
+  const settingsNoticeBackground = `${NOTIFICATION_SETTINGS_NOTICE_ACCENT}1F`;
+  const settingsNoticeBorder = `${NOTIFICATION_SETTINGS_NOTICE_ACCENT}66`;
+
+  const refreshSettingsReleaseNotice = useCallback(() => {
+    void AsyncStorage.getItem(
+      NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY(NOTIFICATION_SETTINGS_NOTICE_VERSION),
+    )
+      .then((seenValue) => {
+        setShowSettingsReleaseNotice(seenValue !== 'true');
+        return null;
+      })
+      .catch(() => {
+        setShowSettingsReleaseNotice(true);
+        return null;
+      });
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshSettingsReleaseNotice();
+      return undefined;
+    }, [refreshSettingsReleaseNotice]),
+  );
 
   const handleRespondToRequest = async (
     requestId: string,
@@ -84,36 +115,42 @@ export default function NotificationsScreen() {
           { paddingTop: 12 }
         ]}
       >
-        {/* Settings entry point */}
-        <Pressable
-          onPress={() => router.push('/(protected)/daily-reminder-settings')}
-          style={({ pressed }) => [
-            styles.settingsRow,
-            { backgroundColor: theme.secondary, opacity: pressed ? 0.8 : 1 },
-          ]}
-        >
-          <View style={styles.settingsRowLeft}>
-            <Text style={styles.settingsRowEmoji}>🔔</Text>
-            <View>
-              <Text style={[styles.settingsRowTitle, { color: theme.secondaryForeground }]}>
-                Daily Reminders
-              </Text>
-              <Text style={[styles.settingsRowSub, { color: theme.secondaryForeground }]}>
-                Manage your daily prompt settings
-              </Text>
+        {/* Release notice area: one-time callout for new notification controls */}
+        {showSettingsReleaseNotice && (
+          <Pressable
+            onPress={() => router.push('/(protected)/notification-settings')}
+            style={({ pressed }) => [
+              styles.settingsRow,
+              {
+                backgroundColor: settingsNoticeBackground,
+                borderColor: settingsNoticeBorder,
+                opacity: pressed ? 0.8 : 1,
+              },
+            ]}
+          >
+            <View style={styles.settingsRowLeft}>
+              <Text style={[styles.settingsRowEmoji, { color: settingsNoticeAccent }]}>✨</Text>
+              <View style={styles.settingsRowTextWrap}>
+                <Text style={[styles.settingsRowTitle, { color: settingsNoticeAccent }]}> 
+                  New Notification Controls
+                </Text>
+                <Text style={[styles.settingsRowSub, { color: settingsNoticeAccent }]}> 
+                  You can now manage post activity alerts. Tap to review your settings.
+                </Text>
+              </View>
             </View>
-          </View>
-          <Feather name="chevron-right" size={18} color={theme.secondaryForeground} />
-        </Pressable>
+            <Feather name="chevron-right" size={18} color={settingsNoticeAccent} style={styles.settingsRowChevron} />
+          </Pressable>
+        )}
 
         {/* Empty state — only shown when both request types are empty */}
         {pendingIncoming.length === 0 && pendingCircleInvites.length === 0 && pendingConnRequests.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🫶</Text>
-            <Text style={[styles.emptyText, { color: theme.mutedForeground }]}>
+            <Text style={[styles.emptyText, { color: theme.mutedForeground, textAlign: 'center' }]}>
               You're all caught up!
             </Text>
-            <Text style={[styles.emptySubtext, { color: theme.mutedForeground }]}>
+            <Text style={[styles.emptySubtext, { color: theme.mutedForeground, textAlign: 'center' }]}>
               Circle join requests, Circle invites, and connection requests will show up here.
             </Text>
           </View>
@@ -291,6 +328,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderRadius: 14,
+    borderWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
@@ -299,6 +337,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     flex: 1,
+  },
+  settingsRowTextWrap: {
+    flex: 1,
+    paddingRight: 8,
   },
   settingsRowEmoji: {
     fontSize: 26,
@@ -309,8 +351,13 @@ const styles = StyleSheet.create({
   },
   settingsRowSub: {
     fontSize: 12,
-    opacity: 0.8,
+    lineHeight: 17,
+    flexShrink: 1,
     marginTop: 1,
+  },
+  settingsRowChevron: {
+    marginLeft: 12,
+    flexShrink: 0,
   },
   emptyState: {
     alignItems: 'center',

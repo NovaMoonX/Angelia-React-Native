@@ -21,6 +21,8 @@ type AppNotificationType =
   | 'connection_request'
   | 'connection_accepted'
   | 'big_news_post'
+  | 'post_reaction'
+  | 'conversation_message'
   | 'new_post'
   | 'comment_reply'
   | 'private_note';
@@ -94,6 +96,24 @@ interface BigNewsPostNotification extends BaseAppNotification {
   authorLastName: string;
 }
 
+/** Mirrors PostReactionNotification in src/models/types.ts — keep in sync. */
+interface PostReactionNotification extends BaseAppNotification {
+  type: 'post_reaction';
+  postId: string;
+  reactorFirstName: string;
+  reactorLastName: string;
+  emoji: string;
+}
+
+/** Mirrors ConversationMessageNotification in src/models/types.ts — keep in sync. */
+interface ConversationMessageNotification extends BaseAppNotification {
+  type: 'conversation_message';
+  postId: string;
+  senderFirstName: string;
+  senderLastName: string;
+  messagePreview: string;
+}
+
 /** Mirrors PrivateNoteNotification in src/models/types.ts — keep in sync. */
 interface PrivateNoteNotification extends BaseAppNotification {
   type: 'private_note';
@@ -109,6 +129,8 @@ type AppNotification =
   | ConnectionRequestNotification
   | ConnectionAcceptedNotification
   | BigNewsPostNotification
+  | PostReactionNotification
+  | ConversationMessageNotification
   | PrivateNoteNotification;
 
 interface ConnectionRequest {
@@ -159,6 +181,11 @@ interface UserPublic {
 
 interface UserNotificationSettings {
   fcmTokens?: FcmTokenEntry[];
+  postActivity?: {
+    reactionsEnabled?: boolean;
+    privateNotesEnabled?: boolean;
+    conversationMessagesEnabled?: boolean;
+  };
 }
 
 /** Mirrors Channel in src/models/types.ts — keep in sync. */
@@ -262,6 +289,36 @@ function buildFcmPayload(notification: AppNotification): {
     };
   }
 
+  if (notification.type === 'post_reaction') {
+    const n = notification as PostReactionNotification;
+    return {
+      title: `${n.reactorFirstName} ${n.reactorLastName} reacted to your post`,
+      body: `They reacted with ${n.emoji}`,
+      data: {
+        type: n.type,
+        postId: n.postId,
+        reactorFirstName: n.reactorFirstName,
+        reactorLastName: n.reactorLastName,
+        emoji: n.emoji,
+      },
+    };
+  }
+
+  if (notification.type === 'conversation_message') {
+    const n = notification as ConversationMessageNotification;
+    return {
+      title: `💬 ${n.senderFirstName} ${n.senderLastName} sent a message`,
+      body: n.messagePreview,
+      data: {
+        type: n.type,
+        postId: n.postId,
+        senderFirstName: n.senderFirstName,
+        senderLastName: n.senderLastName,
+        messagePreview: n.messagePreview,
+      },
+    };
+  }
+
   if (notification.type === 'private_note') {
     const n = notification as PrivateNoteNotification;
     return {
@@ -334,15 +391,125 @@ async function sendFcmToTokens(
   }
 }
 
+const REACTION_NOTIFICATION_COOLDOWN_MS = 10 * 60 * 1000;
+
+const DEFAULT_POST_ACTIVITY_SETTINGS = {
+  reactionsEnabled: true,
+  privateNotesEnabled: true,
+  conversationMessagesEnabled: true,
+};
+
+async function getNotificationSettingsForUser(
+  userId: string,
+): Promise<UserNotificationSettings | null> {
+  const snap = await db.collection('userNotificationSettings').doc(userId).get();
+  if (!snap.exists) return null;
+  return snap.data() as UserNotificationSettings;
+}
+
+function getTokensFromSettings(settings: UserNotificationSettings | null): string[] {
+  if (!settings) return [];
+  return (settings.fcmTokens ?? [])
+    .map((t) => {
+      return t.token;
+    })
+    .filter(Boolean);
+}
+
+function isPostActivityNotificationType(type: AppNotificationType): boolean {
+  return (
+    type === 'post_reaction'
+    || type === 'private_note'
+    || type === 'conversation_message'
+  );
+}
+
+function isPostActivityNotificationEnabled(
+  notification: AppNotification,
+  settings: UserNotificationSettings | null,
+): boolean {
+  if (!isPostActivityNotificationType(notification.type)) {
+    return true;
+  }
+
+  const postActivity = {
+    ...DEFAULT_POST_ACTIVITY_SETTINGS,
+    ...(settings?.postActivity ?? {}),
+  };
+
+  if (notification.type === 'post_reaction') {
+    return postActivity.reactionsEnabled;
+  }
+
+  if (notification.type === 'private_note') {
+    return postActivity.privateNotesEnabled;
+  }
+
+  if (notification.type === 'conversation_message') {
+    return postActivity.conversationMessagesEnabled;
+  }
+
+  return true;
+}
+
+function getReactionCooldownDocId(
+  targetUserId: string,
+  actorId: string,
+  postId: string,
+): string {
+  return `post_reaction__${targetUserId}__${actorId}__${postId}`;
+}
+
+async function reserveReactionCooldownSlot(
+  notification: PostReactionNotification,
+  targetUserId: string,
+): Promise<boolean> {
+  const cooldownDocId = getReactionCooldownDocId(
+    targetUserId,
+    notification.actorId,
+    notification.postId,
+  );
+  const cooldownRef = db.collection('notificationCooldowns').doc(cooldownDocId);
+  const now = Date.now();
+  let shouldSend = false;
+
+  await db.runTransaction(async (transaction) => {
+    const cooldownSnap = await transaction.get(cooldownRef);
+    const rawData = cooldownSnap.exists
+      ? (cooldownSnap.data() as Record<string, unknown>)
+      : null;
+    const lastSentAt = typeof rawData?.lastSentAt === 'number'
+      ? rawData.lastSentAt
+      : 0;
+    if (now - lastSentAt < REACTION_NOTIFICATION_COOLDOWN_MS) {
+      return;
+    }
+
+    const createdAt = typeof rawData?.createdAt === 'number'
+      ? rawData.createdAt
+      : now;
+    shouldSend = true;
+    transaction.set(cooldownRef, {
+      type: notification.type,
+      targetUserId,
+      actorId: notification.actorId,
+      postId: notification.postId,
+      lastSentAt: now,
+      createdAt,
+      updatedAt: now,
+    });
+  });
+
+  return shouldSend;
+}
+
 /**
  * Fetches all FCM tokens for a single user from `userNotificationSettings/{uid}`.
  * Returns an empty array when the document does not exist.
  */
 async function getTokensForUser(userId: string): Promise<string[]> {
-  const snap = await db.collection('userNotificationSettings').doc(userId).get();
-  if (!snap.exists) return [];
-  const settings = snap.data() as UserNotificationSettings;
-  return (settings.fcmTokens ?? []).map((t) => t.token).filter(Boolean);
+  const settings = await getNotificationSettingsForUser(userId);
+  return getTokensFromSettings(settings);
 }
 
 /**
@@ -365,7 +532,27 @@ export const sendAppNotification = onDocumentCreated(
 
     if (notification.target.type === 'user') {
       // ── Single-user target ─────────────────────────────────────────────
-      const tokens = await getTokensForUser(notification.target.userId);
+      const targetUserId = notification.target.userId;
+      const targetSettings = await getNotificationSettingsForUser(targetUserId);
+
+      if (!isPostActivityNotificationEnabled(notification, targetSettings)) {
+        await snap.ref.delete();
+        return;
+      }
+
+      const tokens = getTokensFromSettings(targetSettings);
+      if (tokens.length === 0) {
+        await snap.ref.delete();
+        return;
+      }
+
+      if (notification.type === 'post_reaction') {
+        const shouldSend = await reserveReactionCooldownSlot(notification, targetUserId);
+        if (!shouldSend) {
+          await snap.ref.delete();
+          return;
+        }
+      }
       await sendFcmToTokens(tokens, payload);
     } else if (notification.target.type === 'channel_tier') {
       // ── Channel-tier target: fan-out to all channel subscribers ────────

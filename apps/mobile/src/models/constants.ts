@@ -25,6 +25,13 @@ export const DEFAULT_WIND_DOWN_PROMPT: NotificationSettings['windDownPrompt'] = 
   minute: 0,
 };
 
+/** Default values for push notifications about activity on a user's posts. */
+export const DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS: NotificationSettings['postActivity'] = {
+  reactionsEnabled: true,
+  privateNotesEnabled: true,
+  conversationMessagesEnabled: true,
+};
+
 export const AVATAR_PRESETS: AvatarPreset[] = [
   'astronaut', 'moon', 'star', 'galaxy', 'nebula', 'planet',
   'cosmic-cat', 'dream-cloud', 'rocket', 'constellation', 'comet', 'twilight',
@@ -115,6 +122,23 @@ export const JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY = (userId: string) => `@ang
 export const BETA_UPDATE_VERSION = '2026-05-12b';
 
 export const BETA_UPDATE_MODAL_SEEN_KEY = (version: string) => `@angelia/beta_update_modal_seen_${version}`;
+
+/**
+ * Version for the one-time notification-settings release notice shown on the
+ * Notifications screen. Bump when new notification controls are introduced.
+ */
+export const NOTIFICATION_SETTINGS_NOTICE_VERSION = '2026-05-post-activity-controls';
+
+/** Accent color for notification-settings release notice card and bell badge dot. */
+export const NOTIFICATION_SETTINGS_NOTICE_ACCENT = '#0EA5E9';
+
+/**
+ * AsyncStorage key recording whether the user has seen a specific notification
+ * settings release notice version.
+ */
+export const NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY = (version: string) => {
+  return `@angelia/notification_settings_notice_seen_${version}`;
+};
 
 /**
  * AsyncStorage key that records the latest required app version the user has

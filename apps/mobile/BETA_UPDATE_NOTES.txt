@@ -7,6 +7,10 @@ Related PR: TBD
 Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
 
 Current branch highlights:
+- The top card in Notifications is now a one-time release notice for new notification controls, and it disappears after you actually open Notification Settings.
+- When that release notice is waiting for you, the feed bell now shows a separate blue dot, and the notice card uses matching blue styling with improved text spacing so nothing gets covered.
+- You can now choose exactly which post activity should ping you: reactions, private notes, and conversation messages each have their own toggle in Notification Settings (all on by default).
+- Reaction alerts now avoid spam by cooling down repeats from the same person on the same post for 10 minutes, while still delivering conversation message alerts right away.
 - You can now react to posts directly from your Feed — long-press a post to open a quick reaction peel right under it, so reacting feels instant and keeps your place.
 - Feed reaction peel is now more compact with smaller emoji chips, so it takes up less vertical space while still staying easy to tap.
 - When you open the feed emoji picker, we now keep the reaction peel visible, nudge the selected post higher, and show a much shorter picker (about half the previous height) so more of the post stays in view.

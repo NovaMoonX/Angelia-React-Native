@@ -20,7 +20,10 @@ import {
 } from '@/store/slices/usersSlice';
 import { retryWithBackoff } from '@/utils/retryWithBackoff';
 import type { NotificationSettings, NotificationSettingsUpdate } from '@/models/types';
-import { DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
+import {
+  DEFAULT_WIND_DOWN_PROMPT,
+  DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS,
+} from '@/models/constants';
 import type { RootState } from '@/store';
 import { isDemoActive } from './globalActions';
 
@@ -121,11 +124,18 @@ export const saveNotificationSettings = createAsyncThunk(
     const mergedWindDownPrompt: NotificationSettings['windDownPrompt'] = data.windDownPrompt
       ? { ...(current.windDownPrompt ?? DEFAULT_WIND_DOWN_PROMPT), ...data.windDownPrompt }
       : (current.windDownPrompt ?? DEFAULT_WIND_DOWN_PROMPT);
+    const mergedPostActivity: NotificationSettings['postActivity'] = data.postActivity
+      ? {
+          ...(current.postActivity ?? DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS),
+          ...data.postActivity,
+        }
+      : (current.postActivity ?? DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS);
     const updated: NotificationSettings = {
       ...current,
       ...data,
       dailyPrompt: mergedDailyPrompt,
       windDownPrompt: mergedWindDownPrompt,
+      postActivity: mergedPostActivity,
     };
 
     if (isDemoActive(getState)) {

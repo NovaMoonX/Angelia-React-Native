@@ -275,6 +275,70 @@ the Circle you want to test.
 
 ---
 
+### Scenario H — Post Reaction (you are the Host)
+
+Someone reacted to one of your posts. You'll see an in-app toast and a background
+push. Tapping the notification opens the post detail screen.
+
+Replace `YOUR_USER_ID` with your real user ID and `YOUR_POST_ID` with a post ID
+you own.
+
+```json
+{
+  "id": "test-notif-post-reaction-1",
+  "type": "post_reaction",
+  "actorId": "fake-reactor-id",
+  "target": {
+    "type": "user",
+    "userId": "YOUR_USER_ID"
+  },
+  "createdAt": 1713484800000,
+  "postId": "YOUR_POST_ID",
+  "reactorFirstName": "Riley",
+  "reactorLastName": "Test",
+  "emoji": "🔥"
+}
+```
+
+> **Cooldown behavior:** reaction pushes are throttled for 10 minutes per
+> `targetUserId + actorId + postId`. If you create another `post_reaction`
+> notification with the same target/actor/post immediately, the second one is
+> consumed and deleted but should not send another push.
+
+---
+
+### Scenario I — Conversation Message (you are the Host)
+
+Someone sent a message in your post conversation. You'll see an in-app toast and
+a background push. Tapping the notification opens the conversation thread for
+that post.
+
+Replace `YOUR_USER_ID` with your real user ID and `YOUR_POST_ID` with a post ID
+you own.
+
+```json
+{
+  "id": "test-notif-conversation-message-1",
+  "type": "conversation_message",
+  "actorId": "fake-sender-id",
+  "target": {
+    "type": "user",
+    "userId": "YOUR_USER_ID"
+  },
+  "createdAt": 1713484800000,
+  "postId": "YOUR_POST_ID",
+  "senderFirstName": "Jordan",
+  "senderLastName": "Test",
+  "messagePreview": "Just dropped a quick update in your conversation 💛"
+}
+```
+
+> **Note:** Tap handling routes to `/(protected)/conversation?postId=...`.
+> If `YOUR_POST_ID` is invalid, the conversation screen will show unavailable
+> state — expected in test mode.
+
+---
+
 | App state | Expected behaviour |
 |---|---|
 | **Foreground** | In-app toast appears (DataListenerWrapper Effect 9). No system push shown. |

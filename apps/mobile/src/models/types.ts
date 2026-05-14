@@ -85,6 +85,15 @@ export interface NotificationSettings {
     /** Minute (0–59). Default: 30. */
     minute: number;
   };
+  /** Push notification toggles for activity on the user's posts. */
+  postActivity: {
+    /** Notify when someone reacts to your post. */
+    reactionsEnabled: boolean;
+    /** Notify when someone sends you a private note on your post. */
+    privateNotesEnabled: boolean;
+    /** Notify when someone sends a conversation message on your post. */
+    conversationMessagesEnabled: boolean;
+  };
   /** IANA timezone string, e.g. "America/New_York". Default: device timezone. */
   timeZone: string;
   /**
@@ -102,9 +111,10 @@ export type UpdateUserProfileData = Pick<UserPublic, 'firstName' | 'lastName' | 
  * without supplying all three fields every time.
  */
 export type NotificationSettingsUpdate =
-  Partial<Omit<NotificationSettings, 'fcmTokens' | 'dailyPrompt' | 'windDownPrompt'>> & {
+  Partial<Omit<NotificationSettings, 'fcmTokens' | 'dailyPrompt' | 'windDownPrompt' | 'postActivity'>> & {
     dailyPrompt?: Partial<NotificationSettings['dailyPrompt']>;
     windDownPrompt?: Partial<NotificationSettings['windDownPrompt']>;
+    postActivity?: Partial<NotificationSettings['postActivity']>;
   };
 
 export interface Channel {
@@ -243,6 +253,8 @@ export type AppNotificationType =
   | 'connection_request'
   | 'connection_accepted'
   | 'big_news_post'
+  | 'post_reaction' // Someone reacted to your post
+  | 'conversation_message' // Someone messaged on your post conversation
   | 'new_post'        // For post tier subscriptions (future)
   | 'comment_reply'   // For conversation enrollment (future)
   | 'private_note';   // A Circle member sent the post Host a private note
@@ -333,6 +345,32 @@ export interface BigNewsPostNotification extends BaseAppNotification {
   authorLastName: string;
 }
 
+/** Written when someone reacts to a Host's post — targets the post Host. */
+export interface PostReactionNotification extends BaseAppNotification {
+  type: 'post_reaction';
+  /** The ID of the post that received the reaction. */
+  postId: string;
+  /** First name of the member who reacted. */
+  reactorFirstName: string;
+  /** Last name of the member who reacted. */
+  reactorLastName: string;
+  /** The emoji that was added as a reaction. */
+  emoji: string;
+}
+
+/** Written when someone sends a message in a post conversation — targets the Host. */
+export interface ConversationMessageNotification extends BaseAppNotification {
+  type: 'conversation_message';
+  /** The ID of the post whose conversation got a new message. */
+  postId: string;
+  /** First name of the message sender. */
+  senderFirstName: string;
+  /** Last name of the message sender. */
+  senderLastName: string;
+  /** Truncated message text used for push preview. */
+  messagePreview: string;
+}
+
 /** Written when a Circle member sends the post Host a private note — targets the host. */
 export interface PrivateNoteNotification extends BaseAppNotification {
   type: 'private_note';
@@ -351,6 +389,8 @@ export type AppNotification =
   | ConnectionRequestNotification
   | ConnectionAcceptedNotification
   | BigNewsPostNotification
+  | PostReactionNotification
+  | ConversationMessageNotification
   | PrivateNoteNotification;
 
 // ── Tasks ───────────────────────────────────────────────────────────────────

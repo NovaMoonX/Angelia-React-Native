@@ -1,10 +1,24 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import type { RootState } from '@/store';
-import type { Message } from '@/models/types';
-import { addMessage as firestoreAddMessage } from '@/services/firebase/firestore';
+import type { ConversationMessageNotification, Message } from '@/models/types';
+import {
+  addMessage as firestoreAddMessage,
+  createAppNotification,
+} from '@/services/firebase/firestore';
 import { addMessageOptimistic } from '@/store/slices/conversationSlice';
 import { generateId } from '@/utils/generateId';
 import { isDemoActive } from './globalActions';
+
+function buildMessagePreview(text: string): string {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return 'New message';
+  }
+  if (normalized.length <= 120) {
+    return normalized;
+  }
+  return `${normalized.slice(0, 117)}...`;
+}
 
 /**
  * Send a chat message to a post's conversation.
@@ -77,6 +91,22 @@ export const sendMessage = createAsyncThunk(
         await firestoreAddMessage(postId, joinMessage);
       }
       await firestoreAddMessage(postId, message);
+
+      if (post && post.authorId !== user.id) {
+        const notification: ConversationMessageNotification = {
+          id: generateId('nano'),
+          type: 'conversation_message',
+          actorId: user.id,
+          target: { type: 'user', userId: post.authorId },
+          createdAt: Date.now(),
+          postId,
+          senderFirstName: user.firstName,
+          senderLastName: user.lastName,
+          messagePreview: buildMessagePreview(message.text),
+        };
+        createAppNotification(notification).catch(() => {});
+      }
+
       return message;
     } catch (err) {
       return rejectWithValue(

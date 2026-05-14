@@ -586,8 +586,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   }, [currentUser?.id]);
 
   // Effect 9: Show in-app toast when a push notification arrives in the foreground.
-  // Handles join_channel_request, join_channel_accepted, connection_request,
-  // connection_accepted, and big_news_post types.
+  // Handles join/channel/connection notifications plus post-activity alerts.
   //
   // For connection_request and join_channel_request, we also mark the request ID
   // as seen so that the Firestore-based Effects 12 & 13 don't show a duplicate toast.
@@ -674,6 +673,34 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
           description: `Tap to see their update in ${circleDescription}`,
           onPress: postId
             ? () => router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } })
+            : undefined,
+        });
+      } else if (type === 'post_reaction') {
+        const firstName = data?.reactorFirstName ?? 'Someone';
+        const lastName = data?.reactorLastName ?? '';
+        const name = lastName ? `${firstName} ${lastName}` : firstName;
+        const emoji = data?.emoji ?? '❤️';
+        const postId = data?.postId;
+        addToast({
+          type: 'info',
+          title: `${emoji} New Reaction`,
+          description: `${name} reacted to your post`,
+          onPress: postId
+            ? () => router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } })
+            : undefined,
+        });
+      } else if (type === 'conversation_message') {
+        const firstName = data?.senderFirstName ?? 'Someone';
+        const lastName = data?.senderLastName ?? '';
+        const name = lastName ? `${firstName} ${lastName}` : firstName;
+        const preview = data?.messagePreview ?? 'New conversation message';
+        const postId = data?.postId;
+        addToast({
+          type: 'info',
+          title: `💬 ${name} sent a message`,
+          description: preview,
+          onPress: postId
+            ? () => router.push({ pathname: '/(protected)/conversation', params: { postId } })
             : undefined,
         });
       } else if (type === 'private_note') {

@@ -1,6 +1,14 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import type { RootState } from '@/store';
-import type { Post, Reaction, Comment, MediaItem, PostTier, BigNewsPostNotification } from '@/models/types';
+import type {
+  Post,
+  Reaction,
+  Comment,
+  MediaItem,
+  PostTier,
+  BigNewsPostNotification,
+  PostReactionNotification,
+} from '@/models/types';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 import {
   createPost,
@@ -268,12 +276,34 @@ export const updatePostReactions = createAsyncThunk(
     { postId, newReaction }: { postId: string; newReaction: Reaction },
     { getState, dispatch, rejectWithValue },
   ) => {
+    const state = getState() as RootState;
+    const currentUser = state.users.currentUser;
+    const post = state.posts.items.find((item) => {
+      return item.id === postId;
+    });
+
     dispatch(updateReactionsOptimistic({ postId, newReaction }));
     if (isDemoActive(getState)) {
       return { postId, newReaction };
     }
     try {
       await addReactionToPost(postId, newReaction);
+
+      if (post && currentUser && post.authorId !== currentUser.id) {
+        const notification: PostReactionNotification = {
+          id: generateId('nano'),
+          type: 'post_reaction',
+          actorId: currentUser.id,
+          target: { type: 'user', userId: post.authorId },
+          createdAt: Date.now(),
+          postId,
+          reactorFirstName: currentUser.firstName,
+          reactorLastName: currentUser.lastName,
+          emoji: newReaction.emoji,
+        };
+        createAppNotification(notification).catch(() => {});
+      }
+
       return { postId, newReaction };
     } catch (err) {
       dispatch(revertReactionsOptimistic({ postId }));

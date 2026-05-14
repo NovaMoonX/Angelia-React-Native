@@ -17,7 +17,11 @@ import {
 } from '@react-native-firebase/firestore';
 import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 import type { User, UserPublic, UserPrivate, UserSecret, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, CircleInviteRequest, UpdateUserProfileData, UserStatus, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, AppTask, Comment, PrivateNote, Reaction } from '@/models/types';
-import { DAILY_CHANNEL_SUFFIX, DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
+import {
+  DAILY_CHANNEL_SUFFIX,
+  DEFAULT_WIND_DOWN_PROMPT,
+  DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS,
+} from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
 // const db = getFirestore();
@@ -173,23 +177,46 @@ const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
     minute: 0,
   },
   windDownPrompt: { ...DEFAULT_WIND_DOWN_PROMPT },
+  postActivity: { ...DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS },
   timeZone: 'UTC',
   autoDetectTimeZone: true,
 };
 
+function normalizeNotificationSettings(raw: NotificationSettings): NotificationSettings {
+  return {
+    ...DEFAULT_NOTIFICATION_SETTINGS,
+    ...raw,
+    dailyPrompt: {
+      ...DEFAULT_NOTIFICATION_SETTINGS.dailyPrompt,
+      ...(raw.dailyPrompt ?? {}),
+    },
+    windDownPrompt: {
+      ...DEFAULT_WIND_DOWN_PROMPT,
+      ...(raw.windDownPrompt ?? {}),
+    },
+    postActivity: {
+      ...DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS,
+      ...(raw.postActivity ?? {}),
+    },
+  };
+}
+
 export async function getNotificationSettings(uid: string): Promise<NotificationSettings | null> {
   const snap = await getDoc(doc(getDb(), 'userNotificationSettings', uid));
-  return snap?.exists ? (snap.data() as NotificationSettings) : null;
+  if (!snap?.exists) {
+    return null;
+  }
+  return normalizeNotificationSettings(snap.data() as NotificationSettings);
 }
 
 export async function initNotificationSettings(
   uid: string,
   deviceTimeZone: string,
 ): Promise<NotificationSettings> {
-  const settings: NotificationSettings = {
+  const settings: NotificationSettings = normalizeNotificationSettings({
     ...DEFAULT_NOTIFICATION_SETTINGS,
     timeZone: deviceTimeZone,
-  };
+  });
   await setDoc(doc(getDb(), 'userNotificationSettings', uid), settings);
   return settings;
 }
@@ -250,7 +277,7 @@ export function subscribeToNotificationSettings(
 ): () => void {
   return onSnapshot(doc(getDb(), 'userNotificationSettings', uid), (snap) => {
     if (!snap) return;
-    callback(snap.exists ? (snap.data() as NotificationSettings) : null);
+    callback(snap.exists ? normalizeNotificationSettings(snap.data() as NotificationSettings) : null);
   });
 }
 

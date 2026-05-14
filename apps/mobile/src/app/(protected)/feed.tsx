@@ -10,6 +10,7 @@ import {
 	Text,
 	View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -48,6 +49,9 @@ import { useFeedReactionHint } from '@/hooks/useFeedReactionHint';
 import { useFeedModals } from '@/hooks/useFeedModals';
 import {
 	BETA_FEEDBACK_FORM_URL,
+	NOTIFICATION_SETTINGS_NOTICE_ACCENT,
+	NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY,
+	NOTIFICATION_SETTINGS_NOTICE_VERSION,
 	POST_TIERS,
 } from '@/models/constants';
 import type { Post, PostTier, Reaction, UserStatus } from '@/models/types';
@@ -75,6 +79,18 @@ export default function FeedScreen() {
 	useFocusEffect(
 		useCallback(() => {
 			void refreshSeenState();
+			void AsyncStorage.getItem(
+				NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY(NOTIFICATION_SETTINGS_NOTICE_VERSION),
+			)
+				.then((seenValue) => {
+					setHasNotificationSettingsNotice(seenValue !== 'true');
+					return null;
+				})
+				.catch(() => {
+					setHasNotificationSettingsNotice(true);
+					return null;
+				});
+			return undefined;
 		}, [refreshSeenState]),
 	);
 
@@ -98,6 +114,7 @@ export default function FeedScreen() {
 	const [reactionPickerVisible, setReactionPickerVisible] = useState(false);
 	const [reactionTargetPostId, setReactionTargetPostId] = useState<string | null>(null);
 	const [activeReactionPillPostId, setActiveReactionPeelPostId] = useState<string | null>(null);
+	const [hasNotificationSettingsNotice, setHasNotificationSettingsNotice] = useState(false);
 	const isMountedRef = useRef(false);
 	const reactionPickerOpenRef = useRef(false);
 	const flatListRef = useRef<FlashListRef<Post>>(null);
@@ -636,7 +653,11 @@ export default function FeedScreen() {
 							<Feather name='users' size={22} color={theme.foreground} />
 						</Pressable>
 						<Pressable onPress={() => router.push('/(protected)/notifications')}>
-							<BellIcon hasNotification={hasPendingActivity} />
+							<BellIcon
+								hasNotification={hasPendingActivity}
+								hasReleaseNotice={hasNotificationSettingsNotice}
+								releaseNoticeColor={NOTIFICATION_SETTINGS_NOTICE_ACCENT}
+							/>
 						</Pressable>
 					</View>
 				</View>

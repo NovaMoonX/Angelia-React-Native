@@ -280,6 +280,19 @@ Use it as the compact source of truth for the next beta update modal:
 
 If you forget to update the beta notes after making user-facing changes, the task is not complete. Add a bullet under "Current branch highlights" in plain, warm, friendly language that explains the benefit to users (not just what was changed).
 
+### Notifications release notice area (`src/app/(protected)/notifications.tsx`)
+
+The top callout area in the Notifications screen is a **release-scoped, one-time notice area** for new notification controls.
+
+- It is **not** a permanent shortcut row for Daily Reminders.
+- Use this area to announce newly available notification controls (for example, new post activity toggles).
+- Visibility is versioned by:
+  - `NOTIFICATION_SETTINGS_NOTICE_VERSION`
+  - `NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY(version)`
+  in `src/models/constants.ts`.
+- The notice should be dismissed **only after the user actually opens** Notification Settings (`/(protected)/notification-settings`), not merely when the card is rendered.
+- When a new notification-control release ships, bump the notice version and refresh the card copy.
+
 ---
 
 ### APP_STORE_LISTING.txt

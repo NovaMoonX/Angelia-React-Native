@@ -1,4 +1,5 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -10,6 +11,10 @@ import { getDeviceTimeZone } from '@/services/notifications';
 import { NOTIFICATION_TIMEZONES } from '@/constants/notifications.constants';
 import { Select } from '@/components/ui/Select';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import {
+  NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY,
+  NOTIFICATION_SETTINGS_NOTICE_VERSION,
+} from '@/models/constants';
 
 export default function NotificationSettingsScreen() {
   const router = useRouter();
@@ -24,6 +29,17 @@ export default function NotificationSettingsScreen() {
   const dailyEnabled = notificationSettings?.dailyPrompt?.enabled ?? true;
   const notifTZ = notificationSettings?.timeZone ?? getDeviceTimeZone();
   const autoDetect = notificationSettings?.autoDetectTimeZone !== false;
+  const postActivity = notificationSettings?.postActivity;
+  const reactionsEnabled = postActivity?.reactionsEnabled !== false;
+  const privateNotesEnabled = postActivity?.privateNotesEnabled !== false;
+  const conversationMessagesEnabled = postActivity?.conversationMessagesEnabled !== false;
+  const enabledPostNotificationCount = [
+    reactionsEnabled,
+    privateNotesEnabled,
+    conversationMessagesEnabled,
+  ].reduce((count, enabled) => {
+    return enabled ? count + 1 : count;
+  }, 0);
 
   const handleToggleAutoDetect = useCallback(async () => {
     const newAutoDetect = !autoDetect;
@@ -58,6 +74,15 @@ export default function NotificationSettingsScreen() {
 
   const selectedTZText =
     NOTIFICATION_TIMEZONES.find((o) => o.value === notifTZ)?.text ?? notifTZ;
+
+  useEffect(() => {
+    void AsyncStorage.setItem(
+      NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY(NOTIFICATION_SETTINGS_NOTICE_VERSION),
+      'true',
+    ).catch(() => {
+      return null;
+    });
+  }, []);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
@@ -94,6 +119,27 @@ export default function NotificationSettingsScreen() {
               </Text>
               <Text style={[styles.rowSub, { color: theme.mutedForeground }]}>
                 {dailyEnabled ? 'On — a friendly nudge each day 💛' : 'Off'}
+              </Text>
+            </View>
+          </View>
+          <Feather name="chevron-right" size={18} color={theme.mutedForeground} />
+        </Pressable>
+
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+        {/* Post Notifications */}
+        <Pressable
+          onPress={() => router.push('/(protected)/post-notification-settings')}
+          style={({ pressed }) => [styles.row, { opacity: pressed ? 0.7 : 1 }]}
+        >
+          <View style={styles.rowLeft}>
+            <Text style={styles.rowEmoji}>📝</Text>
+            <View style={styles.rowText}>
+              <Text style={[styles.rowLabel, { color: theme.foreground }]}>Post Notifications</Text>
+              <Text style={[styles.rowSub, { color: theme.mutedForeground }]}> 
+                {enabledPostNotificationCount === 0
+                  ? 'Off'
+                  : `${enabledPostNotificationCount}/3 active`}
               </Text>
             </View>
           </View>
@@ -168,7 +214,7 @@ export default function NotificationSettingsScreen() {
       </View>
 
       <Text style={[styles.footer, { color: theme.mutedForeground }]}>
-        More notification types coming soon — stay tuned! 🚀
+        Fine-tune your nudges so they feel just right for you. 💛
       </Text>
     </ScrollView>
     </View>
