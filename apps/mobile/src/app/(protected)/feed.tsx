@@ -521,7 +521,7 @@ export default function FeedScreen() {
 								<View style={styles.feedReactionHintTextWrap}>
 									<Text style={[styles.feedReactionHintTitle, { color: theme.foreground }]}>Quick tip ✨</Text>
 									<Text style={[styles.feedReactionHintBody, { color: theme.mutedForeground }]}>
-										Long-press any post to react right from your feed. Try it once and this tip disappears.
+										Long-press any post to react right from your feed. Go ahead — give it a try!
 									</Text>
 								</View>
 								<Pressable onPress={dismissFeedReactionHint} hitSlop={8}>
