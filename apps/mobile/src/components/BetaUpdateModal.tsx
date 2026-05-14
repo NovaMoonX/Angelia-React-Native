@@ -30,29 +30,29 @@ interface ChangeEntry {
 // "Bug fixes & reliability" entry rather than called out individually.
 const BETA_UPDATE_CHANGES: ChangeEntry[] = [
   {
-    emoji: '🌐',
-    title: 'Posts from everyone you know',
-    description: 'We fixed a sneaky issue that was silently hiding some posts from your feed.',
+    emoji: '👆',
+    title: 'React from your feed',
+    description: 'Long-press any post to react without opening it — the emoji picker pops up right there.',
   },
   {
-    emoji: '⏱️',
-    title: '3-second posting countdown',
-    description: 'A quick heads-up before every post — catch any mistakes or tap "Post Now" to skip the wait.',
+    emoji: '🔔',
+    title: 'Custom notification controls',
+    description: 'Choose which activity alerts you — reactions, private notes, and conversation messages each have their own toggle.',
   },
   {
     emoji: '📋',
     title: 'Smarter post activity',
-    description: 'Sort by newest or oldest, and the screen now auto-jumps to your unread activity when you arrive.',
+    description: 'Activity now only flags truly new engagement since your last app open — no more "everything is new" floods after updates.',
   },
   {
-    emoji: '😊',
-    title: 'Status emoji fixed on iPhone',
-    description: 'Tapping the emoji button in the status sheet now opens the picker correctly.',
+    emoji: '💬',
+    title: 'Cleaner conversations',
+    description: 'Join notices only appear when someone actually sends their first message, and deleted posts disappear cleanly from all views.',
   },
   {
     emoji: '🐛',
     title: 'Bug fixes & polish',
-    description: 'A few rough edges smoothed out across the app.',
+    description: 'Emoji picker now accepts any emoji you type, pull-to-refresh works across Feed and Post Activity, and a few rough edges smoothed out.',
   },
 ];
 

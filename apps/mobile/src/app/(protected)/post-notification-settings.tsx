@@ -78,7 +78,7 @@ export default function PostNotificationSettingsScreen() {
         >
           <View style={styles.row}>
             <View style={styles.rowLeft}>
-              <Text style={styles.rowEmoji}>😍</Text>
+              <Text style={styles.rowEmoji}>😊</Text>
               <View style={styles.rowText}>
                 <Text style={[styles.rowLabel, { color: theme.foreground }]}>Reactions</Text>
                 <Text style={[styles.rowSub, { color: theme.mutedForeground }]}> 

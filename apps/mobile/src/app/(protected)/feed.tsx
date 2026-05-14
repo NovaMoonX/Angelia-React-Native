@@ -261,6 +261,8 @@ export default function FeedScreen() {
 
 	const handleRefresh = useCallback(async () => {
 		setIsRefreshing(true);
+		flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+		setDisplayCount(INITIAL_PAGE);
 		await refreshSeenState().catch(() => {});
 		setIsRefreshing(false);
 	}, [refreshSeenState]);

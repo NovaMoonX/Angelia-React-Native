@@ -292,8 +292,8 @@ function buildFcmPayload(notification: AppNotification): {
   if (notification.type === 'post_reaction') {
     const n = notification as PostReactionNotification;
     return {
-      title: `${n.reactorFirstName} ${n.reactorLastName} reacted to your post`,
-      body: `They reacted with ${n.emoji}`,
+      title: 'New Reaction on Your Post',
+      body: `${n.reactorFirstName} reacted with ${n.emoji}`,
       data: {
         type: n.type,
         postId: n.postId,
@@ -307,8 +307,8 @@ function buildFcmPayload(notification: AppNotification): {
   if (notification.type === 'conversation_message') {
     const n = notification as ConversationMessageNotification;
     return {
-      title: `💬 ${n.senderFirstName} ${n.senderLastName} sent a message`,
-      body: n.messagePreview,
+      title: 'New Message on Your Post',
+      body: `${n.senderFirstName}: ${n.messagePreview}`,
       data: {
         type: n.type,
         postId: n.postId,

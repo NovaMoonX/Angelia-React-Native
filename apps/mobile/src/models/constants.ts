@@ -119,7 +119,7 @@ export const JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY = (userId: string) => `@ang
  * AsyncStorage key that records which beta update version the user has already dismissed.
  * When BETA_UPDATE_VERSION in BetaUpdateModal is bumped, the modal will show again automatically.
  */
-export const BETA_UPDATE_VERSION = '2026-05-12b';
+export const BETA_UPDATE_VERSION = '2026-05-14';
 
 export const BETA_UPDATE_MODAL_SEEN_KEY = (version: string) => `@angelia/beta_update_modal_seen_${version}`;
 

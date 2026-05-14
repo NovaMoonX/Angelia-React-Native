@@ -675,47 +675,10 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
             ? () => router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } })
             : undefined,
         });
-      } else if (type === 'post_reaction') {
-        const firstName = data?.reactorFirstName ?? 'Someone';
-        const lastName = data?.reactorLastName ?? '';
-        const name = lastName ? `${firstName} ${lastName}` : firstName;
-        const emoji = data?.emoji ?? '❤️';
-        const postId = data?.postId;
-        addToast({
-          type: 'info',
-          title: `${emoji} New Reaction`,
-          description: `${name} reacted to your post`,
-          onPress: postId
-            ? () => router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } })
-            : undefined,
-        });
-      } else if (type === 'conversation_message') {
-        const firstName = data?.senderFirstName ?? 'Someone';
-        const lastName = data?.senderLastName ?? '';
-        const name = lastName ? `${firstName} ${lastName}` : firstName;
-        const preview = data?.messagePreview ?? 'New conversation message';
-        const postId = data?.postId;
-        addToast({
-          type: 'info',
-          title: `💬 ${name} sent a message`,
-          description: preview,
-          onPress: postId
-            ? () => router.push({ pathname: '/(protected)/conversation', params: { postId } })
-            : undefined,
-        });
-      } else if (type === 'private_note') {
-        const firstName = data?.authorFirstName ?? 'Someone';
-        const lastName = data?.authorLastName ?? '';
-        const name = lastName ? `${firstName} ${lastName}` : firstName;
-        const postId = data?.postId;
-        addToast({
-          type: 'info',
-          title: '🔒 Private Note',
-          description: `${name} sent you a private note — tap to read it`,
-          onPress: postId
-            ? () => router.push({ pathname: '/(protected)/private-notes-host/[postId]', params: { postId } })
-            : undefined,
-        });
+      // post_reaction, conversation_message, and private_note notifications are
+      // handled via background tap routing in _layout.tsx. When the user is
+      // inside the app, they see the activity in real-time through Redux state,
+      // so no in-app toast is needed for these types.
       }
     });
     return () => subscription.remove();
