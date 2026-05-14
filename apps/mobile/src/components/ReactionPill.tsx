@@ -97,6 +97,7 @@ const styles = StyleSheet.create({
   },
   addButton: {
     borderWidth: 1,
+    borderRadius: 22,
   },
   emojiText: {
     fontSize: 24,
