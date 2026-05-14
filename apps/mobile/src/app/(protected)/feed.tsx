@@ -79,6 +79,9 @@ export default function FeedScreen() {
 
 	useFocusEffect(
 		useCallback(() => {
+			// If we're already at/near the top of the feed when focusing, notify
+			// the pill so it dismisses any new posts that are already visible.
+			newPostsPillRef.current?.notifyScrollY(prevScrollY.current);
 			void refreshSeenState();
 			void Promise.all([
 				AsyncStorage.getItem(

@@ -61,6 +61,9 @@ export const NewPostsPill = forwardRef<NewPostsPillRef, NewPostsPillProps>(
     // Ref mirror of newPosts.length so notifyScrollY (in useImperativeHandle)
     // can read it without being included in the imperative handle's deps.
     const hasNewPostsRef = useRef(false);
+    // Tracks the most recent scroll Y so we can suppress the pill when the
+    // user is already at/near the top when new posts arrive.
+    const lastScrollYRef = useRef(0);
 
     const pillAnimValue = useRef(new Animated.Value(0)).current;
     const pillAnimRef = useRef<Animated.CompositeAnimation | null>(null);
@@ -73,6 +76,7 @@ export const NewPostsPill = forwardRef<NewPostsPillRef, NewPostsPillProps>(
 
     useImperativeHandle(ref, () => ({
       notifyScrollY(y: number) {
+        lastScrollYRef.current = y;
         if (y <= 50 && hasNewPostsRef.current) {
           markPostsSeenRef.current();
         }
@@ -144,6 +148,12 @@ export const NewPostsPill = forwardRef<NewPostsPillRef, NewPostsPillProps>(
           p.authorId !== currentUser.id &&
           p.timestamp > threshold,
       );
+      // If the user is already at/near the top, mark the new posts as seen
+      // immediately — the content is already visible so the pill is misleading.
+      if (incoming.length > 0 && lastScrollYRef.current <= 50) {
+        markPostsSeenRef.current();
+        return;
+      }
       setNewPosts(incoming);
     }, [posts, postsLoaded, currentUser, lastSeenLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
