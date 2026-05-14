@@ -32,5 +32,6 @@ Current branch highlights:
 - We can now prompt you to fill out a feedback form from inside the app, and we can update the form link anytime without a new release.
 - App update prompts are now part of the same priority system as all other feed modals — so they never compete or stack on top of each other unexpectedly.
 - Status emoji picker now works correctly on iPhone — tapping the emoji in the status sheet opens the picker as expected.
+- Post-activity alert dots now clear more naturally: tapping a notification, opening your feed/post/conversation, or visiting Post Activity will mark those new reaction/message alerts as seen.
 
 When this branch ships, turn these notes into a friendly beta modal update.

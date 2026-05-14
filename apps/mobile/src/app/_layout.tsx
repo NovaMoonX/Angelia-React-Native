@@ -15,9 +15,16 @@ import { AuthProvider } from '@/providers/AuthProvider';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useTheme } from '@/hooks/useTheme';
 import { NOTIFICATION_ID, WIND_DOWN_NOTIFICATION_ID, getFollowUpForPrompt, getFollowUpForWindDown } from '@/services/notifications';
+import { POST_ACTIVITY_SEEN_KEY } from '@/models/constants';
 
 /** Matches the key used in DataListenerWrapper to track whether the in-app daily notice has already been shown today. */
 const DAILY_PROMPT_SHOWN_DATE_KEY = '@angelia/daily_prompt_shown_date';
+
+const markPostActivityNotificationsSeen = () => {
+	const currentUserId = store.getState().users.currentUser?.id;
+	if (!currentUserId) return;
+	void AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUserId), String(Date.now())).catch(() => {});
+};
 
 // Configure how notifications are presented when the app is in the foreground.
 // Daily prompt local notifications are handled in-app by DataListenerWrapper
@@ -123,16 +130,19 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 	} else if (type === 'post_reaction') {
 		const postId = data?.postId;
 		if (postId) {
+			markPostActivityNotificationsSeen();
 			router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } });
 		}
 	} else if (type === 'conversation_message') {
 		const postId = data?.postId;
 		if (postId) {
+			markPostActivityNotificationsSeen();
 			router.push({ pathname: '/(protected)/conversation', params: { postId } });
 		}
 	} else if (type === 'private_note') {
 		const postId = data?.postId;
 		if (postId) {
+			markPostActivityNotificationsSeen();
 			router.push({ pathname: '/(protected)/private-notes-host/[postId]', params: { postId } });
 		}
 	}

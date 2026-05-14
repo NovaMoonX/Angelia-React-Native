@@ -36,7 +36,10 @@ export default function PostActivityScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void refreshSeenState();
+      void (async () => {
+        await markActivitySeen().catch(() => {});
+        await refreshSeenState().catch(() => {});
+      })();
       return () => {
         // Mark all post activity as seen when leaving the screen so the next
         // visit does not re-show the same reactions/notes as "unread".

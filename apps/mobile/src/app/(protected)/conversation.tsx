@@ -39,7 +39,7 @@ import { usePostComments } from '@/hooks/usePostComments';
 import { getTierTheme } from '@/lib/conversation/tierTheme';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
-import { POST_TIERS, CONVERSATION_LAST_SEEN_KEY, CONVERSATION_REPLY_HINT_SEEN_KEY } from '@/models/constants';
+import { POST_TIERS, CONVERSATION_LAST_SEEN_KEY, CONVERSATION_REPLY_HINT_SEEN_KEY, POST_ACTIVITY_SEEN_KEY } from '@/models/constants';
 import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import type { Message } from '@/models/types';
 
@@ -104,12 +104,17 @@ export default function ConversationScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!postId || isDemo) return;
-      void AsyncStorage.setItem(CONVERSATION_LAST_SEEN_KEY(postId), String(Date.now()));
+      void Promise.all([
+        AsyncStorage.setItem(CONVERSATION_LAST_SEEN_KEY(postId), String(Date.now())),
+        currentUser?.id
+          ? AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUser.id), String(Date.now()))
+          : Promise.resolve(),
+      ]).catch(() => {});
 
       return () => {
         void AsyncStorage.setItem(CONVERSATION_LAST_SEEN_KEY(postId), String(Date.now()));
       };
-    }, [postId, isDemo]),
+    }, [currentUser?.id, postId, isDemo]),
   );
 
   usePostComments({ postId });

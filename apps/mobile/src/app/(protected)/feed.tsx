@@ -54,6 +54,7 @@ import {
 	NOTIFICATION_SETTINGS_NOTICE_BADGE_SEEN_KEY,
 	NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY,
 	NOTIFICATION_SETTINGS_NOTICE_VERSION,
+	POST_ACTIVITY_SEEN_KEY,
 	POST_TIERS,
 } from '@/models/constants';
 import type { Post, PostTier, Reaction, UserStatus } from '@/models/types';
@@ -83,7 +84,15 @@ export default function FeedScreen() {
 			// If we're already at/near the top of the feed when focusing, notify
 			// the pill so it dismisses any new posts that are already visible.
 			newPostsPillRef.current?.notifyScrollY(prevScrollY.current);
-			void refreshSeenState();
+			if (currentUser?.id) {
+				void AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUser.id), String(Date.now()))
+					.catch(() => {})
+					.finally(() => {
+						void refreshSeenState();
+					});
+			} else {
+				void refreshSeenState();
+			}
 			void Promise.all([
 				AsyncStorage.getItem(
 					NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY(NOTIFICATION_SETTINGS_NOTICE_VERSION),
@@ -103,7 +112,7 @@ export default function FeedScreen() {
 					return null;
 				});
 			return undefined;
-		}, [refreshSeenState]),
+		}, [currentUser?.id, refreshSeenState]),
 	);
 
 	// Auto-complete tasks when their conditions are already met on load.
