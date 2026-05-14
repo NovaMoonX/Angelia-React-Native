@@ -45,7 +45,10 @@ export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) 
             </View>
             <ScrollView
               style={styles.body}
-              contentContainerStyle={styles.bodyContent}
+              contentContainerStyle={[
+                styles.bodyContent,
+                !footer && { paddingBottom: sheetBottomPadding },
+              ]}
               showsVerticalScrollIndicator={false}
             >
               {children}

@@ -65,7 +65,7 @@ export function ReactionPill({
         {onOpenPicker ? (
           <Pressable
             onPress={onOpenPicker}
-            style={[styles.emojiButton, styles.addButton, { borderColor: theme.border }]}
+            style={[styles.emojiButton, styles.addButton, { borderColor: theme.border, width: isCompact ? 36 : 44, height: isCompact ? 36 : 44 }]}
           >
             <AddReactionIcon size={isCompact ? 22 : 26} color={theme.mutedForeground} />
           </Pressable>

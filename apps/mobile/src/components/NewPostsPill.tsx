@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { useAppSelector } from '@/store/hooks';
@@ -64,6 +65,15 @@ export const NewPostsPill = forwardRef<NewPostsPillRef, NewPostsPillProps>(
     // Tracks the most recent scroll Y so we can suppress the pill when the
     // user is already at/near the top when new posts arrive.
     const lastScrollYRef = useRef(0);
+    // True only while the feed screen has focus — prevents suppressing the
+    // pill when the user is on a different screen (e.g. post detail).
+    const isFocusedRef = useRef(false);
+    useFocusEffect(
+      useCallback(() => {
+        isFocusedRef.current = true;
+        return () => { isFocusedRef.current = false; };
+      }, []),
+    );
 
     const pillAnimValue = useRef(new Animated.Value(0)).current;
     const pillAnimRef = useRef<Animated.CompositeAnimation | null>(null);
@@ -148,9 +158,11 @@ export const NewPostsPill = forwardRef<NewPostsPillRef, NewPostsPillProps>(
           p.authorId !== currentUser.id &&
           p.timestamp > threshold,
       );
-      // If the user is already at/near the top, mark the new posts as seen
-      // immediately — the content is already visible so the pill is misleading.
-      if (incoming.length > 0 && lastScrollYRef.current <= 50) {
+      // If the feed is focused and the user is already at/near the top, the
+      // new posts are already visible — mark them seen so the pill doesn't
+      // appear. Only do this while the feed is actually in view; if the user
+      // is on a different screen we still want to show the pill when they return.
+      if (incoming.length > 0 && isFocusedRef.current && lastScrollYRef.current <= 50) {
         markPostsSeenRef.current();
         return;
       }
