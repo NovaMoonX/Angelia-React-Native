@@ -32,6 +32,7 @@ import { selectMessages, setMessages } from '@/store/slices/conversationSlice';
 import { sendMessage } from '@/store/actions/conversationActions';
 import { joinConversation } from '@/store/actions/postActions';
 import { subscribeToMessages } from '@/services/firebase/firestore';
+import { dismissNotificationsByData } from '@/services/notifications';
 
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
@@ -109,6 +110,7 @@ export default function ConversationScreen() {
         currentUser?.id
           ? AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUser.id), String(Date.now()))
           : Promise.resolve(),
+        dismissNotificationsByData({ type: 'conversation_message', postId }).catch(() => {}),
       ]).catch(() => {});
 
       return () => {

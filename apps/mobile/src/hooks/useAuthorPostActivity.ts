@@ -188,6 +188,41 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
     // effect on the next refreshSeenState() call (next screen focus).
   }, [currentUserId]);
 
+  const markConversationSeen = useCallback(async (postIdsToMark?: string[]) => {
+    if (!currentUserId) return;
+
+    const targetPostIds = postIdsToMark ?? subscribedPostIds;
+    if (targetPostIds.length === 0) return;
+
+    const seenAt = Date.now();
+    await AsyncStorage.multiSet(
+      targetPostIds.map((postId) => {
+        return [CONVERSATION_LAST_SEEN_KEY(postId), String(seenAt)] as [string, string];
+      }),
+    ).catch(() => {
+      return null;
+    });
+
+    setSeenMaps((prev) => {
+      const nextConversationByPostId = { ...prev.conversationByPostId };
+      targetPostIds.forEach((postId) => {
+        nextConversationByPostId[postId] = seenAt;
+      });
+
+      const nextSeenMaps: SeenMaps = {
+        privateNotesByPostId: prev.privateNotesByPostId,
+        conversationByPostId: nextConversationByPostId,
+      };
+
+      seenStateCache[currentUserId] = {
+        postActivitySeenAt: seenStateCache[currentUserId]?.postActivitySeenAt ?? postActivitySeenAt,
+        seenMaps: nextSeenMaps,
+      };
+
+      return nextSeenMaps;
+    });
+  }, [currentUserId, postActivitySeenAt, subscribedPostIds]);
+
   const unreadDetailsByPostId = useMemo((): Record<string, PostUnreadDetail> => {
     // Return empty map until seen state has been loaded from storage.
     // This prevents a false "all unread" signal (postActivitySeenAt=0) from
@@ -243,5 +278,6 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
     unreadDetailsByPostId,
     refreshSeenState,
     markActivitySeen,
+    markConversationSeen,
   };
 }

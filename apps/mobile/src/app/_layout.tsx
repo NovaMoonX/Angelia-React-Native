@@ -14,7 +14,13 @@ import { ActionModalProvider } from '@/providers/ActionModalProvider';
 import { AuthProvider } from '@/providers/AuthProvider';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useTheme } from '@/hooks/useTheme';
-import { NOTIFICATION_ID, WIND_DOWN_NOTIFICATION_ID, getFollowUpForPrompt, getFollowUpForWindDown } from '@/services/notifications';
+import {
+	NOTIFICATION_ID,
+	WIND_DOWN_NOTIFICATION_ID,
+	getFollowUpForPrompt,
+	getFollowUpForWindDown,
+	dismissNotificationsByData,
+} from '@/services/notifications';
 import { POST_ACTIVITY_SEEN_KEY } from '@/models/constants';
 
 /** Matches the key used in DataListenerWrapper to track whether the in-app daily notice has already been shown today. */
@@ -131,18 +137,21 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 		const postId = data?.postId;
 		if (postId) {
 			markPostActivityNotificationsSeen();
+			void dismissNotificationsByData({ type: 'post_reaction', postId });
 			router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } });
 		}
 	} else if (type === 'conversation_message') {
 		const postId = data?.postId;
 		if (postId) {
 			markPostActivityNotificationsSeen();
+			void dismissNotificationsByData({ type: 'conversation_message', postId });
 			router.push({ pathname: '/(protected)/conversation', params: { postId } });
 		}
 	} else if (type === 'private_note') {
 		const postId = data?.postId;
 		if (postId) {
 			markPostActivityNotificationsSeen();
+			void dismissNotificationsByData({ type: 'private_note', postId });
 			router.push({ pathname: '/(protected)/private-notes-host/[postId]', params: { postId } });
 		}
 	}

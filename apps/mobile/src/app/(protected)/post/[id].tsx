@@ -41,6 +41,7 @@ import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout'
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { updatePostReactions, removeAllPostReactionsForUser, deletePostAction } from '@/store/actions/postActions';
 import { getActiveCustomChannelsByOwner, subscribeToMessages } from '@/services/firebase/firestore';
+import { dismissNotificationsByData } from '@/services/notifications';
 import { CircleJoinSuggestionsModal, type CircleJoinSuggestionItem } from '@/components/CircleJoinSuggestionsModal';
 import { sendJoinRequest } from '@/store/actions/inviteActions';
 import type { Reaction, MediaItem, Channel } from '@/models/types';
@@ -122,9 +123,11 @@ export default function PostDetailScreen() {
 	// gets written). Using useFocusEffect ensures the dot clears on return.
 	useFocusEffect(
 		useCallback(() => {
-			if (!currentUser?.id) return;
+			if (!currentUser?.id || !id) return;
 			void AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUser.id), String(Date.now())).catch(() => {});
-		}, [currentUser?.id]),
+			// Dismiss reaction notifications for this specific post
+			void dismissNotificationsByData({ type: 'post_reaction', postId: id }).catch(() => {});
+		}, [currentUser?.id, id]),
 	);
 
 	useFocusEffect(
