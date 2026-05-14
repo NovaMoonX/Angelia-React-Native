@@ -9,8 +9,10 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { saveNotificationSettings } from '@/store/actions/notificationActions';
 import { getDeviceTimeZone } from '@/services/notifications';
 import { NOTIFICATION_TIMEZONES } from '@/constants/notifications.constants';
+import { createDefaultCirclePostNotificationSettings } from '@/models/constants';
 import { Select } from '@/components/ui/Select';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { selectAllChannels } from '@/store/slices/channelsSlice';
 import {
   NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY,
   NOTIFICATION_SETTINGS_NOTICE_VERSION,
@@ -25,20 +27,24 @@ export default function NotificationSettingsScreen() {
   const notificationSettings = useAppSelector(
     (state) => state.users.currentUserNotificationSettings,
   );
+  const currentUser = useAppSelector((state) => {
+    return state.users.currentUser;
+  });
+  const allChannels = useAppSelector(selectAllChannels);
 
   const dailyEnabled = notificationSettings?.dailyPrompt?.enabled ?? true;
   const notifTZ = notificationSettings?.timeZone ?? getDeviceTimeZone();
   const autoDetect = notificationSettings?.autoDetectTimeZone !== false;
-  const postActivity = notificationSettings?.postActivity;
-  const reactionsEnabled = postActivity?.reactionsEnabled !== false;
-  const privateNotesEnabled = postActivity?.privateNotesEnabled !== false;
-  const conversationMessagesEnabled = postActivity?.conversationMessagesEnabled !== false;
-  const enabledPostNotificationCount = [
-    reactionsEnabled,
-    privateNotesEnabled,
-    conversationMessagesEnabled,
-  ].reduce((count, enabled) => {
-    return enabled ? count + 1 : count;
+  const involvedCircles = allChannels.filter((channel) => {
+    if (!currentUser) return false;
+    return channel.ownerId === currentUser.id || channel.subscribers.includes(currentUser.id);
+  });
+
+  const circlesWithCustomSettingsCount = involvedCircles.reduce((count, channel) => {
+    const settings = notificationSettings?.postByCircle?.[channel.id] ?? createDefaultCirclePostNotificationSettings();
+    const hasAnyCustomEnabled =
+      settings.everydayEnabled || settings.worthKnowingEnabled || settings.withAttachmentsEnabled;
+    return hasAnyCustomEnabled ? count + 1 : count;
   }, 0);
 
   const handleToggleAutoDetect = useCallback(async () => {
@@ -137,9 +143,9 @@ export default function NotificationSettingsScreen() {
             <View style={styles.rowText}>
               <Text style={[styles.rowLabel, { color: theme.foreground }]}>Post Notifications</Text>
               <Text style={[styles.rowSub, { color: theme.mutedForeground }]}> 
-                {enabledPostNotificationCount === 0
-                  ? 'Off'
-                  : `${enabledPostNotificationCount}/3 active`}
+                {involvedCircles.length === 0
+                  ? 'No circles yet'
+                  : `${circlesWithCustomSettingsCount}/${involvedCircles.length} circles with extra alerts`}
               </Text>
             </View>
           </View>

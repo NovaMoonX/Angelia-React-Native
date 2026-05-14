@@ -21,6 +21,7 @@ import {
   DAILY_CHANNEL_SUFFIX,
   DEFAULT_WIND_DOWN_PROMPT,
   DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS,
+  createDefaultCirclePostNotificationSettings,
 } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
@@ -178,9 +179,32 @@ const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   },
   windDownPrompt: { ...DEFAULT_WIND_DOWN_PROMPT },
   postActivity: { ...DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS },
+  postByCircle: {},
   timeZone: 'UTC',
   autoDetectTimeZone: true,
 };
+
+function normalizeCirclePostNotificationSettings(
+  raw: unknown,
+): NotificationSettings['postByCircle'] {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {};
+  }
+
+  const entries = Object.entries(raw as Record<string, unknown>);
+  const normalized: NotificationSettings['postByCircle'] = {};
+  for (const [channelId, value] of entries) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      continue;
+    }
+    normalized[channelId] = {
+      ...createDefaultCirclePostNotificationSettings(),
+      ...(value as NotificationSettings['postByCircle'][string]),
+    };
+  }
+
+  return normalized;
+}
 
 function normalizeNotificationSettings(raw: NotificationSettings): NotificationSettings {
   return {
@@ -198,6 +222,7 @@ function normalizeNotificationSettings(raw: NotificationSettings): NotificationS
       ...DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS,
       ...(raw.postActivity ?? {}),
     },
+    postByCircle: normalizeCirclePostNotificationSettings(raw.postByCircle),
   };
 }
 

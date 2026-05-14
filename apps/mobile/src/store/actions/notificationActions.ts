@@ -21,6 +21,7 @@ import {
 import { retryWithBackoff } from '@/utils/retryWithBackoff';
 import type { NotificationSettings, NotificationSettingsUpdate } from '@/models/types';
 import {
+  createDefaultCirclePostNotificationSettings,
   DEFAULT_WIND_DOWN_PROMPT,
   DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS,
 } from '@/models/constants';
@@ -130,12 +131,26 @@ export const saveNotificationSettings = createAsyncThunk(
           ...data.postActivity,
         }
       : (current.postActivity ?? DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS);
+    const mergedPostByCircle: NotificationSettings['postByCircle'] = {
+      ...(current.postByCircle ?? {}),
+    };
+    if (data.postByCircle) {
+      for (const [channelId, nextSettings] of Object.entries(data.postByCircle)) {
+        mergedPostByCircle[channelId] = {
+          ...createDefaultCirclePostNotificationSettings(),
+          ...(current.postByCircle?.[channelId] ?? {}),
+          ...nextSettings,
+        };
+      }
+    }
+
     const updated: NotificationSettings = {
       ...current,
       ...data,
       dailyPrompt: mergedDailyPrompt,
       windDownPrompt: mergedWindDownPrompt,
       postActivity: mergedPostActivity,
+      postByCircle: mergedPostByCircle,
     };
 
     if (isDemoActive(getState)) {

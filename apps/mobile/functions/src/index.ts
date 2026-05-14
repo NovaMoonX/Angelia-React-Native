@@ -15,336 +15,363 @@ const DAILY_CHANNEL_SUFFIX = '-daily';
 // IMPORTANT: Keep these types in sync with src/models/types.ts in the app.
 
 type AppNotificationType =
-  | 'join_channel_request'
-  | 'join_channel_accepted'
-  | 'custom_circle_invite'
-  | 'connection_request'
-  | 'connection_accepted'
-  | 'big_news_post'
-  | 'post_reaction'
-  | 'conversation_message'
-  | 'new_post'
-  | 'comment_reply'
-  | 'private_note';
+	| 'join_channel_request'
+	| 'join_channel_accepted'
+	| 'custom_circle_invite'
+	| 'connection_request'
+	| 'connection_accepted'
+	| 'post_reaction'
+	| 'conversation_message'
+	| 'new_post'
+	| 'comment_reply'
+	| 'private_note';
 
 type PostTier = 'everyday' | 'worth-knowing' | 'big-news';
 
 type NotificationTarget =
-  | { type: 'user'; userId: string }
-  | { type: 'channel_tier'; channelId: string; tier: PostTier }
-  | { type: 'thread'; threadId: string };
+	| { type: 'user'; userId: string }
+	| { type: 'channel_tier'; channelId: string; tier: PostTier }
+	| { type: 'thread'; threadId: string };
 
 interface BaseAppNotification {
-  id: string;
-  type: AppNotificationType;
-  actorId: string;
-  target: NotificationTarget;
-  createdAt: number;
+	id: string;
+	type: AppNotificationType;
+	actorId: string;
+	target: NotificationTarget;
+	createdAt: number;
 }
 
 interface JoinChannelRequestNotification extends BaseAppNotification {
-  type: 'join_channel_request';
-  requesterId: string;
-  requesterFirstName: string;
-  requesterLastName: string;
-  channelId: string;
-  channelName: string;
-  joinRequestId: string;
+	type: 'join_channel_request';
+	requesterId: string;
+	requesterFirstName: string;
+	requesterLastName: string;
+	channelId: string;
+	channelName: string;
+	joinRequestId: string;
 }
 
 interface JoinChannelAcceptedNotification extends BaseAppNotification {
-  type: 'join_channel_accepted';
-  channelId: string;
-  channelName: string;
-  joinRequestId: string;
+	type: 'join_channel_accepted';
+	channelId: string;
+	channelName: string;
+	joinRequestId: string;
 }
 
 interface CustomCircleInviteNotification extends BaseAppNotification {
-  type: 'custom_circle_invite';
-  requestId: string;
-  inviterId: string;
-  inviterFirstName: string;
-  inviterLastName: string;
-  channelId: string;
-  channelName: string;
-  inviteCode: string;
+	type: 'custom_circle_invite';
+	requestId: string;
+	inviterId: string;
+	inviterFirstName: string;
+	inviterLastName: string;
+	channelId: string;
+	channelName: string;
+	inviteCode: string;
 }
 
 interface ConnectionRequestNotification extends BaseAppNotification {
-  type: 'connection_request';
-  fromId: string;
-  fromFirstName: string;
-  fromLastName: string;
-  connectionRequestId: string;
+	type: 'connection_request';
+	fromId: string;
+	fromFirstName: string;
+	fromLastName: string;
+	connectionRequestId: string;
 }
 
 interface ConnectionAcceptedNotification extends BaseAppNotification {
-  type: 'connection_accepted';
-  toFirstName: string;
-  toLastName: string;
-  connectionRequestId: string;
+	type: 'connection_accepted';
+	toFirstName: string;
+	toLastName: string;
+	connectionRequestId: string;
 }
 
-/** Mirrors BigNewsPostNotification in src/models/types.ts — keep in sync. */
-interface BigNewsPostNotification extends BaseAppNotification {
-  type: 'big_news_post';
-  postId: string;
-  channelId: string;
-  channelName: string;
-  isDaily: boolean;
-  authorFirstName: string;
-  authorLastName: string;
+/** Mirrors NewPostNotification in src/models/types.ts — keep in sync. */
+interface NewPostNotification extends BaseAppNotification {
+	type: 'new_post';
+	postId: string;
+	channelId: string;
+	channelName: string;
+	isDaily: boolean;
+	tier: PostTier;
+	hasAttachments: boolean;
+	authorFirstName: string;
+	authorLastName: string;
 }
+
+type UnifiedPostNotificationInput = NewPostNotification;
 
 /** Mirrors PostReactionNotification in src/models/types.ts — keep in sync. */
 interface PostReactionNotification extends BaseAppNotification {
-  type: 'post_reaction';
-  postId: string;
-  reactorFirstName: string;
-  reactorLastName: string;
-  emoji: string;
+	type: 'post_reaction';
+	postId: string;
+	reactorFirstName: string;
+	reactorLastName: string;
+	emoji: string;
 }
 
 /** Mirrors ConversationMessageNotification in src/models/types.ts — keep in sync. */
 interface ConversationMessageNotification extends BaseAppNotification {
-  type: 'conversation_message';
-  postId: string;
-  senderFirstName: string;
-  senderLastName: string;
-  messagePreview: string;
+	type: 'conversation_message';
+	postId: string;
+	senderFirstName: string;
+	senderLastName: string;
+	messagePreview: string;
 }
 
 /** Mirrors PrivateNoteNotification in src/models/types.ts — keep in sync. */
 interface PrivateNoteNotification extends BaseAppNotification {
-  type: 'private_note';
-  postId: string;
-  authorFirstName: string;
-  authorLastName: string;
+	type: 'private_note';
+	postId: string;
+	authorFirstName: string;
+	authorLastName: string;
 }
 
 type AppNotification =
-  | JoinChannelRequestNotification
-  | JoinChannelAcceptedNotification
-  | CustomCircleInviteNotification
-  | ConnectionRequestNotification
-  | ConnectionAcceptedNotification
-  | BigNewsPostNotification
-  | PostReactionNotification
-  | ConversationMessageNotification
-  | PrivateNoteNotification;
+	| JoinChannelRequestNotification
+	| JoinChannelAcceptedNotification
+	| CustomCircleInviteNotification
+	| ConnectionRequestNotification
+	| ConnectionAcceptedNotification
+	| NewPostNotification
+	| PostReactionNotification
+	| ConversationMessageNotification
+	| PrivateNoteNotification;
 
 interface ConnectionRequest {
-  id: string;
-  fromId: string;
-  toId: string;
-  status: 'pending' | 'accepted' | 'declined';
-  createdAt: number;
-  respondedAt: number | null;
-  note: string | null;
+	id: string;
+	fromId: string;
+	toId: string;
+	status: 'pending' | 'accepted' | 'declined';
+	createdAt: number;
+	respondedAt: number | null;
+	note: string | null;
 }
 
 /** Mirrors ChannelJoinRequest in src/models/types.ts — keep in sync. */
 interface ChannelJoinRequest {
-  id: string;
-  channelId: string;
-  channelOwnerId: string;
-  requesterId: string;
-  message: string;
-  status: 'pending' | 'accepted' | 'declined';
-  createdAt: number;
-  respondedAt: number | null;
+	id: string;
+	channelId: string;
+	channelOwnerId: string;
+	requesterId: string;
+	message: string;
+	status: 'pending' | 'accepted' | 'declined';
+	createdAt: number;
+	respondedAt: number | null;
 }
 
 interface CircleInviteRequest {
-  id: string;
-  channelId: string;
-  channelOwnerId: string;
-  inviterId: string;
-  inviteeId: string;
-  status: 'pending' | 'accepted' | 'declined';
-  createdAt: number;
-  respondedAt: number | null;
+	id: string;
+	channelId: string;
+	channelOwnerId: string;
+	inviterId: string;
+	inviteeId: string;
+	status: 'pending' | 'accepted' | 'declined';
+	createdAt: number;
+	respondedAt: number | null;
 }
 
 interface FcmTokenEntry {
-  deviceId: string;
-  token: string;
-  deviceName?: string;
+	deviceId: string;
+	token: string;
+	deviceName?: string;
 }
 
 /** Mirrors the public profile fields stored at usersPublic/{uid}. */
 interface UserPublic {
-  id: string;
-  firstName: string;
-  lastName: string;
+	id: string;
+	firstName: string;
+	lastName: string;
 }
 
 interface UserNotificationSettings {
-  fcmTokens?: FcmTokenEntry[];
-  postActivity?: {
-    reactionsEnabled?: boolean;
-    privateNotesEnabled?: boolean;
-    conversationMessagesEnabled?: boolean;
-  };
+	fcmTokens?: FcmTokenEntry[];
+	postActivity?: {
+		reactionsEnabled?: boolean;
+		privateNotesEnabled?: boolean;
+		conversationMessagesEnabled?: boolean;
+	};
+	postByCircle?: Record<string, CirclePostNotificationSettings>;
+}
+
+interface CirclePostNotificationSettings {
+	everydayEnabled?: boolean;
+	worthKnowingEnabled?: boolean;
+	bigNewsEnabled?: boolean;
+	withAttachmentsEnabled?: boolean;
 }
 
 /** Mirrors Channel in src/models/types.ts — keep in sync. */
 interface Channel {
-  id: string;
-  ownerId: string;
-  subscribers: string[];
-  isDaily: boolean | null;
-  name: string;
-  description: string;
-  inviteCode: string | null;
-  markedForDeletionAt: number | null;
+	id: string;
+	ownerId: string;
+	subscribers: string[];
+	isDaily: boolean | null;
+	name: string;
+	description: string;
+	inviteCode: string | null;
+	markedForDeletionAt: number | null;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function buildFcmPayload(notification: AppNotification): {
-  title: string;
-  body: string;
-  data: Record<string, string>;
+	title: string;
+	body: string;
+	data: Record<string, string>;
 } {
-  if (notification.type === 'join_channel_request') {
-    const n = notification as JoinChannelRequestNotification;
-    return {
-      title: 'New Join Request',
-      body: `${n.requesterFirstName} ${n.requesterLastName} wants to join ${n.channelName}`,
-      data: {
-        type: n.type,
-        channelId: n.channelId,
-        channelName: n.channelName,
-        joinRequestId: n.joinRequestId,
-        requesterId: n.requesterId,
-        requesterFirstName: n.requesterFirstName,
-        requesterLastName: n.requesterLastName,
-      },
-    };
-  }
+	if (notification.type === 'join_channel_request') {
+		const n = notification as JoinChannelRequestNotification;
+		return {
+			title: 'New Join Request',
+			body: `${n.requesterFirstName} ${n.requesterLastName} wants to join ${n.channelName}`,
+			data: {
+				type: n.type,
+				channelId: n.channelId,
+				channelName: n.channelName,
+				joinRequestId: n.joinRequestId,
+				requesterId: n.requesterId,
+				requesterFirstName: n.requesterFirstName,
+				requesterLastName: n.requesterLastName,
+			},
+		};
+	}
 
-  if (notification.type === 'join_channel_accepted') {
-    const n = notification as JoinChannelAcceptedNotification;
-    return {
-      title: 'Request Accepted! 🎉',
-      body: `You've been accepted into ${n.channelName}`,
-      data: {
-        type: n.type,
-        channelId: n.channelId,
-        channelName: n.channelName,
-        joinRequestId: n.joinRequestId,
-      },
-    };
-  }
+	if (notification.type === 'join_channel_accepted') {
+		const n = notification as JoinChannelAcceptedNotification;
+		return {
+			title: 'Request Accepted! 🎉',
+			body: `You've been accepted into ${n.channelName}`,
+			data: {
+				type: n.type,
+				channelId: n.channelId,
+				channelName: n.channelName,
+				joinRequestId: n.joinRequestId,
+			},
+		};
+	}
 
-  if (notification.type === 'custom_circle_invite') {
-    const n = notification as CustomCircleInviteNotification;
-    return {
-      title: '✨ Circle Invite',
-      body: `${n.inviterFirstName} ${n.inviterLastName} invited you to join ${n.channelName}`,
-      data: {
-        type: n.type,
-        requestId: n.requestId,
-        inviterId: n.inviterId,
-        inviterFirstName: n.inviterFirstName,
-        inviterLastName: n.inviterLastName,
-        channelId: n.channelId,
-        channelName: n.channelName,
-        inviteCode: n.inviteCode,
-      },
-    };
-  }
+	if (notification.type === 'custom_circle_invite') {
+		const n = notification as CustomCircleInviteNotification;
+		return {
+			title: '✨ Circle Invite',
+			body: `${n.inviterFirstName} ${n.inviterLastName} invited you to join ${n.channelName}`,
+			data: {
+				type: n.type,
+				requestId: n.requestId,
+				inviterId: n.inviterId,
+				inviterFirstName: n.inviterFirstName,
+				inviterLastName: n.inviterLastName,
+				channelId: n.channelId,
+				channelName: n.channelName,
+				inviteCode: n.inviteCode,
+			},
+		};
+	}
 
-  if (notification.type === 'connection_request') {
-    const n = notification as ConnectionRequestNotification;
-    return {
-      title: '🤝 Connection Request',
-      body: `${n.fromFirstName} ${n.fromLastName} wants to connect with you`,
-      data: {
-        type: n.type,
-        fromId: n.fromId,
-        fromFirstName: n.fromFirstName,
-        fromLastName: n.fromLastName,
-        connectionRequestId: n.connectionRequestId,
-      },
-    };
-  }
+	if (notification.type === 'connection_request') {
+		const n = notification as ConnectionRequestNotification;
+		return {
+			title: '🤝 Connection Request',
+			body: `${n.fromFirstName} ${n.fromLastName} wants to connect with you`,
+			data: {
+				type: n.type,
+				fromId: n.fromId,
+				fromFirstName: n.fromFirstName,
+				fromLastName: n.fromLastName,
+				connectionRequestId: n.connectionRequestId,
+			},
+		};
+	}
 
-  if (notification.type === 'big_news_post') {
-    const n = notification as BigNewsPostNotification;
-    const circleLabel = n.isDaily ? 'Daily Circle' : `"${n.channelName}"`;
-    return {
-      title: `${n.authorFirstName} ${n.authorLastName} shared some big news!!!`,
-      body: `See their update in their ${circleLabel}`,
-      data: {
-        type: n.type,
-        postId: n.postId,
-        channelId: n.channelId,
-        channelName: n.channelName,
-        isDaily: String(n.isDaily),
-        authorFirstName: n.authorFirstName,
-        authorLastName: n.authorLastName,
-      },
-    };
-  }
+	if (notification.type === 'new_post') {
+		const n = notification as NewPostNotification;
+		return buildUnifiedPostPayload(n);
+	}
 
-  if (notification.type === 'post_reaction') {
-    const n = notification as PostReactionNotification;
-    return {
-      title: 'New Reaction on Your Post',
-      body: `${n.reactorFirstName} reacted with ${n.emoji}`,
-      data: {
-        type: n.type,
-        postId: n.postId,
-        reactorFirstName: n.reactorFirstName,
-        reactorLastName: n.reactorLastName,
-        emoji: n.emoji,
-      },
-    };
-  }
+	if (notification.type === 'post_reaction') {
+		const n = notification as PostReactionNotification;
+		return {
+			title: 'New Reaction on Your Post',
+			body: `${n.reactorFirstName} reacted with ${n.emoji}`,
+			data: {
+				type: n.type,
+				postId: n.postId,
+				reactorFirstName: n.reactorFirstName,
+				reactorLastName: n.reactorLastName,
+				emoji: n.emoji,
+			},
+		};
+	}
 
-  if (notification.type === 'conversation_message') {
-    const n = notification as ConversationMessageNotification;
-    return {
-      title: 'New Message on Your Post',
-      body: `${n.senderFirstName}: ${n.messagePreview}`,
-      data: {
-        type: n.type,
-        postId: n.postId,
-        senderFirstName: n.senderFirstName,
-        senderLastName: n.senderLastName,
-        messagePreview: n.messagePreview,
-      },
-    };
-  }
+	if (notification.type === 'conversation_message') {
+		const n = notification as ConversationMessageNotification;
+		return {
+			title: 'New Message on Your Post',
+			body: `${n.senderFirstName}: ${n.messagePreview}`,
+			data: {
+				type: n.type,
+				postId: n.postId,
+				senderFirstName: n.senderFirstName,
+				senderLastName: n.senderLastName,
+				messagePreview: n.messagePreview,
+			},
+		};
+	}
 
-  if (notification.type === 'private_note') {
-    const n = notification as PrivateNoteNotification;
-    return {
-      title: '🔒 Private Note',
-      body: `${n.authorFirstName} ${n.authorLastName} sent you a private note`,
-      data: {
-        type: n.type,
-        postId: n.postId,
-        authorFirstName: n.authorFirstName,
-        authorLastName: n.authorLastName,
-      },
-    };
-  }
+	if (notification.type === 'private_note') {
+		const n = notification as PrivateNoteNotification;
+		return {
+			title: '🔒 Private Note',
+			body: `${n.authorFirstName} ${n.authorLastName} sent you a private note`,
+			data: {
+				type: n.type,
+				postId: n.postId,
+				authorFirstName: n.authorFirstName,
+				authorLastName: n.authorLastName,
+			},
+		};
+	}
 
-  // connection_accepted
-  const n = notification as ConnectionAcceptedNotification;
-  return {
-    title: `🎉 You're connected!`,
-    body: `${n.toFirstName} ${n.toLastName} accepted your connection request`,
-    data: {
-      type: n.type,
-      toFirstName: n.toFirstName,
-      toLastName: n.toLastName,
-      connectionRequestId: n.connectionRequestId,
-    },
-  };
+	// connection_accepted
+	const n = notification as ConnectionAcceptedNotification;
+	return {
+		title: `🎉 You're connected!`,
+		body: `${n.toFirstName} ${n.toLastName} accepted your connection request`,
+		data: {
+			type: n.type,
+			toFirstName: n.toFirstName,
+			toLastName: n.toLastName,
+			connectionRequestId: n.connectionRequestId,
+		},
+	};
+}
+
+function buildUnifiedPostPayload(n: UnifiedPostNotificationInput): {
+	title: string;
+	body: string;
+	data: Record<string, string>;
+} {
+	const fullName = `${n.authorFirstName} ${n.authorLastName}`.trim();
+	const ownerName = fullName || n.authorFirstName || 'Someone';
+	const tierText =
+		n.tier === 'big-news' ? 'big news' : n.tier === 'worth-knowing' ? 'worth knowing' : 'everyday update';
+	const attachmentText = n.hasAttachments ? ' with attachments' : '';
+	const circleLabel = n.isDaily ? 'Daily Circle' : `"${n.channelName}"`;
+
+	return {
+		title: `${ownerName} shared a new post`,
+		body: `New ${tierText}${attachmentText} in ${circleLabel}`,
+		data: {
+			type: 'new_post',
+			postId: n.postId,
+			channelId: n.channelId,
+			channelName: n.channelName,
+			isDaily: String(n.isDaily),
+			tier: n.tier,
+			hasAttachments: String(n.hasAttachments),
+			authorFirstName: n.authorFirstName,
+			authorLastName: n.authorLastName,
+		},
+	};
 }
 
 /**
@@ -352,164 +379,177 @@ function buildFcmPayload(notification: AppNotification): {
  * Failure is best-effort — individual token failures are swallowed.
  */
 async function sendFcmToTokens(
-  tokens: string[],
-  payload: { title: string; body: string; data: Record<string, string> },
+	tokens: string[],
+	payload: { title: string; body: string; data: Record<string, string> },
 ): Promise<void> {
-  if (tokens.length === 0) return;
-  const { title, body, data } = payload;
-  try {
-    const res = await messaging.sendEachForMulticast({
-      tokens,
-      notification: { title, body },
-      data,
-      apns: {
-        payload: {
-          aps: {
-            sound: 'default',
-            badge: 1,
-          },
-        },
-      },
-      android: {
-        priority: 'high',
-        notification: {
-          sound: 'default',
-        },
-      },
-    });
-    if (res.failureCount > 0) {
-      res.responses.forEach((r, idx) => {
-        if (!r.success) {
-          console.error(`Failed to send FCM to token ${tokens[idx]}:`, r.error);
-        }
-      });
-    } else {
-      console.log(`Successfully sent FCM to ${tokens.length} tokens`);
-    }
-  } catch (err) {
-    console.error('FCM send error:', err);
-  }
+	if (tokens.length === 0) return;
+	const { title, body, data } = payload;
+	try {
+		const res = await messaging.sendEachForMulticast({
+			tokens,
+			notification: { title, body },
+			data,
+			apns: {
+				payload: {
+					aps: {
+						sound: 'default',
+						badge: 1,
+					},
+				},
+			},
+			android: {
+				priority: 'high',
+				notification: {
+					sound: 'default',
+				},
+			},
+		});
+		if (res.failureCount > 0) {
+			res.responses.forEach((r, idx) => {
+				if (!r.success) {
+					console.error(`Failed to send FCM to token ${tokens[idx]}:`, r.error);
+				}
+			});
+		} else {
+			console.log(`Successfully sent FCM to ${tokens.length} tokens`);
+		}
+	} catch (err) {
+		console.error('FCM send error:', err);
+	}
 }
 
 const REACTION_NOTIFICATION_COOLDOWN_MS = 10 * 60 * 1000;
 
 const DEFAULT_POST_ACTIVITY_SETTINGS = {
-  reactionsEnabled: true,
-  privateNotesEnabled: true,
-  conversationMessagesEnabled: true,
+	reactionsEnabled: true,
+	privateNotesEnabled: true,
+	conversationMessagesEnabled: true,
 };
 
-async function getNotificationSettingsForUser(
-  userId: string,
-): Promise<UserNotificationSettings | null> {
-  const snap = await db.collection('userNotificationSettings').doc(userId).get();
-  if (!snap.exists) return null;
-  return snap.data() as UserNotificationSettings;
+const DEFAULT_CIRCLE_POST_SETTINGS = {
+	everydayEnabled: false,
+	worthKnowingEnabled: false,
+	bigNewsEnabled: true,
+	withAttachmentsEnabled: false,
+};
+
+async function getNotificationSettingsForUser(userId: string): Promise<UserNotificationSettings | null> {
+	const snap = await db.collection('userNotificationSettings').doc(userId).get();
+	if (!snap.exists) return null;
+	return snap.data() as UserNotificationSettings;
 }
 
 function getTokensFromSettings(settings: UserNotificationSettings | null): string[] {
-  if (!settings) return [];
-  return (settings.fcmTokens ?? [])
-    .map((t) => {
-      return t.token;
-    })
-    .filter(Boolean);
+	if (!settings) return [];
+	return (settings.fcmTokens ?? [])
+		.map((t) => {
+			return t.token;
+		})
+		.filter(Boolean);
 }
 
 function isPostActivityNotificationType(type: AppNotificationType): boolean {
-  return (
-    type === 'post_reaction'
-    || type === 'private_note'
-    || type === 'conversation_message'
-  );
+	return type === 'post_reaction' || type === 'private_note' || type === 'conversation_message';
 }
 
 function isPostActivityNotificationEnabled(
-  notification: AppNotification,
-  settings: UserNotificationSettings | null,
+	notification: AppNotification,
+	settings: UserNotificationSettings | null,
 ): boolean {
-  if (!isPostActivityNotificationType(notification.type)) {
-    return true;
-  }
+	if (!isPostActivityNotificationType(notification.type)) {
+		return true;
+	}
 
-  const postActivity = {
-    ...DEFAULT_POST_ACTIVITY_SETTINGS,
-    ...(settings?.postActivity ?? {}),
-  };
+	const postActivity = {
+		...DEFAULT_POST_ACTIVITY_SETTINGS,
+		...(settings?.postActivity ?? {}),
+	};
 
-  if (notification.type === 'post_reaction') {
-    return postActivity.reactionsEnabled;
-  }
+	if (notification.type === 'post_reaction') {
+		return postActivity.reactionsEnabled;
+	}
 
-  if (notification.type === 'private_note') {
-    return postActivity.privateNotesEnabled;
-  }
+	if (notification.type === 'private_note') {
+		return postActivity.privateNotesEnabled;
+	}
 
-  if (notification.type === 'conversation_message') {
-    return postActivity.conversationMessagesEnabled;
-  }
+	if (notification.type === 'conversation_message') {
+		return postActivity.conversationMessagesEnabled;
+	}
 
-  return true;
+	return true;
 }
 
-function getReactionCooldownDocId(
-  targetUserId: string,
-  actorId: string,
-  postId: string,
-): string {
-  return `post_reaction__${targetUserId}__${actorId}__${postId}`;
+function isCirclePostNotification(notification: AppNotification): notification is NewPostNotification {
+	return notification.type === 'new_post';
+}
+
+function isCirclePostNotificationEnabled(
+	notification: AppNotification,
+	settings: UserNotificationSettings | null,
+): boolean {
+	if (!isCirclePostNotification(notification)) {
+		return true;
+	}
+
+	const target = notification.target;
+	if (target.type !== 'channel_tier') {
+		return false;
+	}
+
+	const channelId = target.channelId;
+	const channelPrefs = {
+		...DEFAULT_CIRCLE_POST_SETTINGS,
+		...((settings?.postByCircle ?? {})[channelId] ?? {}),
+	};
+
+	const tierEnabled =
+		target.tier === 'big-news'
+			? channelPrefs.bigNewsEnabled
+			: target.tier === 'worth-knowing'
+				? channelPrefs.worthKnowingEnabled
+				: channelPrefs.everydayEnabled;
+
+	const hasAttachments = notification.type === 'new_post' ? notification.hasAttachments === true : false;
+
+	return tierEnabled || (hasAttachments && channelPrefs.withAttachmentsEnabled);
+}
+
+function getReactionCooldownDocId(targetUserId: string, actorId: string, postId: string): string {
+	return `post_reaction__${targetUserId}__${actorId}__${postId}`;
 }
 
 async function reserveReactionCooldownSlot(
-  notification: PostReactionNotification,
-  targetUserId: string,
+	notification: PostReactionNotification,
+	targetUserId: string,
 ): Promise<boolean> {
-  const cooldownDocId = getReactionCooldownDocId(
-    targetUserId,
-    notification.actorId,
-    notification.postId,
-  );
-  const cooldownRef = db.collection('notificationCooldowns').doc(cooldownDocId);
-  const now = Date.now();
-  let shouldSend = false;
+	const cooldownDocId = getReactionCooldownDocId(targetUserId, notification.actorId, notification.postId);
+	const cooldownRef = db.collection('notificationCooldowns').doc(cooldownDocId);
+	const now = Date.now();
+	let shouldSend = false;
 
-  await db.runTransaction(async (transaction) => {
-    const cooldownSnap = await transaction.get(cooldownRef);
-    const rawData = cooldownSnap.exists
-      ? (cooldownSnap.data() as Record<string, unknown>)
-      : null;
-    const lastSentAt = typeof rawData?.lastSentAt === 'number'
-      ? rawData.lastSentAt
-      : 0;
-    if (now - lastSentAt < REACTION_NOTIFICATION_COOLDOWN_MS) {
-      return;
-    }
+	await db.runTransaction(async (transaction) => {
+		const cooldownSnap = await transaction.get(cooldownRef);
+		const rawData = cooldownSnap.exists ? (cooldownSnap.data() as Record<string, unknown>) : null;
+		const lastSentAt = typeof rawData?.lastSentAt === 'number' ? rawData.lastSentAt : 0;
+		if (now - lastSentAt < REACTION_NOTIFICATION_COOLDOWN_MS) {
+			return;
+		}
 
-    const createdAt = typeof rawData?.createdAt === 'number'
-      ? rawData.createdAt
-      : now;
-    shouldSend = true;
-    transaction.set(cooldownRef, {
-      type: notification.type,
-      targetUserId,
-      actorId: notification.actorId,
-      postId: notification.postId,
-      lastSentAt: now,
-      createdAt,
-      updatedAt: now,
-    });
-  });
+		const createdAt = typeof rawData?.createdAt === 'number' ? rawData.createdAt : now;
+		shouldSend = true;
+		transaction.set(cooldownRef, {
+			type: notification.type,
+			targetUserId,
+			actorId: notification.actorId,
+			postId: notification.postId,
+			lastSentAt: now,
+			createdAt,
+			updatedAt: now,
+		});
+	});
 
-  return shouldSend;
-}
-
-/**
- * Fetches all FCM tokens for a single user from `userNotificationSettings/{uid}`.
- * Returns an empty array when the document does not exist.
- */
-async function getTokensForUser(userId: string): Promise<string[]> {
-  const settings = await getNotificationSettingsForUser(userId);
-  return getTokensFromSettings(settings);
+	return shouldSend;
 }
 
 /**
@@ -521,71 +561,76 @@ async function getTokensForUser(userId: string): Promise<string[]> {
  *   - `user`         — a single specific user (existing behavior)
  *   - `channel_tier` — all subscribers of a channel, e.g. for big-news posts
  */
-export const sendAppNotification = onDocumentCreated(
-  'notifications/{notificationId}',
-  async (event) => {
-    const snap = event.data;
-    if (!snap) return;
+export const sendAppNotification = onDocumentCreated('notifications/{notificationId}', async (event) => {
+	const snap = event.data;
+	if (!snap) return;
 
-    const notification = snap.data() as AppNotification;
-    const payload = buildFcmPayload(notification);
+	const notification = snap.data() as AppNotification;
+	const payload = buildFcmPayload(notification);
 
-    if (notification.target.type === 'user') {
-      // ── Single-user target ─────────────────────────────────────────────
-      const targetUserId = notification.target.userId;
-      const targetSettings = await getNotificationSettingsForUser(targetUserId);
+	if (notification.target.type === 'user') {
+		// ── Single-user target ─────────────────────────────────────────────
+		const targetUserId = notification.target.userId;
+		const targetSettings = await getNotificationSettingsForUser(targetUserId);
 
-      if (!isPostActivityNotificationEnabled(notification, targetSettings)) {
-        await snap.ref.delete();
-        return;
-      }
+		if (!isPostActivityNotificationEnabled(notification, targetSettings)) {
+			await snap.ref.delete();
+			return;
+		}
 
-      const tokens = getTokensFromSettings(targetSettings);
-      if (tokens.length === 0) {
-        await snap.ref.delete();
-        return;
-      }
+		const tokens = getTokensFromSettings(targetSettings);
+		if (tokens.length === 0) {
+			await snap.ref.delete();
+			return;
+		}
 
-      if (notification.type === 'post_reaction') {
-        const shouldSend = await reserveReactionCooldownSlot(notification, targetUserId);
-        if (!shouldSend) {
-          await snap.ref.delete();
-          return;
-        }
-      }
-      await sendFcmToTokens(tokens, payload);
-    } else if (notification.target.type === 'channel_tier') {
-      // ── Channel-tier target: fan-out to all channel subscribers ────────
-      const channelSnap = await db
-        .collection('channels')
-        .doc(notification.target.channelId)
-        .get();
+		if (notification.type === 'post_reaction') {
+			const shouldSend = await reserveReactionCooldownSlot(notification, targetUserId);
+			if (!shouldSend) {
+				await snap.ref.delete();
+				return;
+			}
+		}
+		await sendFcmToTokens(tokens, payload);
+	} else if (notification.target.type === 'channel_tier') {
+		// ── Channel-tier target: fan-out to all channel subscribers ────────
+		const channelSnap = await db.collection('channels').doc(notification.target.channelId).get();
 
-      if (!channelSnap.exists) {
-        await snap.ref.delete();
-        return;
-      }
+		if (!channelSnap.exists) {
+			await snap.ref.delete();
+			return;
+		}
 
-      const channel = channelSnap.data() as Channel;
-      // Notify all subscribers; exclude the post author (actorId) to avoid
-      // sending a push to the person who just posted.
-      const recipientIds = channel.subscribers.filter(
-        (id) => id !== notification.actorId,
-      );
+		const channel = channelSnap.data() as Channel;
+		// Notify all subscribers; exclude the post author (actorId) to avoid
+		// sending a push to the person who just posted.
+		const recipientIds = channel.subscribers.filter((id) => id !== notification.actorId);
 
-      // Fan-out: fetch tokens for all recipients in parallel, then batch-send.
-      const tokenArrays = await Promise.all(recipientIds.map(getTokensForUser));
-      const allTokens = tokenArrays.flat();
-      await sendFcmToTokens(allTokens, payload);
-    } else {
-      // `thread` targets and any future unrecognized target types are not yet
-      // supported.  Fall through to deletion so the document is cleaned up.
-    }
+		// Fan-out: fetch settings for all recipients in parallel, then apply
+		// per-circle preferences before collecting tokens.
+		const recipientSettings = await Promise.all(
+			recipientIds.map(async (recipientId) => {
+				const settings = await getNotificationSettingsForUser(recipientId);
+				return { recipientId, settings };
+			}),
+		);
 
-    // Always delete the notification document after processing
-    await snap.ref.delete();
-  },
-);
+		const allTokens = recipientSettings
+			.filter(({ settings }) => {
+				return isCirclePostNotificationEnabled(notification, settings);
+			})
+			.flatMap(({ settings }) => {
+				return getTokensFromSettings(settings);
+			});
+		await sendFcmToTokens(allTokens, payload);
+	} else {
+		// `thread` targets and any future unrecognized target types are not yet
+		// supported.  Fall through to deletion so the document is cleaned up.
+	}
+
+	// Always delete the notification document after processing
+	await snap.ref.delete();
+});
 
 // ── Cloud Function: Create mutual connection on request acceptance ──────────
 
@@ -600,78 +645,76 @@ export const sendAppNotification = onDocumentCreated(
  * All writes are batched for atomicity. The idempotency guard on
  * `before.status` prevents duplicate work if the function is retried.
  */
-export const onConnectionRequestAccepted = onDocumentUpdated(
-  'connectionRequests/{requestId}',
-  async (event) => {
-    const before = event.data?.before.data() as ConnectionRequest | undefined;
-    const after = event.data?.after.data() as ConnectionRequest | undefined;
+export const onConnectionRequestAccepted = onDocumentUpdated('connectionRequests/{requestId}', async (event) => {
+	const before = event.data?.before.data() as ConnectionRequest | undefined;
+	const after = event.data?.after.data() as ConnectionRequest | undefined;
 
-    if (!before || !after) return;
+	if (!before || !after) return;
 
-    // Only act when status transitions from non-accepted to accepted.
-    // Checking `before.status === 'accepted'` makes this idempotent: if the
-    // Cloud Function is retried (e.g. after a transient failure), the second
-    // execution will see `before.status === 'accepted'` and exit early,
-    // preventing duplicate writes to the connections subcollection.
-    if (before.status === 'accepted' || after.status !== 'accepted') return;
+	// Only act when status transitions from non-accepted to accepted.
+	// Checking `before.status === 'accepted'` makes this idempotent: if the
+	// Cloud Function is retried (e.g. after a transient failure), the second
+	// execution will see `before.status === 'accepted'` and exit early,
+	// preventing duplicate writes to the connections subcollection.
+	if (before.status === 'accepted' || after.status !== 'accepted') return;
 
-    const { fromId, toId } = after;
-    const requestId = event.params.requestId;
-    const connectedAt = Date.now();
+	const { fromId, toId } = after;
+	const requestId = event.params.requestId;
+	const connectedAt = Date.now();
 
-    // Fetch the acceptor's public profile for the notification payload.
-    const toUserSnap = await db.collection('usersPublic').doc(toId).get();
-    const toUser = toUserSnap.exists ? (toUserSnap.data() as UserPublic) : null;
+	// Fetch the acceptor's public profile for the notification payload.
+	const toUserSnap = await db.collection('usersPublic').doc(toId).get();
+	const toUser = toUserSnap.exists ? (toUserSnap.data() as UserPublic) : null;
 
-    // 1. Commit the mutual connection documents and notification atomically.
-    //    These are the core of the operation and must succeed together.
-    const connectionBatch = db.batch();
+	// 1. Commit the mutual connection documents and notification atomically.
+	//    These are the core of the operation and must succeed together.
+	const connectionBatch = db.batch();
 
-    connectionBatch.set(
-      db.collection('connections').doc(fromId).collection('people').doc(toId),
-      { userId: toId, connectedAt },
-    );
-    connectionBatch.set(
-      db.collection('connections').doc(toId).collection('people').doc(fromId),
-      { userId: fromId, connectedAt },
-    );
+	connectionBatch.set(db.collection('connections').doc(fromId).collection('people').doc(toId), {
+		userId: toId,
+		connectedAt,
+	});
+	connectionBatch.set(db.collection('connections').doc(toId).collection('people').doc(fromId), {
+		userId: fromId,
+		connectedAt,
+	});
 
-    if (toUser) {
-      const notifRef = db.collection('notifications').doc();
-      connectionBatch.set(notifRef, {
-        id: notifRef.id,
-        type: 'connection_accepted',
-        actorId: toId,
-        target: { type: 'user', userId: fromId },
-        toFirstName: toUser.firstName,
-        toLastName: toUser.lastName,
-        connectionRequestId: requestId,
-        createdAt: connectedAt,
-      });
-    }
+	if (toUser) {
+		const notifRef = db.collection('notifications').doc();
+		connectionBatch.set(notifRef, {
+			id: notifRef.id,
+			type: 'connection_accepted',
+			actorId: toId,
+			target: { type: 'user', userId: fromId },
+			toFirstName: toUser.firstName,
+			toLastName: toUser.lastName,
+			connectionRequestId: requestId,
+			createdAt: connectedAt,
+		});
+	}
 
-    await connectionBatch.commit();
+	await connectionBatch.commit();
 
-    // 2. Add each user as a subscriber in the other's daily circle so that the
-    //    regular channel subscription delivers each other's feed automatically.
-    //    This runs separately so a missing daily channel document (edge case)
-    //    does not roll back the connection and notification committed above.
-    try {
-      const circlesBatch = db.batch();
-      circlesBatch.update(
-        db.collection('channels').doc(`${toId}${DAILY_CHANNEL_SUFFIX}`),
-        { subscribers: FieldValue.arrayUnion(fromId) },
-      );
-      circlesBatch.update(
-        db.collection('channels').doc(`${fromId}${DAILY_CHANNEL_SUFFIX}`),
-        { subscribers: FieldValue.arrayUnion(toId) },
-      );
-      await circlesBatch.commit();
-    } catch (err) {
-      console.error(`onConnectionRequestAccepted: failed to update daily circle subscribers for ${fromId} ↔ ${toId}:`, err);
-    }
-  },
-);
+	// 2. Add each user as a subscriber in the other's daily circle so that the
+	//    regular channel subscription delivers each other's feed automatically.
+	//    This runs separately so a missing daily channel document (edge case)
+	//    does not roll back the connection and notification committed above.
+	try {
+		const circlesBatch = db.batch();
+		circlesBatch.update(db.collection('channels').doc(`${toId}${DAILY_CHANNEL_SUFFIX}`), {
+			subscribers: FieldValue.arrayUnion(fromId),
+		});
+		circlesBatch.update(db.collection('channels').doc(`${fromId}${DAILY_CHANNEL_SUFFIX}`), {
+			subscribers: FieldValue.arrayUnion(toId),
+		});
+		await circlesBatch.commit();
+	} catch (err) {
+		console.error(
+			`onConnectionRequestAccepted: failed to update daily circle subscribers for ${fromId} ↔ ${toId}:`,
+			err,
+		);
+	}
+});
 
 // ── Cloud Function: Create mutual connection when a circle join is accepted ─
 
@@ -685,53 +728,51 @@ export const onConnectionRequestAccepted = onDocumentUpdated(
  * The write is idempotent: if `before.status` is already 'accepted', the
  * function exits early so retries do not produce duplicate documents.
  */
-export const onJoinRequestAccepted = onDocumentUpdated(
-  'channelJoinRequests/{requestId}',
-  async (event) => {
-    const before = event.data?.before.data() as ChannelJoinRequest | undefined;
-    const after = event.data?.after.data() as ChannelJoinRequest | undefined;
+export const onJoinRequestAccepted = onDocumentUpdated('channelJoinRequests/{requestId}', async (event) => {
+	const before = event.data?.before.data() as ChannelJoinRequest | undefined;
+	const after = event.data?.after.data() as ChannelJoinRequest | undefined;
 
-    if (!before || !after) return;
+	if (!before || !after) return;
 
-    // Only act when status transitions to 'accepted' for the first time.
-    if (before.status === 'accepted' || after.status !== 'accepted') return;
+	// Only act when status transitions to 'accepted' for the first time.
+	if (before.status === 'accepted' || after.status !== 'accepted') return;
 
-    const { requesterId, channelOwnerId } = after;
-    const connectedAt = Date.now();
+	const { requesterId, channelOwnerId } = after;
+	const connectedAt = Date.now();
 
-    // 1. Commit the mutual connection documents atomically.
-    const connectionBatch = db.batch();
+	// 1. Commit the mutual connection documents atomically.
+	const connectionBatch = db.batch();
 
-    connectionBatch.set(
-      db.collection('connections').doc(requesterId).collection('people').doc(channelOwnerId),
-      { userId: channelOwnerId, connectedAt },
-    );
-    connectionBatch.set(
-      db.collection('connections').doc(channelOwnerId).collection('people').doc(requesterId),
-      { userId: requesterId, connectedAt },
-    );
+	connectionBatch.set(db.collection('connections').doc(requesterId).collection('people').doc(channelOwnerId), {
+		userId: channelOwnerId,
+		connectedAt,
+	});
+	connectionBatch.set(db.collection('connections').doc(channelOwnerId).collection('people').doc(requesterId), {
+		userId: requesterId,
+		connectedAt,
+	});
 
-    await connectionBatch.commit();
+	await connectionBatch.commit();
 
-    // 2. Add each user as a subscriber in the other's daily circle.
-    //    Runs separately so a missing daily channel document (edge case)
-    //    does not roll back the connection committed above.
-    try {
-      const circlesBatch = db.batch();
-      circlesBatch.update(
-        db.collection('channels').doc(`${channelOwnerId}${DAILY_CHANNEL_SUFFIX}`),
-        { subscribers: FieldValue.arrayUnion(requesterId) },
-      );
-      circlesBatch.update(
-        db.collection('channels').doc(`${requesterId}${DAILY_CHANNEL_SUFFIX}`),
-        { subscribers: FieldValue.arrayUnion(channelOwnerId) },
-      );
-      await circlesBatch.commit();
-    } catch (err) {
-      console.error(`onJoinRequestAccepted: failed to update daily circle subscribers for ${requesterId} ↔ ${channelOwnerId}:`, err);
-    }
-  },
-);
+	// 2. Add each user as a subscriber in the other's daily circle.
+	//    Runs separately so a missing daily channel document (edge case)
+	//    does not roll back the connection committed above.
+	try {
+		const circlesBatch = db.batch();
+		circlesBatch.update(db.collection('channels').doc(`${channelOwnerId}${DAILY_CHANNEL_SUFFIX}`), {
+			subscribers: FieldValue.arrayUnion(requesterId),
+		});
+		circlesBatch.update(db.collection('channels').doc(`${requesterId}${DAILY_CHANNEL_SUFFIX}`), {
+			subscribers: FieldValue.arrayUnion(channelOwnerId),
+		});
+		await circlesBatch.commit();
+	} catch (err) {
+		console.error(
+			`onJoinRequestAccepted: failed to update daily circle subscribers for ${requesterId} ↔ ${channelOwnerId}:`,
+			err,
+		);
+	}
+});
 
 // ── Cloud Function: Add invited user to circle on invite acceptance ────────
 
@@ -743,62 +784,53 @@ export const onJoinRequestAccepted = onDocumentUpdated(
  * The function is idempotent: if `before.status` is already 'accepted', the
  * function exits early so retries do not produce duplicate subscriber writes.
  */
-export const onCircleInviteRequestAccepted = onDocumentUpdated(
-  'circleInviteRequests/{requestId}',
-  async (event) => {
-    const before = event.data?.before.data() as CircleInviteRequest | undefined;
-    const after = event.data?.after.data() as CircleInviteRequest | undefined;
+export const onCircleInviteRequestAccepted = onDocumentUpdated('circleInviteRequests/{requestId}', async (event) => {
+	const before = event.data?.before.data() as CircleInviteRequest | undefined;
+	const after = event.data?.after.data() as CircleInviteRequest | undefined;
 
-    if (!before || !after) return;
-    if (before.status === 'accepted' || after.status !== 'accepted') return;
+	if (!before || !after) return;
+	if (before.status === 'accepted' || after.status !== 'accepted') return;
 
-    const batch = db.batch();
-    batch.update(
-      db.collection('channels').doc(after.channelId),
-      { subscribers: FieldValue.arrayUnion(after.inviteeId) },
-    );
-    await batch.commit();
-  },
-);
+	const batch = db.batch();
+	batch.update(db.collection('channels').doc(after.channelId), { subscribers: FieldValue.arrayUnion(after.inviteeId) });
+	await batch.commit();
+});
 
 /**
  * Triggered when a `circleInviteRequests` document is created.
  * Writes a `custom_circle_invite` notification for the invitee.
  */
-export const onCircleInviteRequestCreated = onDocumentCreated(
-  'circleInviteRequests/{requestId}',
-  async (event) => {
-    const snap = event.data;
-    if (!snap) return;
+export const onCircleInviteRequestCreated = onDocumentCreated('circleInviteRequests/{requestId}', async (event) => {
+	const snap = event.data;
+	if (!snap) return;
 
-    const request = snap.data() as CircleInviteRequest;
-    const channelSnap = await db.collection('channels').doc(request.channelId).get();
-    if (!channelSnap.exists) {
-      await snap.ref.delete();
-      return;
-    }
+	const request = snap.data() as CircleInviteRequest;
+	const channelSnap = await db.collection('channels').doc(request.channelId).get();
+	if (!channelSnap.exists) {
+		await snap.ref.delete();
+		return;
+	}
 
-    const channel = channelSnap.data() as Channel;
-    const inviterSnap = await db.collection('usersPublic').doc(request.inviterId).get();
-    const inviter = inviterSnap.exists ? (inviterSnap.data() as UserPublic) : null;
+	const channel = channelSnap.data() as Channel;
+	const inviterSnap = await db.collection('usersPublic').doc(request.inviterId).get();
+	const inviter = inviterSnap.exists ? (inviterSnap.data() as UserPublic) : null;
 
-    const notifRef = db.collection('notifications').doc();
-    await notifRef.set({
-      id: notifRef.id,
-      type: 'custom_circle_invite',
-      actorId: request.inviterId,
-      target: { type: 'user', userId: request.inviteeId },
-      requestId: request.id,
-      inviterId: request.inviterId,
-      inviterFirstName: inviter?.firstName ?? 'Someone',
-      inviterLastName: inviter?.lastName ?? '',
-      channelId: channel.id,
-      channelName: channel.name,
-      inviteCode: channel.inviteCode ?? '',
-      createdAt: request.createdAt,
-    });
-  },
-);
+	const notifRef = db.collection('notifications').doc();
+	await notifRef.set({
+		id: notifRef.id,
+		type: 'custom_circle_invite',
+		actorId: request.inviterId,
+		target: { type: 'user', userId: request.inviteeId },
+		requestId: request.id,
+		inviterId: request.inviterId,
+		inviterFirstName: inviter?.firstName ?? 'Someone',
+		inviterLastName: inviter?.lastName ?? '',
+		channelId: channel.id,
+		channelName: channel.name,
+		inviteCode: channel.inviteCode ?? '',
+		createdAt: request.createdAt,
+	});
+});
 
 // ── Cloud Function: Disconnect two users ──────────────────────────────────
 
@@ -808,9 +840,9 @@ export const onCircleInviteRequestCreated = onDocumentCreated(
  * the document.
  */
 interface DisconnectRequest {
-  requesterId: string;
-  targetUserId: string;
-  createdAt: number;
+	requesterId: string;
+	targetUserId: string;
+	createdAt: number;
 }
 
 /**
@@ -825,55 +857,47 @@ interface DisconnectRequest {
  * Using a single batch keeps costs low (one Admin SDK round-trip) and makes
  * the operation atomic from the Cloud Function's perspective.
  */
-export const onDisconnectRequest = onDocumentCreated(
-  'disconnectRequests/{requestId}',
-  async (event) => {
-    const snap = event.data;
-    if (!snap) return;
+export const onDisconnectRequest = onDocumentCreated('disconnectRequests/{requestId}', async (event) => {
+	const snap = event.data;
+	if (!snap) return;
 
-    const { requesterId, targetUserId } = snap.data() as DisconnectRequest;
-    if (!requesterId || !targetUserId) {
-      await snap.ref.delete();
-      return;
-    }
+	const { requesterId, targetUserId } = snap.data() as DisconnectRequest;
+	if (!requesterId || !targetUserId) {
+		await snap.ref.delete();
+		return;
+	}
 
-    const batch = db.batch();
+	const batch = db.batch();
 
-    // 1. Remove both sides of the connection.
-    batch.delete(
-      db.collection('connections').doc(requesterId).collection('people').doc(targetUserId),
-    );
-    batch.delete(
-      db.collection('connections').doc(targetUserId).collection('people').doc(requesterId),
-    );
+	// 1. Remove both sides of the connection.
+	batch.delete(db.collection('connections').doc(requesterId).collection('people').doc(targetUserId));
+	batch.delete(db.collection('connections').doc(targetUserId).collection('people').doc(requesterId));
 
-    // 2. Remove the target from every channel owned by the requester where
-    //    they are listed as a subscriber (covers the requester's daily circle
-    //    and any custom circles they own).
-    const channelsSnap = await db
-      .collection('channels')
-      .where('ownerId', '==', requesterId)
-      .where('subscribers', 'array-contains', targetUserId)
-      .get();
+	// 2. Remove the target from every channel owned by the requester where
+	//    they are listed as a subscriber (covers the requester's daily circle
+	//    and any custom circles they own).
+	const channelsSnap = await db
+		.collection('channels')
+		.where('ownerId', '==', requesterId)
+		.where('subscribers', 'array-contains', targetUserId)
+		.get();
 
-    for (const channelDoc of channelsSnap.docs) {
-      batch.update(channelDoc.ref, {
-        subscribers: FieldValue.arrayRemove(targetUserId),
-      });
-    }
+	for (const channelDoc of channelsSnap.docs) {
+		batch.update(channelDoc.ref, {
+			subscribers: FieldValue.arrayRemove(targetUserId),
+		});
+	}
 
-    // 3. Remove the requester from the target's daily circle.
-    batch.update(
-      db.collection('channels').doc(`${targetUserId}${DAILY_CHANNEL_SUFFIX}`),
-      { subscribers: FieldValue.arrayRemove(requesterId) },
-    );
+	// 3. Remove the requester from the target's daily circle.
+	batch.update(db.collection('channels').doc(`${targetUserId}${DAILY_CHANNEL_SUFFIX}`), {
+		subscribers: FieldValue.arrayRemove(requesterId),
+	});
 
-    // 4. Clean up the request document.
-    batch.delete(snap.ref);
+	// 4. Clean up the request document.
+	batch.delete(snap.ref);
 
-    await batch.commit();
-  },
-);
+	await batch.commit();
+});
 
 // ── Helper: Delete a post with all its media ──────────────────────────────
 
@@ -887,27 +911,24 @@ export const onDisconnectRequest = onDocumentCreated(
  * @param bucket The Firebase Storage bucket instance
  * @returns true if deletion succeeded, false otherwise
  */
-async function deletePostWithMedia(
-  postRef: admin.firestore.DocumentReference,
-  bucket: any,
-): Promise<boolean> {
-  const postId = postRef.id;
-  try {
-    // Delete Firebase Storage media files (best-effort).
-    try {
-      await bucket.deleteFiles({ prefix: `posts/${postId}/` });
-    } catch (err) {
-      console.error(`deletePostWithMedia: failed to delete Storage files for post ${postId}:`, err);
-      // Continue with Firestore deletion even if Storage fails
-    }
+async function deletePostWithMedia(postRef: admin.firestore.DocumentReference, bucket: any): Promise<boolean> {
+	const postId = postRef.id;
+	try {
+		// Delete Firebase Storage media files (best-effort).
+		try {
+			await bucket.deleteFiles({ prefix: `posts/${postId}/` });
+		} catch (err) {
+			console.error(`deletePostWithMedia: failed to delete Storage files for post ${postId}:`, err);
+			// Continue with Firestore deletion even if Storage fails
+		}
 
-    // Recursively delete the post document and all subcollections.
-    await db.recursiveDelete(postRef);
-    return true;
-  } catch (err) {
-    console.error(`deletePostWithMedia: failed to delete post ${postId}:`, err);
-    return false;
-  }
+		// Recursively delete the post document and all subcollections.
+		await db.recursiveDelete(postRef);
+		return true;
+	} catch (err) {
+		console.error(`deletePostWithMedia: failed to delete post ${postId}:`, err);
+		return false;
+	}
 }
 
 // ── Cloud Function: Cascade-delete circles marked for deletion ─────────────
@@ -930,72 +951,60 @@ async function deletePostWithMedia(
 const DELETE_BATCH_SIZE = 500;
 
 export const deleteMarkedChannels = onSchedule('every 24 hours', async () => {
-  const channelsSnap = await db
-    .collection('channels')
-    .where('markedForDeletionAt', '!=', null)
-    .get();
+	const channelsSnap = await db.collection('channels').where('markedForDeletionAt', '!=', null).get();
 
-  if (channelsSnap.empty) return;
+	if (channelsSnap.empty) return;
 
-  for (const channelDoc of channelsSnap.docs) {
-    const channelId = channelDoc.id;
-    console.log(`deleteMarkedChannels: starting cleanup for channel ${channelId}`);
+	for (const channelDoc of channelsSnap.docs) {
+		const channelId = channelDoc.id;
+		console.log(`deleteMarkedChannels: starting cleanup for channel ${channelId}`);
 
-    try {
-      // ── Step 1 & 2: Collect all posts and delete them with their media ────────
-      const postsSnap = await db
-        .collection('posts')
-        .where('channelId', '==', channelId)
-        .get();
+		try {
+			// ── Step 1 & 2: Collect all posts and delete them with their media ────────
+			const postsSnap = await db.collection('posts').where('channelId', '==', channelId).get();
 
-      const bucket = admin.storage().bucket();
-      let deletedPostCount = 0;
-      for (const postDoc of postsSnap.docs) {
-        const success = await deletePostWithMedia(postDoc.ref, bucket);
-        if (success) deletedPostCount++;
-      }
+			const bucket = admin.storage().bucket();
+			let deletedPostCount = 0;
+			for (const postDoc of postsSnap.docs) {
+				const success = await deletePostWithMedia(postDoc.ref, bucket);
+				if (success) deletedPostCount++;
+			}
 
-      // ── Step 3: Delete channelJoinRequests for this channel ───────────────────
-      const joinRequestsSnap = await db
-        .collection('channelJoinRequests')
-        .where('channelId', '==', channelId)
-        .get();
+			// ── Step 3: Delete channelJoinRequests for this channel ───────────────────
+			const joinRequestsSnap = await db.collection('channelJoinRequests').where('channelId', '==', channelId).get();
 
-      const joinRequestRefs = joinRequestsSnap.docs.map((d) => d.ref);
-      for (let i = 0; i < joinRequestRefs.length; i += DELETE_BATCH_SIZE) {
-        const batch = db.batch();
-        for (const ref of joinRequestRefs.slice(i, i + DELETE_BATCH_SIZE)) {
-          batch.delete(ref);
-        }
-        await batch.commit();
-      }
+			const joinRequestRefs = joinRequestsSnap.docs.map((d) => d.ref);
+			for (let i = 0; i < joinRequestRefs.length; i += DELETE_BATCH_SIZE) {
+				const batch = db.batch();
+				for (const ref of joinRequestRefs.slice(i, i + DELETE_BATCH_SIZE)) {
+					batch.delete(ref);
+				}
+				await batch.commit();
+			}
 
-      // ── Step 3b: Delete circleInviteRequests for this channel ────────────────
-      const inviteRequestsSnap = await db
-        .collection('circleInviteRequests')
-        .where('channelId', '==', channelId)
-        .get();
+			// ── Step 3b: Delete circleInviteRequests for this channel ────────────────
+			const inviteRequestsSnap = await db.collection('circleInviteRequests').where('channelId', '==', channelId).get();
 
-      const inviteRequestRefs = inviteRequestsSnap.docs.map((d) => d.ref);
-      for (let i = 0; i < inviteRequestRefs.length; i += DELETE_BATCH_SIZE) {
-        const batch = db.batch();
-        for (const ref of inviteRequestRefs.slice(i, i + DELETE_BATCH_SIZE)) {
-          batch.delete(ref);
-        }
-        await batch.commit();
-      }
+			const inviteRequestRefs = inviteRequestsSnap.docs.map((d) => d.ref);
+			for (let i = 0; i < inviteRequestRefs.length; i += DELETE_BATCH_SIZE) {
+				const batch = db.batch();
+				for (const ref of inviteRequestRefs.slice(i, i + DELETE_BATCH_SIZE)) {
+					batch.delete(ref);
+				}
+				await batch.commit();
+			}
 
-      // ── Step 4: Delete the channel document itself ────────────────────────────
-      await channelDoc.ref.delete();
+			// ── Step 4: Delete the channel document itself ────────────────────────────
+			await channelDoc.ref.delete();
 
-      console.log(
-        `deleteMarkedChannels: successfully deleted channel ${channelId} ` +
-        `(${deletedPostCount}/${postsSnap.size} posts, ${joinRequestsSnap.size} join requests, ${inviteRequestsSnap.size} circle invites)`,
-      );
-    } catch (err) {
-      console.error(`deleteMarkedChannels: unexpected error processing channel ${channelId}:`, err);
-    }
-  }
+			console.log(
+				`deleteMarkedChannels: successfully deleted channel ${channelId} ` +
+					`(${deletedPostCount}/${postsSnap.size} posts, ${joinRequestsSnap.size} join requests, ${inviteRequestsSnap.size} circle invites)`,
+			);
+		} catch (err) {
+			console.error(`deleteMarkedChannels: unexpected error processing channel ${channelId}:`, err);
+		}
+	}
 });
 
 // ── Cloud Function: Delete posts marked for deletion ────────────────────────
@@ -1013,27 +1022,24 @@ export const deleteMarkedChannels = onSchedule('every 24 hours', async () => {
  * the others.
  */
 export const deleteMarkedPosts = onSchedule('every 24 hours', async () => {
-  const postsSnap = await db
-    .collection('posts')
-    .where('markedForDeletionAt', '!=', null)
-    .get();
+	const postsSnap = await db.collection('posts').where('markedForDeletionAt', '!=', null).get();
 
-  if (postsSnap.empty) return;
+	if (postsSnap.empty) return;
 
-  const bucket = admin.storage().bucket();
-  let deleteCount = 0;
+	const bucket = admin.storage().bucket();
+	let deleteCount = 0;
 
-  for (const postDoc of postsSnap.docs) {
-    const success = await deletePostWithMedia(postDoc.ref, bucket);
-    if (success) {
-      deleteCount++;
-      console.log(`deleteMarkedPosts: successfully deleted marked post ${postDoc.id}`);
-    }
-  }
+	for (const postDoc of postsSnap.docs) {
+		const success = await deletePostWithMedia(postDoc.ref, bucket);
+		if (success) {
+			deleteCount++;
+			console.log(`deleteMarkedPosts: successfully deleted marked post ${postDoc.id}`);
+		}
+	}
 
-  if (deleteCount > 0) {
-    console.log(`deleteMarkedPosts: cleaned up ${deleteCount} marked post(s)`);
-  }
+	if (deleteCount > 0) {
+		console.log(`deleteMarkedPosts: cleaned up ${deleteCount} marked post(s)`);
+	}
 });
 
 // ── Cloud Function: Delete expired posts every 24 hours ────────────────────
@@ -1047,48 +1053,45 @@ export const deleteMarkedPosts = onSchedule('every 24 hours', async () => {
  * cutoff), then deletes them if the post's channel is a Daily Circle, or if
  * the post is older than 90 days for a Custom Circle.
  */
-const DAILY_POST_RETENTION_MS = 14 * 24 * 60 * 60 * 1000;   // 14 days
-const CUSTOM_POST_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;  // 90 days (~3 months)
+const DAILY_POST_RETENTION_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+const CUSTOM_POST_RETENTION_MS = 90 * 24 * 60 * 60 * 1000; // 90 days (~3 months)
 
 export const deleteExpiredPosts = onSchedule('every 24 hours', async () => {
-  const now = Date.now();
-  const dailyCutoff = now - DAILY_POST_RETENTION_MS;
-  const customCutoff = now - CUSTOM_POST_RETENTION_MS;
+	const now = Date.now();
+	const dailyCutoff = now - DAILY_POST_RETENTION_MS;
+	const customCutoff = now - CUSTOM_POST_RETENTION_MS;
 
-  // Build a channelId → isDaily map from all channel documents.
-  const channelsSnap = await db.collection('channels').select('isDaily').get();
-  const channelIsDaily = new Map<string, boolean>();
-  for (const doc of channelsSnap.docs) {
-    channelIsDaily.set(doc.id, doc.data().isDaily === true);
-  }
+	// Build a channelId → isDaily map from all channel documents.
+	const channelsSnap = await db.collection('channels').select('isDaily').get();
+	const channelIsDaily = new Map<string, boolean>();
+	for (const doc of channelsSnap.docs) {
+		channelIsDaily.set(doc.id, doc.data().isDaily === true);
+	}
 
-  // Fetch all posts older than the shortest retention window (14 days).
-  // Posts between 14 and 90 days old will be filtered further below.
-  const oldPostsSnap = await db
-    .collection('posts')
-    .where('timestamp', '<', dailyCutoff)
-    .get();
+	// Fetch all posts older than the shortest retention window (14 days).
+	// Posts between 14 and 90 days old will be filtered further below.
+	const oldPostsSnap = await db.collection('posts').where('timestamp', '<', dailyCutoff).get();
 
-  const toDelete: admin.firestore.DocumentReference[] = [];
-  for (const doc of oldPostsSnap.docs) {
-    const data = doc.data() as { channelId?: string; timestamp?: number };
-    const { channelId, timestamp } = data;
-    if (typeof channelId !== 'string' || typeof timestamp !== 'number') continue;
-    const isDaily = channelIsDaily.get(channelId) ?? false;
-    if (isDaily || timestamp < customCutoff) {
-      toDelete.push(doc.ref);
-    }
-  }
+	const toDelete: admin.firestore.DocumentReference[] = [];
+	for (const doc of oldPostsSnap.docs) {
+		const data = doc.data() as { channelId?: string; timestamp?: number };
+		const { channelId, timestamp } = data;
+		if (typeof channelId !== 'string' || typeof timestamp !== 'number') continue;
+		const isDaily = channelIsDaily.get(channelId) ?? false;
+		if (isDaily || timestamp < customCutoff) {
+			toDelete.push(doc.ref);
+		}
+	}
 
-  // Delete all expired posts with their media.
-  const bucket = admin.storage().bucket();
-  let deleteCount = 0;
-  for (const postRef of toDelete) {
-    const success = await deletePostWithMedia(postRef, bucket);
-    if (success) deleteCount++;
-  }
+	// Delete all expired posts with their media.
+	const bucket = admin.storage().bucket();
+	let deleteCount = 0;
+	for (const postRef of toDelete) {
+		const success = await deletePostWithMedia(postRef, bucket);
+		if (success) deleteCount++;
+	}
 
-  if (deleteCount > 0) {
-    console.log(`deleteExpiredPosts: cleaned up ${deleteCount} expired post(s)`);
-  }
+	if (deleteCount > 0) {
+		console.log(`deleteExpiredPosts: cleaned up ${deleteCount} expired post(s)`);
+	}
 });

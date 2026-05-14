@@ -40,19 +40,14 @@ const BETA_UPDATE_CHANGES: ChangeEntry[] = [
     description: 'Choose which activity alerts you — reactions, private notes, and conversation messages each have their own toggle.',
   },
   {
-    emoji: '📋',
-    title: 'Smarter post activity',
-    description: 'Activity now only flags truly new engagement since your last app open — no more "everything is new" floods after updates.',
-  },
-  {
-    emoji: '💬',
-    title: 'Cleaner conversations',
-    description: 'Join notices only appear when someone actually sends their first message, and deleted posts disappear cleanly from all views.',
+    emoji: '⌨️',
+    title: 'Type any emoji you want',
+    description: 'If you cannot find an emoji in the picker, you can now type and submit it directly.',
   },
   {
     emoji: '🐛',
     title: 'Bug fixes & polish',
-    description: 'Emoji picker now accepts any emoji you type, pull-to-refresh works across Feed and Post Activity, and a few rough edges smoothed out.',
+    description: 'A few rough edges got smoothed out so everything feels more reliable.',
   },
 ];
 
@@ -94,6 +89,13 @@ export function BetaUpdateModal({ visible, onClose }: BetaUpdateModalProps) {
                 {entry.description ? (
                   <Text style={[styles.changeDescription, { color: theme.mutedForeground }]}>
                     {entry.description}
+                    {entry.title === 'Custom notification controls' ? (
+                      <>
+                        {' By default, only '}
+                        <Text style={[styles.changeDescriptionHighlight, { color: theme.destructive }]}>Big News</Text>
+                        {' notifications are on.'}
+                      </>
+                    ) : null}
                   </Text>
                 ) : null}
               </View>
@@ -135,6 +137,9 @@ const styles = StyleSheet.create({
   changeDescription: {
     fontSize: 13,
     lineHeight: 19,
+  },
+  changeDescriptionHighlight: {
+    fontWeight: '700',
   },
   doneButton: {
     alignSelf: 'stretch',

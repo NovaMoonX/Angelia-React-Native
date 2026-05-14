@@ -1,4 +1,10 @@
-import type { AvatarPreset, ChannelColorOption, NotificationSettings, PostTier } from './types';
+import type {
+  AvatarPreset,
+  ChannelColorOption,
+  CirclePostNotificationSettings,
+  NotificationSettings,
+  PostTier,
+} from './types';
 
 export const CUSTOM_CHANNEL_LIMIT = 3;
 
@@ -31,6 +37,21 @@ export const DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS: NotificationSettings['
   privateNotesEnabled: true,
   conversationMessagesEnabled: true,
 };
+
+/** Default values for per-circle post push preferences. */
+export const DEFAULT_CIRCLE_POST_NOTIFICATION_SETTINGS = {
+  everydayEnabled: false,
+  worthKnowingEnabled: false,
+  bigNewsEnabled: true,
+  withAttachmentsEnabled: false,
+};
+
+/** Returns a fresh default per-circle post push preference object. */
+export function createDefaultCirclePostNotificationSettings(): CirclePostNotificationSettings {
+  return {
+    ...DEFAULT_CIRCLE_POST_NOTIFICATION_SETTINGS,
+  };
+}
 
 export const AVATAR_PRESETS: AvatarPreset[] = [
   'astronaut', 'moon', 'star', 'galaxy', 'nebula', 'planet',
@@ -127,7 +148,7 @@ export const BETA_UPDATE_MODAL_SEEN_KEY = (version: string) => `@angelia/beta_up
  * Version for the one-time notification-settings release notice shown on the
  * Notifications screen. Bump when new notification controls are introduced.
  */
-export const NOTIFICATION_SETTINGS_NOTICE_VERSION = '2026-05-post-activity-controls';
+export const NOTIFICATION_SETTINGS_NOTICE_VERSION = '2026-05-circle-post-controls';
 
 /** Accent color for notification-settings release notice card and bell badge dot. */
 export const NOTIFICATION_SETTINGS_NOTICE_ACCENT = '#0EA5E9';

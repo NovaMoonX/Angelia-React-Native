@@ -128,7 +128,7 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 		}
 	} else if (type === 'connection_accepted') {
 		router.push('/(protected)/my-people');
-	} else if (type === 'big_news_post') {
+	} else if (type === 'new_post') {
 		const postId = data?.postId;
 		if (postId) {
 			router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } });

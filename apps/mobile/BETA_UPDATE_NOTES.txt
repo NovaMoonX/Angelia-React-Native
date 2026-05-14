@@ -1,12 +1,14 @@
 Beta update notes
 
-Last updated: 2026-05-13
+Last updated: 2026-05-14
 Branch: copilot/update-post-activity-handling
 Related PR: TBD
 
 Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
 
 Current branch highlights:
+- Post notifications are now per-circle: each circle has its own toggles for Big News, Worth Knowing, Everyday updates, and posts with attachments, grouped by person so it is easy to tune everyone at once.
+- New notification defaults are simpler: by default, users only get Big News notifications, and they can opt into extra activity alerts whenever they want.
 - Post-activity alerts now clear at the exact moments you review them: tapping a reaction/message/private-note notification clears that alert, opening Notifications clears new message alerts, opening Post Activity clears reaction alerts, and opening Private Notes clears private-note alerts.
 - The top card in Notifications is now a one-time release notice for new notification controls, and it disappears after you actually open Notification Settings.
 - When that release notice is waiting for you, the feed bell now shows a separate blue dot that clears once you visit Notifications, while the notice card itself stays until you open Notification Settings.

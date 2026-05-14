@@ -167,46 +167,46 @@ titled "🎉 You're connected!".
 
 ---
 
-### Scenario E — Big News Post (you are a subscriber of the channel)
+### Scenario E — New Post (per-circle tier preferences + attachments)
 
-A connected user or circle host published a `big-news` tier post. You'll see an
-in-app toast titled "🌟 … shared some big news!!!" and a background push with
-the same message. Tapping either navigates to the post detail screen.
+This is the new generalized post notification used for all post tiers.
 
-> **Important:** This notification uses a `channel_tier` target instead of a
-> `user` target.  The Cloud Function reads the `channels/{channelId}` document
-> to obtain the `subscribers` array, then fans out to all subscribers' FCM
-> tokens (excluding the author).  Make sure `YOUR_CHANNEL_ID` refers to a real
-> channel document that has your user ID in its `subscribers` array.
+- `tier` can be `everyday`, `worth-knowing`, or `big-news`.
+- `hasAttachments` should be `true` when the post includes photos/videos.
+- Delivery is filtered per recipient by `userNotificationSettings/{uid}.postByCircle[{channelId}]`:
+  - `bigNewsEnabled`
+  - `worthKnowingEnabled`
+  - `everydayEnabled`
+  - `withAttachmentsEnabled`
 
-Replace `YOUR_USER_ID`, `YOUR_CHANNEL_ID`, and `YOUR_POST_ID` with real values.
+By default for each Circle, only `bigNewsEnabled` is on.
 
 ```json
 {
-  "id": "test-notif-big-news-1",
-  "type": "big_news_post",
+  "id": "test-notif-new-post-1",
+  "type": "new_post",
   "actorId": "fake-author-id",
   "target": {
     "type": "channel_tier",
     "channelId": "YOUR_CHANNEL_ID",
-    "tier": "big-news"
+    "tier": "worth-knowing"
   },
   "createdAt": 1713484800000,
   "postId": "YOUR_POST_ID",
   "channelId": "YOUR_CHANNEL_ID",
   "channelName": "Book Club",
   "isDaily": false,
+  "tier": "worth-knowing",
+  "hasAttachments": true,
   "authorFirstName": "Alex",
   "authorLastName": "Test"
 }
 ```
 
-For a **daily circle** big-news notification, change `"isDaily": true` and set
-`channelId` to the daily channel ID (format: `{ownerId}-daily`).
-
-> **Note:** Tapping the push routes to `/(protected)/post/[YOUR_POST_ID]`.
-> The screen will show an error if `YOUR_POST_ID` is not a real Firestore post
-> doc — expected in testing mode.
+Expected behavior:
+- Recipients who enabled either `worthKnowingEnabled` for this Circle OR
+  `withAttachmentsEnabled` for this Circle should receive the push.
+- Recipients with both toggles off should not receive this push.
 
 ---
 

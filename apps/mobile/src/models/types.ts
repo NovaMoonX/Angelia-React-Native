@@ -94,6 +94,8 @@ export interface NotificationSettings {
     /** Notify when someone sends a conversation message on your post. */
     conversationMessagesEnabled: boolean;
   };
+  /** Per-circle post notification preferences keyed by channelId. */
+  postByCircle: Record<string, CirclePostNotificationSettings>;
   /** IANA timezone string, e.g. "America/New_York". Default: device timezone. */
   timeZone: string;
   /**
@@ -103,6 +105,14 @@ export interface NotificationSettings {
    */
   autoDetectTimeZone: boolean;
 }
+
+/** Per-circle push preferences for new posts in that Circle. */
+export interface CirclePostNotificationSettings {
+  everydayEnabled: boolean;
+  worthKnowingEnabled: boolean;
+  bigNewsEnabled: boolean;
+  withAttachmentsEnabled: boolean;
+}
 export type UpdateUserProfileData = Pick<UserPublic, 'firstName' | 'lastName' | 'avatar' | 'avatarUrl'> & Pick<UserPrivate, 'funFact'>
 
 /**
@@ -111,10 +121,11 @@ export type UpdateUserProfileData = Pick<UserPublic, 'firstName' | 'lastName' | 
  * without supplying all three fields every time.
  */
 export type NotificationSettingsUpdate =
-  Partial<Omit<NotificationSettings, 'fcmTokens' | 'dailyPrompt' | 'windDownPrompt' | 'postActivity'>> & {
+  Partial<Omit<NotificationSettings, 'fcmTokens' | 'dailyPrompt' | 'windDownPrompt' | 'postActivity' | 'postByCircle'>> & {
     dailyPrompt?: Partial<NotificationSettings['dailyPrompt']>;
     windDownPrompt?: Partial<NotificationSettings['windDownPrompt']>;
     postActivity?: Partial<NotificationSettings['postActivity']>;
+    postByCircle?: Record<string, CirclePostNotificationSettings>;
   };
 
 export interface Channel {
@@ -252,10 +263,9 @@ export type AppNotificationType =
   | 'custom_circle_invite'
   | 'connection_request'
   | 'connection_accepted'
-  | 'big_news_post'
   | 'post_reaction' // Someone reacted to your post
   | 'conversation_message' // Someone messaged on your post conversation
-  | 'new_post'        // For post tier subscriptions (future)
+  | 'new_post'        // For post tier subscriptions
   | 'comment_reply'   // For conversation enrollment (future)
   | 'private_note';   // A Circle member sent the post Host a private note
 
@@ -329,21 +339,7 @@ export interface ConnectionAcceptedNotification extends BaseAppNotification {
   connectionRequestId: string;
 }
 
-/**
- * Written when a big-news post is created in a daily circle (targets all connected users)
- * or in a custom circle (targets all circle members).
- * Target is always `channel_tier` so the Cloud Function fans out to all subscribers.
- */
-export interface BigNewsPostNotification extends BaseAppNotification {
-  type: 'big_news_post';
-  postId: string;
-  channelId: string;
-  channelName: string;
-  /** Whether the post is in a daily circle (true) or a custom circle (false). */
-  isDaily: boolean;
-  authorFirstName: string;
-  authorLastName: string;
-}
+
 
 /** Written when someone reacts to a Host's post — targets the post Host. */
 export interface PostReactionNotification extends BaseAppNotification {
@@ -371,6 +367,19 @@ export interface ConversationMessageNotification extends BaseAppNotification {
   messagePreview: string;
 }
 
+/** Written when a new post is created in a Circle — targets circle members by tier. */
+export interface NewPostNotification extends BaseAppNotification {
+  type: 'new_post';
+  postId: string;
+  channelId: string;
+  channelName: string;
+  isDaily: boolean;
+  tier: PostTier;
+  hasAttachments: boolean;
+  authorFirstName: string;
+  authorLastName: string;
+}
+
 /** Written when a Circle member sends the post Host a private note — targets the host. */
 export interface PrivateNoteNotification extends BaseAppNotification {
   type: 'private_note';
@@ -388,7 +397,7 @@ export type AppNotification =
   | CustomCircleInviteNotification
   | ConnectionRequestNotification
   | ConnectionAcceptedNotification
-  | BigNewsPostNotification
+  | NewPostNotification
   | PostReactionNotification
   | ConversationMessageNotification
   | PrivateNoteNotification;

@@ -655,22 +655,32 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
           description: 'Tap to see your people',
           onPress: () => router.push('/(protected)/my-people'),
         });
-      } else if (type === 'big_news_post') {
+      } else if (type === 'new_post') {
         const firstName = data?.authorFirstName ?? 'Someone';
         const lastName = data?.authorLastName ?? '';
         const name = lastName ? `${firstName} ${lastName}` : firstName;
         const postId = data?.postId;
         const isDaily = data?.isDaily === 'true';
         const channelName = data?.channelName ?? '';
+        const tier = data?.tier ?? 'everyday';
+        const hasAttachments = data?.hasAttachments === 'true';
+        const tierText =
+          tier === 'big-news'
+            ? 'big news'
+            : tier === 'worth-knowing'
+              ? 'worth knowing'
+              : 'everyday update';
         const circleDescription = isDaily
           ? 'their Daily Circle'
           : channelName
             ? `their "${channelName}" circle`
             : 'their circle';
+        const attachmentText = hasAttachments ? ' with attachments' : '';
+
         addToast({
           type: 'info',
-          title: `🌟 ${name} shared some big news!!!`,
-          description: `Tap to see their update in ${circleDescription}`,
+          title: `📝 ${name} shared a new post`,
+          description: `Tap to see their ${tierText}${attachmentText} in ${circleDescription}`,
           onPress: postId
             ? () => router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } })
             : undefined,
