@@ -652,7 +652,7 @@ export default function FeedScreen() {
 						<Pressable onPress={() => router.push('/(protected)/account')}>
 							<Avatar user={currentUser} size='sm' />
 						</Pressable>
-						<Pressable onPress={() => router.push('/(protected)/post-activity')} style={styles.headerIconBtn}>
+						<Pressable onPress={() => router.push({ pathname: '/(protected)/post-activity', params: hasUnreadPostActivity ? { scope: 'unread' } : {} })} style={styles.headerIconBtn}>
 							<PostActivityIcon hasNotification={hasUnreadPostActivity} />
 						</Pressable>
 					</View>

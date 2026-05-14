@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card } from '@/components/ui/Card';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -14,33 +14,18 @@ type SortOrder = 'newest' | 'oldest';
 
 export default function PostActivityScreen() {
   const router = useRouter();
+  const { scope } = useLocalSearchParams<{ scope?: string }>();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { summaries, unreadDetailsByPostId, refreshSeenState } = useAuthorPostActivity({ enableSubscriptions: true });
+  const { summaries, unreadDetailsByPostId, refreshSeenState, markActivitySeen } = useAuthorPostActivity({ enableSubscriptions: true });
   const channels = useAppSelector(selectAllChannels);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const [selectedCircleId, setSelectedCircleId] = useState<string>('all');
-  const [activityScope, setActivityScope] = useState<'all' | 'unread'>('all');
+  const [activityScope, setActivityScope] = useState<'all' | 'unread'>(scope === 'unread' ? 'unread' : 'all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Auto-select 'unread' the first time unread activity is detected after load.
-  const hasAutoSelectedUnread = useRef(false);
-  useEffect(() => {
-    if (hasAutoSelectedUnread.current) return;
-    if (Object.keys(unreadDetailsByPostId).length > 0) {
-      hasAutoSelectedUnread.current = true;
-      setActivityScope('unread');
-    }
-  }, [unreadDetailsByPostId]);
-
-  useEffect(() => {
-    if (Object.keys(unreadDetailsByPostId).length > 0) return;
-    hasAutoSelectedUnread.current = false;
-    if (activityScope === 'unread') {
-      setActivityScope('all');
-    }
-  }, [activityScope, unreadDetailsByPostId]);
+  const userHasManuallySelectedScope = useRef(false);
 
   const filteredByCircle = useMemo(() => {
     if (selectedCircleId === 'all') return summaries;
@@ -52,7 +37,12 @@ export default function PostActivityScreen() {
   useFocusEffect(
     useCallback(() => {
       void refreshSeenState();
-    }, [refreshSeenState]),
+      return () => {
+        // Mark all post activity as seen when leaving the screen so the next
+        // visit does not re-show the same reactions/notes as "unread".
+        void markActivitySeen();
+      };
+    }, [refreshSeenState, markActivitySeen]),
   );
 
   const handleRefresh = useCallback(async () => {
@@ -187,7 +177,10 @@ export default function PostActivityScreen() {
           <Text style={[styles.filterLabel, { color: theme.mutedForeground }]}>Show</Text>
           <View style={styles.scopeRow}>
             <Pressable
-              onPress={() => setActivityScope('all')}
+              onPress={() => {
+                userHasManuallySelectedScope.current = true;
+                setActivityScope('all');
+              }}
               style={[
                 styles.filterChip,
                 {
@@ -207,7 +200,10 @@ export default function PostActivityScreen() {
             </Pressable>
 
             <Pressable
-              onPress={() => setActivityScope('unread')}
+              onPress={() => {
+                userHasManuallySelectedScope.current = true;
+                setActivityScope('unread');
+              }}
               style={[
                 styles.filterChip,
                 {

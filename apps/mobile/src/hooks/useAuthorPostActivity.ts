@@ -40,16 +40,27 @@ const getLatestReactionTimestamp = (reactions: Reaction[]): number => {
   }, 0);
 };
 
+interface SeenStateCache {
+  postActivitySeenAt: number | null;
+  seenMaps: SeenMaps;
+}
+// Module-level cache shared across all hook instances in the same session.
+// The first instance that finishes refreshSeenState() (typically the feed)
+// populates this so subsequent instances (e.g. post-activity screen) can
+// initialize with real data synchronously — no AsyncStorage round-trip needed.
+const seenStateCache: Record<string, SeenStateCache> = {};
+
 export function useAuthorPostActivity({ enableSubscriptions = false }: { enableSubscriptions?: boolean } = {}) {
   const dispatch = useAppDispatch();
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const currentUserId = useAppSelector((state) => state.users.currentUser?.id ?? null);
   const summaries = useAppSelector(selectAuthorPostActivitySummaries);
-  const [postActivitySeenAt, setPostActivitySeenAt] = useState<number>(0);
-  const [seenMaps, setSeenMaps] = useState<SeenMaps>({
-    privateNotesByPostId: {},
-    conversationByPostId: {},
-  });
+  const [postActivitySeenAt, setPostActivitySeenAt] = useState<number | null>(
+    () => seenStateCache[currentUserId ?? '']?.postActivitySeenAt ?? null,
+  );
+  const [seenMaps, setSeenMaps] = useState<SeenMaps>(
+    () => seenStateCache[currentUserId ?? '']?.seenMaps ?? { privateNotesByPostId: {}, conversationByPostId: {} },
+  );
 
   const postIds = useMemo(() => {
     return summaries.map((summary) => {
@@ -86,6 +97,7 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
       // Migrate legacy JSON snapshot data to timestamp format without showing false unread states.
       const migratedTimestamp = Date.now();
       setPostActivitySeenAt(migratedTimestamp);
+      seenStateCache[currentUserId] = { postActivitySeenAt: migratedTimestamp, seenMaps: seenStateCache[currentUserId]?.seenMaps ?? { privateNotesByPostId: {}, conversationByPostId: {} } };
       await AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUserId), String(migratedTimestamp)).catch(() => {});
     } else {
       // Prefer app-last-opened when available; otherwise default to "now"
@@ -93,13 +105,16 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
       const fallbackTimestamp = parsedAppLastOpenedAt > 0 ? parsedAppLastOpenedAt : Date.now();
       const effectiveSeenAt = Math.max(parsedPostActivitySeen, fallbackTimestamp);
       setPostActivitySeenAt(effectiveSeenAt);
+      seenStateCache[currentUserId] = { postActivitySeenAt: effectiveSeenAt, seenMaps: seenStateCache[currentUserId]?.seenMaps ?? { privateNotesByPostId: {}, conversationByPostId: {} } };
       if (effectiveSeenAt !== parsedPostActivitySeen) {
         await AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUserId), String(effectiveSeenAt)).catch(() => {});
       }
     }
 
     if (subscribedPostIds.length === 0) {
-      setSeenMaps({ privateNotesByPostId: {}, conversationByPostId: {} });
+      const emptySeen: SeenMaps = { privateNotesByPostId: {}, conversationByPostId: {} };
+      setSeenMaps(emptySeen);
+      seenStateCache[currentUserId] = { postActivitySeenAt: seenStateCache[currentUserId]?.postActivitySeenAt ?? null, seenMaps: emptySeen };
       return;
     }
 
@@ -128,6 +143,7 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
     });
 
     setSeenMaps({ privateNotesByPostId, conversationByPostId });
+    seenStateCache[currentUserId] = { postActivitySeenAt: seenStateCache[currentUserId]?.postActivitySeenAt ?? null, seenMaps: { privateNotesByPostId, conversationByPostId } };
   }, [currentUserId, subscribedPostIds]);
 
   useEffect(() => {
@@ -164,7 +180,20 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
     };
   }, [dispatch, enableSubscriptions, currentUserId, isDemo, subscribedPostIds]);
 
+  const markActivitySeen = useCallback(async () => {
+    if (!currentUserId) return;
+    await AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUserId), String(Date.now())).catch(() => {});
+    // Intentionally NOT updating postActivitySeenAt in state — the current view
+    // stays stable so the user can review unread items; the new timestamp takes
+    // effect on the next refreshSeenState() call (next screen focus).
+  }, [currentUserId]);
+
   const unreadDetailsByPostId = useMemo((): Record<string, PostUnreadDetail> => {
+    // Return empty map until seen state has been loaded from storage.
+    // This prevents a false "all unread" signal (postActivitySeenAt=0) from
+    // firing the auto-select prematurely before the real threshold is known.
+    if (postActivitySeenAt === null) return {};
+
     const details: Record<string, PostUnreadDetail> = {};
 
     summaries.forEach((summary) => {
@@ -213,5 +242,6 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
     unreadPostIds,
     unreadDetailsByPostId,
     refreshSeenState,
+    markActivitySeen,
   };
 }
