@@ -140,11 +140,11 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 			void dismissNotificationsByData({ type: 'post_reaction', postId });
 			router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } });
 		}
-	} else if (type === 'conversation_message') {
+	} else if (type === 'conversation_message' || type === 'comment_reply') {
 		const postId = data?.postId;
 		if (postId) {
 			markPostActivityNotificationsSeen();
-			void dismissNotificationsByData({ type: 'conversation_message', postId });
+			void dismissNotificationsByData({ type, postId });
 			router.push({ pathname: '/(protected)/conversation', params: { postId } });
 		}
 	} else if (type === 'private_note') {

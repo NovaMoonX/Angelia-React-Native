@@ -111,6 +111,7 @@ export default function ConversationScreen() {
           ? AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUser.id), String(Date.now()))
           : Promise.resolve(),
         dismissNotificationsByData({ type: 'conversation_message', postId }).catch(() => {}),
+        dismissNotificationsByData({ type: 'comment_reply', postId }).catch(() => {}),
       ]).catch(() => {});
 
       return () => {

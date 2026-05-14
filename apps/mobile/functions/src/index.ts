@@ -117,6 +117,16 @@ interface ConversationMessageNotification extends BaseAppNotification {
 	messagePreview: string;
 }
 
+/** Mirrors CommentReplyNotification in src/models/types.ts — keep in sync. */
+interface CommentReplyNotification extends BaseAppNotification {
+	type: 'comment_reply';
+	postId: string;
+	parentMessageId: string;
+	senderFirstName: string;
+	senderLastName: string;
+	messagePreview: string;
+}
+
 /** Mirrors PrivateNoteNotification in src/models/types.ts — keep in sync. */
 interface PrivateNoteNotification extends BaseAppNotification {
 	type: 'private_note';
@@ -134,6 +144,7 @@ type AppNotification =
 	| NewPostNotification
 	| PostReactionNotification
 	| ConversationMessageNotification
+	| CommentReplyNotification
 	| PrivateNoteNotification;
 
 interface ConnectionRequest {
@@ -188,6 +199,7 @@ interface UserNotificationSettings {
 		reactionsEnabled?: boolean;
 		privateNotesEnabled?: boolean;
 		conversationMessagesEnabled?: boolean;
+		replyMessagesEnabled?: boolean;
 	};
 	postByCircle?: Record<string, CirclePostNotificationSettings>;
 }
@@ -317,6 +329,22 @@ function buildFcmPayload(notification: AppNotification): {
 		};
 	}
 
+	if (notification.type === 'comment_reply') {
+		const n = notification as CommentReplyNotification;
+		return {
+			title: 'New Reply to Your Message',
+			body: `${n.senderFirstName}: ${n.messagePreview}`,
+			data: {
+				type: n.type,
+				postId: n.postId,
+				parentMessageId: n.parentMessageId,
+				senderFirstName: n.senderFirstName,
+				senderLastName: n.senderLastName,
+				messagePreview: n.messagePreview,
+			},
+		};
+	}
+
 	if (notification.type === 'private_note') {
 		const n = notification as PrivateNoteNotification;
 		return {
@@ -424,6 +452,7 @@ const DEFAULT_POST_ACTIVITY_SETTINGS = {
 	reactionsEnabled: true,
 	privateNotesEnabled: true,
 	conversationMessagesEnabled: true,
+	replyMessagesEnabled: true,
 };
 
 const DEFAULT_CIRCLE_POST_SETTINGS = {
@@ -449,7 +478,7 @@ function getTokensFromSettings(settings: UserNotificationSettings | null): strin
 }
 
 function isPostActivityNotificationType(type: AppNotificationType): boolean {
-	return type === 'post_reaction' || type === 'private_note' || type === 'conversation_message';
+	return type === 'post_reaction' || type === 'private_note' || type === 'conversation_message' || type === 'comment_reply';
 }
 
 function isPostActivityNotificationEnabled(
@@ -475,6 +504,10 @@ function isPostActivityNotificationEnabled(
 
 	if (notification.type === 'conversation_message') {
 		return postActivity.conversationMessagesEnabled;
+	}
+
+	if (notification.type === 'comment_reply') {
+		return postActivity.replyMessagesEnabled;
 	}
 
 	return true;

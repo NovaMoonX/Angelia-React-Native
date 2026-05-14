@@ -1,6 +1,6 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import type { RootState } from '@/store';
-import type { ConversationMessageNotification, Message } from '@/models/types';
+import type { CommentReplyNotification, ConversationMessageNotification, Message } from '@/models/types';
 import {
   addMessage as firestoreAddMessage,
   createAppNotification,
@@ -41,6 +41,17 @@ export const sendMessage = createAsyncThunk(
     });
     const isHost = post?.authorId === user.id;
     const existingMessages = state.conversation.messagesByPost[postId] ?? [];
+    const parentMessage = parentId
+      ? existingMessages.find((existingMessage) => {
+          return existingMessage.id === parentId;
+        })
+      : null;
+    const replyTargetUserId =
+      parentMessage && parentMessage.authorId !== user.id ? parentMessage.authorId : null;
+    const shouldNotifyPostAuthor =
+      !!post &&
+      post.authorId !== user.id &&
+      (replyTargetUserId === null || post.authorId !== replyTargetUserId);
     const hasExistingNonSystemMessage = existingMessages.some((existingMessage) => {
       return existingMessage.authorId === user.id && !existingMessage.isSystem;
     });
@@ -92,8 +103,26 @@ export const sendMessage = createAsyncThunk(
       }
       await firestoreAddMessage(postId, message);
 
-      if (post && post.authorId !== user.id) {
-        const notification: ConversationMessageNotification = {
+      const messagePreview = buildMessagePreview(message.text);
+
+      if (replyTargetUserId && parentMessage) {
+        const replyNotification: CommentReplyNotification = {
+          id: generateId('nano'),
+          type: 'comment_reply',
+          actorId: user.id,
+          target: { type: 'user', userId: replyTargetUserId },
+          createdAt: Date.now(),
+          postId,
+          parentMessageId: parentMessage.id,
+          senderFirstName: user.firstName,
+          senderLastName: user.lastName,
+          messagePreview,
+        };
+        createAppNotification(replyNotification).catch(() => {});
+      }
+
+      if (shouldNotifyPostAuthor && post) {
+        const messageNotification: ConversationMessageNotification = {
           id: generateId('nano'),
           type: 'conversation_message',
           actorId: user.id,
@@ -102,9 +131,9 @@ export const sendMessage = createAsyncThunk(
           postId,
           senderFirstName: user.firstName,
           senderLastName: user.lastName,
-          messagePreview: buildMessagePreview(message.text),
+          messagePreview,
         };
-        createAppNotification(notification).catch(() => {});
+        createAppNotification(messageNotification).catch(() => {});
       }
 
       return message;

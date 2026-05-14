@@ -33,6 +33,7 @@ export default function NotificationSettingsScreen() {
   const allChannels = useAppSelector(selectAllChannels);
 
   const dailyEnabled = notificationSettings?.dailyPrompt?.enabled ?? true;
+  const replyMessagesEnabled = notificationSettings?.postActivity?.replyMessagesEnabled ?? true;
   const notifTZ = notificationSettings?.timeZone ?? getDeviceTimeZone();
   const autoDetect = notificationSettings?.autoDetectTimeZone !== false;
   const involvedCircles = allChannels.filter((channel) => {
@@ -77,6 +78,27 @@ export default function NotificationSettingsScreen() {
     },
     [dispatch, addToast, notifTZ],
   );
+
+  const handleToggleReplyNotifications = useCallback(async () => {
+    if (!notificationSettings) return;
+    try {
+      await dispatch(
+        saveNotificationSettings({
+          postActivity: {
+            replyMessagesEnabled: !replyMessagesEnabled,
+          },
+        }),
+      ).unwrap();
+      addToast({
+        type: 'success',
+        title: !replyMessagesEnabled
+          ? 'Reply notifications on'
+          : 'Reply notifications off',
+      });
+    } catch {
+      addToast({ type: 'error', title: 'Failed to update reply notifications' });
+    }
+  }, [addToast, dispatch, notificationSettings, replyMessagesEnabled]);
 
   const selectedTZText =
     NOTIFICATION_TIMEZONES.find((o) => o.value === notifTZ)?.text ?? notifTZ;
@@ -151,6 +173,28 @@ export default function NotificationSettingsScreen() {
           </View>
           <Feather name="chevron-right" size={18} color={theme.mutedForeground} />
         </Pressable>
+
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+        <View style={styles.row}>
+          <View style={styles.rowLeft}>
+            <Text style={styles.rowEmoji}>↩️</Text>
+            <View style={styles.rowText}>
+              <Text style={[styles.rowLabel, { color: theme.foreground }]}>Reply Notifications</Text>
+              <Text style={[styles.rowSub, { color: theme.mutedForeground }]}>Notify me when someone replies to my conversation messages</Text>
+            </View>
+          </View>
+          {notificationSettings ? (
+            <Switch
+              value={replyMessagesEnabled}
+              onValueChange={handleToggleReplyNotifications}
+              trackColor={{ false: theme.muted, true: theme.primary }}
+              thumbColor="#FFFFFF"
+            />
+          ) : (
+            <Text style={[styles.loadingText, { color: theme.mutedForeground }]}>Loading…</Text>
+          )}
+        </View>
       </View>
 
       {/* Time zone section */}

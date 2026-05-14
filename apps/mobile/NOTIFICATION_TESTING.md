@@ -270,6 +270,38 @@ the Circle you want to test.
 }
 ```
 
+---
+
+### Scenario H — Comment Reply (someone replied to your conversation message)
+
+You should receive this when another member replies directly to one of your
+messages in a post conversation. Tapping routes to that post's conversation.
+
+```json
+{
+  "id": "test-notif-comment-reply-1",
+  "type": "comment_reply",
+  "actorId": "fake-replier-id",
+  "target": {
+    "type": "user",
+    "userId": "YOUR_USER_ID"
+  },
+  "createdAt": 1713484800000,
+  "postId": "YOUR_POST_ID",
+  "parentMessageId": "YOUR_MESSAGE_ID",
+  "senderFirstName": "Taylor",
+  "senderLastName": "Test",
+  "messagePreview": "Totally agree with this point"
+}
+```
+
+Expected behavior:
+- The recipient is the author of the parent message being replied to.
+- The sender should never notify themselves.
+- If the parent-message author is also the post author, they should receive
+  only this reply notification (not an additional new conversation-message
+  notification for the same reply).
+
 > **Note:** Tap handling sends users to `circle-invite/[requestId]`.
 > If the request id is invalid, the invite screen will show an unavailable state — expected in test mode.
 

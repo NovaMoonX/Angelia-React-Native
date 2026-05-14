@@ -93,6 +93,8 @@ export interface NotificationSettings {
     privateNotesEnabled: boolean;
     /** Notify when someone sends a conversation message on your post. */
     conversationMessagesEnabled: boolean;
+    /** Notify when someone replies directly to one of your conversation messages. */
+    replyMessagesEnabled: boolean;
   };
   /** Per-circle post notification preferences keyed by channelId. */
   postByCircle: Record<string, CirclePostNotificationSettings>;
@@ -266,7 +268,7 @@ export type AppNotificationType =
   | 'post_reaction' // Someone reacted to your post
   | 'conversation_message' // Someone messaged on your post conversation
   | 'new_post'        // For post tier subscriptions
-  | 'comment_reply'   // For conversation enrollment (future)
+  | 'comment_reply'   // Someone replied directly to your conversation message
   | 'private_note';   // A Circle member sent the post Host a private note
 
 /**
@@ -367,6 +369,21 @@ export interface ConversationMessageNotification extends BaseAppNotification {
   messagePreview: string;
 }
 
+/** Written when someone replies directly to your conversation message. */
+export interface CommentReplyNotification extends BaseAppNotification {
+  type: 'comment_reply';
+  /** The ID of the post whose conversation has the reply. */
+  postId: string;
+  /** The ID of the parent message that was replied to. */
+  parentMessageId: string;
+  /** First name of the reply sender. */
+  senderFirstName: string;
+  /** Last name of the reply sender. */
+  senderLastName: string;
+  /** Truncated reply text used for push preview. */
+  messagePreview: string;
+}
+
 /** Written when a new post is created in a Circle — targets circle members by tier. */
 export interface NewPostNotification extends BaseAppNotification {
   type: 'new_post';
@@ -400,6 +417,7 @@ export type AppNotification =
   | NewPostNotification
   | PostReactionNotification
   | ConversationMessageNotification
+  | CommentReplyNotification
   | PrivateNoteNotification;
 
 // ── Tasks ───────────────────────────────────────────────────────────────────

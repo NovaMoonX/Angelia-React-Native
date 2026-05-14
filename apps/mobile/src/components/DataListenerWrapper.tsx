@@ -685,7 +685,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
             ? () => router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } })
             : undefined,
         });
-      // post_reaction, conversation_message, and private_note notifications are
+      // post_reaction, conversation_message, comment_reply, and private_note notifications are
       // handled via background tap routing in _layout.tsx. When the user is
       // inside the app, they see the activity in real-time through Redux state,
       // so no in-app toast is needed for these types.

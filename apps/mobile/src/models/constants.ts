@@ -36,6 +36,7 @@ export const DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS: NotificationSettings['
   reactionsEnabled: true,
   privateNotesEnabled: true,
   conversationMessagesEnabled: true,
+  replyMessagesEnabled: true,
 };
 
 /** Default values for per-circle post push preferences. */
@@ -140,7 +141,7 @@ export const JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY = (userId: string) => `@ang
  * AsyncStorage key that records which beta update version the user has already dismissed.
  * When BETA_UPDATE_VERSION in BetaUpdateModal is bumped, the modal will show again automatically.
  */
-export const BETA_UPDATE_VERSION = '2026-05-14';
+export const BETA_UPDATE_VERSION = '2026-05-14-replies';
 
 export const BETA_UPDATE_MODAL_SEEN_KEY = (version: string) => `@angelia/beta_update_modal_seen_${version}`;
 
@@ -148,7 +149,7 @@ export const BETA_UPDATE_MODAL_SEEN_KEY = (version: string) => `@angelia/beta_up
  * Version for the one-time notification-settings release notice shown on the
  * Notifications screen. Bump when new notification controls are introduced.
  */
-export const NOTIFICATION_SETTINGS_NOTICE_VERSION = '2026-05-circle-post-controls';
+export const NOTIFICATION_SETTINGS_NOTICE_VERSION = '2026-05-reply-notification-controls';
 
 /** Accent color for notification-settings release notice card and bell badge dot. */
 export const NOTIFICATION_SETTINGS_NOTICE_ACCENT = '#0EA5E9';
