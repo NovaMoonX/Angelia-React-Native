@@ -416,8 +416,14 @@ Do **not** clutter the README with:
 
 **Structure:**
 
-1. **Device Setup** — brief section at the top with Android/iPhone guidance and when to use each
-2. **Feature 1–N sections** — one per feature from the Branch Narrative:
+1. **Before You Start Testing** — a section near the top that tells the tester what to run before their first test session:
+   - `npm install` (always)
+   - `npm run env:pull` (after clone or env changes)
+   - Whether a prebuild + native build is needed for this branch (list the commands)
+   - A quick sanity check: app launches cleanly, no Metro errors
+   - **Update this section whenever a new native package is added to the branch.** If the branch adds a dependency that requires a prebuild (i.e. any package with native code, a new Expo plugin, or a change to `app.config.js`), explicitly call it out here so testers know to re-run prebuild before testing.
+2. **Device Setup** — brief section with Android/iPhone guidance and when to use each
+3. **Feature 1–N sections** — one per feature from the Branch Narrative:
    - **Devices:** which to test on, and when to involve the iPhone
    - **Setup** — any state/data that needs to exist before testing
    - **Checklist** — concrete checkbox steps a person can follow on a real device

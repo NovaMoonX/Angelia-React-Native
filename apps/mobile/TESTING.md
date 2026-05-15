@@ -5,6 +5,14 @@
 
 ---
 
+## Before You Start Testing
+
+- [ ] **Requires `npm run env:pull`** — env vars changed or this is a fresh clone
+- [ ] **Requires prebuild + native build** — this branch added native packages or changed `app.config.js`
+- [ ] App launches cleanly (no red screen, no Metro errors)
+
+---
+
 ## Device Setup
 
 **Primary:** Android (used for all standard testing)  
@@ -228,6 +236,133 @@ Select 3+ photos or videos when creating a new post so you have items to reorder
 - [ ] Repeat host vs non-host private invite visibility checks
 - [ ] Repeat post-leave suggestion filtering check
 - [ ] Repeat one-time notice display and dismissal behavior
+
+---
+
+## Feature 8: Notification Settings — Reaction & Message Toggles
+
+**Devices:** Android primary.
+
+### Setup
+- Have at least one circle you have **joined** (not owned) with recent post activity.
+
+### Android
+
+- [ ] Open **Notification Settings** (bell icon → Settings)
+- [ ] Confirm a **🎉 Reaction Notifications** row is now present with a Switch
+- [ ] Confirm a **💬 Message Notifications** row is now present with a Switch
+- [ ] Confirm both default to ON for a fresh account
+- [ ] Toggle Reaction Notifications OFF → save; trigger a test reaction on your post from another device
+  - Confirm **no push arrives**
+- [ ] Toggle Reaction Notifications back ON → test reaction again → push arrives
+- [ ] Toggle Message Notifications OFF → have another user post a conversation message on your post
+  - Confirm **no push arrives** for the new message
+- [ ] Toggle back ON → message push arrives
+- [ ] Confirm the pre-existing **Reply Notifications** toggle still functions correctly (direct replies still send notifications when on)
+
+---
+
+## Feature 9: Owned Circles Excluded from Post Notification Settings
+
+**Devices:** Android primary.
+
+### Setup
+- Account A owns at least one custom circle and is subscribed to at least one circle owned by someone else.
+
+### Android
+
+- [ ] Open **Notification Settings** → scroll to **Post Notifications** section
+- [ ] Confirm circles you **own** are **not listed** — only circles you have joined appear
+- [ ] If you subscribe to circles from two different people, confirm those groups each appear with their owner's name
+- [ ] Confirm **no empty sections** appear (owned-only users see "Once you join circles…" empty state)
+
+### iPhone (if needed)
+
+- [ ] Repeat the owned vs joined check on a second account
+
+---
+
+## Feature 10: Per-Circle & Per-Group "Enable All" Toggles
+
+**Devices:** Android primary.
+
+### Setup
+- Be subscribed to at least 2 circles owned by different people.
+
+### Android — Per-circle Enable All
+
+- [ ] Open **Notification Settings** → **Post Notifications** → tap a circle card to expand it
+- [ ] Confirm a **🔔 Enable All** switch appears at the bottom of the circle's toggle list
+- [ ] When all 4 tiers are ON → Enable All shows as ON
+- [ ] When at least 1 tier is OFF → Enable All shows as OFF
+- [ ] Toggle Enable All OFF → Big News stays ON, Worth Knowing / Everyday / With Attachments all turn OFF
+- [ ] Toggle Enable All ON → all 4 tiers turn ON
+- [ ] Manually toggle any single tier → Enable All state updates accordingly
+
+### Android — Per-group Enable All
+
+- [ ] In the group header row (owner name), confirm a **🔔 Enable All** switch appears on the right
+- [ ] Toggling group Enable All OFF → Big News stays ON for all circles in that group; other tiers OFF
+- [ ] Toggling group Enable All ON → all tiers ON for every circle in that group
+- [ ] If circles in the group have mixed tier states → group switch shows OFF
+
+**Edge cases:**
+- [ ] Single circle per group → per-group and per-circle switches should stay in sync
+- [ ] After toggling group switch, open individual circle and confirm tiers match expected state
+
+---
+
+## Feature 11: Reply Threading & Quote Preview in Conversation
+
+**Devices:** Android primary. iPhone for keyboard / layout parity.
+
+### Reply threading order
+
+- [ ] Open any post's conversation with multiple messages and at least one **reply** (message sent as a reply to another)
+- [ ] Confirm replies appear immediately **after their parent message**, not at the bottom of the list
+- [ ] Post a new root-level message; confirm it appears at the **end** of the list (after all threaded groups)
+- [ ] Post a reply to an existing message; confirm it appears right after the parent, before subsequent root messages
+
+### Reply banner quote preview (Android)
+
+- [ ] Tap **Reply** on any message → reply banner appears at the bottom
+- [ ] Confirm banner shows: `"Replying to [Name]"` + a **quoted preview** of the message text (up to 60 chars)
+- [ ] For a short message: full text is shown
+- [ ] For a long message: text is truncated with `…`
+- [ ] Tap ✕ to close the reply banner → banner dismisses, input clears to normal
+
+### Reply banner (iPhone)
+
+- [ ] Repeat the above — confirm banner appears correctly above the keyboard on iOS
+- [ ] No layout jump or gap below the banner after keyboard dismisses
+
+### Quote block in message bubble
+
+- [ ] Send a reply to a message
+- [ ] Confirm the sent reply bubble shows a **left-border quote block** above the reply text, containing a preview of the original message
+- [ ] For replies to long messages: confirm the quote preview is appropriately shortened
+
+---
+
+## Feature 12: Conversation Entry Animations Removed
+
+**Devices:** Android primary.
+
+### Setup
+- Find or create a **Big News** or **Worth Knowing** post and open its conversation.
+
+### Android
+
+- [ ] Open the conversation for a Big News (🚨) post
+- [ ] Confirm the header renders **immediately** with no scale-in animation
+- [ ] Confirm there is **no confetti overlay** anywhere on screen
+- [ ] Confirm there is **no glow / shimmer effect** behind the header
+- [ ] Open a Worth Knowing post's conversation and repeat — same clean, static header
+- [ ] For an Everyday post — confirm no change in behavior (already had no animations)
+
+### iPhone
+
+- [ ] Repeat for Big News and Worth Knowing conversation headers
 
 ---
 

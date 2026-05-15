@@ -85,7 +85,7 @@ export default function PostNotificationSettingsScreen() {
     if (!currentUser) return [];
 
     const involved = allChannels.filter((channel) => {
-      return channel.ownerId === currentUser.id || channel.subscribers.includes(currentUser.id);
+      return channel.ownerId !== currentUser.id && channel.subscribers.includes(currentUser.id);
     });
 
     const grouped = new Map<string, GroupedCircleSettings>();
@@ -125,11 +125,54 @@ export default function PostNotificationSettingsScreen() {
         };
       })
       .sort((a, b) => {
-        if (a.ownerId === currentUser.id) return -1;
-        if (b.ownerId === currentUser.id) return 1;
         return a.ownerLabel.localeCompare(b.ownerLabel);
       });
   }, [allChannels, currentUser, usersById]);
+
+  const handleToggleAll = useCallback(
+    async (channelId: string) => {
+      const current = getCircleSettings(channelId);
+      const allOn =
+        current.bigNewsEnabled &&
+        current.worthKnowingEnabled &&
+        current.everydayEnabled &&
+        current.withAttachmentsEnabled;
+      const nextSettings: CirclePostNotificationSettings = allOn
+        ? { bigNewsEnabled: true, worthKnowingEnabled: false, everydayEnabled: false, withAttachmentsEnabled: false }
+        : { bigNewsEnabled: true, worthKnowingEnabled: true, everydayEnabled: true, withAttachmentsEnabled: true };
+      try {
+        await dispatch(
+          saveNotificationSettings({ postByCircle: { [channelId]: nextSettings } }),
+        ).unwrap();
+      } catch {
+        addToast({ type: 'error', title: 'Could not update Circle notifications' });
+      }
+    },
+    [addToast, dispatch, getCircleSettings],
+  );
+
+  const handleToggleGroupAll = useCallback(
+    async (group: GroupedCircleSettings) => {
+      const isGroupAllOn = group.circles.every((entry) => {
+        const s = getCircleSettings(entry.channel.id);
+        return s.bigNewsEnabled && s.worthKnowingEnabled && s.everydayEnabled && s.withAttachmentsEnabled;
+      });
+      const nextPostByCircle: Record<string, CirclePostNotificationSettings> = {};
+      for (const entry of group.circles) {
+        nextPostByCircle[entry.channel.id] = isGroupAllOn
+          ? { bigNewsEnabled: true, worthKnowingEnabled: false, everydayEnabled: false, withAttachmentsEnabled: false }
+          : { bigNewsEnabled: true, worthKnowingEnabled: true, everydayEnabled: true, withAttachmentsEnabled: true };
+      }
+      try {
+        await dispatch(
+          saveNotificationSettings({ postByCircle: nextPostByCircle }),
+        ).unwrap();
+      } catch {
+        addToast({ type: 'error', title: 'Could not update Circle notifications' });
+      }
+    },
+    [addToast, dispatch, getCircleSettings],
+  );
 
   const handleToggle = useCallback(
     async (channelId: string, key: keyof CirclePostNotificationSettings) => {
@@ -171,9 +214,22 @@ export default function PostNotificationSettingsScreen() {
         {groupedCircles.map((group) => {
           return (
             <View key={group.ownerId} style={styles.groupWrap}>
-              <Text style={[styles.ownerTitle, { color: theme.mutedForeground }]}> 
-                {group.ownerId === currentUser?.id ? 'Your Circles' : `${group.ownerLabel}'s Circles`}
-              </Text>
+              <View style={styles.ownerHeaderRow}>
+                <Text style={[styles.ownerTitle, { color: theme.mutedForeground }]}> 
+                  {`${group.ownerLabel}'s Circles`}
+                </Text>
+                {notificationSettings ? (
+                  <Switch
+                    value={group.circles.every((entry) => {
+                      const s = getCircleSettings(entry.channel.id);
+                      return s.bigNewsEnabled && s.worthKnowingEnabled && s.everydayEnabled && s.withAttachmentsEnabled;
+                    })}
+                    onValueChange={() => { void handleToggleGroupAll(group); }}
+                    trackColor={{ false: theme.muted, true: theme.primary }}
+                    thumbColor='#FFFFFF'
+                  />
+                ) : null}
+              </View>
 
               {group.circles.map((entry) => {
                 const circleSettings = getCircleSettings(entry.channel.id);
@@ -223,12 +279,36 @@ export default function PostNotificationSettingsScreen() {
                             )}
                           </View>
 
-                          {index < CIRCLE_ROW_OPTIONS.length - 1 && (
-                            <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                          )}
+                          <View style={[styles.divider, { backgroundColor: theme.border }]} />
                         </View>
                       );
                     })}
+
+                    {/* Enable All toggle at bottom of card */}
+                    <View style={styles.row}>
+                      <View style={styles.rowLeft}>
+                        <Text style={styles.rowEmoji}>🔔</Text>
+                        <View style={styles.rowTextWrap}>
+                          <Text style={[styles.rowLabel, { color: theme.foreground }]}>Enable All</Text>
+                          <Text style={[styles.rowSub, { color: theme.mutedForeground }]}>Turn on all notifications for this Circle</Text>
+                        </View>
+                      </View>
+                      {notificationSettings ? (
+                        <Switch
+                          value={
+                            circleSettings.bigNewsEnabled &&
+                            circleSettings.worthKnowingEnabled &&
+                            circleSettings.everydayEnabled &&
+                            circleSettings.withAttachmentsEnabled
+                          }
+                          onValueChange={() => { void handleToggleAll(entry.channel.id); }}
+                          trackColor={{ false: theme.muted, true: theme.primary }}
+                          thumbColor='#FFFFFF'
+                        />
+                      ) : (
+                        <Text style={[styles.loadingText, { color: theme.mutedForeground }]}>Loading...</Text>
+                      )}
+                    </View>
                   </View>
                 );
               })}
@@ -241,7 +321,7 @@ export default function PostNotificationSettingsScreen() {
             <Text style={styles.emptyEmoji}>🌱</Text>
             <Text style={[styles.emptyTitle, { color: theme.foreground }]}>No Circles Yet</Text>
             <Text style={[styles.emptySub, { color: theme.mutedForeground }]}> 
-              Once you join or create circles, you can fine-tune post notifications here.
+              Once you join circles, you can fine-tune post notifications here.
             </Text>
           </View>
         )}
@@ -274,12 +354,18 @@ const styles = StyleSheet.create({
     marginTop: 18,
     gap: 10,
   },
+  ownerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 20,
+    marginBottom: 2,
+  },
   ownerTitle: {
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginHorizontal: 20,
   },
   circleCard: {
     marginHorizontal: 20,

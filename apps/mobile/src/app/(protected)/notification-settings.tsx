@@ -33,12 +33,14 @@ export default function NotificationSettingsScreen() {
   const allChannels = useAppSelector(selectAllChannels);
 
   const dailyEnabled = notificationSettings?.dailyPrompt?.enabled ?? true;
+  const reactionsEnabled = notificationSettings?.postActivity?.reactionsEnabled ?? true;
+  const conversationMessagesEnabled = notificationSettings?.postActivity?.conversationMessagesEnabled ?? true;
   const replyMessagesEnabled = notificationSettings?.postActivity?.replyMessagesEnabled ?? true;
   const notifTZ = notificationSettings?.timeZone ?? getDeviceTimeZone();
   const autoDetect = notificationSettings?.autoDetectTimeZone !== false;
   const involvedCircles = allChannels.filter((channel) => {
     if (!currentUser) return false;
-    return channel.ownerId === currentUser.id || channel.subscribers.includes(currentUser.id);
+    return channel.ownerId !== currentUser.id && channel.subscribers.includes(currentUser.id);
   });
 
   const circlesWithCustomSettingsCount = involvedCircles.reduce((count, channel) => {
@@ -78,6 +80,32 @@ export default function NotificationSettingsScreen() {
     },
     [dispatch, addToast, notifTZ],
   );
+
+  const handleToggleReactionsEnabled = useCallback(async () => {
+    if (!notificationSettings) return;
+    try {
+      await dispatch(
+        saveNotificationSettings({
+          postActivity: { reactionsEnabled: !reactionsEnabled },
+        }),
+      ).unwrap();
+    } catch {
+      addToast({ type: 'error', title: 'Failed to update reaction notifications' });
+    }
+  }, [addToast, dispatch, notificationSettings, reactionsEnabled]);
+
+  const handleToggleConversationMessages = useCallback(async () => {
+    if (!notificationSettings) return;
+    try {
+      await dispatch(
+        saveNotificationSettings({
+          postActivity: { conversationMessagesEnabled: !conversationMessagesEnabled },
+        }),
+      ).unwrap();
+    } catch {
+      addToast({ type: 'error', title: 'Failed to update message notifications' });
+    }
+  }, [addToast, dispatch, notificationSettings, conversationMessagesEnabled]);
 
   const handleToggleReplyNotifications = useCallback(async () => {
     if (!notificationSettings) return;
@@ -166,7 +194,7 @@ export default function NotificationSettingsScreen() {
               <Text style={[styles.rowLabel, { color: theme.foreground }]}>Post Notifications</Text>
               <Text style={[styles.rowSub, { color: theme.mutedForeground }]}> 
                 {involvedCircles.length === 0
-                  ? 'No circles yet'
+                  ? 'No joined circles yet'
                   : `${circlesWithCustomSettingsCount}/${involvedCircles.length} circles with extra alerts`}
               </Text>
             </View>
@@ -176,6 +204,53 @@ export default function NotificationSettingsScreen() {
 
         <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
+        {/* Reaction Notifications */}
+        <View style={styles.row}>
+          <View style={styles.rowLeft}>
+            <Text style={styles.rowEmoji}>🎉</Text>
+            <View style={styles.rowText}>
+              <Text style={[styles.rowLabel, { color: theme.foreground }]}>Reaction Notifications</Text>
+              <Text style={[styles.rowSub, { color: theme.mutedForeground }]}>Notify me when someone reacts to my posts</Text>
+            </View>
+          </View>
+          {notificationSettings ? (
+            <Switch
+              value={reactionsEnabled}
+              onValueChange={handleToggleReactionsEnabled}
+              trackColor={{ false: theme.muted, true: theme.primary }}
+              thumbColor="#FFFFFF"
+            />
+          ) : (
+            <Text style={[styles.loadingText, { color: theme.mutedForeground }]}>Loading…</Text>
+          )}
+        </View>
+
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+        {/* Message Notifications */}
+        <View style={styles.row}>
+          <View style={styles.rowLeft}>
+            <Text style={styles.rowEmoji}>💬</Text>
+            <View style={styles.rowText}>
+              <Text style={[styles.rowLabel, { color: theme.foreground }]}>Message Notifications</Text>
+              <Text style={[styles.rowSub, { color: theme.mutedForeground }]}>Notify me when someone sends a new message on my post</Text>
+            </View>
+          </View>
+          {notificationSettings ? (
+            <Switch
+              value={conversationMessagesEnabled}
+              onValueChange={handleToggleConversationMessages}
+              trackColor={{ false: theme.muted, true: theme.primary }}
+              thumbColor="#FFFFFF"
+            />
+          ) : (
+            <Text style={[styles.loadingText, { color: theme.mutedForeground }]}>Loading…</Text>
+          )}
+        </View>
+
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+        {/* Reply Notifications */}
         <View style={styles.row}>
           <View style={styles.rowLeft}>
             <Text style={styles.rowEmoji}>↩️</Text>

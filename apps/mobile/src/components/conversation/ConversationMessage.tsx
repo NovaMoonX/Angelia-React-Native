@@ -9,6 +9,7 @@ import type { Message } from '@/models/types';
 interface ConversationMessageProps {
   message: Message;
   isThreaded: boolean;
+  parentText?: string | null;
   onLongPress?: () => void;
   onSwipeRight?: () => void;
 }
@@ -16,6 +17,7 @@ interface ConversationMessageProps {
 export function ConversationMessage({
   message,
   isThreaded,
+  parentText,
   onLongPress,
 }: ConversationMessageProps) {
   const author = useAppSelector((state) =>
@@ -63,6 +65,13 @@ export function ConversationMessage({
             {getRelativeTime(message.timestamp)}
           </Text>
         </View>
+
+        {/* Parent message quote (for replies) */}
+        {isThreaded && parentText != null && (
+          <Text style={[styles.parentQuote, { color: theme.mutedForeground, borderLeftColor: theme.border }]} numberOfLines={2}>
+            {parentText.length > 80 ? parentText.slice(0, 80) + '…' : parentText}
+          </Text>
+        )}
 
         {/* Message text */}
         <Text style={[styles.messageText, { color: theme.foreground }]}>
@@ -120,6 +129,14 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 16,
     lineHeight: 22,
+  },
+  parentQuote: {
+    fontSize: 13,
+    lineHeight: 18,
+    borderLeftWidth: 2,
+    paddingLeft: 8,
+    marginBottom: 4,
+    opacity: 0.7,
   },
   systemRow: {
     flexDirection: 'row',

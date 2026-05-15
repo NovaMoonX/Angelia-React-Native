@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   KeyboardAvoidingView,
@@ -8,13 +8,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
@@ -62,29 +55,11 @@ export default function ConversationScreen() {
 
   const [messageText, setMessageText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [hasPlayedEntry, setHasPlayedEntry] = useState(false);
   const [showReplyHint, setShowReplyHint] = useState(false);
 
   // Tier theming
   const tierTheme = getTierTheme(post?.tier);
   const tierConfig = post?.tier ? POST_TIERS.find((t) => t.value === post.tier) ?? null : null;
-
-  // Entry animation for Big News and Worth Knowing
-  const entryScale = useSharedValue(1);
-  const confettiOpacity = useSharedValue(0);
-  const glowOpacity = useSharedValue(0);
-
-  const entryAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: entryScale.value }],
-  }));
-
-  const confettiAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: confettiOpacity.value,
-  }));
-
-  const glowAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: glowOpacity.value,
-  }));
 
   // Access control
   const isHost = post?.authorId === currentUser?.id;
@@ -126,41 +101,28 @@ export default function ConversationScreen() {
     });
   }, []);
 
-  // Entry animation for Big News and Worth Knowing tiers
-  useEffect(() => {
-    if (!canAccessConversation || !isInConversation || hasPlayedEntry) return;
-
-    if (post?.tier === 'big-news') {
-      setHasPlayedEntry(true);
-      entryScale.value = withSequence(
-        withTiming(1.08, { duration: 300 }),
-        withSpring(1, { damping: 8, stiffness: 150 }),
-      );
-      confettiOpacity.value = withSequence(
-        withTiming(1, { duration: 300 }),
-        withTiming(1, { duration: 2000 }),
-        withTiming(0, { duration: 800 }),
-      );
-    } else if (post?.tier === 'worth-knowing') {
-      setHasPlayedEntry(true);
-      entryScale.value = withSequence(
-        withTiming(1.04, { duration: 250 }),
-        withSpring(1, { damping: 10, stiffness: 120 }),
-      );
-      glowOpacity.value = withSequence(
-        withTiming(1, { duration: 300 }),
-        withTiming(1, { duration: 1500 }),
-        withTiming(0, { duration: 600 }),
-      );
+  // Build threaded display: each root message followed immediately by its replies
+  const threadedMessages = useMemo(() => {
+    const roots = messages.filter((m) => { return m.parentId == null; });
+    const result: Message[] = [];
+    for (const root of roots) {
+      result.push(root);
+      const replies = messages
+        .filter((m) => { return m.parentId === root.id; })
+        .sort((a, b) => { return a.timestamp - b.timestamp; });
+      for (const reply of replies) {
+        result.push(reply);
+      }
     }
-  }, [post?.tier, canAccessConversation, isInConversation, hasPlayedEntry, entryScale, confettiOpacity, glowOpacity]);
+    return result;
+  }, [messages]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
-    if (messages.length > 0) {
+    if (threadedMessages.length > 0) {
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     }
-  }, [messages.length]);
+  }, [threadedMessages.length]);
 
   const handleSend = useCallback(async () => {
     if (!messageText.trim() || !postId) return;
@@ -208,14 +170,20 @@ export default function ConversationScreen() {
   }, []);
 
   const renderMessage = useCallback(
-    ({ item }: { item: Message }) => (
-      <ConversationMessage
-        message={item}
-        isThreaded={item.parentId != null}
-        onLongPress={() => handleReply(item)}
-      />
-    ),
-    [handleReply],
+    ({ item }: { item: Message }) => {
+      const parentMsg = item.parentId
+        ? messages.find((m) => { return m.id === item.parentId; })
+        : null;
+      return (
+        <ConversationMessage
+          message={item}
+          isThreaded={item.parentId != null}
+          parentText={parentMsg?.text ?? null}
+          onLongPress={() => handleReply(item)}
+        />
+      );
+    },
+    [handleReply, messages],
   );
 
   const keyExtractor = useCallback((item: Message) => item.id, []);
@@ -259,7 +227,7 @@ export default function ConversationScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       {/* Header — lives outside KeyboardAvoidingView so it stays fixed */}
-      <Animated.View style={[styles.header, { backgroundColor: headerBg, borderBottomColor: theme.border, paddingTop: isDemo ? 10 : insets.top + 10 }, entryAnimatedStyle]}>
+      <View style={[styles.header, { backgroundColor: headerBg, borderBottomColor: theme.border, paddingTop: isDemo ? 10 : insets.top + 10 }]}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Feather name="arrow-left" size={22} color={theme.foreground} />
         </Pressable>
@@ -305,27 +273,7 @@ export default function ConversationScreen() {
             </Text>
           </View>
         )}
-      </Animated.View>
-
-      {/* Confetti overlay for Big News entry */}
-      {tierTheme.celebratory && (
-        <Animated.View
-          style={[styles.confettiOverlay, confettiAnimatedStyle]}
-          pointerEvents="none"
-        >
-          <Text style={styles.confettiText}>🎉 ✨ 🥳 ✨ 🎉</Text>
-        </Animated.View>
-      )}
-
-      {/* Amber glow overlay for Worth Knowing entry */}
-      {post.tier === 'worth-knowing' && (
-        <Animated.View
-          style={[styles.glowOverlay, glowAnimatedStyle]}
-          pointerEvents="none"
-        >
-          <Text style={styles.glowText}>✨ 🌟 ✨</Text>
-        </Animated.View>
-      )}
+      </View>
 
       {/* KeyboardAvoidingView wraps only the chat area so the header stays fixed */}
       <KeyboardAvoidingView
@@ -335,12 +283,12 @@ export default function ConversationScreen() {
       >
         {/* Message list area */}
         <View style={styles.listContainer}>
-          {messages.length === 0 ? (
+          {threadedMessages.length === 0 ? (
             <ConversationEmptyState isHost={isHost} />
           ) : (
             <FlashList
               ref={listRef}
-              data={messages}
+              data={threadedMessages}
               renderItem={renderMessage}
               keyExtractor={keyExtractor}
               contentContainerStyle={{ paddingBottom: 8 }}
@@ -373,7 +321,7 @@ export default function ConversationScreen() {
             ]}
           >
             {/* Reply hint — shown once until used or dismissed */}
-            {showReplyHint && messages.length > 0 && !replyingTo && (
+            {showReplyHint && threadedMessages.length > 0 && !replyingTo && (
               <View style={[styles.replyHint, { backgroundColor: theme.muted, borderColor: theme.border }]}>
                 <Feather name="corner-up-left" size={13} color={theme.mutedForeground} />
                 <Text style={[styles.replyHintText, { color: theme.mutedForeground }]}>
@@ -387,9 +335,14 @@ export default function ConversationScreen() {
 
             {replyingTo && (
               <View style={styles.replyBanner}>
-                <Text style={[styles.replyText, { color: theme.mutedForeground }]}>
-                  Replying to {replyAuthor?.firstName ?? 'someone'}…
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.replyText, { color: theme.mutedForeground }]}>
+                    Replying to {replyAuthor?.firstName ?? 'someone'}
+                  </Text>
+                  <Text style={[styles.replyPreview, { color: theme.mutedForeground }]} numberOfLines={1}>
+                    “{replyingTo.text.length > 60 ? replyingTo.text.slice(0, 60) + '…' : replyingTo.text}”
+                  </Text>
+                </View>
                 <Pressable onPress={() => setReplyingTo(null)}>
                   <Feather name="x" size={16} color={theme.mutedForeground} />
                 </Pressable>
@@ -492,32 +445,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  confettiOverlay: {
-    position: 'absolute',
-    top: 60,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 20,
-    pointerEvents: 'none',
-  },
-  confettiText: {
-    fontSize: 32,
-    letterSpacing: 6,
-  },
-  glowOverlay: {
-    position: 'absolute',
-    top: 60,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 20,
-    pointerEvents: 'none',
-  },
-  glowText: {
-    fontSize: 28,
-    letterSpacing: 8,
-  },
   listContainer: {
     flex: 1,
   },
@@ -541,7 +468,12 @@ const styles = StyleSheet.create({
   },
   replyText: {
     fontSize: 13,
+    fontWeight: '600',
+  },
+  replyPreview: {
+    fontSize: 12,
     fontStyle: 'italic',
+    marginTop: 1,
   },
   replyHint: {
     flexDirection: 'row',
