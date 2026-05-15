@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Waveform } from '@simform_solutions/react-native-audio-waveform';
-import type { IWaveformRef } from '@simform_solutions/react-native-audio-waveform';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 
 interface AudioAttachmentPlayerProps {
@@ -18,14 +16,67 @@ function formatDuration(seconds: number): string {
   return `${mins}:${String(secs).padStart(2, '0')}`;
 }
 
+/**
+ * Simple progress bar component that's tappable to seek
+ */
+function ProgressBar({
+  progress,
+  onSeek,
+}: {
+  progress: number;
+  onSeek: (fraction: number) => void;
+}) {
+  const trackRef = useRef<View>(null);
+
+  const handlePress = (e: any) => {
+    trackRef.current?.measure((x, y, width) => {
+      const { locationX } = e.nativeEvent;
+      const fraction = Math.max(0, Math.min(1, locationX / width));
+      onSeek(fraction);
+    });
+  };
+
+  return (
+    <Pressable
+      ref={trackRef}
+      style={styles.progressTrack}
+      onPress={handlePress}
+    >
+      {/* Background bars (simulated waveform) */}
+      <View style={styles.waveformBars}>
+        {Array.from({ length: 20 }).map((_, i) => (
+          <View
+            key={i}
+            style={[
+              styles.waveformBar,
+              { height: Math.random() * 60 + 20, opacity: i / 20 < progress ? 0.6 : 0.3 },
+            ]}
+          />
+        ))}
+      </View>
+      {/* Progress fill overlay */}
+      <View
+        style={[
+          styles.progressFill,
+          { width: `${Math.round(progress * 100)}%` },
+        ]}
+      />
+    </Pressable>
+  );
+}
+
 export function AudioAttachmentPlayer({ uri, variant = 'compact' }: AudioAttachmentPlayerProps) {
   const player = useAudioPlayer({ uri });
   const status = useAudioPlayerStatus(player);
-  const waveformRef = useRef<IWaveformRef>(null);
 
+  // Safely clean up player on unmount
   useEffect(() => {
     return () => {
-      player.remove();
+      try {
+        player.release();
+      } catch {
+        // Silently ignore cleanup errors
+      }
     };
   }, [player]);
 
@@ -35,24 +86,26 @@ export function AudioAttachmentPlayer({ uri, variant = 'compact' }: AudioAttachm
     return Math.max(0, Math.min(1, status.currentTime / duration));
   }, [status.currentTime, status.duration]);
 
-  const isLocalFile = uri.startsWith('file://');
-
   const togglePlayback = async () => {
-    if (status.playing) {
-      player.pause();
-      if (isLocalFile) {
-        await waveformRef.current?.pausePlayer().catch(() => {
-          return false;
-        });
+    try {
+      if (status.playing) {
+        await player.pause();
+      } else {
+        await player.play();
       }
-      return;
+    } catch {
+      // Silently ignore playback errors
     }
+  };
 
-    player.play();
-    if (isLocalFile) {
-      await waveformRef.current?.startPlayer().catch(() => {
-        return false;
-      });
+  const handleSeek = async (fraction: number) => {
+    try {
+      const newTime = fraction * (status.duration || 0);
+      if (Number.isFinite(newTime)) {
+        await player.seekTo(newTime);
+      }
+    } catch {
+      // Silently ignore seek errors
     }
   };
 
@@ -70,25 +123,11 @@ export function AudioAttachmentPlayer({ uri, variant = 'compact' }: AudioAttachm
         </View>
       </View>
 
-      {isLocalFile ? (
-        <Waveform
-          ref={waveformRef}
-          mode="static"
-          path={uri}
-          waveColor="#9CA3AF"
-          scrubColor="#E24B4A"
-          candleSpace={2}
-          candleWidth={3}
-          containerStyle={styles.waveform}
-        />
-      ) : (
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
-        </View>
-      )}
+      <ProgressBar progress={progress} onSeek={handleSeek} />
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   card: {
@@ -130,20 +169,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
-  waveform: {
-    width: '100%',
-    height: 48,
-  },
   progressTrack: {
     width: '100%',
-    height: 6,
+    height: 48,
     borderRadius: 3,
-    backgroundColor: '#374151',
+    backgroundColor: '#1F2937',
     overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  waveformBars: {
+    width: '100%',
+    height: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: 2,
+    gap: 1,
+  },
+  waveformBar: {
+    flex: 1,
+    borderRadius: 1,
+    backgroundColor: '#4B5563',
   },
   progressFill: {
-    height: 6,
-    borderRadius: 3,
+    ...StyleSheet.absoluteFillObject,
+    height: '100%',
     backgroundColor: '#E24B4A',
+    opacity: 0.6,
   },
 });

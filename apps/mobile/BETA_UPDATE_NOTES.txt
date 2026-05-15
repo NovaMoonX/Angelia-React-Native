@@ -1,6 +1,6 @@
 Beta update notes
 
-Last updated: 2026-05-30
+Last updated: 2026-05-15
 Branch: beta-v-1.0.7
 Related PR: TBD
 
@@ -10,10 +10,24 @@ Current branch highlights:
 - Notification Settings now has toggles for **Reaction** and **Message** notifications, so you can control exactly which post activity pings you — all on by default.
 - Post Notification Settings no longer shows circles you own — it only shows circles you've joined, which is where per-circle tuning actually makes sense.
 - Each circle in Post Notification Settings now has an **Enable All** switch, and each person group has one too — making it easy to turn everything on or off in one tap without losing your Big News setting.
+- Android long-press haptics on post cards are now more reliable, and tapping reaction chips in post detail gives a subtle haptic too.
+- In post detail, tapping someone else's reaction chip now adds that same emoji as your reaction in one tap.
+- Audio attachment flow is now **in-app recording first**: tapping the mic opens a recording screen, and we no longer route people into file/folder audio picking.
+- Post composer now shows quick, dismissible hint cards for captions and media reordering, so these features are easier to discover.
+- Private circles now show a clean lock icon in the top-right corner of circle cards in account views.
+- Big News / Worth Knowing now show as slim banners under headers in post detail and conversation instead of chunky badges.
+- Conversation now supports replies to replies (up to 2 levels), shows a warning when a thread is too deep, and aligns reply connector lines with the parent avatar.
+- Reply connector lines in conversation now visually chain from parent to child, so threaded replies read like one connected conversation path.
+- Reply connectors now keep the parent thread line visible across sibling replies too, so every reply under the same parent stays connected.
+- Reply elbows are rounded again and sibling branches now flow in the right direction from parent to child, so thread lines look cleaner and easier to follow.
+- Nested replies now keep ancestor lines alive through deeper branches, so later direct replies still connect cleanly back to the original parent.
+- Thread connector segments now overlap cleanly between rows, removing the tiny gaps that could appear in long reply chains.
 - Replies in conversation now appear right after the message they're responding to, so threads are way easier to follow.
 - When replying to a message, the reply banner now shows a short preview of the message you're replying to — no more guessing which message you're responding to.
 - Replied messages now show a **quoted preview** directly in the bubble so anyone reading the thread can see the context at a glance.
 - Conversation headers for Big News and Worth Knowing posts no longer play entry animations — the header just shows up, clean and immediate.
+- Big News / Worth Knowing tier banners in conversation now center their label text, so the priority callout feels cleaner and easier to scan.
+- Big News / Worth Knowing tier banners in post detail now center their label text too, so both screens match visually.
 
 Previous branch highlights:
 - You can now mark a custom circle as **Private** when creating or editing it — only you can invite people to a private circle, and it won't be suggested to others when they leave a post.

@@ -12,6 +12,7 @@ import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -37,6 +38,14 @@ import { POST_TIERS, CONVERSATION_LAST_SEEN_KEY, CONVERSATION_REPLY_HINT_SEEN_KE
 import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import type { Message } from '@/models/types';
 
+type ThreadedConversationRow = {
+  message: Message;
+  depth: number;
+  ancestorIds: string[];
+  rowIndex: number;
+  continuationDepths: number[];
+};
+
 export default function ConversationScreen() {
   const { postId } = useLocalSearchParams<{ postId: string }>();
   const dispatch = useAppDispatch();
@@ -44,7 +53,7 @@ export default function ConversationScreen() {
   const { theme } = useTheme();
   const { addToast } = useToast();
   const insets = useSafeAreaInsets();
-  const listRef = useRef<FlashListRef<Message>>(null);
+  const listRef = useRef<FlashListRef<ThreadedConversationRow>>(null);
   const isDemo = useAppSelector((state) => state.demo.isActive);
 
   const post = useAppSelector((state) => selectPostById(state, postId ?? ''));
@@ -56,6 +65,7 @@ export default function ConversationScreen() {
   const [messageText, setMessageText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [showReplyHint, setShowReplyHint] = useState(false);
+  const [replyDepthWarning, setReplyDepthWarning] = useState<string | null>(null);
 
   // Tier theming
   const tierTheme = getTierTheme(post?.tier);
@@ -101,20 +111,109 @@ export default function ConversationScreen() {
     });
   }, []);
 
-  // Build threaded display: each root message followed immediately by its replies
-  const threadedMessages = useMemo(() => {
-    const roots = messages.filter((m) => { return m.parentId == null; });
-    const result: Message[] = [];
-    for (const root of roots) {
-      result.push(root);
-      const replies = messages
-        .filter((m) => { return m.parentId === root.id; })
-        .sort((a, b) => { return a.timestamp - b.timestamp; });
-      for (const reply of replies) {
-        result.push(reply);
+  const messageDepthById = useMemo(() => {
+    const byId = new Map<string, Message>();
+    messages.forEach((message) => {
+      byId.set(message.id, message);
+    });
+
+    const depthCache = new Map<string, number>();
+
+    const resolveDepth = (message: Message): number => {
+      if (depthCache.has(message.id)) {
+        return depthCache.get(message.id) ?? 0;
       }
-    }
+      if (message.parentId == null) {
+        depthCache.set(message.id, 0);
+        return 0;
+      }
+
+      const parent = byId.get(message.parentId);
+      if (!parent) {
+        depthCache.set(message.id, 0);
+        return 0;
+      }
+
+      const depth = resolveDepth(parent) + 1;
+      depthCache.set(message.id, depth);
+      return depth;
+    };
+
+    const result: Record<string, number> = {};
+    messages.forEach((message) => {
+      result[message.id] = resolveDepth(message);
+    });
     return result;
+  }, [messages]);
+
+  const messageIdsWithReplies = useMemo(() => {
+    const ids = new Set<string>();
+    messages.forEach((message) => {
+      if (message.parentId != null) {
+        ids.add(message.parentId);
+      }
+    });
+    return ids;
+  }, [messages]);
+
+  // Build threaded display to 2 levels: root -> reply -> reply-to-reply.
+  const threadedMessages = useMemo(() => {
+    const childrenByParent = new Map<string | null, Message[]>();
+
+    messages.forEach((message) => {
+      const key = message.parentId ?? null;
+      const siblings = childrenByParent.get(key) ?? [];
+      siblings.push(message);
+      childrenByParent.set(key, siblings);
+    });
+
+    childrenByParent.forEach((siblings) => {
+      siblings.sort((a, b) => {
+        if (a.timestamp === b.timestamp) {
+          return a.id.localeCompare(b.id);
+        }
+        return a.timestamp - b.timestamp;
+      });
+    });
+
+    const rows: Array<Pick<ThreadedConversationRow, 'message' | 'depth' | 'ancestorIds' | 'rowIndex'>> = [];
+    const subtreeEndIndexByMessageId = new Map<string, number>();
+
+    const walk = (parentId: string | null, depth: number, ancestorIds: string[]): number => {
+      let lastIndex = -1;
+      const children = childrenByParent.get(parentId) ?? [];
+
+      children.forEach((child) => {
+        const rowIndex = rows.length;
+        rows.push({
+          message: child,
+          depth,
+          ancestorIds: [...ancestorIds],
+          rowIndex,
+        });
+
+        const subtreeEnd = walk(child.id, depth + 1, [...ancestorIds, child.id]);
+        const endIndex = Math.max(rowIndex, subtreeEnd);
+        subtreeEndIndexByMessageId.set(child.id, endIndex);
+        lastIndex = endIndex;
+      });
+
+      return lastIndex;
+    };
+
+    walk(null, 0, []);
+
+    return rows.map((row) => {
+      const continuationDepths = row.ancestorIds.flatMap((ancestorId, ancestorDepth) => {
+        const subtreeEndIndex = subtreeEndIndexByMessageId.get(ancestorId);
+        return subtreeEndIndex != null && row.rowIndex < subtreeEndIndex ? [ancestorDepth] : [];
+      });
+
+      return {
+        ...row,
+        continuationDepths,
+      };
+    });
   }, [messages]);
 
   // Auto-scroll to bottom on new messages
@@ -129,6 +228,7 @@ export default function ConversationScreen() {
     const text = messageText;
     setMessageText('');
     setReplyingTo(null);
+    setReplyDepthWarning(null);
 
     try {
       await dispatch(
@@ -156,13 +256,22 @@ export default function ConversationScreen() {
   }, [postId, currentUser, dispatch, addToast]);
 
   const handleReply = useCallback((message: Message) => {
+    const messageDepth = messageDepthById[message.id] ?? 0;
+    if (messageDepth >= 2) {
+      setReplyingTo(null)
+      setReplyDepthWarning("You can't reply to message this deep in the thread.");
+      return;
+    }
+
+    void Haptics.selectionAsync().catch(() => {});
+    setReplyDepthWarning(null);
     setReplyingTo(message);
     // Dismiss the hint the first time the user actually uses reply
     if (showReplyHint) {
       setShowReplyHint(false);
       void AsyncStorage.setItem(CONVERSATION_REPLY_HINT_SEEN_KEY, 'true');
     }
-  }, [showReplyHint]);
+  }, [messageDepthById, showReplyHint]);
 
   const handleDismissReplyHint = useCallback(() => {
     setShowReplyHint(false);
@@ -170,23 +279,27 @@ export default function ConversationScreen() {
   }, []);
 
   const renderMessage = useCallback(
-    ({ item }: { item: Message }) => {
-      const parentMsg = item.parentId
-        ? messages.find((m) => { return m.id === item.parentId; })
+    ({ item }: { item: ThreadedConversationRow }) => {
+      const parentMsg = item.message.parentId
+        ? messages.find((m) => { return m.id === item.message.parentId; })
         : null;
+      const depth = messageDepthById[item.message.id] ?? 0;
       return (
         <ConversationMessage
-          message={item}
-          isThreaded={item.parentId != null}
+          message={item.message}
+          isThreaded={depth > 0}
+          hasReplies={messageIdsWithReplies.has(item.message.id)}
+          continuationDepths={item.continuationDepths}
+          depth={depth}
           parentText={parentMsg?.text ?? null}
-          onLongPress={() => handleReply(item)}
+          onLongPress={() => handleReply(item.message)}
         />
       );
     },
-    [handleReply, messages],
+    [handleReply, messages, messageDepthById, messageIdsWithReplies],
   );
 
-  const keyExtractor = useCallback((item: Message) => item.id, []);
+  const keyExtractor = useCallback((item: ThreadedConversationRow) => item.message.id, []);
 
   // Derive the reply author name
   const replyAuthor = useAppSelector((state) =>
@@ -264,16 +377,16 @@ export default function ConversationScreen() {
             {channelBadgeLabel}
           </Badge>
         )}
-
-        {tierConfig && post.tier !== 'everyday' && (
-          <View style={[styles.tierBadge, { backgroundColor: tierConfig.badgeBg }]}>
-            <Text style={styles.tierBadgeEmoji}>{tierConfig.emoji}</Text>
-            <Text style={[styles.tierBadgeText, { color: tierConfig.badgeText }]}>
-              {tierConfig.label}
-            </Text>
-          </View>
-        )}
       </View>
+
+      {tierConfig && post.tier !== 'everyday' && (
+        <View style={[styles.priorityBanner, { backgroundColor: tierConfig.badgeBg }]}> 
+          <Text style={styles.priorityBannerEmoji}>{tierConfig.emoji}</Text>
+          <Text style={[styles.priorityBannerText, { color: tierConfig.badgeText }]}> 
+            {tierConfig.label}
+          </Text>
+        </View>
+      )}
 
       {/* KeyboardAvoidingView wraps only the chat area so the header stays fixed */}
       <KeyboardAvoidingView
@@ -349,6 +462,15 @@ export default function ConversationScreen() {
               </View>
             )}
 
+            {replyDepthWarning && (
+              <View style={[styles.replyDepthWarning, { backgroundColor: theme.muted, borderColor: theme.border }]}> 
+                <Feather name="alert-circle" size={13} color={theme.mutedForeground} />
+                <Text style={[styles.replyDepthWarningText, { color: theme.mutedForeground }]}>
+                  {replyDepthWarning}
+                </Text>
+              </View>
+            )}
+
             <View style={styles.inputRow}>
               <TextInput
                 value={messageText}
@@ -410,6 +532,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     gap: 8,
   },
+  priorityBanner: {
+    marginTop: 0,
+    marginHorizontal: -12,
+    marginBottom: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  priorityBannerEmoji: {
+    fontSize: 13,
+  },
+  priorityBannerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+    textAlign: 'center',
+  },
   backButton: {
     padding: 4,
   },
@@ -429,21 +572,6 @@ const styles = StyleSheet.create({
     color: '#92400E',
     fontWeight: '500',
     marginTop: 2,
-  },
-  tierBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  tierBadgeEmoji: {
-    fontSize: 11,
-  },
-  tierBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
   },
   listContainer: {
     flex: 1,
@@ -486,6 +614,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   replyHintText: {
+    flex: 1,
+    fontSize: 12,
+  },
+  replyDepthWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 8,
+  },
+  replyDepthWarningText: {
     flex: 1,
     fontSize: 12,
   },

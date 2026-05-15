@@ -11,7 +11,6 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import * as DocumentPicker from 'expo-document-picker';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { MAX_FILES, MAX_FILE_SIZE_MB } from '@/models/constants';
@@ -54,30 +53,13 @@ export default function GalleryScreen() {
     }
 
     if (isAudioMode) {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['audio/mpeg', 'audio/mp3'],
-        copyToCacheDirectory: true,
-        multiple: true,
-      });
-
-      if (result.canceled || !result.assets || result.assets.length === 0) {
-        if (selected.length === 0) {
-          router.back();
-        }
-        return;
-      }
-
-      const availableSlots = Math.max(0, remaining - selected.length);
-      const files: MediaFile[] = result.assets.slice(0, availableSlots).map((asset) => ({
-        uri: asset.uri,
-        name: asset.name || `audio-${Date.now()}.mp3`,
-        type: asset.mimeType || 'audio/mpeg',
-        size: asset.size,
-        caption: null,
-      }));
-
-      setSelected((prev) => {
-        return [...prev, ...files].slice(0, remaining);
+      router.replace({
+        pathname: '/(protected)/audio-record',
+        params: {
+          existingMedia: params.existingMedia,
+          existingText: params.existingText,
+          existingChannel: params.existingChannel,
+        },
       });
       return;
     }

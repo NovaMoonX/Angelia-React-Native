@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
@@ -53,8 +53,16 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
   const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' | 'audio'; caption: string | null } | null>(null);
   const cardScale = useRef(new Animated.Value(1)).current;
 
+  const triggerLongPressHaptic = useCallback(() => {
+    if (Platform.OS === 'android') {
+      void Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Long_Press).catch(() => {});
+      return;
+    }
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+  }, []);
+
   const handleCardLongPress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    triggerLongPressHaptic();
     Animated.sequence([
       Animated.timing(cardScale, {
         toValue: 0.97,
@@ -69,7 +77,7 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
       }),
     ]).start();
     onLongPress?.();
-  }, [cardScale, onLongPress]);
+  }, [cardScale, onLongPress, triggerLongPressHaptic]);
   const cardLongPressHandler = onLongPress ? handleCardLongPress : undefined;
   const cardScaleStyle = useMemo(() => {
     return { transform: [{ scale: cardScale }] };

@@ -366,6 +366,105 @@ Select 3+ photos or videos when creating a new post so you have items to reorder
 
 ---
 
+## Feature 13: Post Detail Reaction Chip Tap + Haptics
+
+**Devices:** Android primary, iPhone optional.
+
+### Android
+
+- [ ] Open a post detail with existing reaction chips (e.g. ❤️ 😂)
+- [ ] Tap a chip you have **not** used yet → your reaction is added with that emoji
+- [ ] Confirm a light haptic fires on chip tap
+- [ ] Tap a chip you **already** reacted with → your reactions are removed (existing behavior)
+- [ ] Long-press a post card in feed → confirm Android haptic now fires reliably
+
+### iPhone
+
+- [ ] Repeat chip tap add/remove checks and confirm behavior matches Android
+
+---
+
+## Feature 14: In-App Audio Recording (No Audio File Picker)
+
+**Devices:** Android primary, iPhone parity check.
+
+### Android
+
+- [ ] In post composer, confirm audio toolbar icon is a **mic** (not music note)
+- [ ] Tap mic icon → opens **Record Audio** screen (should not open file/folder picker)
+- [ ] Tap **Start Recording** → timer starts
+- [ ] Tap **Stop Recording** → recording is saved and **Use Recording** appears
+- [ ] Tap **Use Recording** → returns to post composer and adds an audio item to media strip
+- [ ] Confirm audio file upload picker is not shown anywhere in this flow
+
+### iPhone
+
+- [ ] Repeat start/stop/use flow and confirm same no-picker behavior
+
+---
+
+## Feature 15: Composer Hints + Reply Depth Rules
+
+**Devices:** Android primary.
+
+### Composer hints / reorder dismissal
+
+- [ ] Add media in composer → caption hint card appears above strip
+- [ ] Add media in composer → reorder hint card appears above strip
+- [ ] Tap ✕ on each hint → only that hint dismisses
+- [ ] Tap caption **T** on a media item → caption hint auto-dismisses
+- [ ] Long-press a media item to start reorder → reorder hint auto-dismisses
+- [ ] While reorder controls are visible, tap outside media strip area → reorder controls dismiss
+
+### Conversation depth + visual alignment
+
+- [ ] Send a reply to a root message (level 1) → shown under parent
+- [ ] Reply to that reply (level 2) → shown under level 1 reply
+- [ ] Long-press level 2 reply and try to reply again → warning banner appears: max depth reached
+- [ ] Confirm reply connector line points toward the parent message avatar (not far-left offset)
+- [ ] Confirm parent messages that have replies now show a vertical connector stem below the avatar so the thread path looks continuous
+- [ ] For a 3-message chain (root -> reply -> reply-to-reply), confirm connectors appear visually connected across all rows
+- [ ] For a parent with 2+ direct replies, confirm each sibling reply still shows a connector path from the same parent thread line (not just the first sibling)
+- [ ] For replies, confirm the elbow corner is rounded (not a sharp 90-degree corner)
+- [ ] For the last sibling in a reply group, confirm the parent spine does not continue downward past that final branch
+- [ ] For a direct reply that has its own replies, confirm those nested replies do not break the original parent line for the later direct replies that come after it
+- [ ] Scroll through a long nested thread and confirm connector lines are continuous with no visible gaps between row segments
+- [ ] Confirm non-threaded messages remain unchanged
+
+---
+
+## Feature 16: Conversation Tier Banner Text Alignment
+
+**Devices:** Android primary, iPhone parity check.
+
+### Android
+
+- [ ] Open a **Big News** post conversation and confirm the tier banner label text is centered within the banner area
+- [ ] Open a **Worth Knowing** post conversation and confirm the tier banner label text is centered (not left-aligned)
+- [ ] Confirm the emoji + label row stays visually centered across narrow and wide device widths
+
+### iPhone
+
+- [ ] Repeat Big News and Worth Knowing checks and confirm centered label text on iOS as well
+
+---
+
+## Feature 17: Post Detail Tier Banner Text Alignment
+
+**Devices:** Android primary, iPhone parity check.
+
+### Android
+
+- [ ] Open a **Big News** post detail and confirm the tier banner label text is centered within the banner area
+- [ ] Open a **Worth Knowing** post detail and confirm the tier banner label text is centered (not left-aligned)
+- [ ] Confirm the emoji + label row stays visually centered across narrow and wide device widths
+
+### iPhone
+
+- [ ] Repeat Big News and Worth Knowing checks and confirm centered label text on iOS as well
+
+---
+
 ## Regression Checks
 
 Run these after all feature tests to confirm nothing was broken.

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -465,6 +466,15 @@ export default function PostDetailScreen() {
 		}
 	};
 
+	const handleReactionGroupPress = async (group: { emoji: string; currentUserReacted: boolean }) => {
+		void Haptics.selectionAsync().catch(() => {});
+		if (group.currentUserReacted) {
+			await handleRemoveAllReactions();
+			return;
+		}
+		await handleReaction(group.emoji);
+	};
+
 	const handleRemoveAllReactions = async () => {
 		try {
 			await dispatch(removeAllPostReactionsForUser({ postId: post.id, userId: currentUser.id })).unwrap();
@@ -501,6 +511,15 @@ export default function PostDetailScreen() {
 				]}
 				keyboardShouldPersistTaps='handled'
 			>
+				{showTierBadge && tierBadgeConfig && (
+					<View style={[styles.priorityBanner, { backgroundColor: tierBadgeConfig.badgeBg }]}> 
+						<Text style={styles.priorityBannerEmoji}>{tierBadgeConfig.emoji}</Text>
+						<Text style={[styles.priorityBannerText, { color: tierBadgeConfig.badgeText }]}> 
+							{tierBadgeConfig.label}
+						</Text>
+					</View>
+				)}
+
 				{/* Post Header */}
 				<View style={styles.header}>
 					<Pressable
@@ -537,14 +556,6 @@ export default function PostDetailScreen() {
 							>
 								{channelBadgeLabel}
 							</Badge>
-						)}
-						{showTierBadge && tierBadgeConfig && (
-							<View style={[styles.tierBadge, { backgroundColor: tierBadgeConfig.badgeBg }]}> 
-								<Text style={styles.tierBadgeEmoji}>{tierBadgeConfig.emoji}</Text>
-								<Text style={[styles.tierBadgeText, { color: tierBadgeConfig.badgeText }]}> 
-									{tierBadgeConfig.label}
-								</Text>
-							</View>
 						)}
 					</View>
 				</View>
@@ -586,9 +597,7 @@ export default function PostDetailScreen() {
 									names={group.names}
 									currentUserReacted={group.currentUserReacted}
 									onClick={() => {
-										if (group.currentUserReacted) {
-											handleRemoveAllReactions();
-										}
+										void handleReactionGroupPress(group);
 									}}
 								/>
 							))}
@@ -813,24 +822,30 @@ const styles = StyleSheet.create({
 		gap: 6,
 		flexWrap: 'wrap',
 	},
+	priorityBanner: {
+		marginTop: 0,
+		marginHorizontal: -20,
+		marginBottom: 12,
+		paddingVertical: 6,
+		paddingHorizontal: 20,
+		borderRadius: 0,
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 6,
+	},
+	priorityBannerEmoji: {
+		fontSize: 13,
+	},
+	priorityBannerText: {
+		fontSize: 12,
+		fontWeight: '600',
+		letterSpacing: 0.2,
+		textAlign: 'center',
+	},
 	badgesColumn: {
 		alignItems: 'flex-end',
 		gap: 6,
-	},
-	tierBadge: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		gap: 4,
-		paddingHorizontal: 8,
-		paddingVertical: 4,
-		borderRadius: 12,
-	},
-	tierBadgeEmoji: {
-		fontSize: 11,
-	},
-	tierBadgeText: {
-		fontSize: 11,
-		fontWeight: '700',
 	},
 	authorName: {
 		fontSize: 16,

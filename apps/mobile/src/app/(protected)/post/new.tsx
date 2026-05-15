@@ -221,8 +221,11 @@ export default function PostCreateScreen() {
   const [reorderIndex, setReorderIndex] = useState<number | null>(null);
   const [captionTargetIndex, setCaptionTargetIndex] = useState<number | null>(null);
   const [captionDraft, setCaptionDraft] = useState('');
+  const [showCaptionHint, setShowCaptionHint] = useState(true);
+  const [showReorderHint, setShowReorderHint] = useState(true);
 
   const openCaptionModal = (index: number) => {
+    setShowCaptionHint(false);
     setCaptionTargetIndex(index);
     setCaptionDraft(media[index]?.caption ?? '');
   };
@@ -297,6 +300,11 @@ export default function PostCreateScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        onTouchStart={() => {
+          if (reorderIndex !== null) {
+            setReorderIndex(null);
+          }
+        }}
       >
         {/* Circle selector */}
         <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>Circle</Text>
@@ -448,6 +456,29 @@ export default function PostCreateScreen() {
       {/* Media preview strip — kept outside ScrollView so it stays visible above
            the toolbar when the keyboard is open on iOS */}
       {media.length > 0 && (
+        <>
+        {showCaptionHint && (
+          <View style={[styles.featureHint, { backgroundColor: theme.card, borderColor: theme.border }]}> 
+            <Text style={[styles.featureHintText, { color: theme.mutedForeground }]}> 
+              Add a caption: tap the <Text style={{ fontWeight: '700' }}>T</Text> on any media item.
+            </Text>
+            <Pressable onPress={() => setShowCaptionHint(false)} hitSlop={8}>
+              <Feather name="x" size={14} color={theme.mutedForeground} />
+            </Pressable>
+          </View>
+        )}
+
+        {showReorderHint && (
+          <View style={[styles.featureHint, { backgroundColor: theme.card, borderColor: theme.border }]}> 
+            <Text style={[styles.featureHintText, { color: theme.mutedForeground }]}> 
+              Reorder media: long press any media item, then use arrows.
+            </Text>
+            <Pressable onPress={() => setShowReorderHint(false)} hitSlop={8}>
+              <Feather name="x" size={14} color={theme.mutedForeground} />
+            </Pressable>
+          </View>
+        )}
+
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -474,12 +505,15 @@ export default function PostCreateScreen() {
                   }
                   setPreviewItem({ uri: item.uri, type: isVideo ? 'video' : isAudio ? 'audio' : 'image', caption: item.caption });
                 }}
-                onLongPress={() => { setReorderIndex(index); }}
+                onLongPress={() => {
+                  setShowReorderHint(false);
+                  setReorderIndex(index);
+                }}
                 delayLongPress={300}
               >
                 {isAudio ? (
                   <View style={styles.mediaAudioCard}>
-                    <Feather name="music" size={20} color="#FFF" />
+                    <Feather name="mic" size={20} color="#FFF" />
                     <Text style={styles.mediaAudioLabel} numberOfLines={1}>{item.name}</Text>
                   </View>
                 ) : (
@@ -553,6 +587,7 @@ export default function PostCreateScreen() {
             );
           })}
         </ScrollView>
+        </>
       )}
 
       {/* Action toolbar */}
@@ -604,19 +639,18 @@ export default function PostCreateScreen() {
             style={[styles.toolbarButton, atMaxFiles && styles.toolbarButtonDisabled]}
             onPress={() =>
               router.replace({
-                pathname: '/(protected)/gallery',
+                pathname: '/(protected)/audio-record',
                 params: {
                   existingMedia: JSON.stringify(media),
                   existingText: text,
                   existingChannel: selectedChannel,
-                  pickMode: 'audio',
                 },
               })
             }
             disabled={atMaxFiles}
             hitSlop={8}
           >
-            <Feather name="music" size={22} color={atMaxFiles ? theme.mutedForeground : theme.primary} />
+            <Feather name="mic" size={22} color={atMaxFiles ? theme.mutedForeground : theme.primary} />
           </Pressable>
         </View>
 
@@ -784,8 +818,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 24,
     textAlignVertical: 'top',
-    minHeight: 100,
+    minHeight: 72,
     paddingTop: 4,
+  },
+  featureHint: {
+    marginHorizontal: 16,
+    marginTop: 4,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  featureHintText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
   },
   charCount: {
     fontSize: 12,
@@ -796,7 +846,8 @@ const styles = StyleSheet.create({
   mediaStrip: {
     gap: 8,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingTop: 6,
+    paddingBottom: 2,
   },
   mediaThumb: {
     position: 'relative',
@@ -840,7 +891,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingTop: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   toolbarActions: {
