@@ -12,6 +12,7 @@ import { usePrivateNotes } from '@/hooks/usePrivateNotes';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { PRIVATE_NOTES_SEEN_KEY } from '@/models/constants';
+import { dismissNotificationsByData } from '@/services/notifications';
 
 export default function PrivateNotesScreen() {
 	const { postId } = useLocalSearchParams<{ postId: string }>();
@@ -46,6 +47,9 @@ export default function PrivateNotesScreen() {
 	useEffect(() => {
 		if (!postId || !isHost) return;
 		void AsyncStorage.setItem(PRIVATE_NOTES_SEEN_KEY(postId), String(Date.now()));
+		void dismissNotificationsByData({ type: 'private_note', postId }).catch(() => {
+			return null;
+		});
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [postId, isHost]);
 

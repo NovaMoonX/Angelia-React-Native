@@ -89,6 +89,10 @@ export default function ProtectedLayout() {
             name="notification-settings"
             options={{ headerShown: false }}
           />
+          <Stack.Screen
+            name="post-notification-settings"
+            options={{ headerShown: false }}
+          />
           <Stack.Screen name="daily-reminder-settings" options={{ headerShown: false }} />
           <Stack.Screen
             name="invite/[channelId]/[inviteCode]"

@@ -14,7 +14,13 @@ import { ActionModalProvider } from '@/providers/ActionModalProvider';
 import { AuthProvider } from '@/providers/AuthProvider';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useTheme } from '@/hooks/useTheme';
-import { NOTIFICATION_ID, WIND_DOWN_NOTIFICATION_ID, getFollowUpForPrompt, getFollowUpForWindDown } from '@/services/notifications';
+import {
+	NOTIFICATION_ID,
+	WIND_DOWN_NOTIFICATION_ID,
+	getFollowUpForPrompt,
+	getFollowUpForWindDown,
+	dismissNotificationsByData,
+} from '@/services/notifications';
 
 /** Matches the key used in DataListenerWrapper to track whether the in-app daily notice has already been shown today. */
 const DAILY_PROMPT_SHOWN_DATE_KEY = '@angelia/daily_prompt_shown_date';
@@ -115,14 +121,27 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 		}
 	} else if (type === 'connection_accepted') {
 		router.push('/(protected)/my-people');
-	} else if (type === 'big_news_post') {
+	} else if (type === 'new_post') {
 		const postId = data?.postId;
 		if (postId) {
 			router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } });
 		}
+	} else if (type === 'post_reaction') {
+		const postId = data?.postId;
+		if (postId) {
+			void dismissNotificationsByData({ type: 'post_reaction', postId });
+			router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } });
+		}
+	} else if (type === 'conversation_message' || type === 'comment_reply') {
+		const postId = data?.postId;
+		if (postId) {
+			void dismissNotificationsByData({ type, postId });
+			router.push({ pathname: '/(protected)/conversation', params: { postId } });
+		}
 	} else if (type === 'private_note') {
 		const postId = data?.postId;
 		if (postId) {
+			void dismissNotificationsByData({ type: 'private_note', postId });
 			router.push({ pathname: '/(protected)/private-notes-host/[postId]', params: { postId } });
 		}
 	}

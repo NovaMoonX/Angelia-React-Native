@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
@@ -23,9 +23,11 @@ import { useTheme } from '@/hooks/useTheme';
 interface PostCardProps {
   post: Post;
   onNavigate?: () => void;
+  onLongPress?: () => void;
+  reactionPill?: React.ReactNode;
 }
 
-export function PostCard({ post, onNavigate }: PostCardProps) {
+export function PostCard({ post, onNavigate, onLongPress, reactionPill: reactionPeel }: PostCardProps) {
   const author = useAppSelector((state) =>
     selectPostAuthor(state, post.authorId)
   );
@@ -46,6 +48,28 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
   const isOtherUser = author && currentUser && author.id !== currentUser.id;
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
+  const cardScale = useRef(new Animated.Value(1)).current;
+
+  const handleCardLongPress = useCallback(() => {
+    Animated.sequence([
+      Animated.timing(cardScale, {
+        toValue: 0.97,
+        duration: 90,
+        useNativeDriver: true,
+      }),
+      Animated.spring(cardScale, {
+        toValue: 1,
+        tension: 150,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    onLongPress?.();
+  }, [cardScale, onLongPress]);
+  const cardLongPressHandler = onLongPress ? handleCardLongPress : undefined;
+  const cardScaleStyle = useMemo(() => {
+    return { transform: [{ scale: cardScale }] };
+  }, [cardScale]);
 
   const hasTierBadge = post.tier === 'worth-knowing' || post.tier === 'big-news';
 
@@ -80,9 +104,10 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
           </Text>
         </View>
       )}
+      <Animated.View style={cardScaleStyle}>
       <Card style={styles.card}>
         {/* Tappable header + text area */}
-        <Pressable onPress={onNavigate}>
+        <Pressable onPress={onNavigate} onLongPress={cardLongPressHandler} delayLongPress={220}>
           <View style={styles.header}>
             <Pressable
               onPress={isOtherUser ? () => setProfileModalOpen(true) : undefined}
@@ -140,6 +165,7 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
                 item={item}
                 style={styles.carouselImage}
                 onOpen={() => setMediaViewer({ url: item.url, type: item.type })}
+                onLongPress={cardLongPressHandler}
               />
             ))}
           </Carousel>
@@ -148,13 +174,14 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
             item={post.media[0]}
             style={styles.singleImage}
             onOpen={() => setMediaViewer({ url: post.media![0].url, type: post.media![0].type })}
+            onLongPress={cardLongPressHandler}
           />
         )
       ) : null}
 
       {/* Tappable footer */}
       {hasFooter && (
-        <Pressable onPress={onNavigate}>
+        <Pressable onPress={onNavigate} onLongPress={cardLongPressHandler} delayLongPress={220}>
           <View style={styles.footer}>
             {topReactions.length > 0 ? (
               <View style={styles.reactionStack}>
@@ -202,6 +229,8 @@ export function PostCard({ post, onNavigate }: PostCardProps) {
         />
       )}
     </Card>
+    </Animated.View>
+    {reactionPeel}
     </View>
   );
 }
@@ -212,14 +241,16 @@ function CardMediaItem({
   item,
   style,
   onOpen,
+  onLongPress,
 }: {
   item: MediaItem;
   style: object;
   onOpen: () => void;
+  onLongPress?: () => void;
 }) {
   if (item.type === 'video') {
     return (
-      <Pressable style={[style, styles.videoContainer]} onPress={onOpen}>
+      <Pressable style={[style, styles.videoContainer]} onPress={onOpen} onLongPress={onLongPress} delayLongPress={220}>
         {item.thumbnailUrl ? (
           <Image
             source={{ uri: item.thumbnailUrl }}
@@ -237,7 +268,7 @@ function CardMediaItem({
   }
 
   return (
-    <Pressable onPress={onOpen}>
+    <Pressable onPress={onOpen} onLongPress={onLongPress} delayLongPress={220}>
       <Image
         source={{ uri: item.url }}
         style={style}

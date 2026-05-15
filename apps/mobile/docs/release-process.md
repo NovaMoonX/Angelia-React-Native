@@ -30,6 +30,18 @@ version: '1.0.1',  // e.g. bump from 1.0.0 → 1.0.1
 
 > **Why this matters:** EAS and the app stores use the version to distinguish builds. Increment it with every new production release. Use semantic versioning — minor bumps (e.g. `1.0.0` → `1.0.1`) for standard updates, major bumps for large feature releases.
 
+### 1d. Bump Notification Settings Notice Version (when needed)
+
+If this release introduces **new notification controls** (or changes the release notice copy for those controls), bump:
+
+- `NOTIFICATION_SETTINGS_NOTICE_VERSION` in [`src/models/constants.ts`](../src/models/constants.ts)
+
+Use a new unique value (for example: `"2026-05-post-activity-controls-v2"`).
+
+> **Why this matters:** The Notifications-screen release notice and the feed-bell release dot are versioned. Bumping the version is what makes the one-time notice/dot appear again for users for that specific release.
+>
+> If a release does **not** add new notification controls, leave this version unchanged so users don't get unnecessary repeat notices.
+
 ---
 
 ## 2. Build Production Binaries
@@ -109,6 +121,7 @@ Set `iosVersion` and `androidVersion` to the **exact semantic version** you put 
 [ ] BETA_UPDATE_NOTES.txt updated
 [ ] BetaUpdateModal.tsx version bumped + changes updated
 [ ] app.config.js version incremented
+[ ] (If shipping new notification controls) NOTIFICATION_SETTINGS_NOTICE_VERSION bumped
 [ ] npm run prod:android triggered
 [ ] npm run prod:ios triggered
 [ ] eas submit --platform ios run after iOS build completes

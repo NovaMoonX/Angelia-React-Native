@@ -8,8 +8,10 @@ import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { Carousel } from '@/components/ui/Carousel';
 import { ReactionDisplay } from '@/components/ReactionDisplay';
+import { ReactionPill } from '@/components/ReactionPill';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { MediaViewerModal } from '@/components/MediaViewerModal';
 import { PrivateNoteModal } from '@/components/PrivateNoteModal';
@@ -23,23 +25,23 @@ import { useSentPrivateNotes } from '@/hooks/useSentPrivateNotes';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { useActionModal } from '@/hooks/useActionModal';
+import { getSuggestedReactionEmojis } from '@/lib/reaction/reaction.utils';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { getUserDisplayName } from '@/lib/user/user.utils';
 import {
-	COMMON_EMOJIS,
-	POST_ACTIVITY_SEEN_KEY,
+	POST_REACTIONS_SEEN_KEY,
 	PRIVATE_NOTES_SEEN_KEY,
 	CONVERSATION_LAST_SEEN_KEY,
 	JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY,
 } from '@/models/constants';
 import { EmojiPicker } from '@/components/EmojiPicker';
-import { AddReactionIcon } from '@/components/AddReactionIcon';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { updatePostReactions, removeAllPostReactionsForUser, deletePostAction } from '@/store/actions/postActions';
 import { getActiveCustomChannelsByOwner, subscribeToMessages } from '@/services/firebase/firestore';
+import { dismissNotificationsByData } from '@/services/notifications';
 import { CircleJoinSuggestionsModal, type CircleJoinSuggestionItem } from '@/components/CircleJoinSuggestionsModal';
 import { sendJoinRequest } from '@/store/actions/inviteActions';
 import type { Reaction, MediaItem, Channel } from '@/models/types';
@@ -121,9 +123,16 @@ export default function PostDetailScreen() {
 	// gets written). Using useFocusEffect ensures the dot clears on return.
 	useFocusEffect(
 		useCallback(() => {
-			if (!currentUser?.id) return;
-			void AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUser.id), String(Date.now())).catch(() => {});
-		}, [currentUser?.id]),
+			if (!currentUser?.id || !id) return;
+			const seenAt = String(Date.now());
+			void AsyncStorage.multiSet([
+				[POST_REACTIONS_SEEN_KEY(currentUser.id, id), seenAt],
+				[PRIVATE_NOTES_SEEN_KEY(id), seenAt],
+				[CONVERSATION_LAST_SEEN_KEY(id), seenAt],
+			]).catch(() => {});
+			// Dismiss reaction notifications for this specific post
+			void dismissNotificationsByData({ type: 'post_reaction', postId: id }).catch(() => {});
+		}, [currentUser?.id, id]),
 	);
 
 	useFocusEffect(
@@ -161,30 +170,38 @@ export default function PostDetailScreen() {
 		setActiveCarouselIndex(index);
 	};
 
-	// Group reactions by user — must be before early return to satisfy Rules of Hooks
+	// Group reactions by emoji, sorted by count descending — must be before early return to satisfy Rules of Hooks
 	const reactionGroups = useMemo(() => {
-		const groups: Record<string, { emojis: string[]; displayName: string; isCurrentUser: boolean }> = {};
-		if (!post || !currentUser) return groups;
+		if (!post || !currentUser) return [] as { emoji: string; count: number; currentUserReacted: boolean; names: string[] }[];
+		const groups: Record<string, { count: number; currentUserReacted: boolean; names: string[] }> = {};
 		post.reactions.forEach((r) => {
-			if (!groups[r.userId]) {
-				const reactingUser = usersMap[r.userId];
-				groups[r.userId] = {
-					emojis: [],
-					displayName: getUserDisplayName(reactingUser, currentUser.id, r.userId),
-					isCurrentUser: r.userId === currentUser.id,
-				};
+			if (!groups[r.emoji]) {
+				groups[r.emoji] = { count: 0, currentUserReacted: false, names: [] };
 			}
-			groups[r.userId].emojis.push(r.emoji);
+			groups[r.emoji].count += 1;
+			if (r.userId === currentUser.id) {
+				groups[r.emoji].currentUserReacted = true;
+				groups[r.emoji].names.unshift('You');
+			} else {
+				const reactingUser = usersMap[r.userId];
+				groups[r.emoji].names.push(getUserDisplayName(reactingUser, currentUser.id, r.userId, 'first-last-initial'));
+			}
 		});
-		return groups;
+		return Object.entries(groups)
+			.sort((a, b) => { return b[1].count - a[1].count; })
+			.map(([emoji, data]) => { return { emoji, count: data.count, currentUserReacted: data.currentUserReacted, names: data.names }; });
 	}, [post, currentUser, usersMap]);
 
-	// Filter out emojis the current user has already used — must be before early return
-	const availableCommonEmojis = useMemo(() => {
-		if (!currentUser) return COMMON_EMOJIS;
-		const myEmojis = new Set(reactionGroups[currentUser.id]?.emojis ?? []);
-		return COMMON_EMOJIS.filter((emoji) => { return !myEmojis.has(emoji); });
-	}, [reactionGroups, currentUser]);
+	const suggestedReactionEmojis = useMemo(() => {
+		if (!post || !currentUser) {
+			return [];
+		}
+		return getSuggestedReactionEmojis({
+			reactions: post.reactions,
+			currentUserId: currentUser.id,
+			max: 12,
+		});
+	}, [post, currentUser]);
 
 	// All useCallback/useEffect hooks must be before the early return — Rules of Hooks
 
@@ -364,7 +381,18 @@ export default function PostDetailScreen() {
 	if (!post || !currentUser) {
 		return (
 			<View style={[styles.centered, { backgroundColor: theme.background }]}>
-				<Text style={{ color: theme.mutedForeground }}>Post not found</Text>
+				<Text style={[styles.deletedPostTitle, { color: theme.foreground }]}>This post is not available</Text>
+				<Text style={[styles.deletedPostBody, { color: theme.mutedForeground }]}>
+					It may have been deleted by the author.
+				</Text>
+				<Button
+					variant='outline'
+					onPress={() => {
+						router.replace('/(protected)/feed');
+					}}
+				>
+					Back to Feed
+				</Button>
 			</View>
 		);
 	}
@@ -503,16 +531,17 @@ export default function PostDetailScreen() {
 
 				{/* Reactions — inline Slack-like layout */}
 				<View style={styles.reactionsSection}>
-					{Object.keys(reactionGroups).length > 0 ? (
+					{reactionGroups.length > 0 ? (
 						<View style={styles.reactionGroups}>
-							{Object.entries(reactionGroups).map(([userId, data]) => (
+							{reactionGroups.map((group) => (
 								<ReactionDisplay
-									key={userId}
-									emojis={data.emojis}
-									displayName={data.displayName}
-									isCurrentUser={data.isCurrentUser}
+									key={group.emoji}
+									emoji={group.emoji}
+									count={group.count}
+									names={group.names}
+									currentUserReacted={group.currentUserReacted}
 									onClick={() => {
-										if (data.isCurrentUser) {
+										if (group.currentUserReacted) {
 											handleRemoveAllReactions();
 										}
 									}}
@@ -552,34 +581,14 @@ export default function PostDetailScreen() {
 
 			{/* Bottom bar — emoji pill + discreet actions */}
 			<View style={styles.bottomBarContainer}>
-				{/* Emoji pill */}
-				<View
-					style={[
-						styles.fixedEmojiBar,
-						{
-							borderColor: hasReacted ? theme.primary : theme.border,
-							backgroundColor: theme.background,
-						},
-					]}
-				>
-					<ScrollView
-						horizontal
-						showsHorizontalScrollIndicator={false}
-						contentContainerStyle={styles.fixedEmojiBarContent}
-					>
-						{availableCommonEmojis.map((emoji) => (
-							<Pressable key={emoji} onPress={() => handleReaction(emoji)} style={styles.emojiButton}>
-								<Text style={styles.emojiText}>{emoji}</Text>
-							</Pressable>
-						))}
-						<Pressable
-							onPress={() => setEmojiPickerVisible(true)}
-							style={[styles.emojiButton, { borderColor: theme.border }]}
-						>
-							<AddReactionIcon size={28} color={theme.mutedForeground} />
-						</Pressable>
-					</ScrollView>
-				</View>
+				<ReactionPill
+					emojis={suggestedReactionEmojis}
+					onSelect={(emoji) => {
+						void handleReaction(emoji);
+					}}
+					onOpenPicker={() => setEmojiPickerVisible(true)}
+					highlighted={hasReacted}
+				/>
 
 				<View style={styles.secondaryActionsRow}>
 					{!isHost && (
@@ -728,6 +737,19 @@ const styles = StyleSheet.create({
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
+		paddingHorizontal: 20,
+		gap: 10,
+	},
+	deletedPostTitle: {
+		fontSize: 18,
+		fontWeight: '700',
+		textAlign: 'center',
+	},
+	deletedPostBody: {
+		fontSize: 14,
+		textAlign: 'center',
+		lineHeight: 20,
+		marginBottom: 4,
 	},
 	header: {
 		flexDirection: 'row',
@@ -792,29 +814,6 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		fontWeight: '700',
 		letterSpacing: 0.5,
-	},
-	emojiButton: {
-		width: 44,
-		height: 44,
-		borderRadius: 8,
-		justifyContent: 'center',
-		alignItems: 'center',
-	},
-	emojiText: {
-		fontSize: 24,
-	},
-	fixedEmojiBar: {
-		borderWidth: 1.5,
-		borderTopWidth: 1.5,
-		borderRadius: 24,
-		paddingHorizontal: 8,
-		paddingVertical: 4,
-	},
-	fixedEmojiBarContent: {
-		flexGrow: 1,
-		gap: 6,
-		alignItems: 'center',
-		justifyContent: 'center',
 	},
 	reactionsSection: {
 		marginTop: 16,

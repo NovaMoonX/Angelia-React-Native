@@ -1,4 +1,5 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -8,8 +9,14 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { saveNotificationSettings } from '@/store/actions/notificationActions';
 import { getDeviceTimeZone } from '@/services/notifications';
 import { NOTIFICATION_TIMEZONES } from '@/constants/notifications.constants';
+import { createDefaultCirclePostNotificationSettings } from '@/models/constants';
 import { Select } from '@/components/ui/Select';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { selectAllChannels } from '@/store/slices/channelsSlice';
+import {
+  NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY,
+  NOTIFICATION_SETTINGS_NOTICE_VERSION,
+} from '@/models/constants';
 
 export default function NotificationSettingsScreen() {
   const router = useRouter();
@@ -20,10 +27,26 @@ export default function NotificationSettingsScreen() {
   const notificationSettings = useAppSelector(
     (state) => state.users.currentUserNotificationSettings,
   );
+  const currentUser = useAppSelector((state) => {
+    return state.users.currentUser;
+  });
+  const allChannels = useAppSelector(selectAllChannels);
 
   const dailyEnabled = notificationSettings?.dailyPrompt?.enabled ?? true;
+  const replyMessagesEnabled = notificationSettings?.postActivity?.replyMessagesEnabled ?? true;
   const notifTZ = notificationSettings?.timeZone ?? getDeviceTimeZone();
   const autoDetect = notificationSettings?.autoDetectTimeZone !== false;
+  const involvedCircles = allChannels.filter((channel) => {
+    if (!currentUser) return false;
+    return channel.ownerId === currentUser.id || channel.subscribers.includes(currentUser.id);
+  });
+
+  const circlesWithCustomSettingsCount = involvedCircles.reduce((count, channel) => {
+    const settings = notificationSettings?.postByCircle?.[channel.id] ?? createDefaultCirclePostNotificationSettings();
+    const hasAnyCustomEnabled =
+      settings.everydayEnabled || settings.worthKnowingEnabled || settings.withAttachmentsEnabled;
+    return hasAnyCustomEnabled ? count + 1 : count;
+  }, 0);
 
   const handleToggleAutoDetect = useCallback(async () => {
     const newAutoDetect = !autoDetect;
@@ -56,8 +79,38 @@ export default function NotificationSettingsScreen() {
     [dispatch, addToast, notifTZ],
   );
 
+  const handleToggleReplyNotifications = useCallback(async () => {
+    if (!notificationSettings) return;
+    try {
+      await dispatch(
+        saveNotificationSettings({
+          postActivity: {
+            replyMessagesEnabled: !replyMessagesEnabled,
+          },
+        }),
+      ).unwrap();
+      addToast({
+        type: 'success',
+        title: !replyMessagesEnabled
+          ? 'Reply notifications on'
+          : 'Reply notifications off',
+      });
+    } catch {
+      addToast({ type: 'error', title: 'Failed to update reply notifications' });
+    }
+  }, [addToast, dispatch, notificationSettings, replyMessagesEnabled]);
+
   const selectedTZText =
     NOTIFICATION_TIMEZONES.find((o) => o.value === notifTZ)?.text ?? notifTZ;
+
+  useEffect(() => {
+    void AsyncStorage.setItem(
+      NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY(NOTIFICATION_SETTINGS_NOTICE_VERSION),
+      'true',
+    ).catch(() => {
+      return null;
+    });
+  }, []);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
@@ -99,6 +152,49 @@ export default function NotificationSettingsScreen() {
           </View>
           <Feather name="chevron-right" size={18} color={theme.mutedForeground} />
         </Pressable>
+
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+        {/* Post Notifications */}
+        <Pressable
+          onPress={() => router.push('/(protected)/post-notification-settings')}
+          style={({ pressed }) => [styles.row, { opacity: pressed ? 0.7 : 1 }]}
+        >
+          <View style={styles.rowLeft}>
+            <Text style={styles.rowEmoji}>📝</Text>
+            <View style={styles.rowText}>
+              <Text style={[styles.rowLabel, { color: theme.foreground }]}>Post Notifications</Text>
+              <Text style={[styles.rowSub, { color: theme.mutedForeground }]}> 
+                {involvedCircles.length === 0
+                  ? 'No circles yet'
+                  : `${circlesWithCustomSettingsCount}/${involvedCircles.length} circles with extra alerts`}
+              </Text>
+            </View>
+          </View>
+          <Feather name="chevron-right" size={18} color={theme.mutedForeground} />
+        </Pressable>
+
+        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+        <View style={styles.row}>
+          <View style={styles.rowLeft}>
+            <Text style={styles.rowEmoji}>↩️</Text>
+            <View style={styles.rowText}>
+              <Text style={[styles.rowLabel, { color: theme.foreground }]}>Reply Notifications</Text>
+              <Text style={[styles.rowSub, { color: theme.mutedForeground }]}>Notify me when someone replies to my conversation messages</Text>
+            </View>
+          </View>
+          {notificationSettings ? (
+            <Switch
+              value={replyMessagesEnabled}
+              onValueChange={handleToggleReplyNotifications}
+              trackColor={{ false: theme.muted, true: theme.primary }}
+              thumbColor="#FFFFFF"
+            />
+          ) : (
+            <Text style={[styles.loadingText, { color: theme.mutedForeground }]}>Loading…</Text>
+          )}
+        </View>
       </View>
 
       {/* Time zone section */}
@@ -168,7 +264,7 @@ export default function NotificationSettingsScreen() {
       </View>
 
       <Text style={[styles.footer, { color: theme.mutedForeground }]}>
-        More notification types coming soon — stay tuned! 🚀
+        Fine-tune your nudges so they feel just right for you. 💛
       </Text>
     </ScrollView>
     </View>

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { router } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState, type AppStateStatus } from 'react-native';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -46,6 +47,7 @@ import {
   WIND_DOWN_NOTIFICATION_ID,
   getFollowUpForPrompt,
 } from '@/services/notifications';
+import { APP_LAST_OPENED_AT_KEY } from '@/models/constants';
 import type { AppNotificationType, Channel, ChannelJoinRequest, Connection, ConnectionRequest, NotificationSettings, Post, User } from '@/models/types';
 
 /** AsyncStorage key that tracks the calendar date when the daily in-app notice was last shown. */
@@ -134,6 +136,30 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
    * not yet exist.
    */
   const notifInitInFlight = useRef(false);
+
+  // Effect 0: Track local "last app open" timestamp for the signed-in user.
+  useEffect(() => {
+    const currentUserId = currentUser?.id ?? null;
+    if (!currentUserId) return;
+
+    const writeLastOpened = async () => {
+      await AsyncStorage.setItem(APP_LAST_OPENED_AT_KEY(currentUserId), String(Date.now())).catch((error) => {
+        console.warn('Failed to persist app last opened timestamp', error);
+      });
+    };
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState !== 'active') return;
+      void writeLastOpened();
+    };
+
+    void writeLastOpened();
+
+    const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      appStateSubscription.remove();
+    };
+  }, [currentUser?.id]);
 
   // Effect 1: Auth state — subscribe to user, channels, join requests, connections
   useEffect(() => {
@@ -560,8 +586,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   }, [currentUser?.id]);
 
   // Effect 9: Show in-app toast when a push notification arrives in the foreground.
-  // Handles join_channel_request, join_channel_accepted, connection_request,
-  // connection_accepted, and big_news_post types.
+  // Handles join/channel/connection notifications plus post-activity alerts.
   //
   // For connection_request and join_channel_request, we also mark the request ID
   // as seen so that the Firestore-based Effects 12 & 13 don't show a duplicate toast.
@@ -630,39 +655,40 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
           description: 'Tap to see your people',
           onPress: () => router.push('/(protected)/my-people'),
         });
-      } else if (type === 'big_news_post') {
+      } else if (type === 'new_post') {
         const firstName = data?.authorFirstName ?? 'Someone';
         const lastName = data?.authorLastName ?? '';
         const name = lastName ? `${firstName} ${lastName}` : firstName;
         const postId = data?.postId;
         const isDaily = data?.isDaily === 'true';
         const channelName = data?.channelName ?? '';
+        const tier = data?.tier ?? 'everyday';
+        const hasAttachments = data?.hasAttachments === 'true';
+        const toastTitle =
+          tier === 'big-news'
+            ? `🚨 Big News from ${name}`
+            : tier === 'worth-knowing'
+              ? `💡 Worth Knowing from ${name}`
+              : `📝 ${name} shared a new post`;
         const circleDescription = isDaily
           ? 'their Daily Circle'
           : channelName
             ? `their "${channelName}" circle`
             : 'their circle';
+        const attachmentText = hasAttachments ? ' with attachments' : '';
+
         addToast({
           type: 'info',
-          title: `🌟 ${name} shared some big news!!!`,
-          description: `Tap to see their update in ${circleDescription}`,
+          title: toastTitle,
+          description: `Tap to see their new post${attachmentText} in ${circleDescription}`,
           onPress: postId
             ? () => router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } })
             : undefined,
         });
-      } else if (type === 'private_note') {
-        const firstName = data?.authorFirstName ?? 'Someone';
-        const lastName = data?.authorLastName ?? '';
-        const name = lastName ? `${firstName} ${lastName}` : firstName;
-        const postId = data?.postId;
-        addToast({
-          type: 'info',
-          title: '🔒 Private Note',
-          description: `${name} sent you a private note — tap to read it`,
-          onPress: postId
-            ? () => router.push({ pathname: '/(protected)/private-notes-host/[postId]', params: { postId } })
-            : undefined,
-        });
+      // post_reaction, conversation_message, comment_reply, and private_note notifications are
+      // handled via background tap routing in _layout.tsx. When the user is
+      // inside the app, they see the activity in real-time through Redux state,
+      // so no in-app toast is needed for these types.
       }
     });
     return () => subscription.remove();

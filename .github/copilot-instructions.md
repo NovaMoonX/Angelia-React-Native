@@ -233,7 +233,8 @@ Update the relevant section in the doc — the Firestore field table, behavior n
 
 `BetaUpdateModal` displays a one-time "what's new" modal to beta testers when a new update is pushed. **Update it whenever:**
 
-- A **bug fix, improvement, or new feature** ships that beta testers should be aware of.
+- A **user-visible bug fix, improvement, or new feature** ships that beta testers should be aware of.
+- Changes that are mostly internal (cleanup, refactors, behind-the-scenes reliability work) should usually be grouped into one general bug-fix line, not listed as separate highlights.
 
 **How to update:**
 
@@ -245,6 +246,8 @@ Update the relevant section in the doc — the Firestore field table, behavior n
    - `description` — (optional) one sentence elaborating on the change
 
 **Keep the list to 5 entries maximum.** Focus on the most impactful user-facing changes. Minor improvements and multiple bug fixes should be collapsed into a single `{ emoji: '🐛', title: 'Bug fixes & reliability', description: '...' }` entry rather than listed individually. If you have more than 5 things, cut the least impactful ones — users don't need to be told about every tweak.
+
+Only call out a bug or improvement as its own entry when users can clearly feel it in day-to-day use. If the work is mostly background behavior tuning, keep it under a single bug-fixes summary unless it was a serious incident users would care about directly.
 
 Keep the tone warm and encouraging — avoid dry or technical language. Write like you're texting a friend about something cool.
 
@@ -264,6 +267,7 @@ Use it as the compact source of truth for the next beta update modal:
 - Update it whenever a branch lands bug fixes, workflow changes, or new features that beta testers should know about.
 - Write the entries in the same warm, friendly tone used in the app modal copy.
 - Include the current branch or PR reference at the top so the next update is easy to trace.
+- If the `Branch` / `Related PR` header does not match the current branch or PR, clear `Current branch highlights` before adding new bullets. Never carry over highlights from a previous branch.
 
 **⚠️ CRITICAL: You MUST update `apps/mobile/BETA_UPDATE_NOTES.txt` before marking any task complete if it involves:**
 - A new screen, feature, or user-visible workflow
@@ -279,6 +283,21 @@ Use it as the compact source of truth for the next beta update modal:
 3. ✅ Confirm both files are committed together
 
 If you forget to update the beta notes after making user-facing changes, the task is not complete. Add a bullet under "Current branch highlights" in plain, warm, friendly language that explains the benefit to users (not just what was changed).
+
+### Notifications release notice area (`src/app/(protected)/notifications.tsx`)
+
+The top callout area in the Notifications screen is a **release-scoped, one-time notice area** for new notification controls.
+
+- It is **not** a permanent shortcut row for Daily Reminders.
+- Use this area to announce newly available notification controls (for example, new post activity toggles).
+- Visibility is versioned by:
+  - `NOTIFICATION_SETTINGS_NOTICE_VERSION`
+  - `NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY(version)`
+  - `NOTIFICATION_SETTINGS_NOTICE_BADGE_SEEN_KEY(version)`
+  in `src/models/constants.ts`.
+- The notice card should be dismissed **only after the user actually opens** Notification Settings (`/(protected)/notification-settings`), not merely when the card is rendered.
+- The feed bell's release-notice dot should clear once the user visits Notifications (`/(protected)/notifications`), even if the notice card still shows.
+- When a new notification-control release ships, bump the notice version and refresh the card copy.
 
 ---
 

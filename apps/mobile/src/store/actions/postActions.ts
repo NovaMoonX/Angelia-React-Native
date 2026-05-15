@@ -1,6 +1,14 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import type { RootState } from '@/store';
-import type { Post, Reaction, Comment, MediaItem, PostTier, BigNewsPostNotification } from '@/models/types';
+import type {
+  Post,
+  Reaction,
+  Comment,
+  MediaItem,
+  PostTier,
+  NewPostNotification,
+  PostReactionNotification,
+} from '@/models/types';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 import {
   createPost,
@@ -29,31 +37,39 @@ import {
 } from '@/store/slices/commentsSlice';
 import { isDemoActive } from './globalActions';
 
-// ── Big-news notification helper ───────────────────────────────────────────
+// ── Post notification helper ───────────────────────────────────────────────
 
 /**
- * Writes a `big_news_post` notification document so the Cloud Function fans
- * out FCM pushes to all channel subscribers (excluding the author).
+ * Writes a `new_post` notification document so the Cloud Function fans out
+ * FCM pushes to all channel subscribers (excluding the author) and applies
+ * per-circle preference filtering server-side.
  * Fire-and-forget — notification failures are non-fatal.
  */
-async function sendBigNewsNotification(
+async function sendPostNotification(
   post: Post,
   authorFirstName: string,
   authorLastName: string,
   channelName: string,
   isDaily: boolean,
+  hasAttachments: boolean,
 ): Promise<void> {
   try {
-    const notification: BigNewsPostNotification = {
+    const notification: NewPostNotification = {
       id: generateId('nano'),
-      type: 'big_news_post',
+      type: 'new_post',
       actorId: post.authorId,
-      target: { type: 'channel_tier', channelId: post.channelId, tier: 'big-news' },
+      target: {
+        type: 'channel_tier',
+        channelId: post.channelId,
+        tier: post.tier ?? 'everyday',
+      },
       createdAt: Date.now(),
       postId: post.id,
       channelId: post.channelId,
       channelName,
       isDaily,
+      tier: post.tier ?? 'everyday',
+      hasAttachments,
       authorFirstName,
       authorLastName,
     };
@@ -141,10 +157,15 @@ export const uploadPost = createAsyncThunk(
       await createPost(uploadingPost);
 
       if (!hasMedia) {
-        // Fire big-news notification for no-media posts immediately
-        if (tier === 'big-news') {
-          void sendBigNewsNotification(uploadingPost, user.firstName, user.lastName, channelName, channelIsDaily);
-        }
+        // Fire circle post notification for text-only posts immediately.
+        void sendPostNotification(
+          uploadingPost,
+          user.firstName,
+          user.lastName,
+          channelName,
+          channelIsDaily,
+          false,
+        );
         return uploadingPost;
       }
 
@@ -215,10 +236,15 @@ export const uploadPost = createAsyncThunk(
         })();
       }
 
-      // Fire big-news notification after media post is ready
-      if (tier === 'big-news') {
-        void sendBigNewsNotification(newPost, user.firstName, user.lastName, channelName, channelIsDaily);
-      }
+      // Fire circle post notification after media post is ready.
+      void sendPostNotification(
+        newPost,
+        user.firstName,
+        user.lastName,
+        channelName,
+        channelIsDaily,
+        true,
+      );
 
       return newPost;
     } catch (err) {
@@ -268,12 +294,34 @@ export const updatePostReactions = createAsyncThunk(
     { postId, newReaction }: { postId: string; newReaction: Reaction },
     { getState, dispatch, rejectWithValue },
   ) => {
+    const state = getState() as RootState;
+    const currentUser = state.users.currentUser;
+    const post = state.posts.items.find((item) => {
+      return item.id === postId;
+    });
+
     dispatch(updateReactionsOptimistic({ postId, newReaction }));
     if (isDemoActive(getState)) {
       return { postId, newReaction };
     }
     try {
       await addReactionToPost(postId, newReaction);
+
+      if (post && currentUser && post.authorId !== currentUser.id) {
+        const notification: PostReactionNotification = {
+          id: generateId('nano'),
+          type: 'post_reaction',
+          actorId: currentUser.id,
+          target: { type: 'user', userId: post.authorId },
+          createdAt: Date.now(),
+          postId,
+          reactorFirstName: currentUser.firstName,
+          reactorLastName: currentUser.lastName,
+          emoji: newReaction.emoji,
+        };
+        createAppNotification(notification).catch(() => {});
+      }
+
       return { postId, newReaction };
     } catch (err) {
       dispatch(revertReactionsOptimistic({ postId }));

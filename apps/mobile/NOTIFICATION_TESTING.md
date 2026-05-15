@@ -167,46 +167,46 @@ titled "🎉 You're connected!".
 
 ---
 
-### Scenario E — Big News Post (you are a subscriber of the channel)
+### Scenario E — New Post (per-circle tier preferences + attachments)
 
-A connected user or circle host published a `big-news` tier post. You'll see an
-in-app toast titled "🌟 … shared some big news!!!" and a background push with
-the same message. Tapping either navigates to the post detail screen.
+This is the new generalized post notification used for all post tiers.
 
-> **Important:** This notification uses a `channel_tier` target instead of a
-> `user` target.  The Cloud Function reads the `channels/{channelId}` document
-> to obtain the `subscribers` array, then fans out to all subscribers' FCM
-> tokens (excluding the author).  Make sure `YOUR_CHANNEL_ID` refers to a real
-> channel document that has your user ID in its `subscribers` array.
+- `tier` can be `everyday`, `worth-knowing`, or `big-news`.
+- `hasAttachments` should be `true` when the post includes photos/videos.
+- Delivery is filtered per recipient by `userNotificationSettings/{uid}.postByCircle[{channelId}]`:
+  - `bigNewsEnabled`
+  - `worthKnowingEnabled`
+  - `everydayEnabled`
+  - `withAttachmentsEnabled`
 
-Replace `YOUR_USER_ID`, `YOUR_CHANNEL_ID`, and `YOUR_POST_ID` with real values.
+By default for each Circle, only `bigNewsEnabled` is on.
 
 ```json
 {
-  "id": "test-notif-big-news-1",
-  "type": "big_news_post",
+  "id": "test-notif-new-post-1",
+  "type": "new_post",
   "actorId": "fake-author-id",
   "target": {
     "type": "channel_tier",
     "channelId": "YOUR_CHANNEL_ID",
-    "tier": "big-news"
+    "tier": "worth-knowing"
   },
   "createdAt": 1713484800000,
   "postId": "YOUR_POST_ID",
   "channelId": "YOUR_CHANNEL_ID",
   "channelName": "Book Club",
   "isDaily": false,
+  "tier": "worth-knowing",
+  "hasAttachments": true,
   "authorFirstName": "Alex",
   "authorLastName": "Test"
 }
 ```
 
-For a **daily circle** big-news notification, change `"isDaily": true` and set
-`channelId` to the daily channel ID (format: `{ownerId}-daily`).
-
-> **Note:** Tapping the push routes to `/(protected)/post/[YOUR_POST_ID]`.
-> The screen will show an error if `YOUR_POST_ID` is not a real Firestore post
-> doc — expected in testing mode.
+Expected behavior:
+- Recipients who enabled either `worthKnowingEnabled` for this Circle OR
+  `withAttachmentsEnabled` for this Circle should receive the push.
+- Recipients with both toggles off should not receive this push.
 
 ---
 
@@ -270,8 +270,104 @@ the Circle you want to test.
 }
 ```
 
+---
+
+### Scenario H — Comment Reply (someone replied to your conversation message)
+
+You should receive this when another member replies directly to one of your
+messages in a post conversation. Tapping routes to that post's conversation.
+
+```json
+{
+  "id": "test-notif-comment-reply-1",
+  "type": "comment_reply",
+  "actorId": "fake-replier-id",
+  "target": {
+    "type": "user",
+    "userId": "YOUR_USER_ID"
+  },
+  "createdAt": 1713484800000,
+  "postId": "YOUR_POST_ID",
+  "parentMessageId": "YOUR_MESSAGE_ID",
+  "senderFirstName": "Taylor",
+  "senderLastName": "Test",
+  "messagePreview": "Totally agree with this point"
+}
+```
+
+Expected behavior:
+- The recipient is the author of the parent message being replied to.
+- The sender should never notify themselves.
+- If the parent-message author is also the post author, they should receive
+  only this reply notification (not an additional new conversation-message
+  notification for the same reply).
+
 > **Note:** Tap handling sends users to `circle-invite/[requestId]`.
 > If the request id is invalid, the invite screen will show an unavailable state — expected in test mode.
+
+---
+
+### Scenario H — Post Reaction (you are the Host)
+
+Someone reacted to one of your posts. You'll see an in-app toast and a background
+push. Tapping the notification opens the post detail screen.
+
+Replace `YOUR_USER_ID` with your real user ID and `YOUR_POST_ID` with a post ID
+you own.
+
+```json
+{
+  "id": "test-notif-post-reaction-1",
+  "type": "post_reaction",
+  "actorId": "fake-reactor-id",
+  "target": {
+    "type": "user",
+    "userId": "YOUR_USER_ID"
+  },
+  "createdAt": 1713484800000,
+  "postId": "YOUR_POST_ID",
+  "reactorFirstName": "Riley",
+  "reactorLastName": "Test",
+  "emoji": "🔥"
+}
+```
+
+> **Cooldown behavior:** reaction pushes are throttled for 10 minutes per
+> `targetUserId + actorId + postId`. If you create another `post_reaction`
+> notification with the same target/actor/post immediately, the second one is
+> consumed and deleted but should not send another push.
+
+---
+
+### Scenario I — Conversation Message (you are the Host)
+
+Someone sent a message in your post conversation. You'll see an in-app toast and
+a background push. Tapping the notification opens the conversation thread for
+that post.
+
+Replace `YOUR_USER_ID` with your real user ID and `YOUR_POST_ID` with a post ID
+you own.
+
+```json
+{
+  "id": "test-notif-conversation-message-1",
+  "type": "conversation_message",
+  "actorId": "fake-sender-id",
+  "target": {
+    "type": "user",
+    "userId": "YOUR_USER_ID"
+  },
+  "createdAt": 1713484800000,
+  "postId": "YOUR_POST_ID",
+  "senderFirstName": "Jordan",
+  "senderLastName": "Test",
+  "messagePreview": "Just dropped a quick update in your conversation 💛"
+}
+```
+
+> **Note:** Tap handling routes to `/(protected)/conversation?postId=...`.
+> If `YOUR_POST_ID` is invalid, the conversation screen will show unavailable
+> state — expected in test mode.
 
 ---
 

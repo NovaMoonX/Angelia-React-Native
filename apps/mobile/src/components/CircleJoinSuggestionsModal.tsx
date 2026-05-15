@@ -34,8 +34,19 @@ export function CircleJoinSuggestionsModal({
 }: CircleJoinSuggestionsModalProps) {
   const { theme } = useTheme();
 
+  const footer = (
+    <View style={styles.footerActions}>
+      <Button variant="outline" onPress={onStayHere} style={{ flex: 1 }}>
+        Keep browsing
+      </Button>
+      <Button onPress={onLeavePage} style={{ flex: 1 }}>
+        Leave page
+      </Button>
+    </View>
+  );
+
   return (
-    <Modal isOpen={isOpen} onClose={onStayHere} title={`More of ${authorName}'s Circles`}>
+    <Modal isOpen={isOpen} onClose={onStayHere} title={`More of ${authorName}'s Circles`} footer={footer}>
       <View style={styles.container}>
         <Text style={[styles.subtitle, { color: theme.mutedForeground }]}> 
           You reacted to their post. Want to peek at a few more of their Circles before you go?
@@ -76,15 +87,6 @@ export function CircleJoinSuggestionsModal({
             </View>
           </Card>
         ))}
-
-        <View style={styles.footerActions}>
-          <Button variant="outline" onPress={onStayHere} style={{ flex: 1 }}>
-            Keep browsing
-          </Button>
-          <Button onPress={onLeavePage} style={{ flex: 1 }}>
-            Leave page
-          </Button>
-        </View>
       </View>
     </Modal>
   );

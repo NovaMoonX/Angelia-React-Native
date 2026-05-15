@@ -1,4 +1,10 @@
-import type { AvatarPreset, ChannelColorOption, NotificationSettings, PostTier } from './types';
+import type {
+  AvatarPreset,
+  ChannelColorOption,
+  CirclePostNotificationSettings,
+  NotificationSettings,
+  PostTier,
+} from './types';
 
 export const CUSTOM_CHANNEL_LIMIT = 3;
 
@@ -24,6 +30,29 @@ export const DEFAULT_WIND_DOWN_PROMPT: NotificationSettings['windDownPrompt'] = 
   hour: 21,
   minute: 0,
 };
+
+/** Default values for push notifications about activity on a user's posts. */
+export const DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS: NotificationSettings['postActivity'] = {
+  reactionsEnabled: true,
+  privateNotesEnabled: true,
+  conversationMessagesEnabled: true,
+  replyMessagesEnabled: true,
+};
+
+/** Default values for per-circle post push preferences. */
+export const DEFAULT_CIRCLE_POST_NOTIFICATION_SETTINGS = {
+  everydayEnabled: false,
+  worthKnowingEnabled: false,
+  bigNewsEnabled: true,
+  withAttachmentsEnabled: false,
+};
+
+/** Returns a fresh default per-circle post push preference object. */
+export function createDefaultCirclePostNotificationSettings(): CirclePostNotificationSettings {
+  return {
+    ...DEFAULT_CIRCLE_POST_NOTIFICATION_SETTINGS,
+  };
+}
 
 export const AVATAR_PRESETS: AvatarPreset[] = [
   'astronaut', 'moon', 'star', 'galaxy', 'nebula', 'planet',
@@ -60,8 +89,22 @@ export const FEED_LAST_SEEN_TIMESTAMP_KEY = '@angelia/feed_last_seen_timestamp';
 /** AsyncStorage key storing the latest per-post activity snapshot the user has reviewed. */
 export const POST_ACTIVITY_SEEN_KEY = (userId: string) => `@angelia/post_activity_seen_${userId}`;
 
+/** AsyncStorage key storing when the user last reviewed reactions for a specific post. */
+export const POST_REACTIONS_SEEN_KEY = (userId: string, postId: string) => {
+  return `@angelia/post_reactions_seen_${userId}_${postId}`;
+};
+
+/** AsyncStorage key storing when the user last opened the app on this device. */
+export const APP_LAST_OPENED_AT_KEY = (userId: string) => `@angelia/app_last_opened_at_${userId}`;
+
 /** AsyncStorage key that tracks whether the new-user feed guide is still pending or has been dismissed. */
 export const ONBOARDING_FEED_GUIDE_STATE_KEY = (userId: string) => `@angelia/onboarding_feed_guide_${userId}`;
+
+/** AsyncStorage key that records whether the feed long-press reaction hint was manually dismissed. */
+export const FEED_REACTION_HINT_DISMISSED_KEY = (userId: string) => `@angelia/feed_reaction_hint_dismissed_${userId}`;
+
+/** AsyncStorage key that records whether the user has reacted from feed via long-press at least once. */
+export const FEED_REACTION_HINT_USED_KEY = (userId: string) => `@angelia/feed_reaction_hint_used_${userId}`;
 
 /**
  * AsyncStorage key that records when a post host last opened the private notes screen for a post.
@@ -103,9 +146,34 @@ export const JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY = (userId: string) => `@ang
  * AsyncStorage key that records which beta update version the user has already dismissed.
  * When BETA_UPDATE_VERSION in BetaUpdateModal is bumped, the modal will show again automatically.
  */
-export const BETA_UPDATE_VERSION = '2026-05-12b';
+export const BETA_UPDATE_VERSION = '2026-05-14-replies';
 
 export const BETA_UPDATE_MODAL_SEEN_KEY = (version: string) => `@angelia/beta_update_modal_seen_${version}`;
+
+/**
+ * Version for the one-time notification-settings release notice shown on the
+ * Notifications screen. Bump when new notification controls are introduced.
+ */
+export const NOTIFICATION_SETTINGS_NOTICE_VERSION = '2026-05-reply-notification-controls';
+
+/** Accent color for notification-settings release notice card and bell badge dot. */
+export const NOTIFICATION_SETTINGS_NOTICE_ACCENT = '#0EA5E9';
+
+/**
+ * AsyncStorage key recording whether the user has seen a specific notification
+ * settings release notice version.
+ */
+export const NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY = (version: string) => {
+  return `@angelia/notification_settings_notice_seen_${version}`;
+};
+
+/**
+ * AsyncStorage key recording whether the user has already seen the release
+ * notice bell badge for a specific notification settings notice version.
+ */
+export const NOTIFICATION_SETTINGS_NOTICE_BADGE_SEEN_KEY = (version: string) => {
+  return `@angelia/notification_settings_notice_badge_seen_${version}`;
+};
 
 /**
  * AsyncStorage key that records the latest required app version the user has

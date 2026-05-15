@@ -30,29 +30,24 @@ interface ChangeEntry {
 // "Bug fixes & reliability" entry rather than called out individually.
 const BETA_UPDATE_CHANGES: ChangeEntry[] = [
   {
-    emoji: '🌐',
-    title: 'Posts from everyone you know',
-    description: 'We fixed a sneaky issue that was silently hiding some posts from your feed.',
+    emoji: '👆',
+    title: 'React from your feed',
+    description: 'Long-press any post to react without opening it — the emoji picker pops up right there.',
   },
   {
-    emoji: '⏱️',
-    title: '3-second posting countdown',
-    description: 'A quick heads-up before every post — catch any mistakes or tap "Post Now" to skip the wait.',
+    emoji: '🔔',
+    title: 'Custom notification controls',
+    description: 'Choose which activity alerts you — reactions, private notes, and conversation messages each have their own toggle.',
   },
   {
-    emoji: '📋',
-    title: 'Smarter post activity',
-    description: 'Sort by newest or oldest, and the screen now auto-jumps to your unread activity when you arrive.',
-  },
-  {
-    emoji: '😊',
-    title: 'Status emoji fixed on iPhone',
-    description: 'Tapping the emoji button in the status sheet now opens the picker correctly.',
+    emoji: '⌨️',
+    title: 'Type any emoji you want',
+    description: 'If you cannot find an emoji in the picker, you can now type and submit it directly.',
   },
   {
     emoji: '🐛',
     title: 'Bug fixes & polish',
-    description: 'A few rough edges smoothed out across the app.',
+    description: 'A few rough edges got smoothed out so everything feels more reliable.',
   },
 ];
 
@@ -94,6 +89,13 @@ export function BetaUpdateModal({ visible, onClose }: BetaUpdateModalProps) {
                 {entry.description ? (
                   <Text style={[styles.changeDescription, { color: theme.mutedForeground }]}>
                     {entry.description}
+                    {entry.title === 'Custom notification controls' ? (
+                      <>
+                        {' By default, only '}
+                        <Text style={[styles.changeDescriptionHighlight, { color: theme.destructive }]}>Big News</Text>
+                        {' notifications are on.'}
+                      </>
+                    ) : null}
                   </Text>
                 ) : null}
               </View>
@@ -135,6 +137,9 @@ const styles = StyleSheet.create({
   changeDescription: {
     fontSize: 13,
     lineHeight: 19,
+  },
+  changeDescriptionHighlight: {
+    fontWeight: '700',
   },
   doneButton: {
     alignSelf: 'stretch',

@@ -17,7 +17,12 @@ import {
 } from '@react-native-firebase/firestore';
 import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 import type { User, UserPublic, UserPrivate, UserSecret, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, CircleInviteRequest, UpdateUserProfileData, UserStatus, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, AppTask, Comment, PrivateNote, Reaction } from '@/models/types';
-import { DAILY_CHANNEL_SUFFIX, DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
+import {
+  DAILY_CHANNEL_SUFFIX,
+  DEFAULT_WIND_DOWN_PROMPT,
+  DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS,
+  createDefaultCirclePostNotificationSettings,
+} from '@/models/constants';
 import { generateId } from '@/utils/generateId';
 
 // const db = getFirestore();
@@ -173,23 +178,70 @@ const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
     minute: 0,
   },
   windDownPrompt: { ...DEFAULT_WIND_DOWN_PROMPT },
+  postActivity: { ...DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS },
+  postByCircle: {},
   timeZone: 'UTC',
   autoDetectTimeZone: true,
 };
 
+function normalizeCirclePostNotificationSettings(
+  raw: unknown,
+): NotificationSettings['postByCircle'] {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {};
+  }
+
+  const entries = Object.entries(raw as Record<string, unknown>);
+  const normalized: NotificationSettings['postByCircle'] = {};
+  for (const [channelId, value] of entries) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      continue;
+    }
+    normalized[channelId] = {
+      ...createDefaultCirclePostNotificationSettings(),
+      ...(value as NotificationSettings['postByCircle'][string]),
+    };
+  }
+
+  return normalized;
+}
+
+function normalizeNotificationSettings(raw: NotificationSettings): NotificationSettings {
+  return {
+    ...DEFAULT_NOTIFICATION_SETTINGS,
+    ...raw,
+    dailyPrompt: {
+      ...DEFAULT_NOTIFICATION_SETTINGS.dailyPrompt,
+      ...(raw.dailyPrompt ?? {}),
+    },
+    windDownPrompt: {
+      ...DEFAULT_WIND_DOWN_PROMPT,
+      ...(raw.windDownPrompt ?? {}),
+    },
+    postActivity: {
+      ...DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS,
+      ...(raw.postActivity ?? {}),
+    },
+    postByCircle: normalizeCirclePostNotificationSettings(raw.postByCircle),
+  };
+}
+
 export async function getNotificationSettings(uid: string): Promise<NotificationSettings | null> {
   const snap = await getDoc(doc(getDb(), 'userNotificationSettings', uid));
-  return snap?.exists ? (snap.data() as NotificationSettings) : null;
+  if (!snap?.exists) {
+    return null;
+  }
+  return normalizeNotificationSettings(snap.data() as NotificationSettings);
 }
 
 export async function initNotificationSettings(
   uid: string,
   deviceTimeZone: string,
 ): Promise<NotificationSettings> {
-  const settings: NotificationSettings = {
+  const settings: NotificationSettings = normalizeNotificationSettings({
     ...DEFAULT_NOTIFICATION_SETTINGS,
     timeZone: deviceTimeZone,
-  };
+  });
   await setDoc(doc(getDb(), 'userNotificationSettings', uid), settings);
   return settings;
 }
@@ -250,7 +302,7 @@ export function subscribeToNotificationSettings(
 ): () => void {
   return onSnapshot(doc(getDb(), 'userNotificationSettings', uid), (snap) => {
     if (!snap) return;
-    callback(snap.exists ? (snap.data() as NotificationSettings) : null);
+    callback(snap.exists ? normalizeNotificationSettings(snap.data() as NotificationSettings) : null);
   });
 }
 
@@ -926,17 +978,22 @@ export function subscribeToPosts(
     callback([]);
     return () => {};
   }
+  // Defensively dedupe in case callers pass overlapping channel IDs.
+  const uniqueChannelIds = Array.from(new Set(channelIds));
 
   // Firestore `in` queries limited to 30 values — batch if needed
   const batches: string[][] = [];
-  for (let i = 0; i < channelIds.length; i += 30) {
-    batches.push(channelIds.slice(i, i + 30));
+  for (let i = 0; i < uniqueChannelIds.length; i += 30) {
+    batches.push(uniqueChannelIds.slice(i, i + 30));
   }
 
   const allPosts: Map<string, Post> = new Map();
+  const postsByBatchKey: Map<string, Set<string>> = new Map();
+  const postBatchMembership: Map<string, Set<string>> = new Map();
   const unsubscribes: Array<() => void> = [];
 
   for (const batch of batches) {
+    const batchKey = batch.join('|');
     const unsub = onSnapshot(
       query(
         collection(getDb(), 'posts'),
@@ -944,6 +1001,7 @@ export function subscribeToPosts(
         where('markedForDeletionAt', '==', null),
       ),
       (snap) => {
+        const nextBatchPostIds: Set<string> = new Set();
         for (const d of getSnapshotDocs(snap)) {
           const post = d.data() as Post;
           const normalizedPost: Post = {
@@ -956,8 +1014,31 @@ export function subscribeToPosts(
               };
             }),
           };
+          nextBatchPostIds.add(d.id);
           allPosts.set(d.id, normalizedPost);
         }
+
+        const previousBatchPostIds = postsByBatchKey.get(batchKey) ?? new Set<string>();
+        previousBatchPostIds.forEach((postId) => {
+          if (!nextBatchPostIds.has(postId)) {
+            const membership = postBatchMembership.get(postId) ?? new Set<string>();
+            membership.delete(batchKey);
+            if (membership.size === 0) {
+              postBatchMembership.delete(postId);
+              allPosts.delete(postId);
+              return;
+            }
+            postBatchMembership.set(postId, membership);
+          }
+        });
+
+        nextBatchPostIds.forEach((postId) => {
+          const membership = postBatchMembership.get(postId) ?? new Set<string>();
+          membership.add(batchKey);
+          postBatchMembership.set(postId, membership);
+        });
+
+        postsByBatchKey.set(batchKey, nextBatchPostIds);
         callback(Array.from(allPosts.values()));
       },
       (error) => {

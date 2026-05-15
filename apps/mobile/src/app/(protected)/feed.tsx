@@ -5,10 +5,13 @@ import {
 	NativeSyntheticEvent,
 	NativeScrollEvent,
 	Pressable,
+	RefreshControl,
 	StyleSheet,
 	Text,
+	type ViewToken,
 	View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +22,7 @@ import { Button } from '@/components/ui/Button';
 import { BellIcon } from '@/components/BellIcon';
 import { PostActivityIcon } from '@/components/PostActivityIcon';
 import { PostCard } from '@/components/PostCard';
+import { ReactionPill } from '@/components/ReactionPill';
 import { SkeletonPostCard } from '@/components/SkeletonPostCard';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { NowStatusModal } from '@/components/NowStatusModal';
@@ -28,9 +32,12 @@ import { AppVersionUpdateModal } from '@/components/AppVersionUpdateModal';
 import { AppMessageModal } from '@/components/AppMessageModal';
 import { FeedbackFormModal } from '@/components/FeedbackFormModal';
 import { FeedChannelFilterModal, type ChannelFilterState } from '@/components/FeedChannelFilterModal';
+import { EmojiPicker } from '@/components/EmojiPicker';
 import { NewPostsPill, type NewPostsPillRef } from '@/components/NewPostsPill';
+import { getSuggestedReactionEmojis } from '@/lib/reaction/reaction.utils';
 import { formatTimeRemaining } from '@/lib/timeUtils';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
+import { updatePostReactions } from '@/store/actions/postActions';
 import { saveStatus, clearStatus } from '@/store/actions/userActions';
 import { completeTask } from '@/store/actions/taskActions';
 import { selectHasAnyPendingActivity } from '@/store/crossSelectors/activitySelectors';
@@ -39,9 +46,17 @@ import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { useAutoCompleteTasks } from '@/hooks/useAutoCompleteTasks';
 import { useAuthorPostActivity } from '../../hooks/useAuthorPostActivity';
+import { useFeedReactionHint } from '@/hooks/useFeedReactionHint';
 import { useFeedModals } from '@/hooks/useFeedModals';
-import { BETA_FEEDBACK_FORM_URL, POST_TIERS } from '@/models/constants';
-import type { Post, PostTier, UserStatus } from '@/models/types';
+import {
+	BETA_FEEDBACK_FORM_URL,
+	NOTIFICATION_SETTINGS_NOTICE_ACCENT,
+	NOTIFICATION_SETTINGS_NOTICE_BADGE_SEEN_KEY,
+	NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY,
+	NOTIFICATION_SETTINGS_NOTICE_VERSION,
+	POST_TIERS,
+} from '@/models/constants';
+import type { Post, PostTier, Reaction, UserStatus } from '@/models/types';
 
 const INITIAL_PAGE = 10;
 const LOAD_MORE = 3;
@@ -65,7 +80,29 @@ export default function FeedScreen() {
 
 	useFocusEffect(
 		useCallback(() => {
+			// If we're already at/near the top of the feed when focusing, notify
+			// the pill so it dismisses any new posts that are already visible.
+			newPostsPillRef.current?.notifyScrollY(prevScrollY.current);
 			void refreshSeenState();
+			void Promise.all([
+				AsyncStorage.getItem(
+					NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY(NOTIFICATION_SETTINGS_NOTICE_VERSION),
+				),
+				AsyncStorage.getItem(
+					NOTIFICATION_SETTINGS_NOTICE_BADGE_SEEN_KEY(NOTIFICATION_SETTINGS_NOTICE_VERSION),
+				),
+			])
+				.then(([noticeSeenValue, badgeSeenValue]) => {
+					const noticeUnseen = noticeSeenValue !== 'true';
+					const badgeUnseen = badgeSeenValue !== 'true';
+					setHasNotificationSettingsNotice(noticeUnseen && badgeUnseen);
+					return null;
+				})
+				.catch(() => {
+					setHasNotificationSettingsNotice(true);
+					return null;
+				});
+			return undefined;
 		}, [refreshSeenState]),
 	);
 
@@ -75,6 +112,7 @@ export default function FeedScreen() {
 
 	// Centralized feed modal priority system.
 	const { activeModal, mobileConfig, deviceVersion, targetVersion, closeOnboarding, closeBetaUpdate, closeAppVersion, closeAppMessage, closeFeedbackForm } = useFeedModals();
+	const { showFeedReactionHint, dismissFeedReactionHint, markFeedReactionHintUsed } = useFeedReactionHint(currentUser?.id);
 
 	const [channelFilter, setChannelFilter] = useState<ChannelFilterState>({ mode: 'all', specificIds: [] });
 	const [channelFilterOpen, setChannelFilterOpen] = useState(false);
@@ -84,7 +122,13 @@ export default function FeedScreen() {
 	const [fabExpanded, setFabExpanded] = useState(false);
 	const [statusModalOpen, setStatusModalOpen] = useState(false);
 	const [isFiltering, setIsFiltering] = useState(false);
+	const [isRefreshing, setIsRefreshing] = useState(false);
+	const [reactionPickerVisible, setReactionPickerVisible] = useState(false);
+	const [reactionTargetPostId, setReactionTargetPostId] = useState<string | null>(null);
+	const [activeReactionPillPostId, setActiveReactionPeelPostId] = useState<string | null>(null);
+	const [hasNotificationSettingsNotice, setHasNotificationSettingsNotice] = useState(false);
 	const isMountedRef = useRef(false);
+	const reactionPickerOpenRef = useRef(false);
 	const flatListRef = useRef<FlashListRef<Post>>(null);
 
 	// Animated dots for filtering indicator
@@ -107,9 +151,22 @@ export default function FeedScreen() {
 	const headerVisible = useRef(true);
 	const headerAnimation = useRef<Animated.CompositeAnimation | null>(null);
 	const [scrolledPast, setScrolledPast] = useState(false);
+	const [firstFullyVisiblePostId, setFirstFullyVisiblePostId] = useState<string | null>(null);
 
 	// Ref to the new-posts pill so onScroll can notify it of the current Y position.
 	const newPostsPillRef = useRef<NewPostsPillRef>(null);
+	const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+		const firstVisibleToken = viewableItems.find((token) => {
+			return token.index === 0 && token.isViewable;
+		});
+		const firstVisibleTokenItem = firstVisibleToken?.item as { id?: string } | undefined;
+		const firstVisibleId = typeof firstVisibleTokenItem?.id === 'string' ? firstVisibleTokenItem.id : null;
+		setFirstFullyVisiblePostId((prev) => {
+			if (prev === firstVisibleId) return prev;
+			return firstVisibleId;
+		});
+	}).current;
+	const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 98 }).current;
 
 	const channelFilterLabel = useMemo(() => {
 		if (channelFilter.mode === 'all') return 'All Circles';
@@ -202,6 +259,105 @@ export default function FeedScreen() {
 		}
 	}, [hasMore]);
 
+	const handleRefresh = useCallback(async () => {
+		setIsRefreshing(true);
+		flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+		setDisplayCount(INITIAL_PAGE);
+		await refreshSeenState().catch(() => {});
+		setIsRefreshing(false);
+	}, [refreshSeenState]);
+
+	const openFeedReactionPill = useCallback((postId: string) => {
+		setActiveReactionPeelPostId((prev) => {
+			if (prev === postId) {
+				return null;
+			}
+			return postId;
+		});
+	}, []);
+
+	const openFeedReactionPicker = useCallback((postId: string) => {
+		reactionPickerOpenRef.current = true;
+		setReactionTargetPostId(postId);
+		setReactionPickerVisible(true);
+
+		const targetIndex = filteredPosts.findIndex((post) => {
+			return post.id === postId;
+		});
+		if (targetIndex >= 0) {
+			flatListRef.current?.scrollToIndex({
+				index: targetIndex,
+				animated: true,
+				viewPosition: 0,
+			});
+		}
+	}, [filteredPosts]);
+
+	const closeFeedReactionPicker = useCallback(() => {
+		reactionPickerOpenRef.current = false;
+		setReactionPickerVisible(false);
+		setReactionTargetPostId(null);
+	}, []);
+
+	const submitFeedReaction = useCallback(async (postId: string, emoji: string) => {
+		const userId = currentUser?.id ?? null;
+		if (!userId) return;
+
+		const targetPost = posts.find((post) => {
+			return post.id === postId;
+		});
+		if (!targetPost) {
+			addToast({ type: 'error', title: 'That post is no longer available.' });
+			return;
+		}
+
+		const alreadyReactedWithEmoji = targetPost.reactions.some((reaction) => {
+			return reaction.userId === userId && reaction.emoji === emoji;
+		});
+		if (alreadyReactedWithEmoji) return;
+
+		const newReaction: Reaction = {
+			emoji,
+			userId,
+			timestamp: Date.now(),
+		};
+
+		try {
+			await dispatch(updatePostReactions({ postId, newReaction })).unwrap();
+			if (showFeedReactionHint) {
+				await markFeedReactionHintUsed();
+			}
+		} catch {
+			addToast({ type: 'error', title: 'Could not add your reaction. Try again.' });
+		}
+	}, [
+		addToast,
+		currentUser?.id,
+		dispatch,
+		markFeedReactionHintUsed,
+		posts,
+		showFeedReactionHint,
+	]);
+
+	const handleFeedReactionSelectFromPill = useCallback(async (postId: string, emoji: string) => {
+		setActiveReactionPeelPostId(null);
+		await submitFeedReaction(postId, emoji);
+	}, [submitFeedReaction]);
+
+	const handleFeedReactionSelect = useCallback(async (emoji: string) => {
+		const targetPostId = reactionTargetPostId;
+		if (!targetPostId) {
+			closeFeedReactionPicker();
+			return;
+		}
+		closeFeedReactionPicker();
+		await submitFeedReaction(targetPostId, emoji);
+	}, [
+		closeFeedReactionPicker,
+		reactionTargetPostId,
+		submitFeedReaction,
+	]);
+
 	const isChannelFiltered = channelFilter.mode === 'specific' && channelFilter.specificIds.length > 0;
 
 	const hasActiveFilters = isChannelFiltered || priorityFilter.length > 0;
@@ -227,6 +383,16 @@ export default function FeedScreen() {
 		const timer = setTimeout(() => setIsFiltering(false), FILTERING_INDICATOR_DURATION);
 		return () => clearTimeout(timer);
 	}, [channelFilter, priorityFilter, sortOrder]);
+
+	useEffect(() => {
+		if (!activeReactionPillPostId) return;
+		const stillVisible = filteredPosts.some((post) => {
+			return post.id === activeReactionPillPostId;
+		});
+		if (!stillVisible) {
+			setActiveReactionPeelPostId(null);
+		}
+	}, [activeReactionPillPostId, filteredPosts]);
 
 	// Animated bouncing dots for filter loading indicator
 	useEffect(() => {
@@ -281,6 +447,10 @@ export default function FeedScreen() {
 			const delta = currentY - prevScrollY.current;
 			const threshold = headerHeight;
 
+			if (Math.abs(delta) > 4 && activeReactionPillPostId && !reactionPickerOpenRef.current) {
+				setActiveReactionPeelPostId(null);
+			}
+
 			if (currentY <= 0 && !headerVisible.current) {
 				headerVisible.current = true;
 				animateHeader(0, 150);
@@ -299,7 +469,7 @@ export default function FeedScreen() {
 			setScrolledPast(currentY > 100);
 			prevScrollY.current = currentY;
 		},
-		[animateHeader, headerHeight],
+		[activeReactionPillPostId, animateHeader, headerHeight],
 	);
 
 	const handleSaveStatus = useCallback(
@@ -352,10 +522,46 @@ export default function FeedScreen() {
 	}, [mobileConfig, addToast]);
 
 	const renderPost = useCallback(
-		({ item }: { item: Post }) => (
-			<PostCard post={item} onNavigate={() => router.push(`/(protected)/post/${item.id}`)} />
-		),
-		[router],
+		({ item }: { item: Post }) => {
+			const suggestedReactionEmojis = getSuggestedReactionEmojis({
+				reactions: item.reactions,
+				currentUserId: currentUser?.id ?? null,
+				max: 10,
+			});
+
+			return (
+				<PostCard
+					post={item}
+					onNavigate={() => {
+						setActiveReactionPeelPostId(null);
+						router.push(`/(protected)/post/${item.id}`);
+					}}
+					onLongPress={() => openFeedReactionPill(item.id)}
+					reactionPill={
+						activeReactionPillPostId === item.id ? (
+							<ReactionPill
+								emojis={suggestedReactionEmojis}
+								onSelect={(emoji) => {
+									void handleFeedReactionSelectFromPill(item.id, emoji);
+								}}
+								onOpenPicker={() => openFeedReactionPicker(item.id)}
+								size='compact'
+								highlighted
+								style={styles.inlineReactionPeel}
+							/>
+						) : null
+					}
+				/>
+			);
+		},
+		[
+			activeReactionPillPostId,
+			currentUser?.id,
+			handleFeedReactionSelectFromPill,
+			openFeedReactionPill,
+			openFeedReactionPicker,
+			router,
+		],
 	);
 
 	// In demo mode the DemoModeBanner already consumes the top safe-area inset,
@@ -378,6 +584,8 @@ export default function FeedScreen() {
 					data={filteredPosts}
 					keyExtractor={(item) => item.id}
 					renderItem={renderPost}
+					onViewableItemsChanged={onViewableItemsChanged}
+					viewabilityConfig={viewabilityConfig}
 					onScroll={onScroll}
 					scrollEventThrottle={16}
 					contentContainerStyle={[
@@ -387,6 +595,29 @@ export default function FeedScreen() {
 					showsVerticalScrollIndicator={false}
 					onEndReached={loadMore}
 					onEndReachedThreshold={0.3}
+					refreshControl={
+						<RefreshControl
+							refreshing={isRefreshing}
+							onRefresh={handleRefresh}
+							tintColor={theme.primary}
+							colors={[theme.primary]}
+						/>
+					}
+					ListHeaderComponent={
+						showFeedReactionHint ? (
+							<View style={[styles.feedReactionHintCard, { borderColor: theme.border, backgroundColor: theme.card }]}>
+								<View style={styles.feedReactionHintTextWrap}>
+									<Text style={[styles.feedReactionHintTitle, { color: theme.foreground }]}>Quick tip ✨</Text>
+									<Text style={[styles.feedReactionHintBody, { color: theme.mutedForeground }]}>
+										Long-press any post to react right from your feed. Go ahead — give it a try!
+									</Text>
+								</View>
+								<Pressable onPress={() => { void dismissFeedReactionHint(); }} hitSlop={8}>
+									<Feather name='x' size={18} color={theme.mutedForeground} />
+								</Pressable>
+							</View>
+						) : null
+					}
 					ListEmptyComponent={
 						hasActiveFilters ? (
 							<View style={styles.emptyState}>
@@ -420,7 +651,13 @@ export default function FeedScreen() {
 			</Animated.View>
 
 			{/* New-posts pill — always rendered; the component decides its own visibility */}
-			<NewPostsPill ref={newPostsPillRef} topOffset={headerHeight + 10} onRequestScrollToTop={scrollToTop} />
+			<NewPostsPill
+				ref={newPostsPillRef}
+				topOffset={headerHeight + 10}
+				onRequestScrollToTop={scrollToTop}
+				firstPostId={filteredPosts[0]?.id ?? null}
+				firstFullyVisiblePostId={firstFullyVisiblePostId}
+			/>
 
 			{/* Animated header — absolute so it slides up without affecting FlashList layout */}
 			<Animated.View
@@ -439,7 +676,7 @@ export default function FeedScreen() {
 						<Pressable onPress={() => router.push('/(protected)/account')}>
 							<Avatar user={currentUser} size='sm' />
 						</Pressable>
-						<Pressable onPress={() => router.push('/(protected)/post-activity')} style={styles.headerIconBtn}>
+						<Pressable onPress={() => router.push({ pathname: '/(protected)/post-activity', params: hasUnreadPostActivity ? { scope: 'unread' } : {} })} style={styles.headerIconBtn}>
 							<PostActivityIcon hasNotification={hasUnreadPostActivity} />
 						</Pressable>
 					</View>
@@ -451,7 +688,11 @@ export default function FeedScreen() {
 							<Feather name='users' size={22} color={theme.foreground} />
 						</Pressable>
 						<Pressable onPress={() => router.push('/(protected)/notifications')}>
-							<BellIcon hasNotification={hasPendingActivity} />
+							<BellIcon
+								hasNotification={hasPendingActivity}
+								hasReleaseNotice={hasNotificationSettingsNotice}
+								releaseNoticeColor={NOTIFICATION_SETTINGS_NOTICE_ACCENT}
+							/>
 						</Pressable>
 					</View>
 				</View>
@@ -742,6 +983,12 @@ export default function FeedScreen() {
 				onClose={closeFeedbackForm}
 				config={mobileConfig?.feedbackForm ?? null}
 			/>
+			<EmojiPicker
+				visible={reactionPickerVisible}
+				onSelect={handleFeedReactionSelect}
+				onClose={closeFeedReactionPicker}
+				variant='compact'
+			/>
 		</View>
 	);
 }
@@ -851,6 +1098,28 @@ const styles = StyleSheet.create({
 	},
 	listContent: {
 		paddingHorizontal: 16,
+	},
+	feedReactionHintCard: {
+		flexDirection: 'row',
+		gap: 10,
+		alignItems: 'flex-start',
+		borderWidth: 1,
+		borderRadius: 12,
+		paddingHorizontal: 12,
+		paddingVertical: 10,
+		marginBottom: 10,
+	},
+	feedReactionHintTextWrap: {
+		flex: 1,
+	},
+	feedReactionHintTitle: {
+		fontSize: 14,
+		fontWeight: '700',
+		marginBottom: 2,
+	},
+	feedReactionHintBody: {
+		fontSize: 12,
+		lineHeight: 18,
 	},
 	emptyState: {
 		alignItems: 'center',
@@ -1009,6 +1278,9 @@ const styles = StyleSheet.create({
 		width: 7,
 		height: 7,
 		borderRadius: 3.5,
+	},
+	inlineReactionPeel: {
+		marginTop: 8,
 	},
 	clearFiltersButton: {
 		marginTop: 4,

@@ -23,9 +23,10 @@ if (googleServiceInfoPath && fs.existsSync(googleServiceInfoPath)) {
 
 export default {
 	expo: {
+		owner: 'novamoon',
 		name: 'Angelia',
 		slug: 'angelia',
-		version: '1.0.5',
+		version: '1.0.6',
 		orientation: 'portrait',
 		icon: './assets/images/icon.png',
 		scheme: 'angelia',
@@ -105,6 +106,20 @@ export default {
 			router: {},
 			eas: {
 				projectId: '966178ad-a43f-425c-9ca2-b31b4a367d7c',
+			},
+		},
+		build: {
+			development: {
+				developmentClient: true,
+				distribution: 'internal',
+				channel: 'development',
+			},
+			preview: {
+				distribution: 'internal',
+				channel: 'preview',
+			},
+			production: {
+				channel: 'production',
 			},
 		},
 		updates: {

@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,11 +18,17 @@ import { EMOJI_CATEGORIES, type EmojiCategory } from '@/constants/emojiData';
 const NUM_COLUMNS = 8;
 const EMOJI_CELL_SIZE = 44;
 const HEADER_HEIGHT = 36;
+const SINGLE_EMOJI_REGEX = /^(?:\p{Extended_Pictographic}(?:\uFE0F|\uFE0E)?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F|\uFE0E)?)*|\p{Regional_Indicator}{2}|[#*0-9]\uFE0F?\u20E3)$/u;
+
+function isValidSingleEmoji(value: string): boolean {
+  return SINGLE_EMOJI_REGEX.test(value.trim());
+}
 
 interface EmojiPickerProps {
   visible: boolean;
   onSelect: (emoji: string) => void;
   onClose: () => void;
+  variant?: 'default' | 'compact';
 }
 
 /* ── Individual emoji cell (pure) ───────────────────────────── */
@@ -104,9 +111,10 @@ const EmojiRow = memo(function EmojiRow({
 });
 
 /* ── Main component ─────────────────────────────────────────── */
-export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
+export function EmojiPicker({ visible, onSelect, onClose, variant = 'default' }: EmojiPickerProps) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState(
     EMOJI_CATEGORIES[0].key,
@@ -130,6 +138,19 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
     }
     return { sections: items, offsets: cumulativeOffsets, categoryOffsets: catOffsets };
   }, [search]);
+  const manualEmojiInput = useMemo(() => {
+    return search.trim();
+  }, [search]);
+  const isManualEmojiValid = useMemo(() => {
+    if (manualEmojiInput.length === 0) return false;
+    return isValidSingleEmoji(manualEmojiInput);
+  }, [manualEmojiInput]);
+  const sheetHeight = useMemo(() => {
+    const isCompact = variant === 'compact';
+    const ratio = isCompact ? 0.55 : 0.75;
+    const minHeight = isCompact ? 340 : 360;
+    return Math.max(minHeight, Math.floor(windowHeight * ratio));
+  }, [variant, windowHeight]);
 
   const handleSelect = useCallback(
     (emoji: string) => {
@@ -239,6 +260,7 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
               {
                 backgroundColor: theme.card,
                 paddingBottom: insets.bottom + 8,
+                height: sheetHeight,
               },
             ]}
           >
@@ -298,6 +320,35 @@ export function EmojiPicker({ visible, onSelect, onClose }: EmojiPickerProps) {
                   </Pressable>
                 )}
               </View>
+              {manualEmojiInput.length > 0 && (
+                <View
+                  style={[
+                    styles.customEntryButton,
+                    {
+                      borderColor: isManualEmojiValid ? theme.border : '#DC2626',
+                      backgroundColor: theme.background,
+                    },
+                  ]}
+                >
+                  <Text style={styles.customEntryEmoji}>{manualEmojiInput}</Text>
+                  <Text
+                    style={[
+                      styles.customEntryText,
+                      { color: isManualEmojiValid ? theme.foreground : '#DC2626' },
+                    ]}
+                  >
+                    {isManualEmojiValid ? 'Use this emoji' : 'That is not a valid emoji yet'}
+                  </Text>
+                  {isManualEmojiValid ? (
+                    <Pressable
+                      onPress={() => handleSelect(manualEmojiInput)}
+                      style={[styles.customEntryAction, { borderColor: theme.border }]}
+                    >
+                      <Text style={[styles.customEntryActionText, { color: theme.foreground }]}>Use</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              )}
             </View>
 
             {/* Category tabs */}
@@ -367,7 +418,6 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   sheet: {
-    flex: 3,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     shadowColor: '#000',
@@ -420,6 +470,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 8,
     paddingVertical: 4,
+  },
+  customEntryButton: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  customEntryEmoji: {
+    fontSize: 22,
+  },
+  customEntryText: {
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
+  customEntryAction: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  customEntryActionText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   categoryTab: {
     flex: 1,

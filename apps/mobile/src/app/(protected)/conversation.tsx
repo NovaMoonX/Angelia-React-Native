@@ -29,9 +29,10 @@ import { ConversationEmptyState } from '@/components/conversation/ConversationEm
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { selectMessages, setMessages } from '@/store/slices/conversationSlice';
-import { sendMessage, sendJoinMessage } from '@/store/actions/conversationActions';
+import { sendMessage } from '@/store/actions/conversationActions';
 import { joinConversation } from '@/store/actions/postActions';
 import { subscribeToMessages } from '@/services/firebase/firestore';
+import { dismissNotificationsByData } from '@/services/notifications';
 
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
@@ -39,7 +40,6 @@ import { usePostComments } from '@/hooks/usePostComments';
 import { getTierTheme } from '@/lib/conversation/tierTheme';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
-import { isStatusActive } from '@/components/NowStatusBadge';
 import { POST_TIERS, CONVERSATION_LAST_SEEN_KEY, CONVERSATION_REPLY_HINT_SEEN_KEY } from '@/models/constants';
 import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import type { Message } from '@/models/types';
@@ -105,7 +105,11 @@ export default function ConversationScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!postId || isDemo) return;
-      void AsyncStorage.setItem(CONVERSATION_LAST_SEEN_KEY(postId), String(Date.now()));
+      void Promise.all([
+        AsyncStorage.setItem(CONVERSATION_LAST_SEEN_KEY(postId), String(Date.now())),
+        dismissNotificationsByData({ type: 'conversation_message', postId }).catch(() => {}),
+        dismissNotificationsByData({ type: 'comment_reply', postId }).catch(() => {}),
+      ]).catch(() => {});
 
       return () => {
         void AsyncStorage.setItem(CONVERSATION_LAST_SEEN_KEY(postId), String(Date.now()));
@@ -184,24 +188,10 @@ export default function ConversationScreen() {
       await dispatch(
         joinConversation({ postId, userId: currentUser.id }),
       ).unwrap();
-
-      // Read the latest post for fresh reactions
-      const userReactions = (post?.reactions ?? []).filter(
-        (r) => r.userId === currentUser.id,
-      );
-      const emoji = userReactions.length > 0
-        ? userReactions[userReactions.length - 1].emoji
-        : '✨';
-
-      if (isHost === false) {
-        await dispatch(
-          sendJoinMessage({ postId, emoji: emoji || '✨' }),
-        ).unwrap();
-      }
     } catch {
       addToast({ type: 'error', title: 'Failed to join conversation' });
     }
-  }, [postId, currentUser, dispatch, addToast, post, isHost]);
+  }, [postId, currentUser, dispatch, addToast]);
 
   const handleReply = useCallback((message: Message) => {
     setReplyingTo(message);
@@ -240,9 +230,15 @@ export default function ConversationScreen() {
   if (!post || !currentUser) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
-        <Text style={{ color: theme.mutedForeground }}>
-          Conversation not found
+        <Text style={[styles.deletedPostTitle, { color: theme.foreground }]}>
+          This conversation is not available
         </Text>
+        <Text style={[styles.deletedPostBody, { color: theme.mutedForeground }]}>
+          The post may have been deleted by the author.
+        </Text>
+        <Button variant="outline" onPress={() => router.replace('/(protected)/feed')}>
+          Back to Feed
+        </Button>
       </View>
     );
   }
@@ -437,6 +433,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 10,
+  },
+  deletedPostTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  deletedPostBody: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   header: {
     flexDirection: 'row',

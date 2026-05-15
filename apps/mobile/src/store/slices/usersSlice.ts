@@ -1,6 +1,10 @@
 import { createSlice, createSelector, type PayloadAction } from '@reduxjs/toolkit';
 import type { User, UserStatus, NotificationSettings, NotificationSettingsUpdate } from '@/models/types';
-import { DEFAULT_WIND_DOWN_PROMPT } from '@/models/constants';
+import {
+  createDefaultCirclePostNotificationSettings,
+  DEFAULT_WIND_DOWN_PROMPT,
+  DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS,
+} from '@/models/constants';
 import type { RootState } from '../index';
 import { resetAllState } from '../actions/globalActions';
 
@@ -71,7 +75,7 @@ const usersSlice = createSlice({
       action: PayloadAction<NotificationSettingsUpdate>,
     ) {
       if (state.currentUserNotificationSettings) {
-        const { dailyPrompt, windDownPrompt, ...rest } = action.payload;
+        const { dailyPrompt, windDownPrompt, postActivity, postByCircle, ...rest } = action.payload;
         Object.assign(state.currentUserNotificationSettings, rest);
         if (dailyPrompt) {
           state.currentUserNotificationSettings.dailyPrompt = {
@@ -84,6 +88,23 @@ const usersSlice = createSlice({
             ...(state.currentUserNotificationSettings.windDownPrompt ?? DEFAULT_WIND_DOWN_PROMPT),
             ...windDownPrompt,
           };
+        }
+        if (postActivity) {
+          state.currentUserNotificationSettings.postActivity = {
+            ...(state.currentUserNotificationSettings.postActivity ?? DEFAULT_POST_ACTIVITY_NOTIFICATION_SETTINGS),
+            ...postActivity,
+          };
+        }
+        if (postByCircle) {
+          const currentMap = state.currentUserNotificationSettings.postByCircle ?? {};
+          for (const [channelId, nextSettings] of Object.entries(postByCircle)) {
+            currentMap[channelId] = {
+              ...createDefaultCirclePostNotificationSettings(),
+              ...(currentMap[channelId] ?? {}),
+              ...nextSettings,
+            };
+          }
+          state.currentUserNotificationSettings.postByCircle = currentMap;
         }
       }
     },
