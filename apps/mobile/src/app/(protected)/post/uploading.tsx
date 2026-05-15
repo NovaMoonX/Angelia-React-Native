@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Animated,
   AppState,
@@ -18,6 +19,7 @@ import { uploadPost } from '@/store/actions/postActions';
 import { saveStatus } from '@/store/actions/userActions';
 import { completeTask } from '@/store/actions/taskActions';
 import { dismissDailyPromptNotifications } from '@/services/notifications';
+import { POST_CREATE_DRAFT_KEY } from '@/models/constants';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 import type { PostTier, UserStatus } from '@/models/types';
 
@@ -47,6 +49,7 @@ export default function PostUploadingScreen() {
   // Capture the make_first_post task ID at mount time. Using a ref ensures
   // the value is stable inside the one-shot upload effect.
   const tasks = useAppSelector((state) => state.tasks.items);
+  const currentUserId = useAppSelector((state) => state.users.currentUser?.id ?? null);
   const makeFirstPostTaskIdRef = useRef(
     tasks.find((t) => t.type === 'make_first_post')?.id ?? null,
   );
@@ -205,6 +208,11 @@ export default function PostUploadingScreen() {
           try { await dispatch(saveStatus(pendingStatus)).unwrap(); } catch { /* ignore */ }
         }
 
+        // Clear the local post draft only after a successful publish.
+        if (currentUserId) {
+          await AsyncStorage.removeItem(POST_CREATE_DRAFT_KEY(currentUserId)).catch(() => {});
+        }
+
         // Auto-complete the make_first_post task on the first successful post.
         // The congratulatory toast is delayed so it appears after the upload
         // confirmation UI/toast has had time to show and fade (~5 s).
@@ -268,7 +276,7 @@ export default function PostUploadingScreen() {
       clearTimeout(bgTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentUserId]);
 
   const spinInterpolate = spin.interpolate({
     inputRange: [0, 1],

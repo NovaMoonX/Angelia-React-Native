@@ -221,3 +221,6 @@ export const STATUS_INDEFINITE_EXPIRES_AT = 8_640_000_000_000;
  * preserved during within-session navigation so scroll position is kept.
  */
 export const FEED_SESSION_SCROLLED_KEY = '@angelia/feed_session_scrolled';
+
+/** AsyncStorage key storing the in-progress post compose draft for a user. */
+export const POST_CREATE_DRAFT_KEY = (userId: string) => `@angelia/post_create_draft_${userId}`;

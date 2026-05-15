@@ -31,6 +31,8 @@ export default function AudioRecordScreen() {
     existingMedia?: string;
     existingText?: string;
     existingChannel?: string;
+    existingTier?: string;
+    existingPendingStatus?: string;
   }>();
 
   const existingFiles = useMemo<MediaFile[]>(() => {
@@ -49,6 +51,19 @@ export default function AudioRecordScreen() {
 
   const [permissionReady, setPermissionReady] = useState<boolean | null>(null);
   const [recordedUri, setRecordedUri] = useState<string | null>(null);
+
+  const returnToComposer = () => {
+    router.replace({
+      pathname: '/(protected)/post/new',
+      params: {
+        capturedMedia: JSON.stringify(existingFiles),
+        existingText: params.existingText,
+        existingChannel: params.existingChannel,
+        existingTier: params.existingTier,
+        existingPendingStatus: params.existingPendingStatus,
+      },
+    });
+  };
 
   useEffect(() => {
     void getRecordingPermissionsAsync()
@@ -106,7 +121,7 @@ export default function AudioRecordScreen() {
     }
     if (existingFiles.length >= MAX_FILES) {
       addToast({ type: 'warning', title: `Maximum ${MAX_FILES} files already attached` });
-      router.back();
+      returnToComposer();
       return;
     }
 
@@ -125,6 +140,8 @@ export default function AudioRecordScreen() {
         capturedMedia: JSON.stringify(merged),
         existingText: params.existingText,
         existingChannel: params.existingChannel,
+        existingTier: params.existingTier,
+        existingPendingStatus: params.existingPendingStatus,
       },
     });
   };
@@ -138,7 +155,7 @@ export default function AudioRecordScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}> 
       <View style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: theme.border }]}> 
-        <Pressable onPress={() => router.back()} hitSlop={10}>
+        <Pressable onPress={returnToComposer} hitSlop={10}>
           <Feather name="x" size={24} color={theme.foreground} />
         </Pressable>
         <Text style={[styles.title, { color: theme.foreground }]}>Record Audio</Text>

@@ -27,6 +27,8 @@ export default function GalleryScreen() {
     existingMedia?: string;
     existingText?: string;
     existingChannel?: string;
+    existingTier?: string;
+    existingPendingStatus?: string;
     pickMode?: string;
   }>();
 
@@ -45,10 +47,23 @@ export default function GalleryScreen() {
   const remaining = MAX_FILES - existingCount;
   const isAudioMode = params.pickMode === 'audio';
 
+  const returnToComposer = () => {
+    router.replace({
+      pathname: '/(protected)/post/new',
+      params: {
+        capturedMedia: JSON.stringify(existingFiles),
+        existingText: params.existingText,
+        existingChannel: params.existingChannel,
+        existingTier: params.existingTier,
+        existingPendingStatus: params.existingPendingStatus,
+      },
+    });
+  };
+
   const openPicker = async () => {
     if (remaining <= 0) {
       addToast({ type: 'warning', title: `Maximum ${MAX_FILES} files already attached` });
-      router.back();
+      returnToComposer();
       return;
     }
 
@@ -59,6 +74,8 @@ export default function GalleryScreen() {
           existingMedia: params.existingMedia,
           existingText: params.existingText,
           existingChannel: params.existingChannel,
+          existingTier: params.existingTier,
+          existingPendingStatus: params.existingPendingStatus,
         },
       });
       return;
@@ -73,7 +90,7 @@ export default function GalleryScreen() {
 
     if (result.canceled) {
       if (selected.length === 0) {
-        router.back();
+        returnToComposer();
       }
       return;
     }
@@ -136,7 +153,7 @@ export default function GalleryScreen() {
 
   const confirmSelection = () => {
     if (selected.length === 0) {
-      router.back();
+      returnToComposer();
       return;
     }
     const merged = [...existingFiles, ...selected].slice(0, MAX_FILES);
@@ -146,6 +163,8 @@ export default function GalleryScreen() {
         capturedMedia: JSON.stringify(merged),
         existingText: params.existingText,
         existingChannel: params.existingChannel,
+        existingTier: params.existingTier,
+        existingPendingStatus: params.existingPendingStatus,
       },
     });
   };
@@ -154,7 +173,7 @@ export default function GalleryScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable onPress={returnToComposer} hitSlop={12}>
           <Feather name="x" size={24} color={theme.foreground} />
         </Pressable>
         <Text style={[styles.title, { color: theme.foreground }]}>

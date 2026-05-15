@@ -22,6 +22,10 @@ Current branch highlights:
 - Reply elbows are rounded again and sibling branches now flow in the right direction from parent to child, so thread lines look cleaner and easier to follow.
 - Nested replies now keep ancestor lines alive through deeper branches, so later direct replies still connect cleanly back to the original parent.
 - Thread connector segments now overlap cleanly between rows, removing the tiny gaps that could appear in long reply chains.
+- Closing Camera, Gallery, or Audio Record now takes you back to Post Create with your in-progress content preserved instead of dumping you to Feed.
+- Post Create now auto-saves your draft locally (text, media, circle, priority, status, and hint/banner dismissals) until you cancel or your post uploads successfully.
+- Post Create now has a confirmed **Reset** action so you can clear the whole draft in one tap when you really want a fresh start.
+- Post Create now shows a dismissible heads-up that gallery video uploads are currently limited, and that recording videos in-app is the reliable path for now.
 - Replies in conversation now appear right after the message they're responding to, so threads are way easier to follow.
 - When replying to a message, the reply banner now shows a short preview of the message you're replying to — no more guessing which message you're responding to.
 - Replied messages now show a **quoted preview** directly in the bubble so anyone reading the thread can see the context at a glance.

@@ -20,6 +20,8 @@ export default function CameraScreen() {
 		existingMedia?: string;
 		existingText?: string;
 		existingChannel?: string;
+		existingTier?: string;
+		existingPendingStatus?: string;
 	}>();
 
 	const existingMedia = useMemo<MediaFile[]>(() => {
@@ -144,21 +146,31 @@ export default function CameraScreen() {
 		(extra?: MediaFile) => {
 			const newPhotos = extra ? [...capturedPhotos, extra] : capturedPhotos;
 			const allMedia = [...existingMedia, ...newPhotos].slice(0, MAX_FILES);
-			if (allMedia.length === 0) {
-				router.back();
-				return;
-			}
 			router.replace({
 				pathname: '/(protected)/post/new',
 				params: {
 					capturedMedia: JSON.stringify(allMedia),
 					existingText: params.existingText,
 					existingChannel: params.existingChannel,
+					existingTier: params.existingTier,
+					existingPendingStatus: params.existingPendingStatus,
 				},
 			});
 		},
-		[capturedPhotos, existingMedia, params.existingChannel, params.existingText, router],
+		[
+			capturedPhotos,
+			existingMedia,
+			params.existingChannel,
+			params.existingPendingStatus,
+			params.existingText,
+			params.existingTier,
+			router,
+		],
 	);
+
+	const handleCloseCamera = useCallback(() => {
+		confirmCaptures();
+	}, [confirmCaptures]);
 
 	const takePhoto = async () => {
 		if (!camera.current || atMax) return;
@@ -233,7 +245,7 @@ export default function CameraScreen() {
 	if (!hasCameraPermission) {
 		return (
 			<View style={[styles.container, { paddingTop: insets.top }]}>
-				<Pressable style={[styles.closeButton, { top: insets.top + 8 }]} onPress={() => router.back()} hitSlop={12}>
+				<Pressable style={[styles.closeButton, { top: insets.top + 8 }]} onPress={handleCloseCamera} hitSlop={12}>
 					<Feather name='x' size={24} color='#FFF' />
 				</Pressable>
 				<View style={styles.body}>
@@ -243,7 +255,21 @@ export default function CameraScreen() {
 					<Pressable style={styles.primaryButton} onPress={handleRequestPermissions}>
 						<Text style={styles.primaryButtonText}>Grant Permission</Text>
 					</Pressable>
-					<Pressable style={styles.secondaryButton} onPress={() => router.replace('/(protected)/gallery')}>
+					<Pressable
+						style={styles.secondaryButton}
+						onPress={() =>
+							router.replace({
+								pathname: '/(protected)/gallery',
+								params: {
+									existingMedia: JSON.stringify([...existingMedia, ...capturedPhotos].slice(0, MAX_FILES)),
+									existingText: params.existingText,
+									existingChannel: params.existingChannel,
+									existingTier: params.existingTier,
+									existingPendingStatus: params.existingPendingStatus,
+								},
+							})
+						}
+					>
 						<Feather name='image' size={16} color='#888' />
 						<Text style={styles.secondaryButtonText}>Use Gallery Instead</Text>
 					</Pressable>
@@ -256,7 +282,7 @@ export default function CameraScreen() {
 	if (!device) {
 		return (
 			<View style={[styles.container, { paddingTop: insets.top }]}>
-				<Pressable style={[styles.closeButton, { top: insets.top + 8 }]} onPress={() => router.back()} hitSlop={12}>
+				<Pressable style={[styles.closeButton, { top: insets.top + 8 }]} onPress={handleCloseCamera} hitSlop={12}>
 					<Feather name='x' size={24} color='#FFF' />
 				</Pressable>
 				<View style={styles.body}>
@@ -290,7 +316,7 @@ export default function CameraScreen() {
 					{/* Top controls */}
 					<View style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
 						<Animated.View style={iconRotateStyle}>
-							<Pressable style={styles.iconButton} onPress={() => router.back()} hitSlop={12}>
+							<Pressable style={styles.iconButton} onPress={handleCloseCamera} hitSlop={12}>
 								<Feather name='x' size={24} color='#FFF' />
 							</Pressable>
 						</Animated.View>
@@ -322,6 +348,8 @@ export default function CameraScreen() {
 												existingMedia: JSON.stringify(existingMedia),
 												existingText: params.existingText,
 												existingChannel: params.existingChannel,
+												existingTier: params.existingTier,
+												existingPendingStatus: params.existingPendingStatus,
 											},
 										})
 									}

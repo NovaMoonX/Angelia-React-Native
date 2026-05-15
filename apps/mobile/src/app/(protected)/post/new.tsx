@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -22,17 +23,29 @@ import { PostCountdownOverlay } from '@/components/PostCountdownOverlay';
 import { useAppSelector } from '@/store/hooks';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
+import { useActionModal } from '@/hooks/useActionModal';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import {
   selectCurrentUserDailyChannel,
   selectCurrentUserCustomChannels,
 } from '@/store/crossSelectors/channelSelectors';
 import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
-import { MAX_FILES, POST_TIERS } from '@/models/constants';
+import { MAX_FILES, POST_TIERS, POST_CREATE_DRAFT_KEY } from '@/models/constants';
 import { generateVideoThumbnail } from '@/utils/generateVideoThumbnail';
 import type { VideoThumbnail } from 'expo-video';
 import type { UserStatus, PostTier } from '@/models/types';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
+
+type PostCreateDraft = {
+  text: string;
+  selectedChannel: string;
+  selectedTier: PostTier;
+  media: MediaFile[];
+  pendingStatus: UserStatus | null;
+  showCaptionHint: boolean;
+  showReorderHint: boolean;
+  showVideoUploadNotice: boolean;
+};
 
 export default function PostCreateScreen() {
   const router = useRouter();
@@ -41,10 +54,13 @@ export default function PostCreateScreen() {
     capturedMedia?: string;
     existingText?: string;
     existingChannel?: string;
+    existingTier?: string;
+    existingPendingStatus?: string;
     notificationPrompt?: string;
   }>();
   const { addToast } = useToast();
   const { theme } = useTheme();
+  const { confirm } = useActionModal();
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const dailyChannel = useAppSelector(selectCurrentUserDailyChannel);
@@ -58,6 +74,15 @@ export default function PostCreateScreen() {
 
   const dailyChannelId = dailyChannel?.id ?? '';
 
+  const draftStorageKey = currentUser?.id ? POST_CREATE_DRAFT_KEY(currentUser.id) : null;
+  const didHydrateDraftRef = useRef(false);
+  const hasIncomingNavigationState =
+    params.capturedMedia != null ||
+    params.existingText != null ||
+    params.existingChannel != null ||
+    params.existingTier != null ||
+    params.existingPendingStatus != null;
+
   const initialMedia = useMemo<MediaFile[]>(() => {
     if (!params.capturedMedia) return [];
     try {
@@ -66,6 +91,15 @@ export default function PostCreateScreen() {
       return [];
     }
   }, [params.capturedMedia]);
+
+  const initialPendingStatus = useMemo<UserStatus | null>(() => {
+    if (!params.existingPendingStatus) return null;
+    try {
+      return JSON.parse(params.existingPendingStatus) as UserStatus;
+    } catch {
+      return null;
+    }
+  }, [params.existingPendingStatus]);
 
   const [selectedChannel, setSelectedChannel] = useState(
     params.existingChannel || dailyChannelId || sortedUserChannels[0]?.id || ''
@@ -80,7 +114,11 @@ export default function PostCreateScreen() {
   }, [dailyChannelId, sortedUserChannels, params.existingChannel, selectedChannel]);
 
   const [text, setText] = useState(params.existingText || '');
-  const [selectedTier, setSelectedTier] = useState<PostTier>('everyday');
+  const [selectedTier, setSelectedTier] = useState<PostTier>(
+    params.existingTier === 'worth-knowing' || params.existingTier === 'big-news' || params.existingTier === 'everyday'
+      ? params.existingTier
+      : 'everyday'
+  );
   const [media, setMedia] = useState<MediaFile[]>(initialMedia);
   const [previewItem, setPreviewItem] = useState<{ uri: string; type: 'image' | 'video' | 'audio'; caption: string | null } | null>(null);
 
@@ -89,11 +127,156 @@ export default function PostCreateScreen() {
   const thumbnailsRef = useRef<Record<number, boolean>>({});
 
   // Status prompt state — only shown when user has no active status
-  const [pendingStatus, setPendingStatus] = useState<UserStatus | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<UserStatus | null>(initialPendingStatus);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const hasActiveStatus = isStatusActive(currentUser?.status);
+  const [reorderIndex, setReorderIndex] = useState<number | null>(null);
+  const [captionTargetIndex, setCaptionTargetIndex] = useState<number | null>(null);
+  const [captionDraft, setCaptionDraft] = useState('');
+
+  const [showCaptionHint, setShowCaptionHint] = useState(true);
+  const [showReorderHint, setShowReorderHint] = useState(true);
+  const [showVideoUploadNotice, setShowVideoUploadNotice] = useState(true);
 
   const atMaxFiles = media.length >= MAX_FILES;
+
+  useEffect(() => {
+    if (!params.capturedMedia) return;
+    setMedia(initialMedia);
+  }, [initialMedia, params.capturedMedia]);
+
+  useEffect(() => {
+    if (params.existingText == null) return;
+    setText(params.existingText);
+  }, [params.existingText]);
+
+  useEffect(() => {
+    if (params.existingChannel == null) return;
+    setSelectedChannel(params.existingChannel);
+  }, [params.existingChannel]);
+
+  useEffect(() => {
+    if (
+      params.existingTier !== 'everyday' &&
+      params.existingTier !== 'worth-knowing' &&
+      params.existingTier !== 'big-news'
+    ) {
+      return;
+    }
+    setSelectedTier(params.existingTier);
+  }, [params.existingTier]);
+
+  useEffect(() => {
+    if (params.existingPendingStatus == null) return;
+    setPendingStatus(initialPendingStatus);
+  }, [initialPendingStatus, params.existingPendingStatus]);
+
+  useEffect(() => {
+    if (didHydrateDraftRef.current) return;
+
+    if (!draftStorageKey || hasIncomingNavigationState) {
+      didHydrateDraftRef.current = true;
+      return;
+    }
+
+    AsyncStorage.getItem(draftStorageKey)
+      .then((raw) => {
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as PostCreateDraft;
+        if (parsed.text != null) setText(parsed.text);
+        if (parsed.selectedChannel != null) setSelectedChannel(parsed.selectedChannel);
+        if (parsed.selectedTier != null) setSelectedTier(parsed.selectedTier);
+        if (Array.isArray(parsed.media)) setMedia(parsed.media);
+        if (parsed.pendingStatus !== undefined) setPendingStatus(parsed.pendingStatus);
+        if (parsed.showCaptionHint !== undefined) setShowCaptionHint(parsed.showCaptionHint);
+        if (parsed.showReorderHint !== undefined) setShowReorderHint(parsed.showReorderHint);
+        if (parsed.showVideoUploadNotice !== undefined) setShowVideoUploadNotice(parsed.showVideoUploadNotice);
+      })
+      .catch(() => {})
+      .finally(() => {
+        didHydrateDraftRef.current = true;
+      });
+  }, [draftStorageKey, hasIncomingNavigationState]);
+
+  useEffect(() => {
+    if (!draftStorageKey || !didHydrateDraftRef.current) return;
+
+    const draft: PostCreateDraft = {
+      text,
+      selectedChannel,
+      selectedTier,
+      media,
+      pendingStatus,
+      showCaptionHint,
+      showReorderHint,
+      showVideoUploadNotice,
+    };
+
+    void AsyncStorage.setItem(draftStorageKey, JSON.stringify(draft)).catch(() => {});
+  }, [
+    draftStorageKey,
+    media,
+    pendingStatus,
+    selectedChannel,
+    selectedTier,
+    showCaptionHint,
+    showReorderHint,
+    showVideoUploadNotice,
+    text,
+  ]);
+
+  const clearLocalDraft = useCallback(async () => {
+    if (!draftStorageKey) return;
+    await AsyncStorage.removeItem(draftStorageKey).catch(() => {});
+  }, [draftStorageKey]);
+
+  const resetComposerState = useCallback(() => {
+    setText('');
+    setSelectedTier('everyday');
+    setMedia([]);
+    setPendingStatus(null);
+    setVideoThumbnails({});
+    thumbnailsRef.current = {};
+    setReorderIndex(null);
+    setCaptionTargetIndex(null);
+    setCaptionDraft('');
+    setPreviewItem(null);
+    setShowCaptionHint(true);
+    setShowReorderHint(true);
+    setShowVideoUploadNotice(true);
+    setSelectedChannel(dailyChannelId || sortedUserChannels[0]?.id || '');
+  }, [dailyChannelId, sortedUserChannels]);
+
+  const handleResetDraft = useCallback(async () => {
+    const ok = await confirm({
+      title: 'Reset this draft?',
+      message: 'This will clear your text, media, status, and selections for this post.',
+      destructive: true,
+    });
+    if (!ok) return;
+    resetComposerState();
+    await clearLocalDraft();
+  }, [clearLocalDraft, confirm, resetComposerState]);
+
+  const handleCancelDraft = useCallback(async () => {
+    const hasContent =
+      text.trim().length > 0 ||
+      media.length > 0 ||
+      pendingStatus != null ||
+      selectedTier !== 'everyday';
+
+    if (hasContent) {
+      const ok = await confirm({
+        title: 'Discard this draft?',
+        message: 'Your current post draft will be removed.',
+        destructive: true,
+      });
+      if (!ok) return;
+    }
+
+    await clearLocalDraft();
+    router.replace('/(protected)/feed');
+  }, [clearLocalDraft, confirm, media.length, pendingStatus, router, selectedTier, text]);
 
   // Countdown confirmation state
   const [countdownVisible, setCountdownVisible] = useState(false);
@@ -218,12 +401,6 @@ export default function PostCreateScreen() {
     Keyboard.dismiss();
   };
 
-  const [reorderIndex, setReorderIndex] = useState<number | null>(null);
-  const [captionTargetIndex, setCaptionTargetIndex] = useState<number | null>(null);
-  const [captionDraft, setCaptionDraft] = useState('');
-  const [showCaptionHint, setShowCaptionHint] = useState(true);
-  const [showReorderHint, setShowReorderHint] = useState(true);
-
   const openCaptionModal = (index: number) => {
     setShowCaptionHint(false);
     setCaptionTargetIndex(index);
@@ -272,9 +449,14 @@ export default function PostCreateScreen() {
     >
       {/* Top bar: Cancel + Post */}
       <View style={[styles.topBar, { borderBottomColor: theme.border, paddingTop: isDemo ? 12 : insets.top + 8 }]}>
-        <Pressable onPress={() => router.replace('/(protected)/feed')} hitSlop={12}>
-          <Text style={[styles.cancelText, { color: theme.foreground }]}>Cancel</Text>
-        </Pressable>
+        <View style={styles.topLeftActions}>
+          <Pressable onPress={() => { void handleCancelDraft(); }} hitSlop={12}>
+            <Text style={[styles.cancelText, { color: theme.foreground }]}>Cancel</Text>
+          </Pressable>
+          <Pressable onPress={() => { void handleResetDraft(); }} hitSlop={12}>
+            <Text style={[styles.resetText, { color: theme.mutedForeground }]}>Reset</Text>
+          </Pressable>
+        </View>
         <Pressable
           onPress={handleSubmit}
           disabled={!canPublish}
@@ -590,6 +772,18 @@ export default function PostCreateScreen() {
         </>
       )}
 
+      {showVideoUploadNotice && (
+        <View style={[styles.videoNoticeBanner, { backgroundColor: theme.card, borderColor: theme.border }]}> 
+          <Feather name="alert-circle" size={14} color={theme.mutedForeground} />
+          <Text style={[styles.videoNoticeText, { color: theme.mutedForeground }]}> 
+            Heads up: uploading videos from gallery is flaky right now. For now, videos should be recorded in-app using the camera.
+          </Text>
+          <Pressable onPress={() => setShowVideoUploadNotice(false)} hitSlop={8}>
+            <Feather name="x" size={14} color={theme.mutedForeground} />
+          </Pressable>
+        </View>
+      )}
+
       {/* Action toolbar */}
       <View
         style={[
@@ -610,6 +804,8 @@ export default function PostCreateScreen() {
                   existingMedia: JSON.stringify(media),
                   existingText: text,
                   existingChannel: selectedChannel,
+                  existingTier: selectedTier,
+                  existingPendingStatus: pendingStatus ? JSON.stringify(pendingStatus) : '',
                 },
               })
             }
@@ -627,6 +823,8 @@ export default function PostCreateScreen() {
                   existingMedia: JSON.stringify(media),
                   existingText: text,
                   existingChannel: selectedChannel,
+                  existingTier: selectedTier,
+                  existingPendingStatus: pendingStatus ? JSON.stringify(pendingStatus) : '',
                 },
               })
             }
@@ -644,6 +842,8 @@ export default function PostCreateScreen() {
                   existingMedia: JSON.stringify(media),
                   existingText: text,
                   existingChannel: selectedChannel,
+                  existingTier: selectedTier,
+                  existingPendingStatus: pendingStatus ? JSON.stringify(pendingStatus) : '',
                 },
               })
             }
@@ -753,8 +953,17 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  topLeftActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
   cancelText: {
     fontSize: 16,
+    fontWeight: '500',
+  },
+  resetText: {
+    fontSize: 14,
     fontWeight: '500',
   },
   postButton: {
@@ -893,6 +1102,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  videoNoticeBanner: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  videoNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
   },
   toolbarActions: {
     flexDirection: 'row',
@@ -1066,7 +1291,7 @@ function reindexAfterRemoval<T>(
 ): Record<number, T> {
   const next: Record<number, T> = {};
   Object.entries(record).forEach(([k, v]) => {
-    const ki = parseInt(k, 10);
+    const ki = Number(k);
     if (ki < removedIndex) next[ki] = v;
     else if (ki > removedIndex) next[ki - 1] = v;
   });

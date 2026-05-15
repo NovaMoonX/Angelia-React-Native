@@ -465,6 +465,49 @@ Select 3+ photos or videos when creating a new post so you have items to reorder
 
 ---
 
+## Feature 18: Post Create Draft Persistence + Media Screen Return Flow
+
+**Devices:** Android primary, iPhone parity check.
+
+### Camera/Gallery/Audio close behavior
+
+- [ ] From Post Create, type text, choose a circle, and set priority to Worth Knowing
+- [ ] Open Camera, then tap close (X) without posting
+- [ ] Confirm you return to Post Create (not Feed) with your text/circle/priority preserved
+- [ ] Open Gallery, cancel/close, and confirm you return to Post Create (not Feed)
+- [ ] Open Audio Record, close (X), and confirm you return to Post Create (not Feed)
+
+### Local draft persistence
+
+- [ ] In Post Create, add text, one media item, and set a non-default priority
+- [ ] Navigate away to Feed, then come back to Post Create
+- [ ] Confirm draft content is restored locally (text/media/priority/circle)
+- [ ] Add a pending status in the status prompt, leave and return, and confirm status is restored
+- [ ] Dismiss the video limitation banner, leave and return, and confirm the dismissal state is preserved in the draft
+
+### Cancel + reset behavior
+
+- [ ] Tap Cancel with non-empty draft and confirm a destructive discard confirmation appears
+- [ ] Cancel the confirmation and confirm draft remains intact
+- [ ] Confirm again and discard; verify you land on Feed and draft is cleared
+- [ ] Re-open Post Create and confirm it starts clean
+- [ ] Tap Reset with a filled draft and confirm destructive confirmation appears
+- [ ] Confirm reset and verify text/media/status/priority/channel are reset to defaults on the same screen
+
+### Publish success clears draft
+
+- [ ] Create a draft with media and text, then publish successfully
+- [ ] Return to Post Create after upload completes
+- [ ] Confirm draft is cleared (fresh composer)
+
+### Video limitation banner
+
+- [ ] Confirm a thin banner appears above media action buttons warning that gallery video uploads are limited
+- [ ] Confirm banner can be dismissed only via the close (X)
+- [ ] Confirm banner text is readable and does not overlap bottom controls on small screens
+
+---
+
 ## Regression Checks
 
 Run these after all feature tests to confirm nothing was broken.
