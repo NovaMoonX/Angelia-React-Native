@@ -516,6 +516,43 @@ Select 3+ photos or videos when creating a new post so you have items to reorder
 
 ---
 
+## Feature 19: Author Unread Leave Warning in Post Detail
+
+**Devices:** Android primary, iPhone parity check.
+
+### Author leave warning modal
+
+- [ ] As the post host, create a post that has unread private notes and/or unread conversation messages (red indicator dots visible)
+- [ ] Attempt to leave Post Detail (back button)
+- [ ] Confirm an overlay appears before leaving and specifically mentions unread private notes and/or unread messages plus the red indicator
+- [ ] Tap **Review Now** and confirm the overlay closes while staying on Post Detail
+- [ ] Tap **Exit Post Anyway** and confirm navigation proceeds away from Post Detail
+- [ ] Confirm there is clear visual spacing between **Exit Post Anyway** and **Don't show this again**
+
+### Don't show again behavior
+
+- [ ] Trigger the same leave warning and tap **Don't show this again**
+- [ ] Confirm navigation proceeds away from Post Detail
+- [ ] Re-open a different post as host with unread indicators and try leaving again
+- [ ] Confirm the warning modal no longer appears (applies across posts)
+
+### Post Activity unread message persistence
+
+- [ ] As host, ensure a post has unread conversation activity (red message indicator)
+- [ ] Open Post Activity in Unread Only scope and wait for the post card to become fully visible
+- [ ] Confirm the unread message indicator does not clear just from visibility in Post Activity
+- [ ] Open the conversation screen for that post, then return and confirm the message unread indicator clears as expected
+
+### Post Detail leave behavior for unread indicators
+
+- [ ] As host, open a post with only unread reaction activity and confirm indicator remains while still on Post Detail
+- [ ] Leave Post Detail and confirm reaction unread indicator clears after exit
+- [ ] As host, open a post with unread private notes and/or unread messages and confirm those indicators do not clear just from opening/leaving Post Detail
+- [ ] Open Private Notes and confirm private-note unread clears there
+- [ ] Open Conversation and confirm message unread clears there
+
+---
+
 ## Regression Checks
 
 Run these after all feature tests to confirm nothing was broken.

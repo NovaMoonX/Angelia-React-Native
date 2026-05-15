@@ -149,6 +149,14 @@ export const CONVERSATION_REPLY_HINT_SEEN_KEY = '@angelia/conversation_reply_hin
 export const JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY = (userId: string) => `@angelia/join_custom_circle_suggestions_seen_${userId}`;
 
 /**
+ * AsyncStorage key recording whether a post author has disabled the
+ * leave-warning modal when unread private notes/messages still exist.
+ */
+export const POST_DETAIL_UNREAD_LEAVE_WARNING_DISABLED_KEY = (userId: string) => {
+  return `@angelia/post_detail_unread_leave_warning_disabled_${userId}`;
+};
+
+/**
  * AsyncStorage key that records which beta update version the user has already dismissed.
  * When BETA_UPDATE_VERSION in BetaUpdateModal is bumped, the modal will show again automatically.
  */

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
-import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
@@ -38,6 +38,7 @@ import {
 	PRIVATE_NOTES_SEEN_KEY,
 	CONVERSATION_LAST_SEEN_KEY,
 	JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY,
+	POST_DETAIL_UNREAD_LEAVE_WARNING_DISABLED_KEY,
 } from '@/models/constants';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
@@ -88,11 +89,24 @@ export default function PostDetailScreen() {
 	const [circleSuggestionsLoading, setCircleSuggestionsLoading] = useState(false);
 	const [requestingChannelId, setRequestingChannelId] = useState<string | null>(null);
 	const pendingNavigationActionRef = useRef<any>(null);
+	const pendingUnreadLeaveActionRef = useRef<any>(null);
 	// Tracks whether the host has unseen private notes (persisted in AsyncStorage)
 	const [hasUnreadPrivateNotes, setHasUnreadPrivateNotes] = useState(false);
 	// Tracks whether there are new conversation messages the user hasn't seen
 	const [hasUnreadConversation, setHasUnreadConversation] = useState(false);
+	const [showUnreadLeaveModal, setShowUnreadLeaveModal] = useState(false);
+	const [disableUnreadLeaveWarning, setDisableUnreadLeaveWarning] = useState(false);
 	const seenCircleSuggestionIdsRef = useRef<string[]>([]);
+
+	const unreadItems = [
+		hasUnreadPrivateNotes ? 'new private notes' : null,
+		hasUnreadConversation ? 'new messages' : null,
+	].filter((item): item is string => {
+		return item != null;
+	});
+	const hasUnreadAuthorActivity = unreadItems.length > 0;
+	const unreadItemsCopy = unreadItems.join(' and ');
+	const shouldWarnBeforeLeaving = isHost && !disableUnreadLeaveWarning && hasUnreadAuthorActivity;
 
 	// Memoize the latest note timestamp to avoid AsyncStorage reads on every render
 	const latestNoteTimestamp = useMemo(
@@ -121,22 +135,35 @@ export default function PostDetailScreen() {
 		return unsub;
 	}, [id, dispatch, isDemo]);
 
-	// Re-check the unread dot every time this screen comes into focus (e.g. after
-	// returning from the private-notes-host screen, where PRIVATE_NOTES_SEEN_KEY
-	// gets written). Using useFocusEffect ensures the dot clears on return.
+	// Only reaction activity should clear from simply viewing this screen, and
+	// it should clear when the user leaves post detail (not immediately on open).
+	// Private notes and conversation unread state are owned by their detail screens.
 	useFocusEffect(
 		useCallback(() => {
-			if (!currentUser?.id || !id) return;
-			const seenAt = String(Date.now());
-			void AsyncStorage.multiSet([
-				[POST_REACTIONS_SEEN_KEY(currentUser.id, id), seenAt],
-				[PRIVATE_NOTES_SEEN_KEY(id), seenAt],
-				[CONVERSATION_LAST_SEEN_KEY(id), seenAt],
-			]).catch(() => {});
-			// Dismiss reaction notifications for this specific post
-			void dismissNotificationsByData({ type: 'post_reaction', postId: id }).catch(() => {});
+			if (!currentUser?.id || !id) return undefined;
+
+			return () => {
+				const seenAt = String(Date.now());
+				void AsyncStorage.setItem(POST_REACTIONS_SEEN_KEY(currentUser.id, id), seenAt).catch(() => {});
+				// Dismiss reaction notifications for this specific post.
+				void dismissNotificationsByData({ type: 'post_reaction', postId: id }).catch(() => {});
+			};
 		}, [currentUser?.id, id]),
 	);
+
+	useEffect(() => {
+		if (!currentUser?.id) {
+			setDisableUnreadLeaveWarning(false);
+			return;
+		}
+		AsyncStorage.getItem(POST_DETAIL_UNREAD_LEAVE_WARNING_DISABLED_KEY(currentUser.id))
+			.then((val) => {
+				setDisableUnreadLeaveWarning(val === 'true');
+			})
+			.catch(() => {
+				setDisableUnreadLeaveWarning(false);
+			});
+	}, [currentUser?.id]);
 
 	useFocusEffect(
 		useCallback(() => {
@@ -339,6 +366,14 @@ export default function PostDetailScreen() {
 
 	useEffect(() => {
 		const unsubscribe = navigation.addListener('beforeRemove', (event: any) => {
+			if (showUnreadLeaveModal) return;
+			if (shouldWarnBeforeLeaving) {
+				event.preventDefault();
+				pendingUnreadLeaveActionRef.current = event.data.action;
+				setShowUnreadLeaveModal(true);
+				return;
+			}
+
 			if (circleSuggestionsVisible) return;
 			if (circleSuggestionsLoading || circleSuggestions.length === 0) return;
 			event.preventDefault();
@@ -347,7 +382,39 @@ export default function PostDetailScreen() {
 		});
 
 		return unsubscribe;
-	}, [circleSuggestions.length, circleSuggestionsLoading, circleSuggestionsVisible, navigation]);
+	}, [
+		circleSuggestions.length,
+		circleSuggestionsLoading,
+		circleSuggestionsVisible,
+		navigation,
+		shouldWarnBeforeLeaving,
+		showUnreadLeaveModal,
+	]);
+
+	const closeUnreadLeaveModal = useCallback(() => {
+		setShowUnreadLeaveModal(false);
+		pendingUnreadLeaveActionRef.current = null;
+	}, []);
+
+	const leavePostAnyway = useCallback(() => {
+		setShowUnreadLeaveModal(false);
+		const action = pendingUnreadLeaveActionRef.current;
+		pendingUnreadLeaveActionRef.current = null;
+		if (action) {
+			navigation.dispatch(action);
+		}
+	}, [navigation]);
+
+	const disableWarningAndLeave = useCallback(async () => {
+		if (currentUser?.id) {
+			await AsyncStorage.setItem(
+				POST_DETAIL_UNREAD_LEAVE_WARNING_DISABLED_KEY(currentUser.id),
+				'true',
+			).catch(() => {});
+			setDisableUnreadLeaveWarning(true);
+		}
+		leavePostAnyway();
+	}, [currentUser?.id, leavePostAnyway]);
 
 	const handleRequestJoinFromSuggestion = useCallback(
 		async (suggestedChannel: Channel) => {
@@ -758,6 +825,33 @@ export default function PostDetailScreen() {
 
 			<UserProfileModal visible={profileModalOpen} onClose={() => setProfileModalOpen(false)} user={author} />
 
+			<Modal
+				visible={showUnreadLeaveModal}
+				transparent
+				animationType='fade'
+				onRequestClose={closeUnreadLeaveModal}
+			>
+				<View style={styles.unreadLeaveModalOverlay}>
+					<Pressable style={StyleSheet.absoluteFill} onPress={closeUnreadLeaveModal} />
+					<View style={[styles.unreadLeaveModalCard, { backgroundColor: theme.card, borderColor: theme.border }]}> 
+						<Text style={[styles.unreadLeaveModalTitle, { color: theme.foreground }]}>Before you leave…</Text>
+						<Text style={[styles.unreadLeaveModalBody, { color: theme.mutedForeground }]}> 
+							You still have {unreadItemsCopy} marked with the red indicator dot on this post.
+						</Text>
+						<Text style={[styles.unreadLeaveModalBody, { color: theme.mutedForeground }]}> 
+							Stay here to review them now, or exit this post anyway.
+						</Text>
+						<View style={styles.unreadLeaveModalActions}>
+							<Button variant='outline' onPress={closeUnreadLeaveModal}>Look at now</Button>
+							<Button variant='secondary' onPress={leavePostAnyway}>Exit Post Anyway</Button>
+							<Pressable style={styles.unreadLeaveDontShowWrap} onPress={() => { void disableWarningAndLeave(); }} hitSlop={8}>
+								<Text style={[styles.unreadLeaveDontShowText, { color: theme.mutedForeground }]}>Don't show this again</Text>
+							</Pressable>
+						</View>
+					</View>
+				</View>
+			</Modal>
+
 			{/* Solid background behind system nav buttons */}
 			{insets.bottom > 0 && (
 				<View
@@ -979,6 +1073,40 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		justifyContent: 'center',
 		gap: 8,
+	},
+	unreadLeaveModalOverlay: {
+		...StyleSheet.absoluteFillObject,
+		justifyContent: 'center',
+		paddingHorizontal: 20,
+		backgroundColor: 'rgba(0,0,0,0.45)',
+	},
+	unreadLeaveModalCard: {
+		borderWidth: 1,
+		borderRadius: 16,
+		paddingHorizontal: 16,
+		paddingVertical: 14,
+		gap: 8,
+	},
+	unreadLeaveModalTitle: {
+		fontSize: 18,
+		fontWeight: '700',
+	},
+	unreadLeaveModalBody: {
+		fontSize: 14,
+		lineHeight: 20,
+	},
+	unreadLeaveModalActions: {
+		marginTop: 4,
+		gap: 8,
+	},
+	unreadLeaveDontShowWrap: {
+		marginTop: 10,
+	},
+	unreadLeaveDontShowText: {
+		textAlign: 'center',
+		fontSize: 13,
+		fontWeight: '500',
+		textDecorationLine: 'underline',
 	},
 	secondaryActionIconWrap: {
 		position: 'relative',

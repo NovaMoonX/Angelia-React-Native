@@ -198,12 +198,8 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
 
     const seenAt = Date.now();
     await AsyncStorage.multiSet(
-      postIdsToMark.flatMap((postId) => {
-        return [
-          [POST_REACTIONS_SEEN_KEY(currentUserId, postId), String(seenAt)] as [string, string],
-          [PRIVATE_NOTES_SEEN_KEY(postId), String(seenAt)] as [string, string],
-          [CONVERSATION_LAST_SEEN_KEY(postId), String(seenAt)] as [string, string],
-        ];
+      postIdsToMark.map((postId) => {
+        return [POST_REACTIONS_SEEN_KEY(currentUserId, postId), String(seenAt)] as [string, string];
       }),
     ).catch(() => {
       return null;
@@ -211,19 +207,15 @@ export function useAuthorPostActivity({ enableSubscriptions = false }: { enableS
 
     setSeenMaps((prev) => {
       const nextReactionsByPostId = { ...prev.reactionsByPostId };
-      const nextPrivateNotesByPostId = { ...prev.privateNotesByPostId };
-      const nextConversationByPostId = { ...prev.conversationByPostId };
 
       postIdsToMark.forEach((postId) => {
         nextReactionsByPostId[postId] = seenAt;
-        nextPrivateNotesByPostId[postId] = seenAt;
-        nextConversationByPostId[postId] = seenAt;
       });
 
       const nextSeenMaps: SeenMaps = {
         reactionsByPostId: nextReactionsByPostId,
-        privateNotesByPostId: nextPrivateNotesByPostId,
-        conversationByPostId: nextConversationByPostId,
+        privateNotesByPostId: prev.privateNotesByPostId,
+        conversationByPostId: prev.conversationByPostId,
       };
 
       seenStateCache[currentUserId] = {
