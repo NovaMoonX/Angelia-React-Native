@@ -37,6 +37,7 @@ export default {
 			googleServicesFile: './GoogleService-Info.plist',
 			infoPlist: {
 				ITSAppUsesNonExemptEncryption: false,
+				NSLocationWhenInUseUsageDescription: 'Angelia uses your location to help you connect with people nearby.',
 			},
 		},
 		android: {
