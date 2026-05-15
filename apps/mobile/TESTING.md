@@ -506,6 +506,12 @@ Select 3+ photos or videos when creating a new post so you have items to reorder
 - [ ] Confirm banner can be dismissed only via the close (X)
 - [ ] Confirm banner text is readable and does not overlap bottom controls on small screens
 
+### Android scroll behavior in Post Create
+
+- [ ] On Android, add text + media + hints/banner and confirm the composer feels like one continuous vertical scroll area (no tiny top-only scroll region)
+- [ ] Confirm priority chips, text area, status prompt, media strip, and video notice can all be reached in the same vertical scroll flow
+- [ ] Confirm bottom toolbar remains fixed while content above it scrolls naturally
+
 ---
 
 ## Regression Checks

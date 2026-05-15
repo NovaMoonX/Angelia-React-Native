@@ -376,7 +376,7 @@ export default function PostCreateScreen() {
     setVideoThumbnails((prev) => reindexAfterRemoval(prev, index));
     thumbnailsRef.current = reindexAfterRemoval(
       Object.fromEntries(
-        Object.entries(thumbnailsRef.current).filter(([k]) => parseInt(k, 10) !== index)
+        Object.entries(thumbnailsRef.current).filter(([k]) => Number(k) !== index)
       ) as Record<number, boolean>,
       index,
     );
@@ -480,7 +480,7 @@ export default function PostCreateScreen() {
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 120 }]}
         keyboardShouldPersistTaps="handled"
         onTouchStart={() => {
           if (reorderIndex !== null) {
@@ -633,12 +633,10 @@ export default function PostCreateScreen() {
             )}
           </Pressable>
         )}
-      </ScrollView>
 
-      {/* Media preview strip — kept outside ScrollView so it stays visible above
-           the toolbar when the keyboard is open on iOS */}
-      {media.length > 0 && (
-        <>
+        {/* Media preview strip */}
+        {media.length > 0 && (
+          <>
         {showCaptionHint && (
           <View style={[styles.featureHint, { backgroundColor: theme.card, borderColor: theme.border }]}> 
             <Text style={[styles.featureHintText, { color: theme.mutedForeground }]}> 
@@ -769,20 +767,21 @@ export default function PostCreateScreen() {
             );
           })}
         </ScrollView>
-        </>
-      )}
+          </>
+        )}
 
-      {showVideoUploadNotice && (
-        <View style={[styles.videoNoticeBanner, { backgroundColor: theme.card, borderColor: theme.border }]}> 
-          <Feather name="alert-circle" size={14} color={theme.mutedForeground} />
-          <Text style={[styles.videoNoticeText, { color: theme.mutedForeground }]}> 
-            Heads up: uploading videos from gallery is flaky right now. For now, videos should be recorded in-app using the camera.
-          </Text>
-          <Pressable onPress={() => setShowVideoUploadNotice(false)} hitSlop={8}>
-            <Feather name="x" size={14} color={theme.mutedForeground} />
-          </Pressable>
-        </View>
-      )}
+        {showVideoUploadNotice && (
+          <View style={[styles.videoNoticeBanner, { backgroundColor: theme.card, borderColor: theme.border }]}> 
+            <Feather name="alert-circle" size={14} color={theme.mutedForeground} />
+            <Text style={[styles.videoNoticeText, { color: theme.mutedForeground }]}> 
+              Heads up: uploading videos from gallery is flaky right now. For now, videos should be recorded in-app using the camera.
+            </Text>
+            <Pressable onPress={() => setShowVideoUploadNotice(false)} hitSlop={8}>
+              <Feather name="x" size={14} color={theme.mutedForeground} />
+            </Pressable>
+          </View>
+        )}
+      </ScrollView>
 
       {/* Action toolbar */}
       <View
@@ -1031,7 +1030,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   featureHint: {
-    marginHorizontal: 16,
+    marginHorizontal: 0,
     marginTop: 4,
     borderWidth: 1,
     borderRadius: 10,
@@ -1054,7 +1053,7 @@ const styles = StyleSheet.create({
   },
   mediaStrip: {
     gap: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
     paddingTop: 6,
     paddingBottom: 2,
   },
@@ -1104,7 +1103,8 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   videoNoticeBanner: {
-    marginHorizontal: 16,
+    marginHorizontal: 0,
+    marginTop: 8,
     marginBottom: 8,
     borderWidth: 1,
     borderRadius: 10,

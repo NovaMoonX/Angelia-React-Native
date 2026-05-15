@@ -26,6 +26,7 @@ Current branch highlights:
 - Post Create now auto-saves your draft locally (text, media, circle, priority, status, and hint/banner dismissals) until you cancel or your post uploads successfully.
 - Post Create now has a confirmed **Reset** action so you can clear the whole draft in one tap when you really want a fresh start.
 - Post Create now shows a dismissible heads-up that gallery video uploads are currently limited, and that recording videos in-app is the reliable path for now.
+- On Android, Post Create no longer traps content in a short top-only scroll region — the composer now scrolls as one natural vertical surface.
 - Replies in conversation now appear right after the message they're responding to, so threads are way easier to follow.
 - When replying to a message, the reply banner now shows a short preview of the message you're replying to — no more guessing which message you're responding to.
 - Replied messages now show a **quoted preview** directly in the bubble so anyone reading the thread can see the context at a glance.
