@@ -254,8 +254,20 @@ service cloud.firestore {
         allow create: if isSignedIn()
           && request.auth.uid == request.resource.data.authorId;
 
-        // Messages cannot be updated or deleted
-        allow update, delete: if false;
+        // Message authors may edit only the text of their own non-system messages.
+        // All other message fields must remain unchanged.
+        allow update: if isSignedIn()
+          && request.auth.uid == resource.data.authorId
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text != resource.data.text
+          && request.resource.data.id == resource.data.id
+          && request.resource.data.authorId == resource.data.authorId
+          && request.resource.data.timestamp == resource.data.timestamp
+          && request.resource.data.parentId == resource.data.parentId
+          && request.resource.data.reactions == resource.data.reactions;
+
+        allow delete: if false;
       }
 
       // Comments subcollection under posts

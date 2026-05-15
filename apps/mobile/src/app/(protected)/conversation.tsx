@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Pressable,
   StyleSheet,
@@ -23,20 +24,26 @@ import { ConversationEmptyState } from '@/components/conversation/ConversationEm
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { selectMessages, setMessages } from '@/store/slices/conversationSlice';
-import { sendMessage } from '@/store/actions/conversationActions';
 import { joinConversation } from '@/store/actions/postActions';
 import { subscribeToMessages } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
 
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
+import { useActionModal } from '@/hooks/useActionModal';
 import { usePostComments } from '@/hooks/usePostComments';
 import { getTierTheme } from '@/lib/conversation/tierTheme';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
-import { POST_TIERS, CONVERSATION_LAST_SEEN_KEY, CONVERSATION_REPLY_HINT_SEEN_KEY } from '@/models/constants';
+import {
+  POST_TIERS,
+  CONVERSATION_EDIT_HINT_SEEN_KEY,
+  CONVERSATION_LAST_SEEN_KEY,
+  CONVERSATION_REPLY_HINT_SEEN_KEY,
+} from '@/models/constants';
 import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import type { Message } from '@/models/types';
+import { editMessage, sendMessage } from '@/store/actions/conversationActions';
 
 type ThreadedConversationRow = {
   message: Message;
@@ -52,8 +59,10 @@ export default function ConversationScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const { addToast } = useToast();
+  const { confirm } = useActionModal();
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlashListRef<ThreadedConversationRow>>(null);
+  const inputRef = useRef<TextInput>(null);
   const isDemo = useAppSelector((state) => state.demo.isActive);
 
   const post = useAppSelector((state) => selectPostById(state, postId ?? ''));
@@ -64,7 +73,9 @@ export default function ConversationScreen() {
 
   const [messageText, setMessageText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [showReplyHint, setShowReplyHint] = useState(false);
+  const [showEditHint, setShowEditHint] = useState(false);
   const [replyDepthWarning, setReplyDepthWarning] = useState<string | null>(null);
 
   // Tier theming
@@ -108,6 +119,12 @@ export default function ConversationScreen() {
   useEffect(() => {
     void AsyncStorage.getItem(CONVERSATION_REPLY_HINT_SEEN_KEY).then((val) => {
       if (!val) setShowReplyHint(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    void AsyncStorage.getItem(CONVERSATION_EDIT_HINT_SEEN_KEY).then((val) => {
+      if (!val) setShowEditHint(true);
     });
   }, []);
 
@@ -225,12 +242,35 @@ export default function ConversationScreen() {
 
   const handleSend = useCallback(async () => {
     if (!messageText.trim() || !postId) return;
-    const text = messageText;
+    const text = messageText.trim();
+    const editingTarget = editingMessage;
+    console.log('[ConversationEdit] submit requested', {
+      postId,
+      editingMessageId: editingTarget?.id ?? null,
+      textLength: text.length,
+    });
     setMessageText('');
     setReplyingTo(null);
+    setEditingMessage(null);
     setReplyDepthWarning(null);
 
     try {
+      if (editingTarget) {
+        await dispatch(
+          editMessage({
+            postId,
+            messageId: editingTarget.id,
+            text,
+          }),
+        ).unwrap();
+        console.log('[ConversationEdit] submit succeeded', {
+          postId,
+          messageId: editingTarget.id,
+        });
+        addToast({ type: 'success', title: 'Message updated' });
+        return;
+      }
+
       await dispatch(
         sendMessage({
           postId,
@@ -238,10 +278,27 @@ export default function ConversationScreen() {
           parentId: replyingTo?.id ?? null,
         }),
       ).unwrap();
-    } catch {
-      addToast({ type: 'error', title: 'Failed to send message' });
+    } catch (err) {
+      setMessageText(text);
+      setEditingMessage(editingTarget);
+      if (!editingTarget) {
+        setReplyingTo(replyingTo);
+      }
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error('[ConversationEdit] submit failed', {
+        postId,
+        editingMessageId: editingTarget?.id ?? null,
+        errorMessage,
+        rawError: err,
+      });
+      addToast({
+        type: 'error',
+        title: editingTarget
+          ? `Failed to update: ${errorMessage}`
+          : `Failed to send: ${errorMessage}`,
+      });
     }
-  }, [messageText, postId, replyingTo, dispatch, addToast]);
+  }, [messageText, postId, editingMessage, dispatch, addToast, replyingTo]);
 
   const handleJoinConversation = useCallback(async () => {
     if (!postId || !currentUser) return;
@@ -266,6 +323,7 @@ export default function ConversationScreen() {
     void Haptics.selectionAsync().catch(() => {});
     setReplyDepthWarning(null);
     setReplyingTo(message);
+    setEditingMessage(null);
     // Dismiss the hint the first time the user actually uses reply
     if (showReplyHint) {
       setShowReplyHint(false);
@@ -278,12 +336,83 @@ export default function ConversationScreen() {
     void AsyncStorage.setItem(CONVERSATION_REPLY_HINT_SEEN_KEY, 'true');
   }, []);
 
+  const handleDismissEditHint = useCallback(() => {
+    setShowEditHint(false);
+    void AsyncStorage.setItem(CONVERSATION_EDIT_HINT_SEEN_KEY, 'true');
+  }, []);
+
+  const handleCancelEditing = useCallback(() => {
+    setEditingMessage(null);
+    setMessageText('');
+  }, []);
+
+  const handleStartEdit = useCallback(async (message: Message) => {
+    if (!currentUser) {
+      console.warn('[ConversationEdit] start edit blocked: no current user', {
+        messageId: message.id,
+      });
+      return;
+    }
+    if (message.isSystem || message.authorId !== currentUser.id) {
+      console.warn('[ConversationEdit] start edit blocked: message not editable', {
+        messageId: message.id,
+        isSystem: message.isSystem === true,
+        authorId: message.authorId,
+        currentUserId: currentUser.id,
+      });
+      return;
+    }
+
+    console.log('[ConversationEdit] start edit requested', {
+      messageId: message.id,
+      hasPendingDraft: messageText.trim().length > 0,
+      existingEditingMessageId: editingMessage?.id ?? null,
+      currentUserId: currentUser.id,
+    });
+
+    const pendingDraft = messageText.trim();
+    if (pendingDraft && (!editingMessage || editingMessage.id !== message.id)) {
+      const ok = await confirm({
+        title: 'Edit this message instead?',
+        message: 'This will clear your current draft so you can edit the older message.',
+        destructive: true,
+      });
+      console.log('[ConversationEdit] draft clear confirmation result', {
+        messageId: message.id,
+        accepted: ok,
+      });
+      if (!ok) return;
+    }
+
+    setReplyingTo(null);
+    setReplyDepthWarning(null);
+    setEditingMessage(message);
+    setMessageText(message.text);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+    console.log('[ConversationEdit] edit mode entered', {
+      messageId: message.id,
+      textLength: message.text.length,
+      currentUserId: currentUser.id,
+    });
+
+    if (showEditHint) {
+      setShowEditHint(false);
+      void AsyncStorage.setItem(CONVERSATION_EDIT_HINT_SEEN_KEY, 'true');
+    }
+
+    void Haptics.selectionAsync().catch(() => {});
+  }, [confirm, currentUser, editingMessage, messageText, showEditHint]);
+
   const renderMessage = useCallback(
     ({ item }: { item: ThreadedConversationRow }) => {
       const parentMsg = item.message.parentId
         ? messages.find((m) => { return m.id === item.message.parentId; })
         : null;
       const depth = messageDepthById[item.message.id] ?? 0;
+      const canEditMessage =
+        item.message.authorId === currentUser?.id && item.message.isSystem !== true;
       return (
         <ConversationMessage
           message={item.message}
@@ -292,11 +421,15 @@ export default function ConversationScreen() {
           continuationDepths={item.continuationDepths}
           depth={depth}
           parentText={parentMsg?.text ?? null}
+          onSinglePress={() => {
+            Keyboard.dismiss();
+          }}
           onLongPress={() => handleReply(item.message)}
+          onDoublePress={canEditMessage ? () => { void handleStartEdit(item.message); } : undefined}
         />
       );
     },
-    [handleReply, messages, messageDepthById, messageIdsWithReplies],
+    [currentUser?.id, handleReply, handleStartEdit, messages, messageDepthById, messageIdsWithReplies],
   );
 
   const keyExtractor = useCallback((item: ThreadedConversationRow) => item.message.id, []);
@@ -404,6 +537,8 @@ export default function ConversationScreen() {
               data={threadedMessages}
               renderItem={renderMessage}
               keyExtractor={keyExtractor}
+              keyboardShouldPersistTaps='handled'
+              keyboardDismissMode='none'
               contentContainerStyle={{ paddingBottom: 8 }}
             />
           )}
@@ -434,13 +569,27 @@ export default function ConversationScreen() {
             ]}
           >
             {/* Reply hint — shown once until used or dismissed */}
-            {showReplyHint && threadedMessages.length > 0 && !replyingTo && (
+            {showReplyHint && threadedMessages.length > 0 && !replyingTo && !editingMessage && (
               <View style={[styles.replyHint, { backgroundColor: theme.muted, borderColor: theme.border }]}>
                 <Feather name="corner-up-left" size={13} color={theme.mutedForeground} />
                 <Text style={[styles.replyHintText, { color: theme.mutedForeground }]}>
                   Hold any message to reply to it
                 </Text>
                 <Pressable onPress={handleDismissReplyHint} hitSlop={8}>
+                  <Feather name="x" size={13} color={theme.mutedForeground} />
+                </Pressable>
+              </View>
+            )}
+
+            {showEditHint && threadedMessages.some((row) => {
+              return row.message.authorId === currentUser.id && row.message.isSystem !== true;
+            }) && !replyingTo && !editingMessage && (
+              <View style={[styles.replyHint, { backgroundColor: theme.muted, borderColor: theme.border }]}> 
+                <Feather name="edit-2" size={13} color={theme.mutedForeground} />
+                <Text style={[styles.replyHintText, { color: theme.mutedForeground }]}> 
+                  Double tap your own message to edit it
+                </Text>
+                <Pressable onPress={handleDismissEditHint} hitSlop={8}>
                   <Feather name="x" size={13} color={theme.mutedForeground} />
                 </Pressable>
               </View>
@@ -462,6 +611,22 @@ export default function ConversationScreen() {
               </View>
             )}
 
+            {editingMessage && (
+              <View style={styles.replyBanner}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.replyText, { color: theme.mutedForeground }]}> 
+                    Editing your message
+                  </Text>
+                  <Text style={[styles.replyPreview, { color: theme.mutedForeground }]} numberOfLines={1}>
+                    “{editingMessage.text.length > 60 ? editingMessage.text.slice(0, 60) + '…' : editingMessage.text}”
+                  </Text>
+                </View>
+                <Pressable onPress={handleCancelEditing}>
+                  <Feather name="x" size={16} color={theme.mutedForeground} />
+                </Pressable>
+              </View>
+            )}
+
             {replyDepthWarning && (
               <View style={[styles.replyDepthWarning, { backgroundColor: theme.muted, borderColor: theme.border }]}> 
                 <Feather name="alert-circle" size={13} color={theme.mutedForeground} />
@@ -473,9 +638,10 @@ export default function ConversationScreen() {
 
             <View style={styles.inputRow}>
               <TextInput
+                ref={inputRef}
                 value={messageText}
                 onChangeText={setMessageText}
-                placeholder="Say something sweet…"
+                placeholder={editingMessage ? 'Polish your message…' : 'Say something sweet…'}
                 placeholderTextColor={theme.mutedForeground}
                 multiline
                 blurOnSubmit={false}
@@ -496,7 +662,7 @@ export default function ConversationScreen() {
                   { backgroundColor: theme.primary, opacity: !messageText.trim() ? 0.4 : pressed ? 0.75 : 1 },
                 ]}
               >
-                <Feather name="send" size={18} color="#FFFFFF" />
+                <Feather name={editingMessage ? 'check' : 'send'} size={18} color="#FFFFFF" />
               </Pressable>
             </View>
           </View>

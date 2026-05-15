@@ -7,6 +7,9 @@ Related PR: TBD
 Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
 
 Current branch highlights:
+- Single taps on conversation messages still close the keyboard, while double taps now keep it open so editing feels natural on iPhone and Android.
+- Double tapping your own conversation messages now keeps the keyboard open, so editing feels smoother and doesn’t kick you out of the composer.
+- You can now **double tap your own conversation messages to edit them**, with a one-time tip the first time it’s available and a quick warning before switching away from a draft you were already typing.
 - Notification Settings now has toggles for **Reaction** and **Message** notifications, so you can control exactly which post activity pings you — all on by default.
 - Post Notification Settings no longer shows circles you own — it only shows circles you've joined, which is where per-circle tuning actually makes sense.
 - Each circle in Post Notification Settings now has an **Enable All** switch, and each person group has one too — making it easy to turn everything on or off in one tap without losing your Big News setting.

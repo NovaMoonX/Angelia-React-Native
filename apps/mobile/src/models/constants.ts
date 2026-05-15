@@ -143,6 +143,12 @@ export const CONVERSATION_LAST_SEEN_KEY = (postId: string) => `@angelia/conversa
 export const CONVERSATION_REPLY_HINT_SEEN_KEY = '@angelia/conversation_reply_hint_seen';
 
 /**
+ * AsyncStorage key recording whether the user has already seen the
+ * "double-tap to edit" hint in conversations.
+ */
+export const CONVERSATION_EDIT_HINT_SEEN_KEY = '@angelia/conversation_edit_hint_seen';
+
+/**
  * AsyncStorage key that tracks which custom circles have already been suggested
  * to a user after they react to a connection's Daily Circle post.
  */

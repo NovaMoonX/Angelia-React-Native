@@ -1,4 +1,4 @@
-# Testing Guide — Haptics, GIF Fix, Scroll-to-Top, Media Reorder, Captions & MP3
+# Testing Guide — beta-v-1.0.7
 
 **Branch:** beta-v-1.0.7
 **Last updated:** May 15, 2026
@@ -7,235 +7,199 @@
 
 ## Before You Start Testing
 
-- [ ] **Requires `npm run env:pull`** — env vars changed or this is a fresh clone
-- [ ] **Requires prebuild + native build** — this branch added native packages or changed `app.config.js`
-- [ ] App launches cleanly (no red screen, no Metro errors)
+- [ ] Run `npm install`
+- [ ] Run `npm run env:pull` if this is a fresh clone or env values changed
+- [ ] Rebuild the native app before the first test pass on this branch
+- [ ] Android rebuild path: `npm run prebuild:android` then `npm run prod:android`
+- [ ] If you are testing on iPhone too, use a fresh iOS native build before starting that pass
+- [ ] Launch the app and confirm there is no red screen, Metro error, or broken startup route
 
 ---
 
 ## Device Setup
 
-**Primary:** Android (used for all standard testing)  
-**Secondary:** iPhone (used when two users/devices are needed, or when iOS-specific behavior is likely)
+**Primary:** Android  
+**Secondary:** iPhone
 
-> **When to pull out the iPhone:**
-> - Testing a feature that involves two different user accounts simultaneously
-> - Testing a feature that likely behaves differently on iOS (pickers, keyboard, safe area, haptics)
-> - Confirming a bug fix works on both platforms before closing it out
-
----
-
-## Feature 1: Haptic Feedback
-
-**Devices:** Android primary. Pull out iPhone if haptics feel wrong — iOS and Android have different haptic engines.
-
-### Android
-
-- [ ] Long-press any post on the feed → feel a medium pulse at the moment the action fires (not after, not before)
-- [ ] Confirm the card scale animation also plays (the two are combined)
-- [ ] Open the reaction peel on a post (long-press → reaction strip appears)
-- [ ] Tap each emoji in the peel → feel a light tap on each one
-- [ ] Confirm no haptic fires when simply scrolling the feed (no false triggers)
-- [ ] Confirm no haptic fires when tapping to navigate to a post detail (long-press only)
-
-### iPhone (if needed)
-
-- [ ] Repeat the long-press and emoji-tap tests above
-- [ ] Confirm haptics feel appropriate — iOS tends to be more pronounced than Android; if it feels too strong, note it
+Use the iPhone when:
+- [ ] You need two logged-in devices at once
+- [ ] You are validating keyboard, picker, safe-area, or haptic differences
+- [ ] You want parity confirmation before closing out the branch
 
 ---
 
-## Feature 2: GIF Playback
+## Feature 1: Notification Controls And Release Notice
 
-**Devices:** Android primary. iPhone if you want to confirm the fix holds across both platforms.
+**Devices:** Android primary. iPhone recommended for real push-parity checks.
 
 ### Setup
-You'll need a post with a GIF attachment. Either:
-- Create a test post with a `.gif` file from your gallery, or
-- Find an existing post that has a GIF already uploaded
+
+- [ ] Use Account A as the post owner
+- [ ] Use Account B to react to and message on Account A's post
+- [ ] Make sure Account A has at least one joined circle from someone else
+- [ ] Start with the feed bell showing the release-notice dot if possible
 
 ### Android
 
-- [ ] Open the feed and scroll to a post with a GIF
-- [ ] Confirm the GIF animates (multiple frames play) — it should not be a frozen still frame
-- [ ] Scroll the GIF post out of view and back in — confirm animates correctly after scroll-back (doesn't freeze on return)
-- [ ] Scroll through a feed with multiple GIFs — confirm all of them animate, not just the first visible one
-- [ ] Tap a GIF post to open post detail — confirm GIF still animates in the detail view
+- [ ] Open the feed -> confirm the release-notice dot is visible on the bell before visiting Notifications
+- [ ] Open Notifications -> confirm the bell dot clears on return to feed
+- [ ] Stay on Notifications without opening Notification Settings -> confirm the release notice card still shows
+- [ ] Tap the release notice card -> Notification Settings opens
+- [ ] Return to Notifications -> confirm the release card is now gone
+- [ ] In Notification Settings, confirm **Reaction Notifications**, **Message Notifications**, and **Reply Notifications** rows all exist
+- [ ] Toggle Reaction Notifications OFF -> have Account B react to Account A's post -> no reaction push arrives
+- [ ] Toggle Reaction Notifications back ON -> repeat -> reaction push arrives
+- [ ] Toggle Message Notifications OFF -> have Account B send a new conversation message on Account A's post -> no message push arrives
+- [ ] Toggle Message Notifications back ON -> repeat -> message push arrives
+- [ ] Toggle Reply Notifications OFF -> have Account B reply directly to one of Account A's conversation messages -> no reply push arrives
+- [ ] Toggle Reply Notifications back ON -> repeat -> reply push arrives
+
+### iPhone
+
+- [ ] Repeat one full toggle-on and toggle-off cycle for each of the three post-activity switches
+- [ ] Confirm push behavior matches Android expectations
 
 ---
 
-## Feature 3: Feed Scroll-to-Top on Cold Launch
+## Feature 2: Circle Post Notification Settings
 
-**Devices:** Android primary.
-
-> **Cold launch** = opening the app after it was fully backgrounded (swiped away from recents, or device restarted). Simply navigating away and back is not a cold launch.
-
-### Android
-
-- [ ] Force-stop the app (swipe from recents or use developer settings → Force Stop)
-- [ ] Scroll the feed down a bit in your head (confirm you remember approximate position)
-- [ ] Reopen the app → feed should jump to the top automatically (no manual scroll needed)
-- [ ] Confirm the jump happens quickly and not jarringly (animated: false means instant, no flicker)
-
-**Confirm "once per session" behavior:**
-- [ ] After the auto-scroll fires on launch, scroll down manually
-- [ ] Navigate away (e.g. tap Profile, tap back)
-- [ ] Confirm the feed does NOT auto-scroll again — it should stay where you left it
-
-**Confirm re-triggers on next cold launch:**
-- [ ] Background the app (don't force-stop, just go to home screen or switch apps)
-- [ ] Reopen the app → since the flag is cleared on background, it should scroll to top again
-- [ ] Confirm this works consistently across multiple background/reopen cycles
-
----
-
-## Feature 4: Media Reorder
-
-**Devices:** Android primary.
+**Devices:** Android primary. iPhone optional.
 
 ### Setup
-Select 3+ photos or videos when creating a new post so you have items to reorder.
+
+- [ ] Use one account that has joined circles owned by at least two different people
+- [ ] Make sure the same account also hosts at least one of its own custom circles
 
 ### Android
 
-- [ ] Open the post composer ("+" button)
-- [ ] Attach 3 photos (or videos, or a mix)
-- [ ] Confirm they appear in the media strip in the order you selected them
-- [ ] Long-press the second thumbnail → reorder mode activates (left/right chevron arrows appear, selected item gets a highlight)
-- [ ] Tap the left arrow → item moves one position left, arrows update to reflect new position
-- [ ] Tap the right arrow → item moves one position right
-- [ ] For the first item (position 0) → confirm left arrow is visually disabled and does nothing
-- [ ] For the last item → confirm right arrow is visually disabled and does nothing
-- [ ] Tap outside the reorder overlay → reorder mode exits, normal state restored
-- [ ] Reorder items and then post → confirm the post shows media in the reordered sequence (not original picker order)
-
-**Edge cases:**
-- [ ] Reorder with 2 items (boundary positions, not just middle)
-- [ ] Reorder a video — thumbnail should move correctly; video should still play from the new position
-- [ ] Reorder, then add more media — new item appends at end, existing order preserved
+- [ ] Open Notification Settings -> tap **Post Notifications**
+- [ ] Confirm only circles you have joined appear -> circles you host should not be listed
+- [ ] Confirm circles are grouped by host name
+- [ ] In each host group, confirm Daily Circle appears first when present
+- [ ] Flip a host-level **Enable All** switch ON -> every circle in that host group enables all post types
+- [ ] Flip the same host-level **Enable All** switch OFF -> each circle falls back to Big News ON and the other post types OFF
+- [ ] On an individual circle card, flip **Enable All** ON -> Big News, Worth Knowing, Everyday Update, and Post With Attachments all turn on
+- [ ] Flip that same circle-level **Enable All** OFF -> confirm Big News stays ON while the extra post types switch OFF
+- [ ] Toggle individual rows one by one -> settings persist after leaving and reopening the screen
 
 ---
 
-## Feature 5: Media Captions
+## Feature 3: Conversation Threads, Replies, And Thread Context
 
-**Devices:** Android primary. iPhone warranted — keyboard behavior in bottom sheets differs significantly between platforms.
-
-### Composer — adding captions (Android)
-
-- [ ] Open the post composer and attach a photo
-- [ ] On the thumbnail, tap the small icon in the bottom-left corner → caption modal slides up
-- [ ] Type a caption (keep it under 300 characters)
-- [ ] Confirm character counter updates as you type (e.g. "42/300")
-- [ ] Tap **Save** → modal closes; 📝 badge appears on the thumbnail
-- [ ] Tap the 📝 badge again → modal reopens with the previously saved caption pre-filled
-- [ ] Edit the caption and save again → badge remains; correct new text is stored
-- [ ] Open the caption modal → tap **Remove** → modal closes; 📝 badge disappears from thumbnail
-- [ ] Add a caption, then delete the media item → no stale captions remain in state (verify by re-adding media)
-
-**Character limit:**
-- [ ] Try to type past 300 characters → input stops accepting new characters; counter shows 300/300
-
-**Keyboard behavior (Android):**
-- [ ] Caption modal opens → keyboard appears; sheet lifts up above keyboard without clipping
-- [ ] Dismiss keyboard (tap outside input or system back) → sheet returns to normal position cleanly; no gap between bottom of sheet and screen edge
-
-### Composer — captions on iPhone
-
-- [ ] Repeat the add/save/remove/reopen flow above
-- [ ] Keyboard behavior: on iOS, `KeyboardAvoidingView behavior='padding'` is used — confirm the sheet lifts correctly above keyboard
-- [ ] Dismiss keyboard → no residual gap or layout jump
-
-### Feed display — caption badge
-
-- [ ] Create and post a photo with a caption
-- [ ] Find the post in the feed → confirm 📝 badge appears on the thumbnail in the post card
-- [ ] Find a post with no captions → confirm no badge appears
-
-### Full-screen viewer — caption overlay
-
-- [ ] Tap on a media item with a caption (in the feed or post detail) → full-screen viewer opens
-- [ ] Confirm the caption text appears as an overlay near the bottom of the screen
-- [ ] Confirm it doesn't overlap the close button or get clipped by the home bar
-- [ ] Tap on a media item without a caption → full-screen viewer opens with no caption text visible
-
-**Multi-image post:**
-- [ ] Create a post with 3 photos, add captions to photos 1 and 3 only
-- [ ] In the feed, swipe through the carousel → badges on photos 1 and 3, none on photo 2
-- [ ] Open each photo in the viewer:
-	- Photo 1: caption shows
-	- Photo 2: no caption
-	- Photo 3: caption shows
-
----
-
-## Feature 6: MP3 Audio Attachments
-
-**Devices:** Android primary. Use iPhone for parity check because audio session and silent-mode behavior can differ.
-
-### Composer + picker flow
-
-- [ ] Open post composer
-- [ ] Tap the new music icon in the bottom toolbar
-- [ ] Confirm gallery screen opens in **Select MP3** mode
-- [ ] Pick 1–3 `.mp3` files
-- [ ] Confirm audio tiles appear in the selected grid with a music icon and filename
-- [ ] Tap **Done** and return to post composer
-- [ ] Confirm audio attachments appear in the media strip as audio cards (not broken image thumbnails)
-
-### Posting + feed rendering
-
-- [ ] Publish a post containing at least one MP3 attachment
-- [ ] Open feed and find the new post
-- [ ] Confirm audio attachment renders as an audio card (play/pause control + timer)
-- [ ] Tap play in feed card → audio starts
-- [ ] Tap pause → audio pauses
-
-### Post detail + full-screen viewer
-
-- [ ] Open the post detail screen for the audio post
-- [ ] Confirm audio card appears in post detail
-- [ ] Tap the card to open full-screen media viewer
-- [ ] Confirm viewer renders audio UI (not image/video)
-- [ ] For local-file previews in compose flow, confirm waveform appears when available
-- [ ] For remote uploaded audio, confirm fallback progress bar appears and playback still works
-
-### iPhone parity checks
-
-- [ ] Repeat picker → post → playback flow on iPhone
-- [ ] Confirm audio plays even with iOS silent switch enabled
-- [ ] Confirm play/pause state and timers update correctly
-
----
-
-## Feature 7: Private Circles (Custom Circle Privacy Controls)
-
-**Devices:** Android primary. iPhone recommended for two-account parity checks.
+**Devices:** Android primary. iPhone recommended for feel/parity.
 
 ### Setup
-- [ ] Use three accounts for clean coverage:
-	- Account A (host): creates circles
-	- Account B (member): joins host's private circle
-	- Account C (stranger): not subscribed to host circles
-- [ ] In Account A, create one public custom circle and one private custom circle
+
+- [ ] Use a post where Account B has reacted so they are allowed to join the conversation
+- [ ] Use Account A as the post host and Account B as the participant
+- [ ] Prefer a Big News or Worth Knowing post so the tier banner is visible in Conversation
 
 ### Android
 
-- [ ] In create/edit circle form, confirm Private toggle exists and defaults to OFF for new circles
-- [ ] Create with Private ON and confirm circle card shows `🔒 Private`
-- [ ] Edit same circle to Private OFF and back ON; confirm badge visibility updates correctly each save
-- [ ] As Account B (non-host member), open private circle details and confirm invite link/QR section is hidden
-- [ ] As Account A (host), open same private circle details and confirm invite link/QR section is visible
-- [ ] As Account C, open Account A's post detail and leave the page; confirm private circle is not suggested while public circle can be
-- [ ] In My Circles, confirm one-time private-circles notice appears
-- [ ] Tap Learn more and confirm explanation modal opens
-- [ ] Dismiss via Got it! and confirm notice does not reappear on revisit
-- [ ] Reset storage, reopen notice, dismiss via X, and confirm notice still remains dismissed afterward
+- [ ] Open Conversation as a user who can access it but has not joined yet -> **Join Conversation** button appears
+- [ ] Tap **Join Conversation** -> input bar appears
+- [ ] On first open with existing messages, confirm the one-time reply hint appears
+- [ ] Dismiss the hint with the X -> close and reopen Conversation -> hint stays dismissed
+- [ ] If you have at least one non-system message of your own, confirm the one-time **double tap to edit** hint appears
+- [ ] Dismiss the edit hint with the X -> close and reopen Conversation -> hint stays dismissed
+- [ ] Long-press a root message -> reply banner appears above the input
+- [ ] Send the reply -> it renders directly under the parent message, not at the very bottom of the thread
+- [ ] Confirm the child bubble shows quoted context from the parent message
+- [ ] With the keyboard open, single tap any message -> the keyboard dismisses
+- [ ] With the keyboard open, double tap one of your own messages -> the keyboard stays open while edit mode starts
+- [ ] Double tap one of your own messages -> the composer fills with that message text and the send button switches into update mode
+- [ ] Edit the text and submit -> the original message updates instead of creating a new message row
+- [ ] Start typing a brand-new draft, then double tap one of your own older messages -> confirmation appears before the draft is cleared
+- [ ] Choose cancel on that confirmation -> your typed draft stays in the composer and edit mode does not start
+- [ ] Trigger the confirmation again and accept -> draft clears, edit mode begins, and the input focuses on the older message text
+- [ ] While in edit mode, tap the X on the edit banner -> edit mode closes and the composer clears
+- [ ] Long-press that reply and send a second-level reply -> it renders directly beneath the first reply
+- [ ] Try to reply again to the second-level reply -> warning appears saying the thread is too deep
+- [ ] Confirm the deeper reply is not entered after the warning
+- [ ] Build a thread with sibling replies under the same parent -> confirm the vertical ancestor line stays visually connected across siblings
+- [ ] Open a Big News or Worth Knowing conversation -> confirm the slim banner text is centered under the header
 
-### iPhone (recommended)
+### iPhone
 
-- [ ] Repeat host vs non-host private invite visibility checks
-- [ ] Repeat post-leave suggestion filtering check
-- [ ] Repeat one-time notice display and dismissal behavior
+- [ ] Repeat the long-press reply flow and depth-limit warning
+- [ ] Confirm the input bar, reply banner, and keyboard behavior feel correct on iOS too
+
+---
+
+## Feature 4: Post Create Draft Persistence And Media Return Flow
+
+**Devices:** Android primary. iPhone recommended for one parity pass if you are already testing there.
+
+### Setup
+
+- [ ] Start a new post with text, a non-default tier, and at least one attached item
+- [ ] If possible, include both image/video and audio coverage in this pass
+
+### Android
+
+- [ ] In Post Create, type text, choose a circle, change the tier, and attach one media item
+- [ ] Tap Camera -> capture media or just close the screen -> confirm you land back in Post Create with the existing draft intact
+- [ ] Tap Gallery -> select media and return -> confirm previous text, tier, status, and earlier media are still there
+- [ ] Tap Audio Record -> record audio or back out -> confirm Post Create restores the draft instead of dumping you to Feed
+- [ ] Force-close and reopen the app while the draft exists -> reopen Post Create -> draft hydrates from local storage
+- [ ] Dismiss the gallery-video limitation notice -> leave and return to Post Create -> dismissal state is preserved in the draft
+- [ ] Tap **Reset** with a dirty draft -> confirmation appears before anything is cleared
+- [ ] Confirm the Reset button only shows when the draft actually has changes
+- [ ] Cancel out of Post Create with an in-progress draft -> discard confirmation appears
+- [ ] Publish a post successfully -> return to Post Create -> the old draft does not come back
+
+### iPhone
+
+- [ ] Repeat at least one Camera return, one Gallery return, and one Audio Record return flow
+- [ ] Confirm the draft still survives those round-trips on iOS
+
+---
+
+## Feature 5: Unread Integrity And Host Leave Warning
+
+**Devices:** Android primary. iPhone useful when two devices are already in play.
+
+### Setup
+
+- [ ] Use Account A as the post host
+- [ ] Use Account B to create all three kinds of post activity on Account A's post: reaction, conversation message, and private note
+- [ ] Make sure Account A has unread indicators visible before starting the checks
+
+### Android
+
+- [ ] Open Post Activity -> confirm unread styling is visible for the affected post
+- [ ] Let the post card become visible on screen -> confirm message and private-note unread do not clear just from visibility
+- [ ] Open Post Detail -> do not open Conversation or Private Notes yet
+- [ ] Leave Post Detail -> confirm reaction unread clears, but message/private-note unread still remain
+- [ ] Reopen Post Detail while unread message/private-note indicators still exist -> try to leave as the host
+- [ ] Confirm the warning modal appears
+- [ ] Tap **Review now** -> confirm you stay in the post flow and can inspect the unread areas
+- [ ] Reopen the warning and tap **Exit Post Anyway** -> confirm you leave the screen
+- [ ] Reproduce the warning and tap **Don't show this again** -> confirm later exits no longer show the modal
+- [ ] Open Conversation directly -> unread conversation indicator clears after that screen is actually opened
+- [ ] Open Private Notes directly -> unread private-note indicator clears after that screen is actually opened
+
+### iPhone
+
+- [ ] Repeat one host leave-warning cycle and one unread-clear cycle for Conversation or Private Notes
+
+---
+
+## Regression Checks
+
+- [ ] Posting still succeeds for a plain text-only post
+- [ ] Posting still succeeds for a media post
+- [ ] Conversation still scrolls to the newest messages correctly
+- [ ] Notification Settings still saves Daily Reminder and time-zone preferences correctly
+- [ ] Post Detail still opens Conversation and Private Notes normally from the host view
+- [ ] Feed bell badge behavior still works for normal unread notifications, not just the release notice dot
+
+---
+
+## Known Limitations / Notes
+
+- [ ] Gallery video uploads are still not the reliable path in every case; the in-app notice should remain visible until dismissed and the preferred path is still recording video in-app
+- [ ] Reply depth is intentionally capped; the warning is expected behavior, not a bug
 
 ---
 

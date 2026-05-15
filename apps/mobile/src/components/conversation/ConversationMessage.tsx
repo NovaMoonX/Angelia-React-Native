@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { useAppSelector } from '@/store/hooks';
@@ -13,7 +13,9 @@ interface ConversationMessageProps {
   continuationDepths?: number[];
   depth?: number;
   parentText?: string | null;
+  onSinglePress?: () => void;
   onLongPress?: () => void;
+  onDoublePress?: () => void;
   onSwipeRight?: () => void;
 }
 
@@ -24,12 +26,25 @@ export function ConversationMessage({
   continuationDepths = [],
   depth = 0,
   parentText,
+  onSinglePress,
   onLongPress,
+  onDoublePress,
 }: ConversationMessageProps) {
   const author = useAppSelector((state) =>
     state.users.users.find((u) => u.id === message.authorId),
   );
   const { theme } = useTheme();
+  const lastPressAtRef = useRef(0);
+  const singlePressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (singlePressTimeoutRef.current) {
+        clearTimeout(singlePressTimeoutRef.current);
+        singlePressTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   if (message.isSystem) {
     return (
@@ -51,6 +66,34 @@ export function ConversationMessage({
   return (
     <Pressable
       onLongPress={onLongPress}
+      onPress={() => {
+        if (!onSinglePress && !onDoublePress) return;
+        const now = Date.now();
+        console.log('[ConversationEdit] press detected', {
+          messageId: message.id,
+          deltaMs: now - lastPressAtRef.current,
+        });
+        if (now - lastPressAtRef.current < 280) {
+          if (singlePressTimeoutRef.current) {
+            clearTimeout(singlePressTimeoutRef.current);
+            singlePressTimeoutRef.current = null;
+          }
+          console.log('[ConversationEdit] double tap recognized', {
+            messageId: message.id,
+          });
+          onDoublePress?.();
+          lastPressAtRef.current = 0;
+          return;
+        }
+        lastPressAtRef.current = now;
+        if (singlePressTimeoutRef.current) {
+          clearTimeout(singlePressTimeoutRef.current);
+        }
+        singlePressTimeoutRef.current = setTimeout(() => {
+          singlePressTimeoutRef.current = null;
+          onSinglePress?.();
+        }, 320);
+      }}
       style={[styles.container, { paddingLeft: rowPaddingLeft }]}
     >
       {/* Vertical stem from this message down toward its replies */}

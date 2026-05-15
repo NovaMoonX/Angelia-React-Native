@@ -3,9 +3,10 @@ import type { RootState } from '@/store';
 import type { CommentReplyNotification, ConversationMessageNotification, Message } from '@/models/types';
 import {
   addMessage as firestoreAddMessage,
+  updateMessageText as firestoreUpdateMessageText,
   createAppNotification,
 } from '@/services/firebase/firestore';
-import { addMessageOptimistic } from '@/store/slices/conversationSlice';
+import { addMessageOptimistic, updateMessageTextOptimistic } from '@/store/slices/conversationSlice';
 import { generateId } from '@/utils/generateId';
 import { isDemoActive } from './globalActions';
 
@@ -180,6 +181,88 @@ export const sendJoinMessage = createAsyncThunk(
     } catch (err) {
       return rejectWithValue(
         err instanceof Error ? err.message : 'Failed to send join message',
+      );
+    }
+  },
+);
+
+/**
+ * Edit an existing chat message in a post conversation.
+ */
+export const editMessage = createAsyncThunk(
+  'conversation/editMessage',
+  async (
+    {
+      postId,
+      messageId,
+      text,
+    }: { postId: string; messageId: string; text: string },
+    { getState, dispatch, rejectWithValue },
+  ) => {
+    const state = getState() as RootState;
+    const user = state.users.currentUser;
+    if (!user) {
+      console.warn('[ConversationEdit] thunk blocked: user not authenticated', { postId, messageId });
+      return rejectWithValue('User not authenticated');
+    }
+
+    const trimmedText = text.trim();
+    if (!trimmedText) {
+      console.warn('[ConversationEdit] thunk blocked: empty message text', { postId, messageId });
+      return rejectWithValue('Message text cannot be empty');
+    }
+
+    const existingMessages = state.conversation.messagesByPost[postId] ?? [];
+    const targetMessage = existingMessages.find((existingMessage) => {
+      return existingMessage.id === messageId;
+    });
+
+    if (!targetMessage) {
+      console.warn('[ConversationEdit] thunk blocked: message not found in local state', { postId, messageId });
+      return rejectWithValue('Message not found');
+    }
+    if (targetMessage.authorId !== user.id) {
+      console.warn('[ConversationEdit] thunk blocked: wrong author', {
+        postId,
+        messageId,
+        messageAuthorId: targetMessage.authorId,
+        currentUserId: user.id,
+      });
+      return rejectWithValue('You can only edit your own messages');
+    }
+    if (targetMessage.isSystem) {
+      console.warn('[ConversationEdit] thunk blocked: system message', { postId, messageId });
+      return rejectWithValue('System messages cannot be edited');
+    }
+
+    console.log('[ConversationEdit] thunk update starting', {
+      postId,
+      messageId,
+      textLength: trimmedText.length,
+    });
+
+    dispatch(updateMessageTextOptimistic({ postId, messageId, text: trimmedText }));
+
+    if (isDemoActive(getState)) {
+      return { postId, messageId, text: trimmedText };
+    }
+
+    try {
+      await firestoreUpdateMessageText(postId, messageId, trimmedText);
+      console.log('[ConversationEdit] thunk update succeeded', {
+        postId,
+        messageId,
+      });
+      return { postId, messageId, text: trimmedText };
+    } catch (err) {
+      console.error('[ConversationEdit] thunk update failed', {
+        postId,
+        messageId,
+        errorMessage: err instanceof Error ? err.message : String(err),
+        rawError: err,
+      });
+      return rejectWithValue(
+        err instanceof Error ? err.message : 'Failed to edit message',
       );
     }
   },
