@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { useAppSelector } from '@/store/hooks';
 import { subscribeToMobileAppConfig, type MobileAppConfig } from '@/services/firebase/firestore';
 import {
+  APP_VERSION,
   BETA_UPDATE_MODAL_SEEN_KEY,
   BETA_UPDATE_VERSION,
   ONBOARDING_FEED_GUIDE_STATE_KEY,
@@ -125,7 +125,7 @@ export function useFeedModals(): FeedModalsState {
     return unsubscribe;
   }, [currentUser, isDemo]);
 
-  const deviceVersion = String(Constants.expoConfig?.version ?? '0.0.0');
+  const deviceVersion = APP_VERSION;
 
   const targetVersion = useMemo(() => {
     if (!mobileConfig) return null;

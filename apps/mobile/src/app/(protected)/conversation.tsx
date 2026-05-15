@@ -298,8 +298,11 @@ export default function ConversationScreen() {
         )}
 
         {tierConfig && post.tier !== 'everyday' && (
-          <View style={[styles.tierIndicator, { backgroundColor: tierConfig.badgeBg }]}>
-            <Text style={styles.tierEmoji}>{tierConfig.emoji}</Text>
+          <View style={[styles.tierBadge, { backgroundColor: tierConfig.badgeBg }]}>
+            <Text style={styles.tierBadgeEmoji}>{tierConfig.emoji}</Text>
+            <Text style={[styles.tierBadgeText, { color: tierConfig.badgeText }]}>
+              {tierConfig.label}
+            </Text>
           </View>
         )}
       </Animated.View>
@@ -474,15 +477,20 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 2,
   },
-  tierIndicator: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+  tierBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 4,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  tierEmoji: {
-    fontSize: 14,
+  tierBadgeEmoji: {
+    fontSize: 11,
+  },
+  tierBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   confettiOverlay: {
     position: 'absolute',

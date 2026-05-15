@@ -16,6 +16,7 @@ import {
 import { useRelativeTime } from '@/hooks/useRelativeTime';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
+import { compareReactionGroupPriority } from '@/lib/reaction/reaction.utils';
 import { POST_TIERS } from '@/models/constants';
 import type { Post, MediaItem } from '@/models/types';
 import { useTheme } from '@/hooks/useTheme';
@@ -80,14 +81,28 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
     : null;
 
   const topReactions = useMemo(() => {
-    const counts: Record<string, number> = {};
+    const groups: Record<string, { count: number; oldestTimestamp: number }> = {};
     post.reactions.forEach((r) => {
-      counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
+      const timestamp = typeof r.timestamp === 'number' ? r.timestamp : 0;
+      if (!groups[r.emoji]) {
+        groups[r.emoji] = { count: 0, oldestTimestamp: timestamp };
+      }
+      groups[r.emoji].count += 1;
+      if (timestamp < groups[r.emoji].oldestTimestamp) {
+        groups[r.emoji].oldestTimestamp = timestamp;
+      }
     });
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
+    return Object.entries(groups)
+      .map(([emoji, data]) => {
+        return { emoji, count: data.count, oldestTimestamp: data.oldestTimestamp };
+      })
+      .sort((a, b) => {
+        return compareReactionGroupPriority(a, b);
+      })
       .slice(0, 5)
-      .map(([emoji]) => emoji);
+      .map((group) => {
+        return group.emoji;
+      });
   }, [post.reactions]);
 
   // Show footer when there are reactions, or when this is another user's post (to prompt engagement).

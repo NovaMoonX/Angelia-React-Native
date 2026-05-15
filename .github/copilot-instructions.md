@@ -342,6 +342,63 @@ Do **not** clutter the README with:
 - Internal implementation details that don't affect the dev workflow
 - Speculative or forward-looking notes
 
+### Branch Narrative (`BRANCH_NARRATIVE.md`)
+
+**For every feature branch that adds user-facing functionality or significant changes, create a `BRANCH_NARRATIVE.md` file** in `apps/mobile/`. This file tells the story of what changed, why it changed, and how it technically works — all for the PR reviewer.
+
+**Purpose:** Reviewers should be able to read the file once and understand:
+- The user problem each feature solves
+- The solution (UX & workflow)
+- Technical implementation details for that feature
+- Cross-cutting changes (data flow, selectors, types)
+- What files changed and why
+- Testing checklist
+
+**Structure:**
+
+1. **Story Overview** — 2–3 sentences about the theme and user intent
+2. **Feature 1–N sections** — One per major change:
+   - **The Problem** — user-facing pain point
+   - **The Solution** — what changed (UX/workflow)
+   - **Technical Detail** — files, key code changes, why (with `[file links](path)`)
+3. **Cross-Cutting Changes** — Redux, data flow, type safety changes shared across multiple features
+4. **User-Facing Impact** — table of features, benefits, where they appear
+5. **Testing Checklist** — manual QA steps
+6. **Files Changed** — table with line counts and purposes
+7. **Summary** — recap for users, code maintainers, and experience
+
+**When to create:**
+- Any branch that adds a new screen, feature, or workflow
+- Any branch that changes existing UI, controls, or copy
+- Any branch that touches critical data flow, selectors, or type structures
+- Do **not** create for bug fixes, refactors, or internal cleanup (unless the PR is large and complex)
+
+**Tone & Audience:**
+- Write for a code reviewer who needs both story context and technical detail
+- Mix narrative ("Alice wants to...") with technical specifics ("added compareReactionGroupPriority in reaction.utils.ts")
+- Include file links so reviewers can jump to implementation
+- Explain **why** changes matter, not just what they do
+
+**Example intro to a feature:**
+
+> **The Problem:** Bob sees 🎉 at the top on the feed, but when he opens the post details, he sees ❤️ first.  
+> **The Solution:** All reactions now sort by count → oldest timestamp → emoji strength → lexicographic, everywhere.  
+> **Technical Detail:**
+> - File: [reaction.utils.ts](../src/services/utils/reaction.utils.ts) (new shared comparator)
+> - Key Changes: Added `compareReactionGroupPriority()`, `EMOJI_STRENGTH_ORDER`, new `ReactionGroupPriorityEntry` interface
+> - Used by: post/[id].tsx, PostCard.tsx, ...
+
+**Before submitting a PR, ensure:**
+- ✅ `BRANCH_NARRATIVE.md` created with all six sections
+- ✅ All file links use workspace-relative paths and work
+- ✅ Testing checklist is concrete and manual-QA–friendly
+- ✅ Files Changed table matches actual git diff
+- ✅ Tone is warm and story-driven, not dry
+
+**After merging:**
+- Archive the branch narrative (paste it into a release notes doc or wiki)
+- Delete the file from `main` to keep the repo clean
+
 ---
 
 ## Confirming destructive actions

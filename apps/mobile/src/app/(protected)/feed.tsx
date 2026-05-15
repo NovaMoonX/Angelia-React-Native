@@ -40,7 +40,7 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { updatePostReactions } from '@/store/actions/postActions';
 import { saveStatus, clearStatus } from '@/store/actions/userActions';
 import { completeTask } from '@/store/actions/taskActions';
-import { selectHasAnyPendingActivity } from '@/store/crossSelectors/activitySelectors';
+import { selectCurrentUserUploadingPosts, selectHasAnyPendingActivity } from '@/store/crossSelectors/activitySelectors';
 import { selectAllChannels } from '@/store/slices/channelsSlice';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
@@ -75,6 +75,7 @@ export default function FeedScreen() {
 	const currentUser = useAppSelector((state) => state.users.currentUser);
 	const isDemo = useAppSelector((state) => state.demo.isActive);
 	const hasPendingActivity = useAppSelector(selectHasAnyPendingActivity);
+	const uploadingPosts = useAppSelector(selectCurrentUserUploadingPosts);
 	const pendingTasks = useAppSelector((state) => state.tasks.items);
 	const { hasUnread: hasUnreadPostActivity, refreshSeenState } = useAuthorPostActivity({ enableSubscriptions: true });
 
@@ -361,6 +362,7 @@ export default function FeedScreen() {
 	const isChannelFiltered = channelFilter.mode === 'specific' && channelFilter.specificIds.length > 0;
 
 	const hasActiveFilters = isChannelFiltered || priorityFilter.length > 0;
+	const uploadingCount = uploadingPosts.length;
 
 	const clearFilters = useCallback(() => {
 		setChannelFilter({ mode: 'all', specificIds: [] });
@@ -696,6 +698,21 @@ export default function FeedScreen() {
 						</Pressable>
 					</View>
 				</View>
+
+				{uploadingCount > 0 && (
+					<Pressable
+						onPress={() => router.push({ pathname: '/(protected)/post-activity', params: { scope: 'uploading' } })}
+						style={[styles.uploadingBanner, { backgroundColor: theme.secondary, borderColor: theme.border }]}
+					>
+						<Feather name='upload-cloud' size={14} color={theme.secondaryForeground} />
+						<Text style={[styles.uploadingBannerText, { color: theme.secondaryForeground }]}> 
+							{uploadingCount === 1
+								? 'Uploading 1 post...'
+								: `Uploading ${uploadingCount} posts...`}
+						</Text>
+						<Feather name='chevron-right' size={14} color={theme.secondaryForeground} />
+					</Pressable>
+				)}
 
 				{/* Filters */}
 				<View style={styles.filterRow}>
@@ -1298,6 +1315,22 @@ const styles = StyleSheet.create({
 	tasksBannerText: {
 		flex: 1,
 		fontSize: 13,
+		fontWeight: '600',
+	},
+	uploadingBanner: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 6,
+		paddingHorizontal: 12,
+		paddingVertical: 6,
+		marginHorizontal: 16,
+		marginBottom: 10,
+		borderRadius: 10,
+		borderWidth: 1,
+	},
+	uploadingBannerText: {
+		flex: 1,
+		fontSize: 12,
 		fontWeight: '600',
 	},
 });

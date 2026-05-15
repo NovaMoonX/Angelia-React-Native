@@ -7,6 +7,12 @@ Related PR: TBD
 Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
 
 Current branch highlights:
+- Status updates now give you two ways to expire: pick a duration (like before) or set an exact future date and time.
+- Reactions now sort more consistently across post views: most-used emoji first, then ties break by which emoji appeared first on the post.
+- Feed now shows a slim upload progress bar at the top whenever your posts are still uploading, including a count when multiple uploads are in flight.
+- Post Activity now includes an Uploading filter so you can quickly see in-progress uploads in one place.
+- Worth Knowing and Big News labels now show directly on both Post Details and Conversation headers, so post priority is always clear.
+- App update checks now use a runtime app-version constant instead of relying only on cached dismissal values, which prevents showing "new update" prompts to people already on the latest build.
 - Conversation alerts are smarter now: you get notified by default when new messages come in, replies can ping the specific person being replied to, and post Hosts no longer get double-pinged when a reply targets them.
 - Notification Settings now includes a dedicated Reply Notifications toggle, so you can choose whether direct replies to your messages should send a push.
 - Post notifications are now per-circle: each circle has its own toggles for Big News, Worth Knowing, Everyday updates, and posts with attachments, grouped by person so it is easy to tune everyone at once.

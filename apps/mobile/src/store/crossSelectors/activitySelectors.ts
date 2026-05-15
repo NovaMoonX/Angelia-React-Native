@@ -38,6 +38,30 @@ export const selectHasAnyPendingActivity = createSelector(
     incomingConnRequests.some((r) => r.status === 'pending'),
 );
 
+/**
+ * Current user's posts that are still uploading, newest first.
+ * Used for top-of-feed upload visibility and detailed upload activity view.
+ */
+export const selectCurrentUserUploadingPosts = createSelector(
+  [
+    (state: RootState) => state.users.currentUser,
+    (state: RootState) => state.posts.items,
+  ],
+  (currentUser, posts): Post[] => {
+    if (!currentUser) return [];
+
+    return posts
+      .filter((post) => {
+        if (post.authorId !== currentUser.id) return false;
+        if (post.markedForDeletionAt !== null) return false;
+        return post.status === 'uploading';
+      })
+      .sort((a, b) => {
+        return b.timestamp - a.timestamp;
+      });
+  },
+);
+
 export const selectAuthorPostActivitySummaries = createSelector(
   [
     (state: RootState) => state.users.currentUser,

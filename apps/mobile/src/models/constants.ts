@@ -8,6 +8,12 @@ import type {
 
 export const CUSTOM_CHANNEL_LIMIT = 3;
 
+/**
+ * Source-of-truth app version for runtime version-gating checks.
+ * Keep this in sync with expo.version in app.config.js.
+ */
+export const APP_VERSION = '1.0.7';
+
 /** How long posts are retained before deletion. Must stay in sync with Cloud Functions. */
 export const DAILY_POST_RETENTION_DAYS = 14;   // Posts in a Daily Circle expire after 14 days.
 export const CUSTOM_POST_RETENTION_DAYS = 90;  // Posts in a Custom Circle expire after 90 days.

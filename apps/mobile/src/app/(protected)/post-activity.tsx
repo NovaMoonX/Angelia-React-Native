@@ -10,6 +10,8 @@ import { useAuthorPostActivity } from '../../hooks/useAuthorPostActivity';
 import { PostCard } from '@/components/PostCard';
 import { useAppSelector } from '@/store/hooks';
 import { selectAllChannels } from '@/store/slices/channelsSlice';
+import { selectCurrentUserUploadingPosts } from '@/store/crossSelectors/activitySelectors';
+import type { Post } from '@/models/types';
 
 type SortOrder = 'newest' | 'oldest';
 
@@ -20,9 +22,10 @@ export default function PostActivityScreen() {
   const { theme } = useTheme();
   const { summaries, unreadDetailsByPostId, refreshSeenState, markPostsSeen } = useAuthorPostActivity({ enableSubscriptions: true });
   const channels = useAppSelector(selectAllChannels);
+  const uploadingPosts = useAppSelector(selectCurrentUserUploadingPosts);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const [selectedCircleId, setSelectedCircleId] = useState<string>('all');
-  const [activityScope, setActivityScope] = useState<'all' | 'unread'>(scope === 'unread' ? 'unread' : 'all');
+  const [activityScope, setActivityScope] = useState<'all' | 'unread' | 'uploading'>(scope === 'unread' ? 'unread' : scope === 'uploading' ? 'uploading' : 'all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [refreshing, setRefreshing] = useState(false);
   const markPostsSeenRef = useRef(markPostsSeen);
@@ -110,12 +113,34 @@ export default function PostActivityScreen() {
     return sorted;
   }, [activityScope, filteredByCircle, unreadPostIdSet, sortOrder]);
 
+  const filteredUploadingPosts = useMemo(() => {
+    let result = uploadingPosts;
+
+    if (selectedCircleId !== 'all') {
+      result = result.filter((post) => {
+        return post.channelId === selectedCircleId;
+      });
+    }
+
+    const sorted = [...result].sort((a, b) => {
+      if (sortOrder === 'newest') {
+        return b.timestamp - a.timestamp;
+      }
+      return a.timestamp - b.timestamp;
+    });
+
+    return sorted;
+  }, [uploadingPosts, selectedCircleId, sortOrder]);
+
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     const fullyVisiblePostIds = viewableItems
       .map((token) => {
-        const summary = token.item as (typeof filtered)[number] | undefined;
-        if (!summary?.post?.id || token.isViewable !== true) return null;
-        return summary.post.id;
+        const item = token.item as (typeof filtered)[number] | Post | undefined;
+        if (token.isViewable !== true) return null;
+        if (item && 'post' in item && item.post?.id) {
+          return item.post.id;
+        }
+        return null;
       })
       .filter((id): id is string => {
         return id != null;
@@ -158,6 +183,20 @@ export default function PostActivityScreen() {
       </View>
     );
   }, [router, theme.primary, unreadDetailsByPostId]);
+
+  const renderUploadingCard = useCallback(({ item }: { item: Post }) => {
+    return (
+      <View>
+        <PostCard
+          post={item}
+          onNavigate={() => {
+            router.push(`/(protected)/post/${item.id}`);
+          }}
+        />
+        <Text style={[styles.newActivityText, { color: theme.primary }]}>Uploading now... we will post it as soon as it finishes.</Text>
+      </View>
+    );
+  }, [router, theme.primary]);
 
   const listHeader = (
     <View style={styles.filterSection}>
@@ -250,6 +289,28 @@ export default function PostActivityScreen() {
             Unread Only
           </Text>
         </Pressable>
+
+        <Pressable
+          onPress={() => {
+            setActivityScope('uploading');
+          }}
+          style={[
+            styles.filterChip,
+            {
+              borderColor: activityScope === 'uploading' ? theme.primary : theme.border,
+              backgroundColor: activityScope === 'uploading' ? `${theme.primary}18` : theme.card,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.filterChipText,
+              { color: activityScope === 'uploading' ? theme.primary : theme.foreground },
+            ]}
+          >
+            Uploading ({uploadingPosts.length})
+          </Text>
+        </Pressable>
       </View>
 
       <Text style={[styles.filterLabel, { color: theme.mutedForeground }]}>Sort by</Text>
@@ -300,43 +361,79 @@ export default function PostActivityScreen() {
   return (
     <View style={{ flex: 1 }}>
       <ScreenHeader title='Your Post Activity' />
-      <FlashList
-        style={{ flex: 1, backgroundColor: theme.background }}
-        data={filtered}
-        keyExtractor={(item) => {
-          return item.post.id;
-        }}
-        renderItem={renderSummaryCard}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        ListHeaderComponent={listHeader}
-        ListEmptyComponent={
-          <Card style={styles.emptyCard}>
-            <Text style={styles.emptyEmoji}>📬</Text>
-            <Text style={[styles.emptyTitle, { color: theme.foreground }]}>No posts here yet</Text>
-            <Text style={[styles.emptyBody, { color: theme.mutedForeground }]}> 
-              {activityScope === 'unread'
-                ? 'You are all caught up in this Circle.'
-                : 'Your activity shows up here once you share in this Circle.'}
-            </Text>
-          </Card>
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.primary}
-            colors={[theme.primary]}
-          />
-        }
-        contentContainerStyle={[
-          styles.content,
-          {
-            paddingTop: 12,
-            paddingBottom: insets.bottom + 36,
-          },
-        ]}
-      />
+      {activityScope === 'uploading' ? (
+        <FlashList
+          style={{ flex: 1, backgroundColor: theme.background }}
+          data={filteredUploadingPosts}
+          keyExtractor={(item) => {
+            return item.id;
+          }}
+          renderItem={renderUploadingCard}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={
+            <Card style={styles.emptyCard}>
+              <Text style={styles.emptyEmoji}>📬</Text>
+              <Text style={[styles.emptyTitle, { color: theme.foreground }]}>No posts here yet</Text>
+              <Text style={[styles.emptyBody, { color: theme.mutedForeground }]}>No uploads in progress right now.</Text>
+            </Card>
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={theme.primary}
+              colors={[theme.primary]}
+            />
+          }
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingTop: 12,
+              paddingBottom: insets.bottom + 36,
+            },
+          ]}
+        />
+      ) : (
+        <FlashList
+          style={{ flex: 1, backgroundColor: theme.background }}
+          data={filtered}
+          keyExtractor={(item) => {
+            return item.post.id;
+          }}
+          renderItem={renderSummaryCard}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={
+            <Card style={styles.emptyCard}>
+              <Text style={styles.emptyEmoji}>📬</Text>
+              <Text style={[styles.emptyTitle, { color: theme.foreground }]}>No posts here yet</Text>
+              <Text style={[styles.emptyBody, { color: theme.mutedForeground }]}> 
+                {activityScope === 'unread'
+                  ? 'You are all caught up in this Circle.'
+                  : 'Your activity shows up here once you share in this Circle.'}
+              </Text>
+            </Card>
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={theme.primary}
+              colors={[theme.primary]}
+            />
+          }
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingTop: 12,
+              paddingBottom: insets.bottom + 36,
+            },
+          ]}
+        />
+      )}
     </View>
   );
 }

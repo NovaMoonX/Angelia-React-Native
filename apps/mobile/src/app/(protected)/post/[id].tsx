@@ -25,12 +25,13 @@ import { useSentPrivateNotes } from '@/hooks/useSentPrivateNotes';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { useActionModal } from '@/hooks/useActionModal';
-import { getSuggestedReactionEmojis } from '@/lib/reaction/reaction.utils';
+import { compareReactionGroupPriority, getSuggestedReactionEmojis } from '@/lib/reaction/reaction.utils';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { getUserDisplayName } from '@/lib/user/user.utils';
 import {
+	POST_TIERS,
 	POST_REACTIONS_SEEN_KEY,
 	PRIVATE_NOTES_SEEN_KEY,
 	CONVERSATION_LAST_SEEN_KEY,
@@ -170,15 +171,24 @@ export default function PostDetailScreen() {
 		setActiveCarouselIndex(index);
 	};
 
-	// Group reactions by emoji, sorted by count descending — must be before early return to satisfy Rules of Hooks
+	// Group reactions by emoji, sorted by count, oldest reaction, then emoji strength.
 	const reactionGroups = useMemo(() => {
 		if (!post || !currentUser) return [] as { emoji: string; count: number; currentUserReacted: boolean; names: string[] }[];
-		const groups: Record<string, { count: number; currentUserReacted: boolean; names: string[] }> = {};
+		const groups: Record<string, { count: number; oldestTimestamp: number; currentUserReacted: boolean; names: string[] }> = {};
 		post.reactions.forEach((r) => {
+			const timestamp = typeof r.timestamp === 'number' ? r.timestamp : 0;
 			if (!groups[r.emoji]) {
-				groups[r.emoji] = { count: 0, currentUserReacted: false, names: [] };
+				groups[r.emoji] = {
+					count: 0,
+					oldestTimestamp: timestamp,
+					currentUserReacted: false,
+					names: [],
+				};
 			}
 			groups[r.emoji].count += 1;
+			if (timestamp < groups[r.emoji].oldestTimestamp) {
+				groups[r.emoji].oldestTimestamp = timestamp;
+			}
 			if (r.userId === currentUser.id) {
 				groups[r.emoji].currentUserReacted = true;
 				groups[r.emoji].names.unshift('You');
@@ -188,8 +198,29 @@ export default function PostDetailScreen() {
 			}
 		});
 		return Object.entries(groups)
-			.sort((a, b) => { return b[1].count - a[1].count; })
-			.map(([emoji, data]) => { return { emoji, count: data.count, currentUserReacted: data.currentUserReacted, names: data.names }; });
+			.map(([emoji, data]) => {
+				return {
+					emoji,
+					count: data.count,
+					oldestTimestamp: data.oldestTimestamp,
+					currentUserReacted: data.currentUserReacted,
+					names: data.names,
+				};
+			})
+			.sort((a, b) => {
+				return compareReactionGroupPriority(
+					{ emoji: a.emoji, count: a.count, oldestTimestamp: a.oldestTimestamp },
+					{ emoji: b.emoji, count: b.count, oldestTimestamp: b.oldestTimestamp },
+				);
+			})
+			.map((group) => {
+				return {
+					emoji: group.emoji,
+					count: group.count,
+					currentUserReacted: group.currentUserReacted,
+					names: group.names,
+				};
+			});
 	}, [post, currentUser, usersMap]);
 
 	const suggestedReactionEmojis = useMemo(() => {
@@ -399,6 +430,8 @@ export default function PostDetailScreen() {
 
 	const colors = channel ? getColorPair(channel) : { backgroundColor: '#6366F1', textColor: '#FFF' };
 	const channelBadgeLabel = channel?.isDaily ? 'Daily' : channel?.name;
+	const tierBadgeConfig = post.tier ? POST_TIERS.find((t) => { return t.value === post.tier; }) ?? null : null;
+	const showTierBadge = tierBadgeConfig != null && post.tier !== 'everyday';
 	const authorName = getPostAuthorName(author, currentUser);
 	const hasReacted = post.reactions.some((r) => r.userId === currentUser.id);
 	const canAccessConversation = hasReacted || isHost;
@@ -491,17 +524,27 @@ export default function PostDetailScreen() {
 							)}
 						</View>
 					</View>
-					{channel && (
-						<Badge
-							style={{
-								backgroundColor: colors.backgroundColor,
-								borderColor: colors.backgroundColor,
-							}}
-							textStyle={{ color: colors.textColor }}
-						>
-							{channelBadgeLabel}
-						</Badge>
-					)}
+					<View style={styles.badgesColumn}>
+						{channel && (
+							<Badge
+								style={{
+									backgroundColor: colors.backgroundColor,
+									borderColor: colors.backgroundColor,
+								}}
+								textStyle={{ color: colors.textColor }}
+							>
+								{channelBadgeLabel}
+							</Badge>
+						)}
+						{showTierBadge && tierBadgeConfig && (
+							<View style={[styles.tierBadge, { backgroundColor: tierBadgeConfig.badgeBg }]}> 
+								<Text style={styles.tierBadgeEmoji}>{tierBadgeConfig.emoji}</Text>
+								<Text style={[styles.tierBadgeText, { color: tierBadgeConfig.badgeText }]}> 
+									{tierBadgeConfig.label}
+								</Text>
+							</View>
+						)}
+					</View>
 				</View>
 
 				{/* Post Content */}
@@ -766,6 +809,25 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		gap: 6,
 		flexWrap: 'wrap',
+	},
+	badgesColumn: {
+		alignItems: 'flex-end',
+		gap: 6,
+	},
+	tierBadge: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 4,
+		paddingHorizontal: 8,
+		paddingVertical: 4,
+		borderRadius: 12,
+	},
+	tierBadgeEmoji: {
+		fontSize: 11,
+	},
+	tierBadgeText: {
+		fontSize: 11,
+		fontWeight: '700',
 	},
 	authorName: {
 		fontSize: 16,
