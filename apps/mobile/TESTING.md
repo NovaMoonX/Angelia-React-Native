@@ -491,6 +491,8 @@ Select 3+ photos or videos when creating a new post so you have items to reorder
 - [ ] Cancel the confirmation and confirm draft remains intact
 - [ ] Confirm again and discard; verify you land on Feed and draft is cleared
 - [ ] Re-open Post Create and confirm it starts clean
+- [ ] Confirm Reset is hidden on a fresh, untouched composer
+- [ ] Add text/media/status or change priority/circle and confirm Reset appears
 - [ ] Tap Reset with a filled draft and confirm destructive confirmation appears
 - [ ] Confirm reset and verify text/media/status/priority/channel are reset to defaults on the same screen
 

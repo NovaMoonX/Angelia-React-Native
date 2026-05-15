@@ -370,6 +370,13 @@ export default function PostCreateScreen() {
   };
 
   const canPublish = text.trim().length > 0 && !!selectedChannel;
+  const defaultChannelSelection = dailyChannelId || sortedUserChannels[0]?.id || '';
+  const hasPostAdditions =
+    text.trim().length > 0 ||
+    media.length > 0 ||
+    pendingStatus != null ||
+    selectedTier !== 'everyday' ||
+    selectedChannel !== defaultChannelSelection;
 
   const removeMedia = (index: number) => {
     setMedia((prev) => prev.filter((_, i) => i !== index));
@@ -453,9 +460,11 @@ export default function PostCreateScreen() {
           <Pressable onPress={() => { void handleCancelDraft(); }} hitSlop={12}>
             <Text style={[styles.cancelText, { color: theme.foreground }]}>Cancel</Text>
           </Pressable>
-          <Pressable onPress={() => { void handleResetDraft(); }} hitSlop={12}>
-            <Text style={[styles.resetText, { color: theme.mutedForeground }]}>Reset</Text>
-          </Pressable>
+          {hasPostAdditions && (
+            <Pressable onPress={() => { void handleResetDraft(); }} hitSlop={12}>
+              <Text style={[styles.resetText, { color: theme.mutedForeground }]}>Reset</Text>
+            </Pressable>
+          )}
         </View>
         <Pressable
           onPress={handleSubmit}
