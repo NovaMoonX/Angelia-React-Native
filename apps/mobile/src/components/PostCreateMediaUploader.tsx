@@ -22,6 +22,8 @@ export interface MediaFile {
   size?: number;
   /** For videos: local `file://` URI of the generated thumbnail image. */
   thumbnailUri?: string | null;
+  /** Optional caption for this media item. */
+  caption: string | null;
 }
 
 interface PostCreateMediaUploaderProps {
@@ -67,6 +69,7 @@ export function PostCreateMediaUploader({
               name: asset.fileName || `media-${Date.now()}`,
               type: asset.mimeType || 'image/jpeg',
               size: asset.fileSize,
+              caption: null,
             };
             if (asset.mimeType?.startsWith('video/')) {
               file.thumbnailUri = await generateVideoThumbnailFileUri(asset.uri);

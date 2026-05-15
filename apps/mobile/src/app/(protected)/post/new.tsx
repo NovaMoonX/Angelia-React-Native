@@ -9,7 +9,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -83,7 +82,7 @@ export default function PostCreateScreen() {
   const [text, setText] = useState(params.existingText || '');
   const [selectedTier, setSelectedTier] = useState<PostTier>('everyday');
   const [media, setMedia] = useState<MediaFile[]>(initialMedia);
-  const [previewItem, setPreviewItem] = useState<{ uri: string; type: 'image' | 'video' } | null>(null);
+  const [previewItem, setPreviewItem] = useState<{ uri: string; type: 'image' | 'video'; caption: string | null } | null>(null);
 
   // Video thumbnails keyed by media index
   const [videoThumbnails, setVideoThumbnails] = useState<Record<number, VideoThumbnail | null>>({});
@@ -217,6 +216,49 @@ export default function PostCreateScreen() {
     setCountdownSeconds(3);
     setCountdownVisible(true);
     Keyboard.dismiss();
+  };
+
+  const [reorderIndex, setReorderIndex] = useState<number | null>(null);
+  const [captionTargetIndex, setCaptionTargetIndex] = useState<number | null>(null);
+  const [captionDraft, setCaptionDraft] = useState('');
+
+  const openCaptionModal = (index: number) => {
+    setCaptionTargetIndex(index);
+    setCaptionDraft(media[index]?.caption ?? '');
+  };
+
+  const saveCaptions = () => {
+    if (captionTargetIndex === null) return;
+    setMedia((prev) => {
+      return prev.map((item, i) => {
+        if (i !== captionTargetIndex) return item;
+        return { ...item, caption: captionDraft.trim() || null };
+      });
+    });
+    setCaptionTargetIndex(null);
+  };
+
+  const moveMedia = (fromIndex: number, direction: 'left' | 'right') => {
+    const toIndex = direction === 'left' ? fromIndex - 1 : fromIndex + 1;
+    if (toIndex < 0 || toIndex >= media.length) return;
+    setMedia((prev) => {
+      const next = [...prev];
+      const temp = next[fromIndex];
+      next[fromIndex] = next[toIndex];
+      next[toIndex] = temp;
+      return next;
+    });
+    setVideoThumbnails((prev) => {
+      const next = { ...prev };
+      const temp = next[fromIndex];
+      next[fromIndex] = next[toIndex];
+      next[toIndex] = temp;
+      return next;
+    });
+    const tempRef = thumbnailsRef.current[fromIndex];
+    thumbnailsRef.current[fromIndex] = thumbnailsRef.current[toIndex];
+    thumbnailsRef.current[toIndex] = tempRef;
+    setReorderIndex(toIndex);
   };
 
   return (
@@ -406,41 +448,103 @@ export default function PostCreateScreen() {
       {/* Media preview strip — kept outside ScrollView so it stays visible above
            the toolbar when the keyboard is open on iOS */}
       {media.length > 0 && (
-        <FlashList<MediaFile>
-          data={media}
+        <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          keyExtractor={(_, i) => `media-${i}`}
           contentContainerStyle={styles.mediaStrip}
-          renderItem={({ item, index }) => {
+        >
+          {media.map((item, index) => {
             const isVideo = item.type.startsWith('video/');
+            const isGif = item.type === 'image/gif';
             const thumb = isVideo ? videoThumbnails[index] : null;
+            const isSelected = reorderIndex === index;
             return (
               <Pressable
-                style={[styles.mediaThumb, { borderColor: theme.border }]}
-                onPress={() => setPreviewItem({ uri: item.uri, type: isVideo ? 'video' : 'image' })}
+                key={`media-${index}`}
+                style={[
+                  styles.mediaThumb,
+                  { borderColor: isSelected ? theme.primary : theme.border },
+                  isSelected && styles.mediaThumbSelected,
+                ]}
+                onPress={() => {
+                  if (reorderIndex !== null) {
+                    setReorderIndex(null);
+                    return;
+                  }
+                  setPreviewItem({ uri: item.uri, type: isVideo ? 'video' : 'image', caption: item.caption });
+                }}
+                onLongPress={() => { setReorderIndex(index); }}
+                delayLongPress={300}
               >
                 <Image
                   source={thumb ?? { uri: item.uri }}
                   style={styles.mediaImage}
                   contentFit="cover"
+                  recyclingKey={isGif ? undefined : item.uri}
                 />
-                {isVideo && (
+                {isVideo && !isSelected && (
                   <View style={styles.videoOverlay}>
                     <Feather name="play" size={18} color="#FFF" />
                   </View>
                 )}
-                <Pressable
-                  style={styles.mediaRemove}
-                  onPress={() => removeMedia(index)}
-                  hitSlop={8}
-                >
-                  <Feather name="x" size={12} color="#FFF" />
-                </Pressable>
+                {/* Reorder arrows shown when this item is selected for reorder */}
+                {isSelected && (
+                  <View style={styles.reorderOverlay}>
+                    <Pressable
+                      onPress={() => moveMedia(index, 'left')}
+                      disabled={index === 0}
+                      hitSlop={6}
+                      style={[styles.reorderArrow, index === 0 && styles.reorderArrowDisabled]}
+                    >
+                      <Feather name="chevron-left" size={16} color="#FFF" />
+                    </Pressable>
+                    <Feather name="move" size={14} color="#FFF" />
+                    <Pressable
+                      onPress={() => moveMedia(index, 'right')}
+                      disabled={index === media.length - 1}
+                      hitSlop={6}
+                      style={[styles.reorderArrow, index === media.length - 1 && styles.reorderArrowDisabled]}
+                    >
+                      <Feather name="chevron-right" size={16} color="#FFF" />
+                    </Pressable>
+                  </View>
+                )}
+                {!isSelected && (
+                  <Pressable
+                    style={styles.mediaRemove}
+                    onPress={() => {
+                      removeMedia(index);
+                      setReorderIndex(null);
+                    }}
+                    hitSlop={8}
+                  >
+                    <Feather name="x" size={12} color="#FFF" />
+                  </Pressable>
+                )}
+                {/* Caption badge — shown when caption is set */}
+                {!isSelected && item.caption && (
+                  <Pressable
+                    style={styles.mediaCaptionBadge}
+                    onPress={() => openCaptionModal(index)}
+                    hitSlop={8}
+                  >
+                    <Text style={styles.mediaCaptionBadgeText}>📝</Text>
+                  </Pressable>
+                )}
+                {/* Add caption button — shown when no caption and not in reorder */}
+                {!isSelected && !item.caption && (
+                  <Pressable
+                    style={styles.mediaAddCaption}
+                    onPress={() => openCaptionModal(index)}
+                    hitSlop={8}
+                  >
+                    <Feather name="type" size={10} color="#FFF" />
+                  </Pressable>
+                )}
               </Pressable>
             );
-          }}
-        />
+          })}
+        </ScrollView>
       )}
 
       {/* Action toolbar */}
@@ -502,6 +606,7 @@ export default function PostCreateScreen() {
         <MediaViewerModal
           uri={previewItem.uri}
           mediaType={previewItem.type}
+          caption={previewItem.caption}
           visible
           onClose={() => setPreviewItem(null)}
         />
@@ -532,6 +637,49 @@ export default function PostCreateScreen() {
         onCancel={handleCancelCountdown}
         onPostNow={handlePostNow}
       />
+
+      {/* Caption input modal */}
+      {captionTargetIndex !== null && (
+        <View style={styles.captionModal}>
+          <Pressable style={styles.captionBackdrop} onPress={() => setCaptionTargetIndex(null)} />
+          <View style={[styles.captionSheet, { backgroundColor: theme.card, paddingBottom: insets.bottom + 16 }]}>
+            <Text style={[styles.captionTitle, { color: theme.foreground }]}>Add a caption</Text>
+            <TextInput
+              value={captionDraft}
+              onChangeText={setCaptionDraft}
+              placeholder="Describe this photo..."
+              placeholderTextColor={theme.mutedForeground}
+              multiline
+              maxLength={300}
+              autoFocus
+              style={[styles.captionInput, { color: theme.foreground, borderColor: theme.border, backgroundColor: theme.background }]}
+            />
+            <Text style={[styles.captionCharCount, { color: theme.mutedForeground }]}>{captionDraft.length}/300</Text>
+            <View style={styles.captionActions}>
+              <Pressable
+                onPress={() => {
+                  setMedia((prev) => {
+                    return prev.map((item, i) => {
+                      if (i !== captionTargetIndex) return item;
+                      return { ...item, caption: null };
+                    });
+                  });
+                  setCaptionTargetIndex(null);
+                }}
+                style={[styles.captionBtn, { borderColor: theme.border }]}
+              >
+                <Text style={[styles.captionBtnText, { color: theme.mutedForeground }]}>Remove</Text>
+              </Pressable>
+              <Pressable
+                onPress={saveCaptions}
+                style={[styles.captionBtn, styles.captionBtnSave, { backgroundColor: theme.primary }]}
+              >
+                <Text style={[styles.captionBtnText, { color: theme.primaryForeground }]}>Save</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -677,6 +825,100 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  mediaThumbSelected: {
+    borderWidth: 2,
+    transform: [{ scale: 1.05 }],
+  },
+  reorderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  reorderArrow: {
+    padding: 2,
+  },
+  reorderArrowDisabled: {
+    opacity: 0.3,
+  },
+  mediaCaptionBadge: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mediaCaptionBadgeText: {
+    fontSize: 10,
+  },
+  mediaAddCaption: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  captionModal: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
+    justifyContent: 'flex-end',
+  },
+  captionBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  captionSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  captionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  captionInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 15,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  captionCharCount: {
+    fontSize: 12,
+    textAlign: 'right',
+    marginTop: -8,
+  },
+  captionActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  captionBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  captionBtnSave: {
+    borderWidth: 0,
+  },
+  captionBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   statusPrompt: {
     flexDirection: 'row',

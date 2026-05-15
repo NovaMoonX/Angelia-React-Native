@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
@@ -48,10 +49,11 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
   const hasMultipleMedia = post.media && post.media.length > 1;
   const isOtherUser = author && currentUser && author.id !== currentUser.id;
   const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
+  const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video'; caption: string | null } | null>(null);
   const cardScale = useRef(new Animated.Value(1)).current;
 
   const handleCardLongPress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Animated.sequence([
       Animated.timing(cardScale, {
         toValue: 0.97,
@@ -179,7 +181,7 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
                 key={`media-${index}`}
                 item={item}
                 style={styles.carouselImage}
-                onOpen={() => setMediaViewer({ url: item.url, type: item.type })}
+                onOpen={() => setMediaViewer({ url: item.url, type: item.type, caption: item.caption ?? null })}
                 onLongPress={cardLongPressHandler}
               />
             ))}
@@ -188,7 +190,7 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
           <CardMediaItem
             item={post.media[0]}
             style={styles.singleImage}
-            onOpen={() => setMediaViewer({ url: post.media![0].url, type: post.media![0].type })}
+            onOpen={() => setMediaViewer({ url: post.media![0].url, type: post.media![0].type, caption: post.media![0].caption ?? null })}
             onLongPress={cardLongPressHandler}
           />
         )
@@ -239,6 +241,7 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
         <MediaViewerModal
           uri={mediaViewer.url}
           mediaType={mediaViewer.type}
+          caption={mediaViewer.caption}
           visible
           onClose={() => setMediaViewer(null)}
         />
@@ -283,13 +286,18 @@ function CardMediaItem({
   }
 
   return (
-    <Pressable onPress={onOpen} onLongPress={onLongPress} delayLongPress={220}>
+    <Pressable onPress={onOpen} onLongPress={onLongPress} delayLongPress={220} style={{ position: 'relative' }}>
       <Image
         source={{ uri: item.url }}
         style={style}
         contentFit="cover"
-        recyclingKey={item.url}
+        recyclingKey={item.url.toLowerCase().endsWith('.gif') ? undefined : item.url}
       />
+      {!!item.caption && (
+        <View style={styles.captionBadge}>
+          <Text style={styles.captionBadgeText}>📝</Text>
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -412,5 +420,19 @@ const styles = StyleSheet.create({
   firstReactText: {
     fontSize: 11,
     opacity: 0.55,
+  },
+  captionBadge: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 10,
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  captionBadgeText: {
+    fontSize: 11,
   },
 });

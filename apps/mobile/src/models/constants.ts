@@ -203,3 +203,10 @@ export const FEEDBACK_FORM_DISMISSED_URL_KEY = '@angelia/feedback_form_dismissed
 
 /** Sentinel timestamp used for statuses that stay active until manually cleared. */
 export const STATUS_INDEFINITE_EXPIRES_AT = 8_640_000_000_000;
+
+/**
+ * AsyncStorage key used to track whether the current app session already
+ * performed the cold-launch scroll-to-top. Cleared on each cold launch;
+ * preserved during within-session navigation so scroll position is kept.
+ */
+export const FEED_SESSION_SCROLLED_KEY = '@angelia/feed_session_scrolled';

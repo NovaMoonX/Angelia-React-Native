@@ -184,6 +184,7 @@ export const uploadPost = createAsyncThunk(
       const readyMedia: MediaItem[] = uploadedUrls.map((url, i) => ({
         url,
         type: media[i].type.startsWith('image') ? ('image' as const) : ('video' as const),
+        caption: media[i].caption ?? null,
       }));
 
       await updatePost(postId, {

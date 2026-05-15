@@ -47,7 +47,7 @@ import {
   WIND_DOWN_NOTIFICATION_ID,
   getFollowUpForPrompt,
 } from '@/services/notifications';
-import { APP_LAST_OPENED_AT_KEY } from '@/models/constants';
+import { APP_LAST_OPENED_AT_KEY, FEED_SESSION_SCROLLED_KEY } from '@/models/constants';
 import type { AppNotificationType, Channel, ChannelJoinRequest, Connection, ConnectionRequest, NotificationSettings, Post, User } from '@/models/types';
 
 /** AsyncStorage key that tracks the calendar date when the daily in-app notice was last shown. */
@@ -836,6 +836,17 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       });
     }
   }, [isDemo, addToast, allUsers, channels, router, incomingCircleInvites]);
+
+  // Effect 15: Clear the feed session-scroll flag when the app goes to the
+  // background, so the next foreground (or cold launch) scrolls the feed to top.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      if (nextState === 'background') {
+        void AsyncStorage.removeItem(FEED_SESSION_SCROLLED_KEY);
+      }
+    });
+    return () => { subscription.remove(); };
+  }, []);
 
   return <>{children}</>;
 }

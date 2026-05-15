@@ -179,7 +179,7 @@ export default function CameraScreen() {
 			]).start();
 
 			const compressedUri = await compressImage(rawUri, 'image/jpeg');
-			const file: MediaFile = { uri: compressedUri, name: `photo-${generateId()}.jpg`, type: 'image/jpeg' };
+			const file: MediaFile = { uri: compressedUri, name: `photo-${generateId()}.jpg`, type: 'image/jpeg', caption: null };
 			const newCount = totalCount + 1;
 			if (newCount >= MAX_FILES) {
 				// Immediately confirm once we hit the limit
@@ -208,6 +208,7 @@ export default function CameraScreen() {
 					name: `video-${generateId()}.mp4`,
 					type: 'video/mp4',
 					thumbnailUri,
+					caption: null,
 				};
 				const newCount = totalCount + 1;
 				if (newCount >= MAX_FILES) {

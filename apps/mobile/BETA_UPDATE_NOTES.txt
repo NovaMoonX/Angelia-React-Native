@@ -1,12 +1,17 @@
 Beta update notes
 
-Last updated: 2026-05-14
-Branch: copilot/update-post-activity-handling
+Last updated: 2026-05-28
+Branch: copilot/haptics-media-reorder-captions-gif-fix
 Related PR: TBD
 
 Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
 
 Current branch highlights:
+- Haptic feedback added: long-pressing a post gives a subtle pulse, and tapping an emoji reaction gives a light tap — both make the app feel more alive.
+- GIFs now actually animate in the feed! Previously they'd be stuck on the first frame; now they play properly.
+- When you open the app fresh, it now jumps you straight to the top of your feed instead of leaving you mid-scroll from last time.
+- Before posting, you can now reorder your media by long-pressing a photo/video in the strip and using the arrows to rearrange.
+- You can now add captions to individual photos and videos before posting — a 📝 badge shows on any item with a caption, and captions display in full when you open the media viewer.
 - Status updates now give you two ways to expire: pick a duration (like before) or set an exact future date and time.
 - Reactions now sort more consistently across post views: most-used emoji first, then ties break by which emoji appeared first on the post.
 - Feed now shows a slim upload progress bar at the top whenever your posts are still uploading, including a count when multiple uploads are in flight.

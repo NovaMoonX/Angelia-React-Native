@@ -81,6 +81,7 @@ export default function GalleryScreen() {
         name: asset.fileName || `media-${Date.now()}`,
         type: asset.mimeType || 'image/jpeg',
         size: asset.fileSize,
+        caption: null,
       }));
 
     // Compress images and generate thumbnails for videos

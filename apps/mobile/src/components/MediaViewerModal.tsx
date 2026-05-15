@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Feather } from '@expo/vector-icons';
@@ -13,6 +13,8 @@ interface MediaViewerModalProps {
   mediaType: 'image' | 'video';
   visible: boolean;
   onClose: () => void;
+  /** Optional caption to show at the bottom of the full-screen view */
+  caption?: string | null;
 }
 
 function VideoPlayer({ uri }: { uri: string }) {
@@ -46,6 +48,7 @@ export function MediaViewerModal({
   mediaType,
   visible,
   onClose,
+  caption,
 }: MediaViewerModalProps) {
   const insets = useSafeAreaInsets();
 
@@ -76,6 +79,13 @@ export function MediaViewerModal({
           ) : (
             <ZoomableImage uri={uri} visible={visible} />
           )}
+
+          {/* Caption overlay at bottom */}
+          {!!caption && (
+            <View style={[styles.captionContainer, { bottom: insets.bottom + 16 }]}>
+              <Text style={styles.captionText}>{caption}</Text>
+            </View>
+          )}
         </View>
       </GestureHandlerRootView>
     </Modal>
@@ -97,5 +107,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
+  },
+  captionContainer: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  captionText: {
+    color: '#FFF',
+    fontSize: 15,
+    lineHeight: 21,
+    textAlign: 'center',
   },
 });

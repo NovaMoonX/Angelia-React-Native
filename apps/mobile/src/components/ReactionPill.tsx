@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { AddReactionIcon } from '@/components/AddReactionIcon';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -48,7 +49,7 @@ export function ReactionPill({
           return (
             <Pressable
               key={emoji}
-              onPress={() => onSelect(emoji)}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onSelect(emoji); }}
               style={[
                 styles.emojiButton,
                 {

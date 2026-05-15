@@ -401,6 +401,46 @@ Do **not** clutter the README with:
 
 ---
 
+### Testing Document (`TESTING.md`)
+
+**For every feature branch that has a `BRANCH_NARRATIVE.md`, also create and maintain a `TESTING.md` file** in `apps/mobile/`. This is the manual QA guide for the developer to verify every feature before merging.
+
+**Purpose:** The developer reads this file, then systematically checks every feature on device. Reviewers can also use it to confirm what was tested.
+
+**Device setup context** (always include at the top):
+- **Primary:** Android — used for all standard testing
+- **Secondary:** iPhone — used only when:
+  - Two different user accounts are needed simultaneously
+  - The feature likely behaves differently on iOS (pickers, keyboard, safe area, haptics)
+  - Confirming a fix works on both platforms
+
+**Structure:**
+
+1. **Device Setup** — brief section at the top with Android/iPhone guidance and when to use each
+2. **Feature 1–N sections** — one per feature from the Branch Narrative:
+   - **Devices:** which to test on, and when to involve the iPhone
+   - **Setup** — any state/data that needs to exist before testing
+   - **Checklist** — concrete checkbox steps a person can follow on a real device
+   - **Edge cases** — boundary conditions, unusual inputs, stress cases
+3. **Regression Checks** — a final section of quick checks to confirm nothing pre-existing broke
+4. **Known Limitations / Notes** — anything that is intentionally deferred, partially implemented, or needs follow-up
+
+**Conventions:**
+- All checklist items start with `- [ ]` so they can be mentally checked off while testing
+- Steps are written as actions + expected outcomes: "Tap X → Y happens"
+- Be specific: "Tap the 📝 badge" is better than "Open the caption modal"
+- List the Android steps first; add an iPhone section only when behavior differs
+
+**Keep it current:** Update `TESTING.md` whenever new features are added to the branch or when a bug is found during testing that reveals a gap in the checklist.
+
+**Before submitting a PR, ensure:**
+- ✅ `TESTING.md` exists and covers every feature in `BRANCH_NARRATIVE.md`
+- ✅ Regression checklist is present
+- ✅ Device guidance is clear (Android vs iPhone, when to use each)
+- ✅ All checklist items are actionable on a real device (no vague "confirm it works")
+
+---
+
 ## Confirming destructive actions
 
 Any user-initiated action that is **irreversible or has significant consequences** must be confirmed with `useActionModal`'s `confirm()` before proceeding. Pass `destructive: true` so the confirm button renders in a destructive (red) style.

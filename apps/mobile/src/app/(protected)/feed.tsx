@@ -50,6 +50,7 @@ import { useFeedReactionHint } from '@/hooks/useFeedReactionHint';
 import { useFeedModals } from '@/hooks/useFeedModals';
 import {
 	BETA_FEEDBACK_FORM_URL,
+	FEED_SESSION_SCROLLED_KEY,
 	NOTIFICATION_SETTINGS_NOTICE_ACCENT,
 	NOTIFICATION_SETTINGS_NOTICE_BADGE_SEEN_KEY,
 	NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY,
@@ -129,6 +130,23 @@ export default function FeedScreen() {
 	const [activeReactionPillPostId, setActiveReactionPeelPostId] = useState<string | null>(null);
 	const [hasNotificationSettingsNotice, setHasNotificationSettingsNotice] = useState(false);
 	const isMountedRef = useRef(false);
+
+	// Cold-launch: scroll to top once per app session. Within-session navigation
+	// (e.g. going to notifications and back) preserves the user's scroll position.
+	useEffect(() => {
+		if (isMountedRef.current) return;
+		isMountedRef.current = true;
+		void AsyncStorage.getItem(FEED_SESSION_SCROLLED_KEY).then((value) => {
+			if (value === 'true') return null;
+			// Cold launch — scroll to top after posts are rendered
+			void AsyncStorage.setItem(FEED_SESSION_SCROLLED_KEY, 'true');
+			setTimeout(() => {
+				flatListRef.current?.scrollToIndex({ index: 0, animated: false });
+			}, 300);
+			return null;
+		});
+	}, []);
+
 	const reactionPickerOpenRef = useRef(false);
 	const flatListRef = useRef<FlashListRef<Post>>(null);
 

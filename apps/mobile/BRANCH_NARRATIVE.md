@@ -1,4 +1,159 @@
-# v1.0.7 Release Branch Narrative
+# Haptics, GIF Fix, Scroll-to-Top, Media Reorder & Captions — Branch Narrative
+
+**Branch:** copilot/haptics-media-reorder-captions-gif-fix  
+**Date:** May 2026  
+**Theme:** Polish, expressiveness, and creative control
+
+---
+
+## Story Overview
+
+This branch is about **making the app feel more alive and giving creators more control**. Five independent improvements ship together: physical feedback when you interact with posts, GIFs that actually animate, an app that remembers where you want to start, the ability to arrange your media before posting, and captions so every photo or video can tell its story.
+
+---
+
+## Feature 1: Haptic Feedback
+
+### The Problem
+Tapping the reaction peel and long-pressing posts felt like interacting with a wall — visually something happens, but there's no physical acknowledgment. On mobile, tactile feedback signals that the app heard you.
+
+### The Solution
+- **Long-press a post** on the feed → medium impact haptic fires at the moment the press registers, alongside the existing card-scale animation.
+- **Tap an emoji** in the reaction peel → light impact fires before the selection dispatches, making each tap feel crisp.
+
+### Technical Detail
+- **Installed:** `expo-haptics`
+- **Files:**
+  - [PostCard.tsx](src/components/PostCard.tsx) — `import * as Haptics from 'expo-haptics'`; `Haptics.impactAsync(ImpactFeedbackStyle.Medium)` at the top of `handleCardLongPress`
+  - [ReactionPill.tsx](src/components/ReactionPill.tsx) — `Haptics.impactAsync(ImpactFeedbackStyle.Light)` fires inside the emoji `onPress` before calling `onSelect(emoji)`
+- **Pattern:** Both use `ImpactFeedbackStyle` (not notification; this is a touch, not an alert)
+
+---
+
+## Feature 2: GIF Playback Fix
+
+### The Problem
+GIFs uploaded to posts showed as a frozen first frame in the feed. `expo-image` uses a `recyclingKey` prop to reuse image nodes between list renders — but reuse means the animation state is preserved from a prior scroll position (or reset incorrectly), leaving the GIF stuck.
+
+### The Solution
+Skip `recyclingKey` for GIFs. Without it, `expo-image` creates a fresh node each time, which resets the animation and lets it play from frame 1.
+
+### Technical Detail
+- **File:** [PostCard.tsx](src/components/PostCard.tsx) — `CardMediaItem` image: `recyclingKey={item.url.toLowerCase().endsWith('.gif') ? undefined : item.url}`
+- **File:** [new.tsx](src/app/(protected)/post/new.tsx) — media strip thumbnail: `recyclingKey={item.type === 'image/gif' ? undefined : item.uri}`
+- **Why two checks:** PostCard uses the already-uploaded `url` string; new.tsx uses the raw `MediaFile.type` from the device picker.
+
+---
+
+## Feature 3: Feed Scroll-to-Top on Cold Launch
+
+### The Problem
+When Alice re-opens the app after a few hours, she lands mid-feed — exactly where she left off last session. But she wants to see what's new, and the feed has already loaded fresh posts at the top. She has to manually scroll all the way up.
+
+### The Solution
+On cold launch (first mount after the app was backgrounded), the feed scrolls to the top automatically — but only once per session. Opening and closing the notifications panel or navigating between tabs doesn't re-trigger it.
+
+### Technical Detail
+- **Constant:** `FEED_SESSION_SCROLLED_KEY = '@angelia/feed_session_scrolled'` added to [constants.ts](src/models/constants.ts)
+- **File:** [feed.tsx](src/app/(protected)/feed.tsx) — `useEffect` on mount: reads AsyncStorage for the flag; if absent, schedules `flatListRef.current?.scrollToIndex({ index: 0, animated: false })` after 300ms (allows data to load first), then sets the flag to prevent repeat.
+- **File:** [DataListenerWrapper.tsx](src/components/DataListenerWrapper.tsx) — Effect 15: `AppState.addEventListener('change', ...)` removes the flag when the app goes to `background`, so the next cold launch will scroll again.
+- **Guard:** Uses the existing `isMountedRef` in feed.tsx so the scroll only fires on the first real mount.
+
+---
+
+## Feature 4: Media Reorder
+
+### The Problem
+Bob takes three photos, picks them in the wrong order, and has no way to fix it without canceling and starting over. The FlashList-based media strip in the post composer was read-only.
+
+### The Solution
+Long-press any thumbnail in the strip to enter reorder mode. Left/right chevron arrows appear; tap them to swap the item with its neighbor. Tap anywhere else to exit reorder mode.
+
+### Technical Detail
+- **File:** [new.tsx](src/app/(protected)/post/new.tsx):
+  - Replaced `FlashList` with a horizontal `ScrollView` + manual `.map()` — needed imperative control over item layout for the reorder overlay
+  - Added state: `reorderIndex: number | null`
+  - Added `moveMedia(fromIndex, direction)`: swaps items in `media` state, `videoThumbnails` record, and `thumbnailsRef` simultaneously so nothing desyncs
+  - Long-press on thumbnail → `setReorderIndex(index)`; arrows call `moveMedia`; tapping outside → `setReorderIndex(null)`
+  - Disabled-state on arrows when item is at first/last position
+  - New styles: `mediaThumbSelected`, `reorderOverlay`, `reorderArrow`, `reorderArrowDisabled`
+
+---
+
+## Feature 5: Media Captions
+
+### The Problem
+A photo without words leaves context on the table. Creator-focused apps let you annotate each photo or video so followers know exactly what they're looking at. Angelia didn't have this.
+
+### The Solution
+In the post composer, every media thumbnail now has a small caption button (📝 if a caption is set, a type icon if not). Tapping it opens a bottom-sheet modal with a text input (300 char limit). When a caption is saved, a 📝 badge appears on the thumbnail. When a viewer opens that media in full-screen, the caption overlays the bottom of the screen.
+
+### Technical Detail
+- **Type changes:**
+  - [types.ts](src/models/types.ts) — `MediaItem` interface: added `caption: string | null`
+  - [PostCreateMediaUploader.tsx](src/components/PostCreateMediaUploader.tsx) — `MediaFile` interface: added `caption: string | null`
+- **Data flow:**
+  - [camera.tsx](src/app/(protected)/camera.tsx) — `MediaFile` construction: `caption: null`
+  - [gallery.tsx](src/app/(protected)/gallery.tsx) — `rawFiles.map()`: `caption: null`
+  - [PostCreateMediaUploader.tsx](src/components/PostCreateMediaUploader.tsx) — picker `.map()`: `caption: null`
+  - [postActions.ts](src/store/actions/postActions.ts) — `readyMedia` array: `caption: media[i].caption ?? null`
+- **Composer UI:** [new.tsx](src/app/(protected)/post/new.tsx) — `captionTargetIndex`, `captionDraft` state; `openCaptionModal()`; `saveCaptions()`; caption bottom-sheet modal JSX; 📝 badge overlay; caption badge styles
+- **Feed display:** [PostCard.tsx](src/components/PostCard.tsx) — `cardMediaItem`: 📝 badge on thumbnails when `item.caption` is set; `mediaViewer` state extended with `caption: string | null`; both `setMediaViewer` calls pass `caption: item.caption ?? null`
+- **Full-screen viewer:** [MediaViewerModal.tsx](src/components/MediaViewerModal.tsx) — `caption?: string | null` prop; caption overlay View above `insets.bottom + 16`; `captionContainer` + `captionText` styles
+- **Demo data:** [demoData.ts](src/lib/demoData.ts) — all `MediaItem` objects now include `caption: null`
+
+---
+
+## Cross-Cutting Changes
+
+| Concern | What changed |
+|---|---|
+| `MediaItem` type | Added `caption: string | null` — required in Firestore reads, must always be present |
+| `MediaFile` type | Added `caption: string | null` — all construction sites updated to `null` |
+| `postActions.ts` | Threads caption from `MediaFile` → `readyMedia` → Firestore write |
+| `constants.ts` | Added `FEED_SESSION_SCROLLED_KEY` |
+| `expo-haptics` | New dependency, installed via `npx expo install` |
+
+---
+
+## User-Facing Impact
+
+| Feature | Benefit | Where |
+|---|---|---|
+| Haptic feedback | Posts and reactions feel physical and responsive | Feed, reaction peel |
+| GIF playback | GIFs animate correctly instead of freezing | Feed, post detail |
+| Scroll-to-top | Opens to fresh content every cold launch | Feed |
+| Media reorder | Creators can arrange photos/videos before posting | Post composer |
+| Captions | Photos and videos can carry their own context | Post composer, feed, media viewer |
+
+---
+
+## Files Changed
+
+| File | Purpose |
+|---|---|
+| `src/components/PostCard.tsx` | Haptics, GIF fix, caption badge, mediaViewer caption |
+| `src/components/ReactionPill.tsx` | Haptic on emoji tap |
+| `src/components/MediaViewerModal.tsx` | Caption overlay prop + styles |
+| `src/components/PostCreateMediaUploader.tsx` | `caption: null` in MediaFile construction; `caption` field on `MediaFile` |
+| `src/app/(protected)/post/new.tsx` | Media reorder (ScrollView, moveMedia, reorderIndex), captions (modal, badge, state) |
+| `src/app/(protected)/camera.tsx` | `caption: null` in MediaFile |
+| `src/app/(protected)/gallery.tsx` | `caption: null` in MediaFile |
+| `src/app/(protected)/feed.tsx` | Cold-launch scroll-to-top effect |
+| `src/components/DataListenerWrapper.tsx` | AppState listener to clear scroll flag on background |
+| `src/models/types.ts` | `caption: string | null` on `MediaItem` |
+| `src/models/constants.ts` | `FEED_SESSION_SCROLLED_KEY` |
+| `src/store/actions/postActions.ts` | Threads caption into `readyMedia` |
+| `src/lib/demoData.ts` | `caption: null` on all demo `MediaItem` objects |
+
+---
+
+## Summary
+
+**For users:** The app now pulses when you touch it, GIFs actually move, you always land at the top when you open up fresh, you can rearrange your photos before posting, and every image can have its own caption.
+
+**For maintainers:** Caption is a nullable field threaded end-to-end from device picker → Firestore → viewer. All construction sites default to `null`. The feed scroll flag lives in AsyncStorage and clears on background so it reliably re-fires each cold launch.
+
 
 **Branch:** v1.0.7-features  
 **Release Date:** May 2026  
