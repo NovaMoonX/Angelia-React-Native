@@ -433,6 +433,22 @@ Do **not** clutter the README with:
 
 **Keep it current:** Update `TESTING.md` whenever new features are added to the branch or when a bug is found during testing that reveals a gap in the checklist.
 
+**Edit-safety rules for existing `TESTING.md`:**
+- Default to **additive updates**: append a new `Feature N` section for new work.
+- **Do not delete or replace** existing feature sections/checklists unless the user explicitly asks.
+- **Do not rename** the testing guide title unless the user explicitly asks.
+- Preserve the existing section format (`Devices`, `Setup`, `Android`, optional `iPhone`) when adding new feature sections.
+- If the user asks to "add testing" for current work, add a new feature section in the existing format; do not create ad-hoc standalone sections.
+
+**⚠️ CRITICAL: Before marking any user-facing branch task complete, verify `TESTING.md` is updated for the current branch.**
+
+Required final check before completion:
+- Confirm active branch name via git (`git rev-parse --abbrev-ref HEAD`) before editing `TESTING.md`
+- Confirm `**Branch:**` in `TESTING.md` matches the active feature branch name
+- Confirm feature sections in `TESTING.md` match the current `BRANCH_NARRATIVE.md`
+- If branch detection is unavailable or ambiguous, ask the user for the branch name before editing `TESTING.md`
+- If either is stale, update `TESTING.md` first, then mark the task complete
+
 **Before submitting a PR, ensure:**
 - ✅ `TESTING.md` exists and covers every feature in `BRANCH_NARRATIVE.md`
 - ✅ Regression checklist is present

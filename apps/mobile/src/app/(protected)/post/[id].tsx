@@ -315,6 +315,7 @@ export default function PostDetailScreen() {
 				const filtered = ownerCustomCircles.filter((circle) => {
 					return (
 						Boolean(circle.inviteCode) &&
+						!circle.isPrivate &&
 						circle.ownerId !== currentUser.id &&
 						!circle.subscribers.includes(currentUser.id) &&
 						!seenCircleSuggestionIdsRef.current.includes(circle.id)

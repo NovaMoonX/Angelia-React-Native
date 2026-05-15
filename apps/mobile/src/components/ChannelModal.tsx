@@ -31,6 +31,8 @@ interface ChannelModalProps {
   pendingInviteeIds?: string[];
   onInviteCandidate?: (userId: string) => void;
   invitingCandidateId?: string | null;
+  /** Whether the current user owns this channel. Used to gate private-circle invite visibility. */
+  isOwner?: boolean;
 }
 
 export function ChannelModal({
@@ -46,6 +48,7 @@ export function ChannelModal({
   pendingInviteeIds = [],
   onInviteCandidate,
   invitingCandidateId,
+  isOwner = false,
 }: ChannelModalProps) {
   const router = useRouter();
   const { theme } = useTheme();
@@ -118,28 +121,36 @@ export function ChannelModal({
           </View>
         ) : (
           <View style={styles.section}>
-            <Pressable
-              onPress={() => setInviteLinkSectionOpen((prev) => !prev)}
-              style={styles.collapsibleHeader}
-            >
-              <Text style={[styles.sectionTitle, { color: theme.foreground }]}>Invite Link</Text>
-              <Feather
-                name={inviteLinkSectionOpen ? 'chevron-up' : 'chevron-down'}
-                size={18}
-                color={theme.mutedForeground}
-              />
-            </Pressable>
-            {inviteLinkSectionOpen && (
+            {channel.isPrivate && !isOwner ? (
+              <View style={[styles.privateNotice, { backgroundColor: theme.secondary }]}>
+                <Text style={[styles.privateNoticeText, { color: theme.secondaryForeground }]}>
+                  🔒 This is a private circle. Only the host can invite new members.
+                </Text>
+              </View>
+            ) : (
               <>
-                {onRefreshInviteCode && (
-                  <View style={styles.refreshRow}>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onPress={onRefreshInviteCode}
-                    >
-                      Refresh
-                    </Button>
+                <Pressable
+                  onPress={() => setInviteLinkSectionOpen((prev) => !prev)}
+                  style={styles.collapsibleHeader}
+                >
+                  <Text style={[styles.sectionTitle, { color: theme.foreground }]}>Invite Link</Text>
+                  <Feather
+                    name={inviteLinkSectionOpen ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color={theme.mutedForeground}
+                  />
+                </Pressable>
+                {inviteLinkSectionOpen && (
+                  <>
+                    {onRefreshInviteCode && (
+                      <View style={styles.refreshRow}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onPress={onRefreshInviteCode}
+                        >
+                          Refresh
+                        </Button>
                     <HelpIcon message="Generates a brand-new invite link and instantly invalidates the old one." />
                   </View>
                 )}
@@ -185,6 +196,8 @@ export function ChannelModal({
                       Copy Code
                     </CopyButton>
                   </View>
+                )}
+                  </>
                 )}
               </>
             )}
@@ -311,6 +324,14 @@ const styles = StyleSheet.create({
   noInvite: {
     fontSize: 13,
     fontStyle: 'italic',
+  },
+  privateNotice: {
+    borderRadius: 10,
+    padding: 12,
+  },
+  privateNoticeText: {
+    fontSize: 13,
+    lineHeight: 19,
   },
   dailyInfoBox: {
     borderRadius: 12,

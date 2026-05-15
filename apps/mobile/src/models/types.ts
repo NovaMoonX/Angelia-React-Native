@@ -136,6 +136,7 @@ export interface Channel {
   description: string;
   color: string;
   isDaily: boolean | null;
+  isPrivate: boolean | null;
   ownerId: string;
   subscribers: string[];
   inviteCode: string | null;

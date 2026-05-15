@@ -1,12 +1,18 @@
 Beta update notes
 
 Last updated: 2026-05-28
-Branch: copilot/haptics-media-reorder-captions-gif-fix
+Branch: copilot/private-circles
 Related PR: TBD
 
 Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
 
 Current branch highlights:
+- You can now mark a custom circle as **Private** when creating or editing it — only you can invite people to a private circle, and it won't be suggested to others when they leave a post.
+- Private circles show a 🔒 badge so it's always clear which circles are invite-only.
+- The My Circles tab now shows a one-time notice explaining the difference between public and private circles, with a "Learn more" sheet for the full breakdown.
+- For private circles, the invite link is hidden from members — only the host sees it.
+
+Previous branch highlights:
 - Posts now support MP3 audio attachments: you can pick audio files from your phone, post them, and play them right in feed/post detail with a clean audio player UI.
 - Haptic feedback added: long-pressing a post gives a subtle pulse, and tapping an emoji reaction gives a light tap — both make the app feel more alive.
 - GIFs now actually animate in the feed! Previously they'd be stuck on the first frame; now they play properly.

@@ -1,6 +1,6 @@
 # Testing Guide — Haptics, GIF Fix, Scroll-to-Top, Media Reorder, Captions & MP3
 
-**Branch:** copilot/haptics-media-reorder-captions-gif-fix  
+**Branch:** beta-v-1.0.7
 **Last updated:** May 15, 2026
 
 ---
@@ -154,9 +154,9 @@ Select 3+ photos or videos when creating a new post so you have items to reorder
 - [ ] Create a post with 3 photos, add captions to photos 1 and 3 only
 - [ ] In the feed, swipe through the carousel → badges on photos 1 and 3, none on photo 2
 - [ ] Open each photo in the viewer:
-  - Photo 1: caption shows
-  - Photo 2: no caption
-  - Photo 3: caption shows
+	- Photo 1: caption shows
+	- Photo 2: no caption
+	- Photo 3: caption shows
 
 ---
 
@@ -199,33 +199,61 @@ Select 3+ photos or videos when creating a new post so you have items to reorder
 
 ---
 
+## Feature 7: Private Circles (Custom Circle Privacy Controls)
+
+**Devices:** Android primary. iPhone recommended for two-account parity checks.
+
+### Setup
+- [ ] Use three accounts for clean coverage:
+	- Account A (host): creates circles
+	- Account B (member): joins host's private circle
+	- Account C (stranger): not subscribed to host circles
+- [ ] In Account A, create one public custom circle and one private custom circle
+
+### Android
+
+- [ ] In create/edit circle form, confirm Private toggle exists and defaults to OFF for new circles
+- [ ] Create with Private ON and confirm circle card shows `🔒 Private`
+- [ ] Edit same circle to Private OFF and back ON; confirm badge visibility updates correctly each save
+- [ ] As Account B (non-host member), open private circle details and confirm invite link/QR section is hidden
+- [ ] As Account A (host), open same private circle details and confirm invite link/QR section is visible
+- [ ] As Account C, open Account A's post detail and leave the page; confirm private circle is not suggested while public circle can be
+- [ ] In My Circles, confirm one-time private-circles notice appears
+- [ ] Tap Learn more and confirm explanation modal opens
+- [ ] Dismiss via Got it! and confirm notice does not reappear on revisit
+- [ ] Reset storage, reopen notice, dismiss via X, and confirm notice still remains dismissed afterward
+
+### iPhone (recommended)
+
+- [ ] Repeat host vs non-host private invite visibility checks
+- [ ] Repeat post-leave suggestion filtering check
+- [ ] Repeat one-time notice display and dismissal behavior
+
+---
+
 ## Regression Checks
 
 Run these after all feature tests to confirm nothing was broken.
 
-### Feed
+### Circles Core Behavior
+
+- [ ] Creating a normal public custom circle still works end-to-end
+- [ ] Editing circle name/description/color still works for host
+- [ ] Leaving a custom circle still works with confirmation flow
+- [ ] Deleting a custom circle as host still works with confirmation flow
+
+### Invites + Membership
+
+- [ ] Public circle invite links still work as before
+- [ ] Private circle join still works when host shares invite
+- [ ] Member list renders correctly for both public and private circles
+
+### Feed + Post Detail
 
 - [ ] Feed loads and scrolls normally
-- [ ] Long-press still opens the reaction peel (haptics are additive, not replacing)
-- [ ] Reaction peel still dispatches the selected emoji when tapped
-- [ ] Navigating to post detail still works via a normal tap
-- [ ] Images in the feed load correctly (no broken images from recyclingKey changes)
-- [ ] Audio post cards render and can play/pause without crashing scroll performance
-
-### Post Composer
-
-- [ ] Can still create a text-only post
-- [ ] Can still attach media (photo + video) without adding captions
-- [ ] Can still remove media from the strip
-- [ ] Media strip scrolls horizontally when more than ~3 items
-- [ ] Post submits and navigates to the uploading screen correctly
-
-### Media Viewer
-
-- [ ] Opening any image in full-screen works
-- [ ] Opening any video in full-screen works; video plays
-- [ ] Opening any audio in full-screen works; play/pause works
-- [ ] Closing the viewer returns to the correct screen
+- [ ] Post detail opens/closes normally
+- [ ] Exiting post detail no longer suggests private circles
+- [ ] Leaving post detail can still suggest eligible public circles
 
 ---
 
@@ -236,3 +264,6 @@ Run these after all feature tests to confirm nothing was broken.
 - **GIF fix** skips `recyclingKey` for GIFs only. Non-GIF images retain the key for performance.
 - **Audio waveform** is shown for local `file://` paths; remote uploaded audio uses progress fallback in the current implementation.
 - **Scroll-to-top** fires after 300ms to give the feed data time to load. If the feed is very slow, the scroll may fire before posts are ready (acceptable edge case for now).
+- Existing channels without `isPrivate` are treated as public (`null`/falsy behavior).
+- Daily circles remain effectively public behavior in this release (`isPrivate: false` at creation).
+- Firestore docs now persist `isPrivate`; ensure old test data is recreated if behavior seems inconsistent.

@@ -154,6 +154,17 @@ export const JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY = (userId: string) => `@ang
  */
 export const BETA_UPDATE_VERSION = '2026-05-14-replies';
 
+/**
+ * Version for the one-time private-circles notice shown on the My Circles tab.
+ * Bump when the private circles feature ships or notice copy changes.
+ */
+export const PRIVATE_CIRCLES_NOTICE_VERSION = '2026-05-private-circles';
+
+/** AsyncStorage key recording whether the user has seen the private-circles notice. */
+export const PRIVATE_CIRCLES_NOTICE_SEEN_KEY = (version: string) => {
+  return `@angelia/private_circles_notice_seen_${version}`;
+};
+
 export const BETA_UPDATE_MODAL_SEEN_KEY = (version: string) => `@angelia/beta_update_modal_seen_${version}`;
 
 /**

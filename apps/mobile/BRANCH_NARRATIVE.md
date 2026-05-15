@@ -1,140 +1,99 @@
-# Haptics, GIF Fix, Scroll-to-Top, Media Reorder, Captions & MP3 Support — Branch Narrative
+# Private Circles — Branch Narrative
 
-**Branch:** copilot/haptics-media-reorder-captions-gif-fix  
+**Branch:** copilot/private-circles  
 **Date:** May 2026  
-**Theme:** Expressive interactions and richer media storytelling
+**Theme:** Creator control and audience privacy for custom circles
 
 ---
 
 ## Story Overview
 
-This branch focuses on making Angelia feel more alive and more creator-friendly. We improved tactile feedback, fixed GIF playback reliability, made feed entry behavior more intentional, gave creators control over media order and per-item captions, and now added MP3 audio support so posts can include voice clips and audio snippets.
+This branch gives circle hosts the ability to make a custom circle private — invite-only, not discoverable, and fully host-controlled. Users can toggle a circle's privacy when creating or editing it, see a clear visual indicator, and discover the feature via a one-time notice card on the My Circles tab.
 
 ---
 
-## Feature 1: Haptic Feedback
+## Feature 1: Private Circle Toggle in Create/Edit
 
 ### The Problem
-Post interactions felt flat. Long-pressing and reaction taps had visual changes but no tactile acknowledgement.
+All custom circles were inherently public: anyone with the invite link could request to join, and circles would be suggested to strangers after they left a post. Hosts had no way to limit who discovers or joins their circle.
 
 ### The Solution
-- Long-pressing a post triggers medium-impact haptic feedback.
-- Tapping an emoji reaction triggers light-impact haptic feedback.
+A **Private** toggle was added to the circle creation and edit form. When enabled:
+- Only the host can invite people (invite link is hidden from members)
+- The circle is not suggested post-leave
+- A 🔒 badge appears on the circle card
+
+When disabled (default), circles behave exactly as before.
 
 ### Technical Detail
-- [src/components/PostCard.tsx](src/components/PostCard.tsx): medium haptic in `handleCardLongPress`
-- [src/components/ReactionPill.tsx](src/components/ReactionPill.tsx): light haptic before `onSelect(emoji)`
-- Dependency: `expo-haptics`
+- File: [src/models/types.ts](src/models/types.ts) — `isPrivate: boolean | null` added to `Channel` interface (nullable so existing Firestore documents without the field default gracefully to public)
+- File: [src/components/ChannelFormModal.tsx](src/components/ChannelFormModal.tsx) — RN `Switch` toggle added; controlled via `useState<boolean>`; `onSubmit` extended with `isPrivate: boolean`; dynamic description text explains the implications of each mode
+- File: [src/store/actions/channelActions.ts](src/store/actions/channelActions.ts) — `createCustomChannel` and `editCustomChannel` thunks accept and forward `isPrivate`
+- File: [src/services/firebase/firestore.ts](src/services/firebase/firestore.ts) — `createCustomChannel` passes `isPrivate`; `updateCustomChannel` spreads the full Channel so edits propagate automatically; `createDailyChannel` explicitly sets `isPrivate: false`
 
 ---
 
-## Feature 2: GIF Playback Fix
+## Feature 2: Post-Leave Circle Suggestion Filtering
 
 ### The Problem
-GIFs could appear frozen on the first frame in list contexts due to view recycling.
+When a user leaves a post detail page, the app may suggest circles for them to join. Private circles were being suggested to users who have no connection to the host — exactly the opposite of what "private" means.
 
 ### The Solution
-Skip `recyclingKey` for GIF sources so animated images are re-instantiated and play correctly.
+Private circles are now filtered from the suggestions list entirely.
 
 ### Technical Detail
-- [src/components/PostCard.tsx](src/components/PostCard.tsx): no `recyclingKey` when `url` ends with `.gif`
-- [src/app/(protected)/post/new.tsx](src/app/(protected)/post/new.tsx): no `recyclingKey` when `type === 'image/gif'`
+- File: [src/app/(protected)/post/[id].tsx](src/app/(protected)/post/[id].tsx) — `!circle.isPrivate` guard added to the `ownerCustomCircles.filter()` call that populates `CircleJoinSuggestionsModal`
 
 ---
 
-## Feature 3: Feed Scroll-to-Top on Cold Launch
+## Feature 3: Non-Owner Invite Restriction in ChannelModal
 
 ### The Problem
-Users could reopen the app and land deep in old scroll position instead of immediately seeing fresh feed content.
+Any circle member who opened the "Circle Info" modal could see the invite link and share it with others — even for private circles.
 
 ### The Solution
-Auto-scroll to the top once per active session and reset this behavior when the app backgrounds.
+For private circles, the invite link section is replaced with a friendly notice: `"🔒 This is a private circle. Only the host can invite new members."` Members never see the link or QR code for a private circle.
 
 ### Technical Detail
-- [src/models/constants.ts](src/models/constants.ts): `FEED_SESSION_SCROLLED_KEY`
-- [src/app/(protected)/feed.tsx](src/app/(protected)/feed.tsx): mount-time top-scroll effect + flag write
-- [src/components/DataListenerWrapper.tsx](src/components/DataListenerWrapper.tsx): clear flag when app state changes to background
+- File: [src/components/ChannelModal.tsx](src/components/ChannelModal.tsx) — New `isOwner?: boolean` prop; non-daily branch now conditionally renders either the invite link section or the private notice
+- File: [src/components/account/MyChannelsTab.tsx](src/components/account/MyChannelsTab.tsx) — passes `isOwner={selectedChannel.ownerId === currentUser.id}`
+- File: [src/components/account/SubscribedTab.tsx](src/components/account/SubscribedTab.tsx) — passes `isOwner={selectedChannel.ownerId === currentUser.id}`
 
 ---
 
-## Feature 4: Media Reorder
+## Feature 4: 🔒 Private Badge on Circle Card
 
 ### The Problem
-Creators had no way to fix media order after selection.
+There was no visual way to tell at a glance whether a circle was private.
 
 ### The Solution
-Long-press a media thumbnail to enter reorder mode and move items left/right.
+A small `🔒 Private` text badge appears next to the circle name in `ChannelCard` for any circle with `isPrivate: true`.
 
 ### Technical Detail
-- [src/app/(protected)/post/new.tsx](src/app/(protected)/post/new.tsx):
-  - `reorderIndex` state
-  - `moveMedia()` swaps entries in `media`, `videoThumbnails`, and `thumbnailsRef`
-  - `FlashList` replaced by horizontal `ScrollView` for simpler reorder overlays
+- File: [src/components/ChannelCard.tsx](src/components/ChannelCard.tsx) — conditional `<Text>` badge rendered in the card header; new `privateBadge` style
 
 ---
 
-## Feature 5: Media Captions
+## Feature 5: One-Time Private Circles Notice on My Circles Tab
 
 ### The Problem
-Posts lacked per-media context when multiple photos/videos were attached.
+Existing users won't know private circles exist. There was no in-app discovery mechanism.
 
 ### The Solution
-Each attachment can now hold an optional caption. Composer shows a caption control and badge, and the full-screen viewer displays the caption.
+A dismissible notice card appears at the top of the My Circles tab the first time after the feature ships. The card reads "🔒 You can now mark circles as private!" with a "Learn more" link that opens a bottom-sheet modal explaining public vs private circles in plain language.
+
+Dismissal is persisted via AsyncStorage so the card never reappears after the user closes it (or taps "Got it!" in the learn-more sheet).
 
 ### Technical Detail
-- Type updates:
-  - [src/models/types.ts](src/models/types.ts): `MediaItem.caption: string | null`
-  - [src/components/PostCreateMediaUploader.tsx](src/components/PostCreateMediaUploader.tsx): `MediaFile.caption: string | null`
-- Data flow updates:
-  - [src/app/(protected)/camera.tsx](src/app/(protected)/camera.tsx): `caption: null` when creating media
-  - [src/app/(protected)/gallery.tsx](src/app/(protected)/gallery.tsx): `caption: null` when creating media
-  - [src/store/actions/postActions.ts](src/store/actions/postActions.ts): caption persisted in `readyMedia`
-- UI updates:
-  - [src/app/(protected)/post/new.tsx](src/app/(protected)/post/new.tsx): caption modal and thumbnail badges
-  - [src/components/PostCard.tsx](src/components/PostCard.tsx): caption badge on media
-  - [src/components/MediaViewerModal.tsx](src/components/MediaViewerModal.tsx): caption overlay in full-screen viewer
-
----
-
-## Feature 6: MP3 Audio Attachments
-
-### The Problem
-Posts supported only images/videos. Users couldn’t share quick voice notes or short audio clips.
-
-### The Solution
-Added MP3 attachment support to composer, upload pipeline, feed/detail rendering, and full-screen viewer.
-
-### Technical Detail
-- Dependencies:
-  - `expo-audio`
-  - `@simform_solutions/react-native-audio-waveform`
-  - `expo-document-picker`
-- App config / session:
-  - [app.config.js](app.config.js): `expo-audio` plugin with microphone permission text
-  - [src/app/_layout.tsx](src/app/_layout.tsx): `setAudioModeAsync({ playsInSilentMode: true })`
-- Model and upload:
-  - [src/models/types.ts](src/models/types.ts): `MediaItem.type` now includes `'audio'`
-  - [src/store/actions/postActions.ts](src/store/actions/postActions.ts): MIME mapping now emits `'audio'` for `audio/*`
-- Audio selection and compose flow:
-  - [src/app/(protected)/post/new.tsx](src/app/(protected)/post/new.tsx): audio toolbar action, audio thumbnail card, audio preview routing
-  - [src/app/(protected)/gallery.tsx](src/app/(protected)/gallery.tsx): `pickMode=audio` + MP3 picking via `expo-document-picker`
-- Playback/UI:
-  - [src/components/AudioAttachmentPlayer.tsx](src/components/AudioAttachmentPlayer.tsx): reusable audio player with `expo-audio`; local-file waveform (Simform static mode) and remote progress fallback
-  - [src/components/PostCard.tsx](src/components/PostCard.tsx): audio card in feed posts
-  - [src/app/(protected)/post/[id].tsx](src/app/(protected)/post/[id].tsx): audio card in post detail
-  - [src/components/MediaViewerModal.tsx](src/components/MediaViewerModal.tsx): full-screen audio handling
+- File: [src/models/constants.ts](src/models/constants.ts) — `PRIVATE_CIRCLES_NOTICE_VERSION = '2026-05-private-circles'` and `PRIVATE_CIRCLES_NOTICE_SEEN_KEY(version)` following the same pattern as `NOTIFICATION_SETTINGS_NOTICE_VERSION`
+- File: [src/components/account/MyChannelsTab.tsx](src/components/account/MyChannelsTab.tsx) — `noticeSeen` state loaded from AsyncStorage on mount; `learnMoreOpen` Modal state; `dismissNotice()` persists key; new styles: `noticeCard`, `noticeContent`, `learnMoreSheet`, etc.
 
 ---
 
 ## Cross-Cutting Changes
 
-| Concern | What changed |
-|---|---|
-| Media model | `MediaItem.type` expanded to include `audio`; captions remain nullable and explicit |
-| Upload mapping | MIME-to-domain conversion now handles `audio/*` |
-| Media viewer | Full-screen modal now supports image, video, and audio |
-| Composer picker | Gallery route can now run in image/video mode or MP3 mode |
-| Audio session | App startup sets audio mode for silent-mode playback |
+- **`isPrivate: false` backfilled** at all existing channel-creation call sites: onboarding (`complete-profile.tsx`), demo data (`demoData.ts` — all 4 channel objects), and daily channel creation (`firestore.ts`)
+- **`isPrivate: boolean | null`** — nullable type means every existing Firestore document without the field is treated as public (`null` is falsy), so there is zero migration burden
 
 ---
 
@@ -142,12 +101,27 @@ Added MP3 attachment support to composer, upload pipeline, feed/detail rendering
 
 | Feature | Benefit | Where |
 |---|---|---|
-| Haptics | Interactions feel tactile and responsive | Feed + reaction interactions |
-| GIF fix | Animated GIFs no longer freeze in list contexts | Feed/composer previews |
-| Scroll-to-top | Opens to fresh content after relaunch | Feed |
-| Reorder | Creators can fix attachment order before posting | Composer |
-| Captions | Better context per attachment | Composer + feed/detail viewer |
-| MP3 support | Share and play audio clips in posts | Composer + feed + post detail + full-screen viewer |
+| Private toggle | Host controls who can discover/join | Create/Edit Circle form |
+| 🔒 badge | Instant visual clarity | Circle cards everywhere |
+| Invite restriction | Members can't share invite links for private circles | Circle Info modal |
+| Suggestion filter | Private circles stay private after post-leave | Post detail page |
+| Notice card | Discoverability for existing users | My Circles tab (one-time) |
+
+---
+
+## Testing Checklist
+
+- [ ] Create a new circle with Private toggle ON → circle card shows 🔒 badge
+- [ ] Create a new circle with Private toggle OFF → no badge
+- [ ] Edit an existing circle and toggle Private → badge appears/disappears after save
+- [ ] As a member (not host) of a private circle, open Circle Info → confirm invite link / QR not visible
+- [ ] As the host of a private circle, open Circle Info → confirm invite link IS visible
+- [ ] Leave a post detail page where the host has custom circles — confirm private circles are NOT suggested
+- [ ] Uninstall/clear storage → My Circles tab shows the notice card
+- [ ] Tap "Learn more" → bottom sheet opens explaining private circles
+- [ ] Tap "Got it!" → card disappears, does not return on re-open
+- [ ] Tap ✕ dismiss → same as above
+- [ ] Demo mode → notice card should not appear (demo has `isPrivate: false` on all fixture circles)
 
 ---
 
@@ -155,25 +129,27 @@ Added MP3 attachment support to composer, upload pipeline, feed/detail rendering
 
 | File | Purpose |
 |---|---|
-| `src/components/PostCard.tsx` | Haptics, GIF handling, captions, audio card rendering |
-| `src/components/ReactionPill.tsx` | Haptic feedback on reaction tap |
-| `src/components/MediaViewerModal.tsx` | Added audio mode + existing caption overlay |
-| `src/components/AudioAttachmentPlayer.tsx` | New reusable audio playback UI |
-| `src/components/PostCreateMediaUploader.tsx` | Caption field on `MediaFile` |
-| `src/app/(protected)/post/new.tsx` | Reorder, captions, and audio picker/preview integration |
-| `src/app/(protected)/gallery.tsx` | Added MP3 selection flow and audio tiles |
-| `src/app/(protected)/post/[id].tsx` | Audio media rendering + viewer caption threading |
-| `src/app/(protected)/feed.tsx` | Cold-launch scroll-to-top logic |
-| `src/components/DataListenerWrapper.tsx` | Session scroll flag reset on background |
-| `src/app/_layout.tsx` | Startup audio mode setup |
-| `app.config.js` | Added `expo-audio` plugin configuration |
-| `src/models/types.ts` | `MediaItem.type` includes `audio`; caption field retained |
-| `src/store/actions/postActions.ts` | MIME mapping supports audio media type |
+| `src/models/types.ts` | `isPrivate: boolean \| null` on `Channel` |
+| `src/models/constants.ts` | Notice version + AsyncStorage key constants |
+| `src/components/ChannelFormModal.tsx` | Private toggle UI in create/edit form |
+| `src/components/account/MyChannelsTab.tsx` | Handler updates + notice card + learn-more modal |
+| `src/store/actions/channelActions.ts` | `isPrivate` in create/edit thunks |
+| `src/services/firebase/firestore.ts` | `isPrivate` in channel create functions |
+| `src/app/(protected)/post/[id].tsx` | Filter private circles from post-leave suggestions |
+| `src/components/ChannelModal.tsx` | `isOwner` prop + invite section gating |
+| `src/components/ChannelCard.tsx` | 🔒 Private badge |
+| `src/components/account/SubscribedTab.tsx` | Pass `isOwner` to ChannelModal |
+| `src/app/complete-profile.tsx` | `isPrivate: false` on onboarding circles |
+| `src/lib/demoData.ts` | `isPrivate: false` on all 4 demo channels |
 
 ---
 
 ## Summary
 
-**For users:** posts feel more responsive, GIFs animate reliably, feed opens where it should, media can be reordered and captioned, and MP3 clips can now be attached and played.
+**For users:** Hosts now have real privacy controls. Mark a circle as private during creation or at any time in the edit screen. Private circles stay out of suggestions and keep the invite link away from members — so the host stays fully in control of who joins.
 
-**For maintainers:** media handling is now tri-type (`image | video | audio`) with explicit caption fields and audio session setup centralized at app startup.
+**For code maintainers:** `isPrivate: boolean | null` lives on the `Channel` model. Null and `false` both mean "public" — no migration needed. The notice pattern follows the existing `NOTIFICATION_SETTINGS_NOTICE_VERSION` approach in `constants.ts`.
+
+**For reviewers:** All 12 files have targeted, minimal changes. The core logic is a simple boolean field with four enforcement points: form toggle, Firestore write, suggestion filter, and invite-link gate.
+
+---

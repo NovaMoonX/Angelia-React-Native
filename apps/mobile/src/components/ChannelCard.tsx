@@ -47,6 +47,9 @@ export function ChannelCard({
           >
             {channel.name}
           </Badge>
+          {channel.isPrivate && (
+            <Text style={[styles.privateBadge, { color: theme.mutedForeground }]}>🔒 Private</Text>
+          )}
         </View>
 
         {channel.description ? (
@@ -116,6 +119,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 8,
+  },
+  privateBadge: {
+    fontSize: 11,
+    fontWeight: '500',
   },
   description: {
     fontSize: 13,
