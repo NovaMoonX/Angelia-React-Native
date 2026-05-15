@@ -146,7 +146,7 @@ export interface Channel {
 export type NewChannel = Omit<Channel, 'id' | 'isDaily' | 'inviteCode' | 'createdAt' | 'markedForDeletionAt'>;
 
 export interface MediaItem {
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'audio';
   url: string;
   /** For videos: Firebase Storage download URL of the thumbnail image. */
   thumbnailUrl?: string;

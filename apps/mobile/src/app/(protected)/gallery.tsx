@@ -11,6 +11,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { MAX_FILES, MAX_FILE_SIZE_MB } from '@/models/constants';
@@ -27,6 +28,7 @@ export default function GalleryScreen() {
     existingMedia?: string;
     existingText?: string;
     existingChannel?: string;
+    pickMode?: string;
   }>();
 
   const existingFiles = useMemo<MediaFile[]>(() => {
@@ -42,11 +44,41 @@ export default function GalleryScreen() {
 
   const [selected, setSelected] = useState<MediaFile[]>([]);
   const remaining = MAX_FILES - existingCount;
+  const isAudioMode = params.pickMode === 'audio';
 
   const openPicker = async () => {
     if (remaining <= 0) {
       addToast({ type: 'warning', title: `Maximum ${MAX_FILES} files already attached` });
       router.back();
+      return;
+    }
+
+    if (isAudioMode) {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['audio/mpeg', 'audio/mp3'],
+        copyToCacheDirectory: true,
+        multiple: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        if (selected.length === 0) {
+          router.back();
+        }
+        return;
+      }
+
+      const availableSlots = Math.max(0, remaining - selected.length);
+      const files: MediaFile[] = result.assets.slice(0, availableSlots).map((asset) => ({
+        uri: asset.uri,
+        name: asset.name || `audio-${Date.now()}.mp3`,
+        type: asset.mimeType || 'audio/mpeg',
+        size: asset.size,
+        caption: null,
+      }));
+
+      setSelected((prev) => {
+        return [...prev, ...files].slice(0, remaining);
+      });
       return;
     }
 
@@ -144,7 +176,7 @@ export default function GalleryScreen() {
           <Feather name="x" size={24} color={theme.foreground} />
         </Pressable>
         <Text style={[styles.title, { color: theme.foreground }]}>
-          Select Media
+          {isAudioMode ? 'Select MP3' : 'Select Media'}
         </Text>
         <Pressable
           onPress={confirmSelection}
@@ -174,7 +206,12 @@ export default function GalleryScreen() {
           contentContainerStyle={styles.grid}
           renderItem={({ item, index }) => (
             <View style={styles.gridItem}>
-              {item.type.startsWith('video/') ? (
+              {item.type.startsWith('audio/') ? (
+                <View style={[styles.gridImage, styles.audioGridItem]}>
+                  <Feather name="music" size={24} color="#FFF" />
+                  <Text style={styles.audioGridLabel} numberOfLines={1}>{item.name}</Text>
+                </View>
+              ) : item.type.startsWith('video/') ? (
                 <View style={[styles.gridImage, styles.videoGridItem]}>
                   {item.thumbnailUri ? (
                     <Image source={{ uri: item.thumbnailUri }} style={StyleSheet.absoluteFill} contentFit="cover" />
@@ -273,6 +310,18 @@ const styles = StyleSheet.create({
   videoGridItem: {
     backgroundColor: '#1a1a1a',
     overflow: 'hidden',
+  },
+  audioGridItem: {
+    backgroundColor: '#111827',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 6,
+  },
+  audioGridLabel: {
+    color: '#FFF',
+    fontSize: 10,
+    textAlign: 'center',
   },
   videoGridOverlay: {
     ...StyleSheet.absoluteFillObject,

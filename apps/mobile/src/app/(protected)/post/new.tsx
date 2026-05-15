@@ -82,7 +82,7 @@ export default function PostCreateScreen() {
   const [text, setText] = useState(params.existingText || '');
   const [selectedTier, setSelectedTier] = useState<PostTier>('everyday');
   const [media, setMedia] = useState<MediaFile[]>(initialMedia);
-  const [previewItem, setPreviewItem] = useState<{ uri: string; type: 'image' | 'video'; caption: string | null } | null>(null);
+  const [previewItem, setPreviewItem] = useState<{ uri: string; type: 'image' | 'video' | 'audio'; caption: string | null } | null>(null);
 
   // Video thumbnails keyed by media index
   const [videoThumbnails, setVideoThumbnails] = useState<Record<number, VideoThumbnail | null>>({});
@@ -455,6 +455,7 @@ export default function PostCreateScreen() {
         >
           {media.map((item, index) => {
             const isVideo = item.type.startsWith('video/');
+            const isAudio = item.type.startsWith('audio/');
             const isGif = item.type === 'image/gif';
             const thumb = isVideo ? videoThumbnails[index] : null;
             const isSelected = reorderIndex === index;
@@ -471,17 +472,24 @@ export default function PostCreateScreen() {
                     setReorderIndex(null);
                     return;
                   }
-                  setPreviewItem({ uri: item.uri, type: isVideo ? 'video' : 'image', caption: item.caption });
+                  setPreviewItem({ uri: item.uri, type: isVideo ? 'video' : isAudio ? 'audio' : 'image', caption: item.caption });
                 }}
                 onLongPress={() => { setReorderIndex(index); }}
                 delayLongPress={300}
               >
-                <Image
-                  source={thumb ?? { uri: item.uri }}
-                  style={styles.mediaImage}
-                  contentFit="cover"
-                  recyclingKey={isGif ? undefined : item.uri}
-                />
+                {isAudio ? (
+                  <View style={styles.mediaAudioCard}>
+                    <Feather name="music" size={20} color="#FFF" />
+                    <Text style={styles.mediaAudioLabel} numberOfLines={1}>{item.name}</Text>
+                  </View>
+                ) : (
+                  <Image
+                    source={thumb ?? { uri: item.uri }}
+                    style={styles.mediaImage}
+                    contentFit="cover"
+                    recyclingKey={isGif ? undefined : item.uri}
+                  />
+                )}
                 {isVideo && !isSelected && (
                   <View style={styles.videoOverlay}>
                     <Feather name="play" size={18} color="#FFF" />
@@ -591,6 +599,24 @@ export default function PostCreateScreen() {
             hitSlop={8}
           >
             <Feather name="image" size={22} color={atMaxFiles ? theme.mutedForeground : theme.primary} />
+          </Pressable>
+          <Pressable
+            style={[styles.toolbarButton, atMaxFiles && styles.toolbarButtonDisabled]}
+            onPress={() =>
+              router.replace({
+                pathname: '/(protected)/gallery',
+                params: {
+                  existingMedia: JSON.stringify(media),
+                  existingText: text,
+                  existingChannel: selectedChannel,
+                  pickMode: 'audio',
+                },
+              })
+            }
+            disabled={atMaxFiles}
+            hitSlop={8}
+          >
+            <Feather name="music" size={22} color={atMaxFiles ? theme.mutedForeground : theme.primary} />
           </Pressable>
         </View>
 
@@ -783,6 +809,20 @@ const styles = StyleSheet.create({
   mediaImage: {
     width: '100%',
     height: '100%',
+  },
+  mediaAudioCard: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#111827',
+    paddingHorizontal: 6,
+  },
+  mediaAudioLabel: {
+    color: '#FFF',
+    fontSize: 9,
+    textAlign: 'center',
   },
   mediaRemove: {
     position: 'absolute',

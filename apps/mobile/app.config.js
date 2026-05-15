@@ -56,6 +56,12 @@ export default {
 		plugins: [
 			'./plugins/withFirebaseMessagingColor',
 			'expo-router',
+			[
+				'expo-audio',
+				{
+					microphonePermission: 'Allow $(PRODUCT_NAME) to access your microphone.',
+				},
+			],
 			'@react-native-community/datetimepicker',
 			[
 				'expo-splash-screen',

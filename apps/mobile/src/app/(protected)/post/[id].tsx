@@ -15,6 +15,7 @@ import { ReactionPill } from '@/components/ReactionPill';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { MediaViewerModal } from '@/components/MediaViewerModal';
 import { PrivateNoteModal } from '@/components/PrivateNoteModal';
+import { AudioAttachmentPlayer } from '@/components/AudioAttachmentPlayer';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { selectMessages, setMessages } from '@/store/slices/conversationSlice';
@@ -78,7 +79,7 @@ export default function PostDetailScreen() {
 	const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
 	const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
 	const [profileModalOpen, setProfileModalOpen] = useState(false);
-	const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
+	const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' | 'audio'; caption: string | null } | null>(null);
 	const [unlockEmoji, setUnlockEmoji] = useState<string | null>(null);
 	const [noteModalVisible, setNoteModalVisible] = useState(false);
 	const [circleSuggestions, setCircleSuggestions] = useState<CircleJoinSuggestionItem[]>([]);
@@ -556,7 +557,7 @@ export default function PostDetailScreen() {
 						<MediaCard
 							item={post.media[0]}
 							style={styles.singleMedia}
-							onOpen={() => setMediaViewer({ url: post.media![0].url, type: post.media![0].type })}
+							onOpen={() => setMediaViewer({ url: post.media![0].url, type: post.media![0].type, caption: post.media![0].caption ?? null })}
 						/>
 					) : (
 						<Carousel style={{ borderRadius: 12 }} onIndexChange={handleCarouselIndexChange}>
@@ -565,7 +566,7 @@ export default function PostDetailScreen() {
 									key={`media-${index}`}
 									item={item}
 									style={styles.carouselMedia}
-									onOpen={() => setMediaViewer({ url: item.url, type: item.type })}
+									onOpen={() => setMediaViewer({ url: item.url, type: item.type, caption: item.caption ?? null })}
 								/>
 							))}
 						</Carousel>
@@ -762,6 +763,7 @@ export default function PostDetailScreen() {
 				<MediaViewerModal
 					uri={mediaViewer.url}
 					mediaType={mediaViewer.type}
+					caption={mediaViewer.caption}
 					visible
 					onClose={() => setMediaViewer(null)}
 				/>
@@ -976,6 +978,14 @@ const styles = StyleSheet.create({
 // ── MediaCard ────────────────────────────────────────────────────────────────
 
 function MediaCard({ item, style, onOpen }: { item: MediaItem; style: object; onOpen: () => void }) {
+	if (item.type === 'audio') {
+		return (
+			<Pressable style={style} onPress={onOpen}>
+				<AudioAttachmentPlayer uri={item.url} />
+			</Pressable>
+		);
+	}
+
 	if (item.type === 'video') {
 		return (
 			<Pressable style={[style, styles.videoContainer]} onPress={onOpen}>

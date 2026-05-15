@@ -11,5 +11,10 @@
     "web": "npm run --workspace=apps/web dev",
     "web:build": "npm run --workspace=apps/web build",
     "web:preview": "npm run --workspace=apps/web preview"
+  },
+  "dependencies": {
+    "@simform_solutions/react-native-audio-waveform": "^2.1.6",
+    "expo-audio": "~55.0.14",
+    "react-native-gesture-handler": "^2.31.2"
   }
 }

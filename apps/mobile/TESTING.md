@@ -1,4 +1,4 @@
-# Testing Guide — Haptics, GIF Fix, Scroll-to-Top, Media Reorder & Captions
+# Testing Guide — Haptics, GIF Fix, Scroll-to-Top, Media Reorder, Captions & MP3
 
 **Branch:** copilot/haptics-media-reorder-captions-gif-fix  
 **Last updated:** May 15, 2026
@@ -160,6 +160,45 @@ Select 3+ photos or videos when creating a new post so you have items to reorder
 
 ---
 
+## Feature 6: MP3 Audio Attachments
+
+**Devices:** Android primary. Use iPhone for parity check because audio session and silent-mode behavior can differ.
+
+### Composer + picker flow
+
+- [ ] Open post composer
+- [ ] Tap the new music icon in the bottom toolbar
+- [ ] Confirm gallery screen opens in **Select MP3** mode
+- [ ] Pick 1–3 `.mp3` files
+- [ ] Confirm audio tiles appear in the selected grid with a music icon and filename
+- [ ] Tap **Done** and return to post composer
+- [ ] Confirm audio attachments appear in the media strip as audio cards (not broken image thumbnails)
+
+### Posting + feed rendering
+
+- [ ] Publish a post containing at least one MP3 attachment
+- [ ] Open feed and find the new post
+- [ ] Confirm audio attachment renders as an audio card (play/pause control + timer)
+- [ ] Tap play in feed card → audio starts
+- [ ] Tap pause → audio pauses
+
+### Post detail + full-screen viewer
+
+- [ ] Open the post detail screen for the audio post
+- [ ] Confirm audio card appears in post detail
+- [ ] Tap the card to open full-screen media viewer
+- [ ] Confirm viewer renders audio UI (not image/video)
+- [ ] For local-file previews in compose flow, confirm waveform appears when available
+- [ ] For remote uploaded audio, confirm fallback progress bar appears and playback still works
+
+### iPhone parity checks
+
+- [ ] Repeat picker → post → playback flow on iPhone
+- [ ] Confirm audio plays even with iOS silent switch enabled
+- [ ] Confirm play/pause state and timers update correctly
+
+---
+
 ## Regression Checks
 
 Run these after all feature tests to confirm nothing was broken.
@@ -171,6 +210,7 @@ Run these after all feature tests to confirm nothing was broken.
 - [ ] Reaction peel still dispatches the selected emoji when tapped
 - [ ] Navigating to post detail still works via a normal tap
 - [ ] Images in the feed load correctly (no broken images from recyclingKey changes)
+- [ ] Audio post cards render and can play/pause without crashing scroll performance
 
 ### Post Composer
 
@@ -184,6 +224,7 @@ Run these after all feature tests to confirm nothing was broken.
 
 - [ ] Opening any image in full-screen works
 - [ ] Opening any video in full-screen works; video plays
+- [ ] Opening any audio in full-screen works; play/pause works
 - [ ] Closing the viewer returns to the correct screen
 
 ---
@@ -193,4 +234,5 @@ Run these after all feature tests to confirm nothing was broken.
 - **Reorder is MVP** — it uses chevron arrows rather than drag-and-drop. This is intentional for this release. Drag-and-drop can be added later.
 - **Captions are stored in Firestore** as part of the `MediaItem` array. If a post was created before this release, `caption` will be `null` — that's handled gracefully everywhere.
 - **GIF fix** skips `recyclingKey` for GIFs only. Non-GIF images retain the key for performance.
+- **Audio waveform** is shown for local `file://` paths; remote uploaded audio uses progress fallback in the current implementation.
 - **Scroll-to-top** fires after 300ms to give the feed data time to load. If the feed is very slow, the scroll may fire before posts are ready (acceptable edge case for now).

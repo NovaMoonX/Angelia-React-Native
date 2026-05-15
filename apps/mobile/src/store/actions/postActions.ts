@@ -183,7 +183,11 @@ export const uploadPost = createAsyncThunk(
       // 3. Update post with media and status 'ready' (without waiting for thumbnails)
       const readyMedia: MediaItem[] = uploadedUrls.map((url, i) => ({
         url,
-        type: media[i].type.startsWith('image') ? ('image' as const) : ('video' as const),
+        type: media[i].type.startsWith('image')
+          ? ('image' as const)
+          : media[i].type.startsWith('audio')
+            ? ('audio' as const)
+            : ('video' as const),
         caption: media[i].caption ?? null,
       }));
 

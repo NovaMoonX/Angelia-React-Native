@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { Provider as ReduxProvider } from 'react-redux';
 import { router } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { setAudioModeAsync } from 'expo-audio';
 import { store } from '@/store';
 import { ThemeProvider } from '@/providers/ThemeProvider';
 import { ToastProvider } from '@/providers/ToastProvider';
@@ -149,6 +150,14 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 
 function NavigationLayout() {
 	const { resolvedTheme, theme } = useTheme();
+
+	useEffect(() => {
+		void setAudioModeAsync({
+			playsInSilentMode: true,
+			shouldPlayInBackground: false,
+			allowsRecording: false,
+		});
+	}, []);
 
 	return (
 		<>

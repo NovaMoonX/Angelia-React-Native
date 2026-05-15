@@ -7,6 +7,7 @@ Related PR: TBD
 Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
 
 Current branch highlights:
+- Posts now support MP3 audio attachments: you can pick audio files from your phone, post them, and play them right in feed/post detail with a clean audio player UI.
 - Haptic feedback added: long-pressing a post gives a subtle pulse, and tapping an emoji reaction gives a light tap — both make the app feel more alive.
 - GIFs now actually animate in the feed! Previously they'd be stuck on the first frame; now they play properly.
 - When you open the app fresh, it now jumps you straight to the top of your feed instead of leaving you mid-scroll from last time.

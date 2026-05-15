@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/Card';
 import { Carousel } from '@/components/ui/Carousel';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { MediaViewerModal } from '@/components/MediaViewerModal';
+import { AudioAttachmentPlayer } from '@/components/AudioAttachmentPlayer';
 import { useAppSelector } from '@/store/hooks';
 import {
   selectPostAuthor,
@@ -49,7 +50,7 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
   const hasMultipleMedia = post.media && post.media.length > 1;
   const isOtherUser = author && currentUser && author.id !== currentUser.id;
   const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video'; caption: string | null } | null>(null);
+  const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' | 'audio'; caption: string | null } | null>(null);
   const cardScale = useRef(new Animated.Value(1)).current;
 
   const handleCardLongPress = useCallback(() => {
@@ -266,6 +267,14 @@ function CardMediaItem({
   onOpen: () => void;
   onLongPress?: () => void;
 }) {
+  if (item.type === 'audio') {
+    return (
+      <Pressable style={style} onPress={onOpen} onLongPress={onLongPress} delayLongPress={220}>
+        <AudioAttachmentPlayer uri={item.url} />
+      </Pressable>
+    );
+  }
+
   if (item.type === 'video') {
     return (
       <Pressable style={[style, styles.videoContainer]} onPress={onOpen} onLongPress={onLongPress} delayLongPress={220}>

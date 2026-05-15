@@ -5,12 +5,13 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import { Feather } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ZoomableImage } from '@/components/ZoomableImage';
+import { AudioAttachmentPlayer } from '@/components/AudioAttachmentPlayer';
 
 interface MediaViewerModalProps {
   /** URI or URL of the media to display */
   uri: string;
-  /** 'image' | 'video' */
-  mediaType: 'image' | 'video';
+  /** 'image' | 'video' | 'audio' */
+  mediaType: 'image' | 'video' | 'audio';
   visible: boolean;
   onClose: () => void;
   /** Optional caption to show at the bottom of the full-screen view */
@@ -76,6 +77,10 @@ export function MediaViewerModal({
 
           {mediaType === 'video' ? (
             visible ? <VideoPlayer uri={uri} /> : null
+          ) : mediaType === 'audio' ? (
+            <View style={styles.audioWrap}>
+              <AudioAttachmentPlayer uri={uri} variant='full' />
+            </View>
           ) : (
             <ZoomableImage uri={uri} visible={visible} />
           )}
@@ -122,5 +127,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
     textAlign: 'center',
+  },
+  audioWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
   },
 });
