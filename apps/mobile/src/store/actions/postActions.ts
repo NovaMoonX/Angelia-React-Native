@@ -19,6 +19,7 @@ import {
   joinConversation as firestoreJoinConversation,
   addReactionToPost,
   removeReactionsFromPostByUser,
+  removeReactionFromPostByUserAndEmoji,
   addComment,
   createAppNotification,
   deletePost as firestoreDeletePost,
@@ -30,6 +31,7 @@ import {
   addPost,
   updateReactionsOptimistic,
   removeReactionsByUserOptimistic,
+  removeReactionByUserAndEmojiOptimistic,
   revertReactionsOptimistic,
   addConversationEnrollee,
   removeConversationEnrollee,
@@ -556,6 +558,26 @@ export const removeAllPostReactionsForUser = createAsyncThunk(
     try {
       await removeReactionsFromPostByUser(postId, userId);
       return { postId, userId };
+    } catch (err) {
+      dispatch(revertReactionsOptimistic({ postId }));
+      return rejectWithValue(err instanceof Error ? err.message : err);
+    }
+  },
+);
+
+export const removePostReactionEmojiForUser = createAsyncThunk(
+  'posts/removePostReactionEmojiForUser',
+  async (
+    { postId, userId, emoji }: { postId: string; userId: string; emoji: string },
+    { getState, dispatch, rejectWithValue },
+  ) => {
+    dispatch(removeReactionByUserAndEmojiOptimistic({ postId, userId, emoji }));
+    if (isDemoActive(getState)) {
+      return { postId, userId, emoji };
+    }
+    try {
+      await removeReactionFromPostByUserAndEmoji(postId, userId, emoji);
+      return { postId, userId, emoji };
     } catch (err) {
       dispatch(revertReactionsOptimistic({ postId }));
       return rejectWithValue(err instanceof Error ? err.message : err);

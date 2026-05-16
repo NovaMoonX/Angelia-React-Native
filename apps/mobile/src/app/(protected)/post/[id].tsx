@@ -43,7 +43,7 @@ import {
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { updatePostReactions, removeAllPostReactionsForUser, deletePostAction } from '@/store/actions/postActions';
+import { updatePostReactions, removePostReactionEmojiForUser, deletePostAction } from '@/store/actions/postActions';
 import { getActiveCustomChannelsByOwner, subscribeToMessages } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
 import { CircleJoinSuggestionsModal, type CircleJoinSuggestionItem } from '@/components/CircleJoinSuggestionsModal';
@@ -533,17 +533,17 @@ export default function PostDetailScreen() {
 	const handleReactionGroupPress = async (group: { emoji: string; currentUserReacted: boolean }) => {
 		void Haptics.selectionAsync().catch(() => {});
 		if (group.currentUserReacted) {
-			await handleRemoveAllReactions();
+			await handleRemoveSingleEmojiReaction(group.emoji);
 			return;
 		}
 		await handleReaction(group.emoji);
 	};
 
-	const handleRemoveAllReactions = async () => {
+	const handleRemoveSingleEmojiReaction = async (emoji: string) => {
 		try {
-			await dispatch(removeAllPostReactionsForUser({ postId: post.id, userId: currentUser.id })).unwrap();
+			await dispatch(removePostReactionEmojiForUser({ postId: post.id, userId: currentUser.id, emoji })).unwrap();
 		} catch {
-			addToast({ type: 'error', title: 'Failed to remove reactions' });
+			addToast({ type: 'error', title: 'Failed to remove reaction' });
 		}
 	};
 
@@ -761,7 +761,9 @@ export default function PostDetailScreen() {
 									<Feather name='mail' size={15} color={hostPrivateNotesTextColor} />
 									{hasUnreadPrivateNotes && <View style={[styles.unreadDot, { backgroundColor: '#EF4444' }]} />}
 								</View>
-								<Text style={[styles.secondaryActionText, { color: hostPrivateNotesTextColor }]}>Private Notes</Text>
+								<Text style={[styles.secondaryActionText, { color: hostPrivateNotesTextColor }]}>
+									{`Private Notes (${privateNotes.length})`}
+								</Text>
 							</View>
 						</Pressable>
 					)}

@@ -54,6 +54,18 @@ const postsSlice = createSlice({
         post.reactions = post.reactions.filter((r) => r.userId !== action.payload.userId);
       }
     },
+    removeReactionByUserAndEmojiOptimistic(
+      state,
+      action: PayloadAction<{ postId: string; userId: string; emoji: string }>
+    ) {
+      const post = state.items.find((p) => p.id === action.payload.postId);
+      if (post) {
+        state.previousReactions[action.payload.postId] = [...post.reactions];
+        post.reactions = post.reactions.filter((r) => {
+          return !(r.userId === action.payload.userId && r.emoji === action.payload.emoji);
+        });
+      }
+    },
     revertReactionsOptimistic(state, action: PayloadAction<{ postId: string }>) {
       const { postId } = action.payload;
       const post = state.items.find((p) => p.id === postId);
@@ -107,6 +119,7 @@ export const {
   loadDemoPosts,
   updateReactionsOptimistic,
   removeReactionsByUserOptimistic,
+  removeReactionByUserAndEmojiOptimistic,
   revertReactionsOptimistic,
   addConversationEnrollee,
   removeConversationEnrollee,

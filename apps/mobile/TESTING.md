@@ -519,6 +519,36 @@ Use the iPhone when:
 
 ---
 
+## Feature 25: Post Detail Private Note Count + Per-Emoji Removal
+
+**Devices:** Android primary. iPhone parity pass recommended.
+
+### Setup
+
+- [ ] Use a host account with at least one post that has private notes
+- [ ] On that same post, react as the host with at least two different emojis (for example, ❤️ and 😂)
+
+### Android
+
+- [ ] Open Post Detail as the host -> confirm the bottom **Private Notes** action includes the note count (for example, `Private Notes (3)`)
+- [ ] Add one more private note from another account -> reopen Post Detail as host -> confirm the button count increases to match
+- [ ] In reactions, tap one emoji chip that you reacted with -> confirm only that emoji is removed for you
+- [ ] Confirm your other emoji reaction chips still remain active after removing one emoji
+- [ ] Repeat by tapping your second emoji chip -> confirm only that chip's emoji is removed
+- [ ] Confirm reactions from other users are untouched when you remove your own emoji
+
+### iPhone
+
+- [ ] Repeat one host pass and confirm the Private Notes button count appears and matches note total
+- [ ] Repeat one multi-emoji removal pass and confirm each tap removes only the tapped emoji for your account
+
+### Edge cases
+
+- [ ] If multiple people reacted with the same emoji, remove your reaction for that emoji -> confirm the chip remains with reduced count (instead of disappearing entirely)
+- [ ] With only your single emoji on a chip, remove it -> confirm that chip disappears while other emoji chips remain
+
+---
+
 ## Feature 9: Owned Circles Excluded from Post Notification Settings
 
 **Devices:** Android primary.
