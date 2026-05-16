@@ -174,6 +174,30 @@ Use the iPhone when:
 
 ---
 
+## Feature 26: Post Activity Return Path From Post Detail
+
+**Devices:** Android primary. iPhone parity recommended.
+
+### Setup
+
+- [ ] Use an account with at least one card visible on Post Activity
+- [ ] Open Post Activity and tap any post card to enter Post Detail
+
+### Android
+
+- [ ] Open Post Activity -> open a post -> press Post Detail back button -> confirm you return to Post Activity (not Feed)
+- [ ] Repeat the same flow using hardware back -> confirm destination is still Post Activity
+- [ ] Trigger Post Detail unread-leave warning (host case) and choose **Exit Post Anyway** -> confirm destination is Post Activity when the post was opened from Post Activity
+- [ ] If circle suggestions show on leave, close/continue through the suggestion flow -> confirm final destination is Post Activity when launched from Post Activity
+- [ ] Open a post from Feed and leave Post Detail -> confirm this still returns to Feed (regression guard)
+
+### iPhone
+
+- [ ] Repeat one pass of the Post Activity -> Post Detail -> back flow and confirm it returns to Post Activity
+- [ ] Repeat one host unread-leave warning flow and confirm the destination is Post Activity when launched from Post Activity
+
+---
+
 ## Feature 25: Android Notification Tap Back-Stack Stability
 
 **Devices:** Android required. iPhone optional parity check.

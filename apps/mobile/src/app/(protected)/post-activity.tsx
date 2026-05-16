@@ -188,7 +188,10 @@ export default function PostActivityScreen() {
         <PostCard
           post={item.post}
           onNavigate={() => {
-            router.push(`/(protected)/post/${item.post.id}`);
+            router.push({
+              pathname: '/(protected)/post/[id]',
+              params: { id: item.post.id, from: 'post-activity' },
+            });
           }}
         />
         {shouldShowNewActivityLabel ? (
@@ -207,7 +210,10 @@ export default function PostActivityScreen() {
         <PostCard
           post={item}
           onNavigate={() => {
-            router.push(`/(protected)/post/${item.id}`);
+            router.push({
+              pathname: '/(protected)/post/[id]',
+              params: { id: item.id, from: 'post-activity' },
+            });
           }}
         />
         <Text style={[styles.newActivityText, { color: theme.primary }]}>Uploading now... {progress}% complete.</Text>

@@ -12,6 +12,7 @@ Current branch highlights:
 - The Post Activity **Unread Only** filter now shows a live unread-post count, so it is easier to see at a glance how many posts still need your attention.
 - Post Activity unread cards now stay put while you browse: we keep reaction activity in the Unread view for that screen session and only mark those posts as seen after you leave the screen.
 - Back navigation is now more predictable: leaving Private Notes or Conversation always returns you to Post Details, and leaving Post Details now always lands on Feed with a clean stack.
+- Back navigation now keeps Post Activity flow intact: if you open a post from Post Activity, leaving Post Details takes you back to Post Activity (instead of jumping to Feed).
 - OTA feed prompts are now smarter to target: broadcast messages and feedback forms can now be limited by device type (iOS/Android/all) and app version range, so we can send the right in-app message to the right testers.
 - Edit mode now stays focused: the Post Create Reset action is hidden while editing, so the top bar keeps a clean Cancel + Save flow.
 - Post Detail now gives authors more room between the edit and delete actions, making those controls easier and safer to tap.
