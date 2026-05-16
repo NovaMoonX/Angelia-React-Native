@@ -16,6 +16,8 @@ interface MediaViewerModalProps {
   onClose: () => void;
   /** Optional caption to show at the bottom of the full-screen view */
   caption?: string | null;
+  /** Optional title to show for audio in the full-screen view */
+  title?: string | null;
 }
 
 function VideoPlayer({ uri }: { uri: string }) {
@@ -50,6 +52,7 @@ export function MediaViewerModal({
   visible,
   onClose,
   caption,
+  title,
 }: MediaViewerModalProps) {
   const insets = useSafeAreaInsets();
 
@@ -79,7 +82,7 @@ export function MediaViewerModal({
             visible ? <VideoPlayer uri={uri} /> : null
           ) : mediaType === 'audio' ? (
             <View style={styles.audioWrap}>
-              <AudioAttachmentPlayer uri={uri} variant='full' />
+              <AudioAttachmentPlayer uri={uri} variant='full' title={title} />
             </View>
           ) : (
             <ZoomableImage uri={uri} visible={visible} />

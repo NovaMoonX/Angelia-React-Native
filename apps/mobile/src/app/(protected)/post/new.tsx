@@ -58,6 +58,7 @@ function normalizeIncomingMedia(files: MediaFile[]): MediaFile[] {
     return {
       ...item,
       uri: resolvedUri,
+      title: item.title ?? null,
       caption: item.caption ?? null,
     };
   });
@@ -161,6 +162,7 @@ export default function PostCreateScreen() {
         name: getFileNameFromUrl(item.url, `media-${index}`),
         type: toComposerMediaType(item.type),
         thumbnailUri: item.thumbnailUrl ?? null,
+        title: item.title ?? null,
         caption: item.caption ?? null,
       };
     });
@@ -195,7 +197,7 @@ export default function PostCreateScreen() {
       : (editingPost?.tier ?? 'everyday')
   );
   const [media, setMedia] = useState<MediaFile[]>(initialMedia);
-  const [previewItem, setPreviewItem] = useState<{ uri: string; type: 'image' | 'video' | 'audio'; caption: string | null } | null>(null);
+  const [previewItem, setPreviewItem] = useState<{ uri: string; type: 'image' | 'video' | 'audio'; caption: string | null; title: string | null } | null>(null);
 
   // Video thumbnails keyed by media index
   const [videoThumbnails, setVideoThumbnails] = useState<Record<number, VideoThumbnail | null>>({});
@@ -595,7 +597,7 @@ export default function PostCreateScreen() {
           <Pressable onPress={() => { void handleCancelDraft(); }} hitSlop={12}>
             <Text style={[styles.cancelText, { color: theme.foreground }]}>Cancel</Text>
           </Pressable>
-          {hasPostAdditions && (
+          {!isEditMode && hasPostAdditions && (
             <Pressable onPress={() => { void handleResetDraft(); }} hitSlop={12}>
               <Text style={[styles.resetText, { color: theme.mutedForeground }]}>Reset</Text>
             </Pressable>
@@ -827,7 +829,7 @@ export default function PostCreateScreen() {
                     setReorderIndex(null);
                     return;
                   }
-                  setPreviewItem({ uri: getMediaPreviewUri(item), type: isVideo ? 'video' : isAudio ? 'audio' : 'image', caption: item.caption });
+                  setPreviewItem({ uri: getMediaPreviewUri(item), type: isVideo ? 'video' : isAudio ? 'audio' : 'image', caption: item.caption, title: item.title ?? null });
                 }}
                 onLongPress={() => {
                   setShowReorderHint(false);
@@ -838,7 +840,7 @@ export default function PostCreateScreen() {
                 {isAudio ? (
                   <View style={styles.mediaAudioCard}>
                     <Feather name="mic" size={20} color="#FFF" />
-                    <Text style={styles.mediaAudioLabel} numberOfLines={1}>{item.name}</Text>
+                    <Text style={styles.mediaAudioLabel} numberOfLines={1}>{item.title?.trim() || item.name}</Text>
                   </View>
                 ) : (
                   <Image
@@ -894,7 +896,7 @@ export default function PostCreateScreen() {
                     onPress={() => openCaptionModal(index)}
                     hitSlop={8}
                   >
-                    <Text style={styles.mediaCaptionBadgeText}>📝</Text>
+                    <Feather name="file-text" size={10} color="#FFF" />
                   </Pressable>
                 )}
                 {/* Add caption button — shown when no caption and not in reorder */}
@@ -1013,6 +1015,7 @@ export default function PostCreateScreen() {
           uri={previewItem.uri}
           mediaType={previewItem.type}
           caption={previewItem.caption}
+          title={previewItem.title}
           visible
           onClose={() => setPreviewItem(null)}
         />
@@ -1317,9 +1320,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  mediaCaptionBadgeText: {
-    fontSize: 10,
   },
   mediaAddCaption: {
     position: 'absolute',

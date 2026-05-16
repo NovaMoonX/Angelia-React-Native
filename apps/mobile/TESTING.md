@@ -1,7 +1,7 @@
 # Testing Guide — beta-v-1.0.7
 
 **Branch:** beta-v-1.0.7
-**Last updated:** May 15, 2026
+**Last updated:** May 16, 2026
 
 ---
 
@@ -270,6 +270,49 @@ Use the iPhone when:
 - [ ] Notification Settings still saves Daily Reminder and time-zone preferences correctly
 - [ ] Post Detail still opens Conversation and Private Notes normally from the host view
 - [ ] Feed bell badge behavior still works for normal unread notifications, not just the release notice dot
+
+---
+
+## Feature 20: Edit Mode Header Polish + Multi-Clip Audio Recorder
+
+**Devices:** Android primary, iPhone parity check.
+
+### Setup
+
+- [ ] Use a post author account with permission to edit at least one post
+- [ ] Start from Post Detail and also from Post Create with at least one existing media attachment
+
+### Android
+
+- [ ] Open an authored post and tap Edit
+- [ ] Confirm the top bar in edit mode shows Cancel + Save and does not show Reset
+- [ ] Return to Post Detail and confirm there is noticeably more spacing between the Edit and Delete header actions
+- [ ] From Post Create, tap the mic icon to open Audio Record
+- [ ] Record a clip and watch the timer continue until stop
+- [ ] Let one recording run to 3 minutes and confirm it auto-stops with the max-length notice
+- [ ] While recording, confirm a red countdown appears once 15 seconds remain and counts down to stop
+- [ ] Record at least one additional clip and confirm a multi-clip list appears
+- [ ] Confirm the summary line shows slots left, new clip count, and total recording time
+- [ ] Select a clip, add a title and caption, then return to Post Create with Use Recordings
+- [ ] Without typing a custom title, select a different clip and confirm Preview & Details shows that clip's default label (for example, Recording 2) instead of Audio clip
+- [ ] Open the added audio in composer preview and confirm the title carries through
+- [ ] Publish or save edit, then verify the same audio title appears in Feed/Post Detail audio players
+- [ ] Add captions to one image, one video, and one audio item; confirm each shows the same icon-style caption indicator (not emoji) in Post Create, Feed card, and Post Detail
+- [ ] Open a post card carousel containing only audio clips and confirm each clip is vertically centered with opaque background space above/below (no awkward extra bottom gap)
+- [ ] Open a mixed-media carousel (image/video + audio) and confirm media height stays correct while audio items remain vertically centered
+- [ ] Start playing an audio clip in a carousel, swipe to a different item, and confirm the previous audio stops immediately in both Feed cards and Post Detail
+- [ ] While audio is playing, swipe rapidly across multiple carousel items and confirm there is no ErrorBoundary crash or red error banner
+
+### iPhone
+
+- [ ] Repeat one edit-mode check to confirm Reset stays hidden while editing
+- [ ] Repeat one multi-clip recording flow (at least 2 clips) and confirm title/caption input + playback behave correctly
+
+### Edge cases
+
+- [ ] Open Audio Record when already at max attachments and confirm Start Recording is disabled
+- [ ] Record clips, remove one from the list, and confirm selection/timing updates correctly
+- [ ] Back out of Audio Record with unsaved clips and confirm those clips still return to Post Create (no lost work)
 
 ---
 

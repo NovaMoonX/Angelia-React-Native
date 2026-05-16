@@ -6,6 +6,8 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 interface AudioAttachmentPlayerProps {
   uri: string;
   variant?: 'compact' | 'full';
+  title?: string | null;
+  isActive?: boolean;
 }
 
 function formatDuration(seconds: number): string {
@@ -65,20 +67,24 @@ function ProgressBar({
   );
 }
 
-export function AudioAttachmentPlayer({ uri, variant = 'compact' }: AudioAttachmentPlayerProps) {
+export function AudioAttachmentPlayer({ uri, variant = 'compact', title, isActive = true }: AudioAttachmentPlayerProps) {
   const player = useAudioPlayer({ uri });
   const status = useAudioPlayerStatus(player);
 
-  // Safely clean up player on unmount
+  // Pause playback if this audio card is no longer the active carousel item.
   useEffect(() => {
-    return () => {
-      try {
-        player.release();
-      } catch {
-        // Silently ignore cleanup errors
-      }
-    };
-  }, [player]);
+    if (isActive) {
+      return;
+    }
+    if (!status.playing) {
+      return;
+    }
+    try {
+      player.pause();
+    } catch {
+      // Silently ignore pause errors while carousel items change.
+    }
+  }, [isActive, status.playing, player]);
 
   const progress = useMemo(() => {
     const duration = status.duration > 0 ? status.duration : 0;
@@ -116,7 +122,7 @@ export function AudioAttachmentPlayer({ uri, variant = 'compact' }: AudioAttachm
           <Feather name={status.playing ? 'pause' : 'play'} size={18} color="#FFF" />
         </Pressable>
         <View style={styles.textBlock}>
-          <Text style={styles.title}>Audio clip</Text>
+          <Text style={styles.title}>{title?.trim() || 'Audio clip'}</Text>
           <Text style={styles.timeText}>
             {formatDuration(status.currentTime)} / {formatDuration(status.duration)}
           </Text>

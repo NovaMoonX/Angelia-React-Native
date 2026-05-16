@@ -151,6 +151,8 @@ export interface MediaItem {
   url: string;
   /** For videos: Firebase Storage download URL of the thumbnail image. */
   thumbnailUrl?: string;
+  /** Optional title for audio attachments. */
+  title: string | null;
   /** Optional caption for this media item. */
   caption: string | null;
 }

@@ -1,12 +1,20 @@
 Beta update notes
 
-Last updated: 2026-05-15
+Last updated: 2026-05-16
 Branch: beta-v-1.0.7
 Related PR: TBD
 
 Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
 
 Current branch highlights:
+- Edit mode now stays focused: the Post Create Reset action is hidden while editing, so the top bar keeps a clean Cancel + Save flow.
+- Post Detail now gives authors more room between the edit and delete actions, making those controls easier and safer to tap.
+- Audio recording got a big upgrade: you can now record multiple clips (up to your attachment limit), each clip caps at 3 minutes, and the final 15 seconds now show a clear on-screen countdown so you can wrap cleanly.
+- In Audio Record, the Preview & Details player now shows each clip’s default label (like Recording 2) when no custom title is entered yet, so it’s clearer which recording you’re editing.
+- Caption indicators now use a clean icon badge (instead of emoji) and show consistently on audio, video, and image attachments in composer/post cards/post detail.
+- Audio clips in post card carousels now sit vertically centered with an opaque media backdrop, so audio-only carousels no longer feel like they have awkward extra bottom space.
+- Carousel audio playback now behaves more naturally: if you swipe to another media item, the previous audio clip stops automatically.
+- Fixed a carousel audio edge case that could trigger an ErrorBoundary crash while swiping between items during playback.
 - Editing a post now preserves existing attachment URLs reliably (we match by storage object path and keep Firestore’s canonical URL), so original media no longer disappears after save.
 - Changing a post to a different circle now re-publishes it to the destination circle timeline (including Daily Circle) so members of that circle receive it promptly.
 - Media URLs now survive Camera/Gallery/Audio navigation during post edit (we now safely encode/decode media route payloads), so existing image previews no longer break after adding new media.

@@ -81,7 +81,7 @@ export default function PostDetailScreen() {
 	const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
 	const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
 	const [profileModalOpen, setProfileModalOpen] = useState(false);
-	const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' | 'audio'; caption: string | null } | null>(null);
+	const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' | 'audio'; caption: string | null; title: string | null } | null>(null);
 	const [unlockEmoji, setUnlockEmoji] = useState<string | null>(null);
 	const [noteModalVisible, setNoteModalVisible] = useState(false);
 	const [circleSuggestions, setCircleSuggestions] = useState<CircleJoinSuggestionItem[]>([]);
@@ -562,10 +562,11 @@ export default function PostDetailScreen() {
 								router.push({ pathname: '/(protected)/post/new', params: { editPostId: post.id } });
 							}}
 							hitSlop={8}
+							style={styles.headerActionButton}
 						>
 							<Feather name='edit-3' size={20} color={theme.foreground} />
 						</Pressable>
-						<Pressable onPress={handleDeletePost} hitSlop={8}>
+						<Pressable onPress={handleDeletePost} hitSlop={8} style={styles.headerActionButton}>
 							<Feather name='trash-2' size={20} color='#EF4444' />
 						</Pressable>
 					</View>
@@ -651,7 +652,8 @@ export default function PostDetailScreen() {
 						<MediaCard
 							item={post.media[0]}
 							style={styles.singleMedia}
-							onOpen={() => setMediaViewer({ url: post.media![0].url, type: post.media![0].type, caption: post.media![0].caption ?? null })}
+							isActive
+							onOpen={() => setMediaViewer({ url: post.media![0].url, type: post.media![0].type, caption: post.media![0].caption ?? null, title: post.media![0].title ?? null })}
 						/>
 					) : (
 						<Carousel style={{ borderRadius: 12 }} onIndexChange={handleCarouselIndexChange}>
@@ -660,7 +662,8 @@ export default function PostDetailScreen() {
 									key={`media-${index}`}
 									item={item}
 									style={styles.carouselMedia}
-									onOpen={() => setMediaViewer({ url: item.url, type: item.type, caption: item.caption ?? null })}
+									isActive={index === activeCarouselIndex}
+									onOpen={() => setMediaViewer({ url: item.url, type: item.type, caption: item.caption ?? null, title: item.title ?? null })}
 								/>
 							))}
 						</Carousel>
@@ -883,6 +886,7 @@ export default function PostDetailScreen() {
 					uri={mediaViewer.url}
 					mediaType={mediaViewer.type}
 					caption={mediaViewer.caption}
+					title={mediaViewer.title}
 					visible
 					onClose={() => setMediaViewer(null)}
 				/>
@@ -934,7 +938,10 @@ const styles = StyleSheet.create({
 	headerActions: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		gap: 14,
+		gap: 20,
+	},
+	headerActionButton: {
+		paddingHorizontal: 2,
 	},
 	priorityBanner: {
 		marginTop: 0,
@@ -1012,6 +1019,17 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		fontWeight: '700',
 		letterSpacing: 0.5,
+	},
+	captionBadge: {
+		position: 'absolute',
+		bottom: 6,
+		right: 6,
+		backgroundColor: 'rgba(0,0,0,0.6)',
+		borderRadius: 10,
+		width: 22,
+		height: 22,
+		alignItems: 'center',
+		justifyContent: 'center',
 	},
 	reactionsSection: {
 		marginTop: 16,
@@ -1145,11 +1163,16 @@ const styles = StyleSheet.create({
 
 // ── MediaCard ────────────────────────────────────────────────────────────────
 
-function MediaCard({ item, style, onOpen }: { item: MediaItem; style: object; onOpen: () => void }) {
+function MediaCard({ item, style, isActive = true, onOpen }: { item: MediaItem; style: object; isActive?: boolean; onOpen: () => void }) {
 	if (item.type === 'audio') {
 		return (
-			<Pressable style={style} onPress={onOpen}>
-				<AudioAttachmentPlayer uri={item.url} />
+			<Pressable style={[style, { position: 'relative' }]} onPress={onOpen}>
+				<AudioAttachmentPlayer uri={item.url} title={item.title} isActive={isActive} />
+				{!!item.caption && (
+					<View style={styles.captionBadge}>
+						<Feather name='file-text' size={10} color='#FFF' />
+					</View>
+				)}
 			</Pressable>
 		);
 	}
@@ -1164,13 +1187,23 @@ function MediaCard({ item, style, onOpen }: { item: MediaItem; style: object; on
 					<Feather name='play-circle' size={48} color='#FFF' />
 					{!item.thumbnailUrl && <Text style={styles.watchVideoText}>Watch Video</Text>}
 				</View>
+				{!!item.caption && (
+					<View style={styles.captionBadge}>
+						<Feather name='file-text' size={10} color='#FFF' />
+					</View>
+				)}
 			</Pressable>
 		);
 	}
 
 	return (
-		<Pressable onPress={onOpen}>
+		<Pressable onPress={onOpen} style={{ position: 'relative' }}>
 			<Image source={{ uri: item.url }} style={style} contentFit='cover' />
+			{!!item.caption && (
+				<View style={styles.captionBadge}>
+					<Feather name='file-text' size={10} color='#FFF' />
+				</View>
+			)}
 		</Pressable>
 	);
 }

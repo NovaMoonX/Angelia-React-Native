@@ -249,6 +249,7 @@ export const uploadPost = createAsyncThunk(
           : media[i].type.startsWith('audio')
             ? ('audio' as const)
             : ('video' as const),
+        title: media[i].title ?? null,
         caption: media[i].caption ?? null,
       }));
 
@@ -524,6 +525,7 @@ export const editPostContent = createAsyncThunk(
               // round-trips don't persist a malformed/transcoded URL.
               url: previous?.url ?? existingUrl,
               type: inferPostMediaType(item.type),
+              title: item.title ?? previous?.title ?? null,
               caption: item.caption ?? null,
               ...(previous?.thumbnailUrl ? { thumbnailUrl: previous.thumbnailUrl } : {}),
             };
@@ -543,6 +545,7 @@ export const editPostContent = createAsyncThunk(
           return {
             url: uploadedUrl,
             type: inferPostMediaType(item.type),
+            title: item.title ?? null,
             caption: item.caption ?? null,
             ...(thumbnailUrl ? { thumbnailUrl } : {}),
           };

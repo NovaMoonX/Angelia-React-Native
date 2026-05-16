@@ -160,6 +160,39 @@ Post Detail now includes an author-only edit action. The composer opens in edit 
 
 ---
 
+## Feature 7: Cleaner Edit Header And Stronger Audio Recording Workflow
+
+### The Problem
+
+Two parts of post creation/editing still felt rough: edit mode still surfaced a Reset action that did not fit the save-focused intent, and post-detail header controls felt cramped for authors. On top of that, the audio recorder was a one-clip flow with no in-screen playback metadata editing, making multi-clip audio posting slow.
+
+### The Solution
+
+Edit mode now hides Reset entirely, so the top bar stays focused on Cancel and Save. Post Detail now gives the author's edit/delete actions more spacing so taps feel less cramped. Audio recording now supports a true multi-clip flow: up to the attachment limit, per-clip 90-second cap, persistent timing summaries, in-screen playback preview, and per-recording title/caption editing before returning to Post Create.
+
+### Technical Detail
+
+- File: [src/app/(protected)/post/new.tsx](src/app/(protected)/post/new.tsx)
+	Hides Reset in edit mode and threads audio title through media preview state.
+- File: [src/app/(protected)/post/[id].tsx](src/app/(protected)/post/[id].tsx)
+	Adds extra spacing for author header actions and passes audio titles into post-detail audio cards and full-screen viewer.
+- File: [src/app/(protected)/audio-record.tsx](src/app/(protected)/audio-record.tsx)
+	Reworks the screen into a multi-record queue with 90-second auto-stop, clip list management, playback preview, and title/caption inputs.
+- File: [src/components/AudioAttachmentPlayer.tsx](src/components/AudioAttachmentPlayer.tsx)
+	Adds optional title rendering so named audio clips display consistently in feed/detail/full-view contexts.
+- File: [src/components/MediaViewerModal.tsx](src/components/MediaViewerModal.tsx)
+	Supports forwarding audio titles to the full-view audio player.
+- File: [src/components/PostCreateMediaUploader.tsx](src/components/PostCreateMediaUploader.tsx)
+	Extends draft media typing for audio title/duration metadata.
+- File: [src/components/PostCard.tsx](src/components/PostCard.tsx)
+	Passes audio titles through media viewer state and inline audio cards.
+- File: [src/store/actions/postActions.ts](src/store/actions/postActions.ts)
+	Persists audio titles during upload and edit paths so saved posts retain recording names.
+- File: [src/models/types.ts](src/models/types.ts)
+	Adds `MediaItem.title: string | null` for persisted post media.
+
+---
+
 ## Cross-Cutting Changes
 
 - **AsyncStorage state is now versioned and scoped more deliberately.** Notification-release notices, conversation hints, conversation last-seen timestamps, host leave-warning preferences, and post-create drafts all use named constants in [src/models/constants.ts](src/models/constants.ts).
@@ -178,6 +211,7 @@ Post Detail now includes an author-only edit action. The composer opens in edit 
 | Local draft persistence and safe return paths | Users stop losing half-finished posts while moving through media flows | Post Create, Camera, Gallery, Audio Record |
 | Safer unread behavior for hosts | Important message/private-note indicators stay visible until actually reviewed | Post Detail, Conversation, Private Notes |
 | Full post editing after publish | Authors can fix and improve posts without reposting | Post Detail, Post Create, Uploading |
+| Multi-clip audio recording with titles | Recording audio for posts is faster, clearer, and easier to organize | Audio Record, Post Create, Post Detail, Feed |
 
 ---
 
@@ -199,6 +233,10 @@ Post Detail now includes an author-only edit action. The composer opens in edit 
 - [ ] As post author, open Post Detail and tap Edit -> composer is prefilled and save updates the existing post.
 - [ ] Remove an existing attachment during edit while storage deletion is blocked -> save fails and attachment remains on the post.
 - [ ] As non-author, open the same post -> no edit action and no "Last edited" timestamp are shown.
+- [ ] In edit mode, confirm the Reset action is hidden while Cancel and Save remain visible.
+- [ ] In Post Detail, confirm there is extra visual/tap spacing between the author edit and delete actions.
+- [ ] In Audio Record, record multiple clips (up to file limit), verify each clip auto-stops at 90 seconds max, and confirm total timing stays visible.
+- [ ] Add title and caption to at least one recorded clip, use recordings in a post, then confirm title appears in audio players and caption appears in media viewer.
 
 ---
 
@@ -222,6 +260,9 @@ Post Detail now includes an author-only edit action. The composer opens in edit 
 | `src/store/actions/postActions.ts` | Full post-edit thunk and media deletion verification before removal |
 | `src/services/firebase/storage.ts` | Storage delete helper for existing post attachments |
 | `src/models/types.ts` | Adds `Post.lastEditedAt` field |
+| `src/app/(protected)/audio-record.tsx` | Multi-clip audio recording flow with per-clip metadata editing |
+| `src/components/AudioAttachmentPlayer.tsx` | Audio title display support |
+| `src/components/MediaViewerModal.tsx` | Audio title plumbing for full-view playback |
 | `firestore.rules` | Prevents non-author update paths from mutating editable post content fields |
 | `src/hooks/useAuthorPostActivity.ts` | Correct unread separation across reaction/message/private-note activity |
 | `src/models/constants.ts` | Shared AsyncStorage keys and notification/draft versions |

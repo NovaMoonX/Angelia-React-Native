@@ -20,12 +20,16 @@ export interface MediaFile {
   name: string;
   type: string;
   size?: number;
+  /** Optional duration metadata for audio attachments in seconds. */
+  durationSeconds?: number;
   /** Existing Firebase download URL for already-uploaded media in edit mode. */
   existingUrl?: string | null;
   /** For videos: local `file://` URI of the generated thumbnail image. */
   thumbnailUri?: string | null;
   /** Optional caption for this media item. */
   caption: string | null;
+  /** Optional title for this media item (used by audio attachments). */
+  title?: string | null;
 }
 
 interface PostCreateMediaUploaderProps {
