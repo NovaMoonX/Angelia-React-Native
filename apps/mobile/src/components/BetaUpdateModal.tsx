@@ -51,8 +51,8 @@ const BETA_UPDATE_CHANGES: ChangeEntry[] = [
   },
   {
     emoji: '🚀',
-    title: 'Uploads are more reliable',
-    description: 'Posting is steadier now, with clearer progress while uploading. For best results, stay in the app until your post is live, since uploads pause when the app is in the background.',
+    title: 'Smoother performance',
+    description: 'The app should feel snappier overall, and posting is steadier now with clearer upload progress. For best results, stay in the app until your post is live.',
   },
 ];
 
