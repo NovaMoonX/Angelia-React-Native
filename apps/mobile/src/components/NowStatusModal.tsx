@@ -27,6 +27,11 @@ const DURATION_OPTIONS = [
 
 type ExpiryMode = 'duration' | 'exact-time';
 
+const EXPIRY_MODE_OPTIONS: Array<{ mode: ExpiryMode; label: string }> = [
+	{ mode: 'duration', label: 'Duration' },
+	{ mode: 'exact-time', label: 'Exact time' },
+];
+
 const SUGGESTIONS = [
 	{ emoji: '💼', text: 'At work' },
 	{ emoji: '🎉', text: 'Big win today' },
@@ -48,6 +53,27 @@ function formatExactTimeSelection(date: Date): string {
 	});
 }
 
+function getDefaultExactExpiryAt(): Date {
+	const THIRTY_MINUTES_MS = 30 * 60 * 1000;
+	const oneHourFromNow = Date.now() + (60 * 60 * 1000);
+	const rounded = Math.round(oneHourFromNow / THIRTY_MINUTES_MS) * THIRTY_MINUTES_MS;
+	return new Date(rounded);
+}
+
+function getTodayStart(date: Date): Date {
+	const todayStart = new Date(date);
+	todayStart.setHours(0, 0, 0, 0);
+	return todayStart;
+}
+
+function snapExactExpiryAtToPresent(candidate: Date): Date {
+	const now = new Date();
+	if (candidate.getTime() < now.getTime()) {
+		return now;
+	}
+	return candidate;
+}
+
 export function NowStatusModal({ visible, onClose, onSave, onClear, currentStatus }: NowStatusModalProps) {
 	const { theme } = useTheme();
 	const insets = useSafeAreaInsets();
@@ -60,9 +86,7 @@ export function NowStatusModal({ visible, onClose, onSave, onClear, currentStatu
 	const [customHours, setCustomHours] = useState('');
 	const [customMinutes, setCustomMinutes] = useState('');
 	const [exactExpiryAt, setExactExpiryAt] = useState<Date>(() => {
-		const initial = new Date();
-		initial.setMinutes(initial.getMinutes() + 60);
-		return initial;
+		return getDefaultExactExpiryAt();
 	});
 	const [showAndroidDatePicker, setShowAndroidDatePicker] = useState(false);
 	const [showAndroidTimePicker, setShowAndroidTimePicker] = useState(false);
@@ -74,6 +98,9 @@ export function NowStatusModal({ visible, onClose, onSave, onClear, currentStatu
 	const [hadExistingStatus, setHadExistingStatus] = useState(false);
 
 	const hasExistingStatus = hadExistingStatus;
+	const now = new Date();
+	const todayStart = getTodayStart(now);
+	const isExactExpiryToday = exactExpiryAt.toDateString() === now.toDateString();
 
 	// Sync form with currentStatus every time the modal opens so it always
 	// reflects the latest active status instead of the stale initial state.
@@ -87,9 +114,7 @@ export function NowStatusModal({ visible, onClose, onSave, onClear, currentStatu
 		setShowEmojiPicker(false);
 		setCustomHours('');
 		setCustomMinutes('');
-		const defaultExactDate = new Date();
-		defaultExactDate.setMinutes(defaultExactDate.getMinutes() + 60);
-		setExactExpiryAt(defaultExactDate);
+		setExactExpiryAt(getDefaultExactExpiryAt());
 		setShowAndroidDatePicker(false);
 		setShowAndroidTimePicker(false);
 		setShowIosDatePicker(false);
@@ -153,6 +178,9 @@ export function NowStatusModal({ visible, onClose, onSave, onClear, currentStatu
 	}, []);
 
 	const openDatePicker = useCallback(() => {
+		setExactExpiryAt((prev) => {
+			return snapExactExpiryAtToPresent(prev);
+		});
 		if (Platform.OS === 'ios') {
 			setShowIosDatePicker(true);
 			return;
@@ -161,6 +189,9 @@ export function NowStatusModal({ visible, onClose, onSave, onClear, currentStatu
 	}, []);
 
 	const openTimePicker = useCallback(() => {
+		setExactExpiryAt((prev) => {
+			return snapExactExpiryAtToPresent(prev);
+		});
 		if (Platform.OS === 'ios') {
 			setShowIosTimePicker(true);
 			return;
@@ -172,9 +203,16 @@ export function NowStatusModal({ visible, onClose, onSave, onClear, currentStatu
 		setShowAndroidDatePicker(false);
 		if (!selected) return;
 		setExactExpiryAt((prev) => {
+			const nowDate = new Date();
+			const selectedStart = getTodayStart(selected);
+			const nowStart = getTodayStart(nowDate);
 			const next = new Date(prev);
-			next.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
-			return next;
+			if (selectedStart.getTime() < nowStart.getTime()) {
+				next.setFullYear(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
+			} else {
+				next.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
+			}
+			return snapExactExpiryAtToPresent(next);
 		});
 	}, []);
 
@@ -182,9 +220,13 @@ export function NowStatusModal({ visible, onClose, onSave, onClear, currentStatu
 		setShowAndroidTimePicker(false);
 		if (!selected) return;
 		setExactExpiryAt((prev) => {
+			const nowDate = new Date();
 			const next = new Date(prev);
 			next.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
-			return next;
+			if (next.toDateString() === nowDate.toDateString() && next.getTime() < nowDate.getTime()) {
+				next.setHours(nowDate.getHours(), nowDate.getMinutes(), nowDate.getSeconds(), nowDate.getMilliseconds());
+			}
+			return snapExactExpiryAtToPresent(next);
 		});
 	}, []);
 
@@ -259,51 +301,31 @@ export function NowStatusModal({ visible, onClose, onSave, onClear, currentStatu
 
 						{/* Duration picker */}
 						<Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>Expires</Text>
-						<View style={styles.modeWrap}>
-							<Pressable
-								onPress={() => {
-									setExpiryMode('duration');
-									setSaveError(null);
-								}}
-								style={[
-									styles.modeChip,
-									{
-										backgroundColor: expiryMode === 'duration' ? theme.primary : theme.background,
-										borderColor: expiryMode === 'duration' ? theme.primary : theme.border,
-									},
-								]}
-							>
-								<Text
-									style={[
-										styles.modeChipText,
-										{ color: expiryMode === 'duration' ? theme.primaryForeground : theme.foreground },
-									]}
-								>
-									Duration
-								</Text>
-							</Pressable>
-							<Pressable
-								onPress={() => {
-									setExpiryMode('exact-time');
-									setSaveError(null);
-								}}
-								style={[
-									styles.modeChip,
-									{
-										backgroundColor: expiryMode === 'exact-time' ? theme.primary : theme.background,
-										borderColor: expiryMode === 'exact-time' ? theme.primary : theme.border,
-									},
-								]}
-							>
-								<Text
-									style={[
-										styles.modeChipText,
-										{ color: expiryMode === 'exact-time' ? theme.primaryForeground : theme.foreground },
-									]}
-								>
-									Exact time
-								</Text>
-							</Pressable>
+						<View style={styles.modeRadioRow}>
+							{EXPIRY_MODE_OPTIONS.map((option) => {
+								const selected = expiryMode === option.mode;
+								return (
+									<Pressable
+										key={option.mode}
+										onPress={() => {
+											setExpiryMode(option.mode);
+											setSaveError(null);
+										}}
+										style={[
+											styles.modeRadioOption,
+											{
+												backgroundColor: selected ? theme.primary + '12' : theme.background,
+												borderColor: selected ? theme.primary : theme.border,
+											},
+										]}
+									>
+										<View style={[styles.radioOuter, { borderColor: selected ? theme.primary : theme.mutedForeground }]}>
+											{selected ? <View style={[styles.radioInner, { backgroundColor: theme.primary }]} /> : null}
+										</View>
+										<Text style={[styles.modeRadioLabel, { color: theme.foreground }]}>{option.label}</Text>
+									</Pressable>
+								);
+							})}
 						</View>
 
 						{expiryMode === 'duration' && (
@@ -440,6 +462,7 @@ export function NowStatusModal({ visible, onClose, onSave, onClear, currentStatu
 					mode='date'
 					display='default'
 					value={exactExpiryAt}
+					minimumDate={todayStart}
 					onChange={handleAndroidDateChange}
 				/>
 			) : null}
@@ -469,12 +492,20 @@ export function NowStatusModal({ visible, onClose, onSave, onClear, currentStatu
 							mode='date'
 							display='spinner'
 							value={exactExpiryAt}
+							minimumDate={todayStart}
 							onChange={(_event: DateTimePickerEvent, date?: Date) => {
 								if (!date) return;
 								setExactExpiryAt((prev) => {
+									const nowDate = new Date();
+									const dateStart = getTodayStart(date);
+									const nowStart = getTodayStart(nowDate);
 									const next = new Date(prev);
-									next.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
-									return next;
+									if (dateStart.getTime() < nowStart.getTime()) {
+										next.setFullYear(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
+									} else {
+										next.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+									}
+									return snapExactExpiryAtToPresent(next);
 								});
 							}}
 							style={styles.iosPickerControl}
@@ -499,12 +530,17 @@ export function NowStatusModal({ visible, onClose, onSave, onClear, currentStatu
 							mode='time'
 							display='spinner'
 							value={exactExpiryAt}
+							minimumDate={isExactExpiryToday ? now : undefined}
 							onChange={(_event: DateTimePickerEvent, date?: Date) => {
 								if (!date) return;
 								setExactExpiryAt((prev) => {
+									const nowDate = new Date();
 									const next = new Date(prev);
 									next.setHours(date.getHours(), date.getMinutes(), 0, 0);
-									return next;
+									if (next.toDateString() === nowDate.toDateString() && next.getTime() < nowDate.getTime()) {
+										next.setHours(nowDate.getHours(), nowDate.getMinutes(), nowDate.getSeconds(), nowDate.getMilliseconds());
+									}
+									return snapExactExpiryAtToPresent(next);
 								});
 							}}
 							style={styles.iosPickerControl}
@@ -612,18 +648,36 @@ const styles = StyleSheet.create({
 		flexWrap: 'wrap',
 		gap: 8,
 	},
-	modeWrap: {
+	modeRadioRow: {
 		flexDirection: 'row',
 		gap: 8,
 	},
-	modeChip: {
-		paddingHorizontal: 12,
-		paddingVertical: 8,
-		borderRadius: 16,
+	modeRadioOption: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 8,
+		flex: 1,
 		borderWidth: 1,
+		borderRadius: 12,
+		paddingHorizontal: 12,
+		paddingVertical: 10,
 	},
-	modeChipText: {
-		fontSize: 13,
+	radioOuter: {
+		width: 18,
+		height: 18,
+		borderRadius: 9,
+		borderWidth: 2,
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	radioInner: {
+		width: 8,
+		height: 8,
+		borderRadius: 4,
+	},
+	modeRadioLabel: {
+		fontSize: 14,
 		fontWeight: '600',
 	},
 	durationChip: {

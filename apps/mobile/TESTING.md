@@ -61,6 +61,36 @@ Use the iPhone when:
 
 ---
 
+## Feature 27: Status Expiry Radio Mode Selector
+
+**Devices:** Android primary. iPhone parity pass recommended.
+
+### Setup
+
+- [ ] Open your profile/status entry point where the Set your status sheet is available
+- [ ] Ensure no blocking modal is open so the full status form can be interacted with
+
+### Android
+
+- [ ] Open Set your status -> confirm Expires shows exactly two radio options: Duration and Exact time
+- [ ] Confirm only one radio option can be selected at a time
+- [ ] Select Duration -> confirm duration chips (30 minutes, 1 hour, etc.) are visible
+- [ ] Switch to Exact time -> confirm date/time picker chips appear and duration chips hide
+- [ ] On first switch to Exact time, confirm default is about 1 hour ahead and lands on a 00 or 30 minute mark
+- [ ] In Exact time date picker, try choosing a previous day -> confirm it immediately resets to today
+- [ ] In Exact time, with today selected, try choosing a past time -> confirm it immediately resets to now
+- [ ] Switch back to Duration -> confirm duration chips return and exact-time controls hide
+- [ ] Save once with Duration and once with Exact time -> confirm both saves still work
+
+### iPhone
+
+- [ ] Repeat one full toggle pass between Duration and Exact time and confirm the same visibility behavior
+- [ ] In Exact time date spinner, try selecting an earlier day -> confirm it resets to today
+- [ ] With today selected, spin time earlier than now -> confirm it resets to now
+- [ ] Save one status with each radio option and confirm no regression in iOS picker flow
+
+---
+
 ## Feature 21: OTA Message Targeting (Device + App Version Range)
 
 **Devices:** Android + iPhone required.

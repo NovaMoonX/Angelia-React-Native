@@ -7,6 +7,10 @@ Related PR: TBD
 Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
 
 Current branch highlights:
+- General performance got a polish pass, so the app should feel smoother overall, with posting and upload progress feeling steadier.
+- Status expiry mode is now easier to choose at a glance: the old Duration/Exact Time button pair is now a clear two-option radio selector.
+- Exact-time status expiry now snaps invalid picks back to the present immediately: past dates reset to today, and past times on today reset to now.
+- Exact-time status now defaults to one hour ahead and auto-rounds to the nearest 30-minute mark.
 - Post Detail now shows the private-note count right on the host's Private Notes button, so you can see how many notes are waiting before you tap.
 - In Post Detail, reaction chips now remove emoji-by-emoji for your account (tapping one chip no longer clears all of your reactions).
 - The Post Activity **Unread Only** filter now shows a live unread-post count, so it is easier to see at a glance how many posts still need your attention.
