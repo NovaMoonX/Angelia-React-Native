@@ -680,6 +680,29 @@ return (
 
 ---
 
+### iOS push notifications not delivered (APNs key missing from Firebase)
+
+**Symptom:** Push notifications are working on Android but not arriving on iOS. Device permissions, app entitlements, and APNS configuration appear correct, but no notifications arrive or show any error in logs.
+
+**Root cause:** The APNs (Apple Push Notification service) authentication key had not been uploaded to Firebase. Firebase requires a `.p8` APNs auth key to bridge FCM → APNs for iOS devices. Without it, Firebase silently fails all iOS notification deliveries. Android is unaffected because it uses FCM natively and does not require APNs.
+
+**Diagnostic steps taken:**
+1. **Apple Push Notifications Console → Tools**: Validated the device's APNs token was legitimate and correctly registered for the app.
+2. **Apple Push Notifications Console → Send**: Sent a direct test notification to the device via APNs. This succeeded, confirming the device, app entitlements, and Apple Developer configuration were all correct.
+3. **Firebase Console → Messaging**: Attempted a direct test send to the device's FCM token. This failed, narrowing the problem to the Firebase ↔ APNs bridge.
+4. **Firebase Console → Project Settings → Cloud Messaging → Apple app configuration**: Confirmed that no APNs key or certificate had been uploaded — the missing link.
+
+**Fix:**
+1. Go to **developer.apple.com → Certificates, Identifiers & Profiles → Keys**
+2. Create a new key with **Apple Push Notifications service (APNs)** enabled
+3. Download the `.p8` file immediately (it can only be downloaded once) and note the **Key ID** and **Team ID**
+4. Go to **Firebase Console → Project Settings → Cloud Messaging → Apple app configuration**
+5. Upload the `.p8` file, and enter the **Key ID** and **Team ID**
+
+No app reinstall or redeployment is required — notifications begin working immediately after the key is uploaded. A single `.p8` APNs auth key covers both **development and production** environments and all apps under the same Apple Developer account. If notifications still do not arrive after uploading the key, try a **full app reinstall** or **sign out/sign in** to force a fresh FCM token to be generated and saved to the backend. The `.p8` file can only be downloaded once — store it securely. If lost, the key must be revoked and a new one generated.
+
+---
+
 ## Mono Repo Structure
 
 This repo is organized as a mono repo under `apps/`:
