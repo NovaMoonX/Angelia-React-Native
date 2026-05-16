@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, Text, V
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, type EventArg, type NavigationAction } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { Feather } from '@expo/vector-icons';
@@ -88,8 +88,8 @@ export default function PostDetailScreen() {
 	const [circleSuggestionsVisible, setCircleSuggestionsVisible] = useState(false);
 	const [circleSuggestionsLoading, setCircleSuggestionsLoading] = useState(false);
 	const [requestingChannelId, setRequestingChannelId] = useState<string | null>(null);
-	const pendingNavigationActionRef = useRef<any>(null);
-	const pendingUnreadLeaveActionRef = useRef<any>(null);
+	const pendingNavigationActionRef = useRef<NavigationAction | null>(null);
+	const pendingUnreadLeaveActionRef = useRef<NavigationAction | null>(null);
 	// Tracks whether the host has unseen private notes (persisted in AsyncStorage)
 	const [hasUnreadPrivateNotes, setHasUnreadPrivateNotes] = useState(false);
 	// Tracks whether there are new conversation messages the user hasn't seen
@@ -365,7 +365,7 @@ export default function PostDetailScreen() {
 	}, [author, channel, currentUser, post, outgoingJoinRequests]);
 
 	useEffect(() => {
-		const unsubscribe = navigation.addListener('beforeRemove', (event: any) => {
+		const unsubscribe = navigation.addListener('beforeRemove', (event: EventArg<'beforeRemove', true, { action: NavigationAction }>) => {
 			if (showUnreadLeaveModal) return;
 			if (shouldWarnBeforeLeaving) {
 				event.preventDefault();

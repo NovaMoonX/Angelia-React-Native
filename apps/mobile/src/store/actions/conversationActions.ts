@@ -202,13 +202,11 @@ export const editMessage = createAsyncThunk(
     const state = getState() as RootState;
     const user = state.users.currentUser;
     if (!user) {
-      console.warn('[ConversationEdit] thunk blocked: user not authenticated', { postId, messageId });
       return rejectWithValue('User not authenticated');
     }
 
     const trimmedText = text.trim();
     if (!trimmedText) {
-      console.warn('[ConversationEdit] thunk blocked: empty message text', { postId, messageId });
       return rejectWithValue('Message text cannot be empty');
     }
 
@@ -218,28 +216,16 @@ export const editMessage = createAsyncThunk(
     });
 
     if (!targetMessage) {
-      console.warn('[ConversationEdit] thunk blocked: message not found in local state', { postId, messageId });
       return rejectWithValue('Message not found');
     }
     if (targetMessage.authorId !== user.id) {
-      console.warn('[ConversationEdit] thunk blocked: wrong author', {
-        postId,
-        messageId,
-        messageAuthorId: targetMessage.authorId,
-        currentUserId: user.id,
-      });
       return rejectWithValue('You can only edit your own messages');
     }
     if (targetMessage.isSystem) {
-      console.warn('[ConversationEdit] thunk blocked: system message', { postId, messageId });
       return rejectWithValue('System messages cannot be edited');
     }
 
-    console.log('[ConversationEdit] thunk update starting', {
-      postId,
-      messageId,
-      textLength: trimmedText.length,
-    });
+    const previousText = targetMessage.text;
 
     dispatch(updateMessageTextOptimistic({ postId, messageId, text: trimmedText }));
 
@@ -249,18 +235,9 @@ export const editMessage = createAsyncThunk(
 
     try {
       await firestoreUpdateMessageText(postId, messageId, trimmedText);
-      console.log('[ConversationEdit] thunk update succeeded', {
-        postId,
-        messageId,
-      });
       return { postId, messageId, text: trimmedText };
     } catch (err) {
-      console.error('[ConversationEdit] thunk update failed', {
-        postId,
-        messageId,
-        errorMessage: err instanceof Error ? err.message : String(err),
-        rawError: err,
-      });
+      dispatch(updateMessageTextOptimistic({ postId, messageId, text: previousText }));
       return rejectWithValue(
         err instanceof Error ? err.message : 'Failed to edit message',
       );

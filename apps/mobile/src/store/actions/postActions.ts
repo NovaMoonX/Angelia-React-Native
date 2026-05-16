@@ -1,4 +1,4 @@
-import { createAsyncThunk } from '@reduxjs/toolkit';
+import { createAsyncThunk, type Dispatch, type UnknownAction } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { AppState } from 'react-native';
@@ -240,7 +240,7 @@ async function sendPostReadyNotificationFromQueue(): Promise<void> {
   }
 }
 
-async function processSingleQueuedUpload(job: QueuedPostUploadJob, dispatch: any): Promise<void> {
+async function processSingleQueuedUpload(job: QueuedPostUploadJob, dispatch: Dispatch<UnknownAction>): Promise<void> {
   const uploadedUrls: string[] = [];
   try {
     dispatch(setPostUploadQueued({ postId: job.postId }));
@@ -345,7 +345,7 @@ async function processSingleQueuedUpload(job: QueuedPostUploadJob, dispatch: any
   }
 }
 
-async function runUploadQueue(dispatch: any): Promise<void> {
+async function runUploadQueue(dispatch: Dispatch<UnknownAction>): Promise<void> {
   if (queueProcessing) {
     return;
   }
@@ -700,21 +700,13 @@ export const editPostContent = createAsyncThunk(
         }),
       );
 
-      // 2) Verify removed media can be deleted from storage before saving post edits.
+      // 2) Determine removed media now; delete from storage only after post save succeeds.
       const existingMedia = existingPost.media ?? [];
-      const keptUrls = preparedMedia.map((item) => {
-        return item.url;
-      });
       const removedItems = existingMedia.filter((item) => {
-        return !keptUrls.includes(item.url);
+        return !preparedMedia.some((preparedItem) => {
+          return sameStorageObjectUrl(preparedItem.url, item.url);
+        });
       });
-
-      for (const removed of removedItems) {
-        await deletePostMediaByUrl(removed.url);
-        if (removed.thumbnailUrl) {
-          await deletePostMediaByUrl(removed.thumbnailUrl);
-        }
-      }
 
       const editTimestamp = Date.now();
       const updatePayload: Partial<Post> = {
@@ -758,6 +750,21 @@ export const editPostContent = createAsyncThunk(
           preparedMedia.length > 0,
         );
       }
+
+      // 3) Best-effort storage cleanup for media removed by the edit.
+      await Promise.all(
+        removedItems.flatMap((removed) => {
+          const urlsToDelete = [removed.url, ...(removed.thumbnailUrl ? [removed.thumbnailUrl] : [])];
+          return urlsToDelete.map(async (url) => {
+            try {
+              await deletePostMediaByUrl(url);
+            } catch {
+              // Ignore cleanup failures after the post document has been saved.
+            }
+          });
+        }),
+      );
+
       return { postId, updated: updatePayload };
     } catch (err) {
       // Best-effort cleanup for newly uploaded files when edit fails.

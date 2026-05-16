@@ -17,7 +17,7 @@ import { useTheme } from '@/hooks/useTheme';
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BETA_UPDATE_TITLE = "Fresh updates — take a look ✨";
+const BETA_UPDATE_TITLE = 'Big upgrades are here 🎉';
 
 interface ChangeEntry {
   emoji: string;
@@ -30,24 +30,29 @@ interface ChangeEntry {
 // "Bug fixes & reliability" entry rather than called out individually.
 const BETA_UPDATE_CHANGES: ChangeEntry[] = [
   {
-    emoji: '👆',
-    title: 'React from your feed',
-    description: 'Long-press any post to react without opening it — the emoji picker pops up right there.',
+    emoji: '✍️',
+    title: 'Edit posts after publishing',
+    description: 'You can now update text, circle, priority, captions, and media after a post goes live.',
+  },
+  {
+    emoji: '🎙️',
+    title: 'Audio recordings are here',
+    description: 'Record clips right in the app, add titles/captions, and keep sharing without leaving your flow.',
   },
   {
     emoji: '🔔',
-    title: 'Custom notification controls',
-    description: 'Choose which activity alerts you — reactions, private notes, and conversation messages each have their own toggle.',
+    title: 'New post activity controls',
+    description: 'Choose whether you get notified for new reactions and new conversation messages.',
   },
   {
-    emoji: '⌨️',
-    title: 'Type any emoji you want',
-    description: 'If you cannot find an emoji in the picker, you can now type and submit it directly.',
+    emoji: '💬',
+    title: 'Edit conversation messages',
+    description: 'Double tap your own message to edit it without losing your place in the thread.',
   },
   {
-    emoji: '🐛',
-    title: 'Bug fixes & polish',
-    description: 'A few rough edges got smoothed out so everything feels more reliable.',
+    emoji: '🚀',
+    title: 'Uploads are more reliable',
+    description: 'Posting is steadier now, with clearer progress while uploading. For best results, stay in the app until your post is live, since uploads pause when the app is in the background.',
   },
 ];
 
@@ -89,13 +94,6 @@ export function BetaUpdateModal({ visible, onClose }: BetaUpdateModalProps) {
                 {entry.description ? (
                   <Text style={[styles.changeDescription, { color: theme.mutedForeground }]}>
                     {entry.description}
-                    {entry.title === 'Custom notification controls' ? (
-                      <>
-                        {' By default, only '}
-                        <Text style={[styles.changeDescriptionHighlight, { color: theme.destructive }]}>Big News</Text>
-                        {' notifications are on.'}
-                      </>
-                    ) : null}
                   </Text>
                 ) : null}
               </View>

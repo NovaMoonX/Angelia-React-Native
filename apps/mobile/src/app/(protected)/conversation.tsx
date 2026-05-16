@@ -244,11 +244,6 @@ export default function ConversationScreen() {
     if (!messageText.trim() || !postId) return;
     const text = messageText.trim();
     const editingTarget = editingMessage;
-    console.log('[ConversationEdit] submit requested', {
-      postId,
-      editingMessageId: editingTarget?.id ?? null,
-      textLength: text.length,
-    });
     setMessageText('');
     setReplyingTo(null);
     setEditingMessage(null);
@@ -263,10 +258,6 @@ export default function ConversationScreen() {
             text,
           }),
         ).unwrap();
-        console.log('[ConversationEdit] submit succeeded', {
-          postId,
-          messageId: editingTarget.id,
-        });
         addToast({ type: 'success', title: 'Message updated' });
         return;
       }
@@ -285,12 +276,6 @@ export default function ConversationScreen() {
         setReplyingTo(replyingTo);
       }
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error('[ConversationEdit] submit failed', {
-        postId,
-        editingMessageId: editingTarget?.id ?? null,
-        errorMessage,
-        rawError: err,
-      });
       addToast({
         type: 'error',
         title: editingTarget
@@ -348,27 +333,11 @@ export default function ConversationScreen() {
 
   const handleStartEdit = useCallback(async (message: Message) => {
     if (!currentUser) {
-      console.warn('[ConversationEdit] start edit blocked: no current user', {
-        messageId: message.id,
-      });
       return;
     }
     if (message.isSystem || message.authorId !== currentUser.id) {
-      console.warn('[ConversationEdit] start edit blocked: message not editable', {
-        messageId: message.id,
-        isSystem: message.isSystem === true,
-        authorId: message.authorId,
-        currentUserId: currentUser.id,
-      });
       return;
     }
-
-    console.log('[ConversationEdit] start edit requested', {
-      messageId: message.id,
-      hasPendingDraft: messageText.trim().length > 0,
-      existingEditingMessageId: editingMessage?.id ?? null,
-      currentUserId: currentUser.id,
-    });
 
     const pendingDraft = messageText.trim();
     if (pendingDraft && (!editingMessage || editingMessage.id !== message.id)) {
@@ -376,10 +345,6 @@ export default function ConversationScreen() {
         title: 'Edit this message instead?',
         message: 'This will clear your current draft so you can edit the older message.',
         destructive: true,
-      });
-      console.log('[ConversationEdit] draft clear confirmation result', {
-        messageId: message.id,
-        accepted: ok,
       });
       if (!ok) return;
     }
@@ -390,11 +355,6 @@ export default function ConversationScreen() {
     setMessageText(message.text);
     requestAnimationFrame(() => {
       inputRef.current?.focus();
-    });
-    console.log('[ConversationEdit] edit mode entered', {
-      messageId: message.id,
-      textLength: message.text.length,
-      currentUserId: currentUser.id,
     });
 
     if (showEditHint) {

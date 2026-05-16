@@ -288,6 +288,7 @@ service cloud.firestore {
           && request.resource.data.authorId == resource.data.authorId
           && request.resource.data.timestamp == resource.data.timestamp
           && request.resource.data.parentId == resource.data.parentId
+          && optionalFieldUnchanged('isSystem')
           && request.resource.data.reactions == resource.data.reactions;
 
         allow delete: if false;

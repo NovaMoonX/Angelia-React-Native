@@ -69,18 +69,11 @@ export function ConversationMessage({
       onPress={() => {
         if (!onSinglePress && !onDoublePress) return;
         const now = Date.now();
-        console.log('[ConversationEdit] press detected', {
-          messageId: message.id,
-          deltaMs: now - lastPressAtRef.current,
-        });
         if (now - lastPressAtRef.current < 280) {
           if (singlePressTimeoutRef.current) {
             clearTimeout(singlePressTimeoutRef.current);
             singlePressTimeoutRef.current = null;
           }
-          console.log('[ConversationEdit] double tap recognized', {
-            messageId: message.id,
-          });
           onDoublePress?.();
           lastPressAtRef.current = 0;
           return;

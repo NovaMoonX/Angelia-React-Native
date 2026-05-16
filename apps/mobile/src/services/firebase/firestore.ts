@@ -1216,26 +1216,6 @@ export async function updateMessageText(
   text: string,
 ): Promise<void> {
   const messageRef = doc(getDb(), 'posts', postId, 'messages', messageId);
-  const snapshot = await getDoc(messageRef).catch((error) => {
-    console.error('[ConversationEdit] failed to read message before update', {
-      postId,
-      messageId,
-      errorMessage: error instanceof Error ? error.message : String(error),
-      rawError: error,
-    });
-    return null;
-  });
-
-  console.log('[ConversationEdit] firestore update payload', {
-    postId,
-    messageId,
-    textLength: text.length,
-    existingExists: snapshot?.exists ?? false,
-    existingKeys: snapshot?.data ? Object.keys(snapshot.data() as Record<string, unknown>) : [],
-    existingAuthorId: snapshot?.data ? (snapshot.data() as { authorId?: string }).authorId ?? null : null,
-    existingIsSystem: snapshot?.data ? (snapshot.data() as { isSystem?: boolean }).isSystem ?? null : null,
-  });
-
   await updateDoc(messageRef, {
     text,
   });
