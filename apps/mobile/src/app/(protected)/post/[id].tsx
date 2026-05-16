@@ -111,17 +111,11 @@ export default function PostDetailScreen() {
 	const goToExitDestination = useCallback(() => {
 		isRoutingAwayRef.current = true;
 		if (shouldReturnToPostActivity) {
-			router.replace('/(protected)/post-activity');
+			router.dismiss();
 			return;
 		}
-		// Use router.back() to respect native back-stack, but fall back to
-		// replacing with Feed if there's nothing to go back to (e.g., deep link).
-		// This prevents the "GO_BACK action was not handled" error on Android.
-		if (router.canGoBack()) {
-			router.back();
-		} else {
-			router.replace('/(protected)/feed');
-		}
+		router.dismissAll();
+		router.replace('/(protected)/feed');
 	}, [router, shouldReturnToPostActivity]);
 
 	// Memoize the latest note timestamp to avoid AsyncStorage reads on every render

@@ -19,22 +19,7 @@ interface SeenMaps {
   conversationByPostId: Record<string, number>;
 }
 
-const getPerfNow = (): number => {
-  const perfNow = globalThis.performance?.now;
-  if (typeof perfNow === 'function') {
-    return perfNow.call(globalThis.performance);
-  }
-  return Date.now();
-};
 
-const logAuthorPostActivityPerf = (event: string, details?: Record<string, number | string | boolean>) => {
-  if (!__DEV__) return;
-  if (details) {
-    console.log(`[AuthorPostActivityPerf] ${event}`, details);
-    return;
-  }
-  console.log(`[AuthorPostActivityPerf] ${event}`);
-};
 
 export interface PostUnreadDetail {
   hasNewReactions: boolean;
@@ -105,34 +90,19 @@ export function useAuthorPostActivity() {
     refreshStateCache[refreshKey] = refreshState;
 
     if (refreshState.promise != null) {
-      logAuthorPostActivityPerf('refresh_seen_state_coalesced_inflight', {
-        subscribedPostCount: subscribedPostIds.length,
-      });
       return refreshState.promise;
     }
 
     const now = Date.now();
     if (now - refreshState.lastCompletedAt < RECENT_REFRESH_WINDOW_MS) {
-      logAuthorPostActivityPerf('refresh_seen_state_skipped_recent', {
-        subscribedPostCount: subscribedPostIds.length,
-        elapsedSinceLastMs: now - refreshState.lastCompletedAt,
-      });
       return;
     }
 
     const runRefresh = async () => {
-    const refreshStart = getPerfNow();
-    logAuthorPostActivityPerf('refresh_seen_state_started', {
-      subscribedPostCount: subscribedPostIds.length,
-    });
 
     if (!currentUserId) {
       setPostActivitySeenAt(0);
       setSeenMaps({ reactionsByPostId: {}, privateNotesByPostId: {}, conversationByPostId: {} });
-      logAuthorPostActivityPerf('refresh_seen_state_completed', {
-        subscribedPostCount: 0,
-        elapsedMs: Number((getPerfNow() - refreshStart).toFixed(1)),
-      });
       return;
     }
 
@@ -167,10 +137,6 @@ export function useAuthorPostActivity() {
       const emptySeen: SeenMaps = { reactionsByPostId: {}, privateNotesByPostId: {}, conversationByPostId: {} };
       setSeenMaps(emptySeen);
       seenStateCache[currentUserId] = { postActivitySeenAt: seenStateCache[currentUserId]?.postActivitySeenAt ?? null, seenMaps: emptySeen };
-      logAuthorPostActivityPerf('refresh_seen_state_completed', {
-        subscribedPostCount: 0,
-        elapsedMs: Number((getPerfNow() - refreshStart).toFixed(1)),
-      });
       return;
     }
 
@@ -203,10 +169,6 @@ export function useAuthorPostActivity() {
     const nextSeenMaps: SeenMaps = { reactionsByPostId, privateNotesByPostId, conversationByPostId };
     setSeenMaps(nextSeenMaps);
     seenStateCache[currentUserId] = { postActivitySeenAt: seenStateCache[currentUserId]?.postActivitySeenAt ?? null, seenMaps: nextSeenMaps };
-    logAuthorPostActivityPerf('refresh_seen_state_completed', {
-      subscribedPostCount: subscribedPostIds.length,
-      elapsedMs: Number((getPerfNow() - refreshStart).toFixed(1)),
-    });
     };
 
     const inflightPromise = runRefresh()
@@ -222,7 +184,6 @@ export function useAuthorPostActivity() {
   const markPostsSeen = useCallback(async (postIdsToMark: string[]) => {
     if (!currentUserId || postIdsToMark.length === 0) return;
 
-    const markStart = getPerfNow();
     const seenAt = Date.now();
     await AsyncStorage.multiSet(
       postIdsToMark.map((postId) => {
@@ -251,10 +212,6 @@ export function useAuthorPostActivity() {
       };
 
       return nextSeenMaps;
-    });
-    logAuthorPostActivityPerf('mark_posts_seen_completed', {
-      markedCount: postIdsToMark.length,
-      elapsedMs: Number((getPerfNow() - markStart).toFixed(1)),
     });
   }, [currentUserId, postActivitySeenAt]);
 

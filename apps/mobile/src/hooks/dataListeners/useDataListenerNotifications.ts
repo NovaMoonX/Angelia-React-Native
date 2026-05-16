@@ -20,18 +20,7 @@ const DAILY_PROMPT_SHOWN_DATE_KEY = '@angelia/daily_prompt_shown_date';
 const handledNotificationKeys = new Set<string>();
 const handledForegroundToastKeys = new Set<string>();
 
-function logNotificationRoute(event: string, details?: Record<string, unknown>) {
-  if (!__DEV__) {
-    return;
-  }
 
-  if (details) {
-    console.log(`[NotificationRoute] ${event}`, details);
-    return;
-  }
-
-  console.log(`[NotificationRoute] ${event}`);
-}
 
 function getNotificationKey(response: Notifications.NotificationResponse): string {
   return `${response.notification.request.identifier}_${response.notification.date}`;
@@ -121,22 +110,11 @@ export function useDataListenerNotifications() {
 
   const routeFromNotificationPayloadRef = useRef(
     (type: string | undefined, data: Record<string, string> | undefined, source: 'cold-start' | 'foreground-listener') => {
-      logNotificationRoute('routeFromNotificationPayload:start', {
-        source,
-        type: type ?? 'undefined',
-        postId: data?.postId,
-        joinRequestId: data?.joinRequestId,
-        requestId: data?.requestId,
-        connectionRequestId: data?.connectionRequestId,
-      });
-
       if (type === 'join_channel_request') {
         const joinRequestId = data?.joinRequestId;
         if (joinRequestId) {
-          logNotificationRoute('navigate:join_request', { source, joinRequestId });
           router.push({ pathname: '/(protected)/join-request/[id]', params: { id: joinRequestId } });
         } else {
-          logNotificationRoute('navigate:notifications_fallback', { source, type });
           router.push('/(protected)/notifications');
         }
         return;
@@ -144,7 +122,6 @@ export function useDataListenerNotifications() {
 
       if (type === 'join_channel_accepted') {
         const channelName = data?.channelName ?? '';
-        logNotificationRoute('navigate:join_channel_accepted', { source, channelName });
         router.push({ pathname: '/(protected)/channel-accepted', params: { channelName } });
         return;
       }
@@ -152,10 +129,8 @@ export function useDataListenerNotifications() {
       if (type === 'custom_circle_invite') {
         const requestId = data?.requestId;
         if (requestId) {
-          logNotificationRoute('navigate:circle_invite', { source, requestId });
           router.push({ pathname: '/(protected)/circle-invite/[id]', params: { id: requestId } } as never);
         } else {
-          logNotificationRoute('navigate:notifications_fallback', { source, type });
           router.push('/(protected)/notifications');
         }
         return;
@@ -164,17 +139,14 @@ export function useDataListenerNotifications() {
       if (type === 'connection_request') {
         const requestId = data?.connectionRequestId;
         if (requestId) {
-          logNotificationRoute('navigate:connection_request', { source, requestId });
           router.push({ pathname: '/(protected)/connection-request/[id]', params: { id: requestId } });
         } else {
-          logNotificationRoute('navigate:notifications_fallback', { source, type });
           router.push('/(protected)/notifications');
         }
         return;
       }
 
       if (type === 'connection_accepted') {
-        logNotificationRoute('navigate:my_people', { source });
         router.push('/(protected)/my-people');
         return;
       }
@@ -185,7 +157,6 @@ export function useDataListenerNotifications() {
           if (type === 'post_reaction') {
             void dismissNotificationsByData({ type: 'post_reaction', postId });
           }
-          logNotificationRoute('navigate:post_detail', { source, postId, type });
           router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } });
         }
         return;
@@ -195,7 +166,6 @@ export function useDataListenerNotifications() {
         const postId = data?.postId;
         if (postId) {
           void dismissNotificationsByData({ type, postId });
-          logNotificationRoute('navigate:conversation', { source, postId, type });
           router.push({ pathname: '/(protected)/conversation', params: { postId } });
         }
         return;
@@ -205,16 +175,12 @@ export function useDataListenerNotifications() {
         const postId = data?.postId;
         if (postId) {
           void dismissNotificationsByData({ type: 'private_note', postId });
-          logNotificationRoute('navigate:private_notes_host', { source, postId });
           router.push({ pathname: '/(protected)/private-notes-host/[postId]', params: { postId } });
         }
         return;
       }
 
-      logNotificationRoute('routeFromNotificationPayload:ignored', {
-        source,
-        type: type ?? 'undefined',
-      });
+
     },
   );
 
@@ -253,14 +219,12 @@ export function useDataListenerNotifications() {
 
       const key = getNotificationKey(response);
       if (handledNotificationKeys.has(key)) {
-        logNotificationRoute('skip:duplicate_foreground_daily_prompt', { key });
         return;
       }
       handledNotificationKeys.add(key);
 
       const promptIndex = Number((notification.request.content.data?.promptIndex as string) ?? '0');
       const followUp = getFollowUpForPrompt(promptIndex);
-      logNotificationRoute('navigate:daily_prompt_foreground', { key, promptIndex });
       router.push({ pathname: '/(protected)/post/new', params: { notificationPrompt: followUp } });
     });
 
@@ -282,7 +246,6 @@ export function useDataListenerNotifications() {
 
         const key = getNotificationKey(response);
         if (handledNotificationKeys.has(key)) {
-          logNotificationRoute('skip:duplicate_cold_start_response', { key });
           return;
         }
         handledNotificationKeys.add(key);
@@ -292,17 +255,9 @@ export function useDataListenerNotifications() {
         const data = extractNotificationData(notification);
         const type = data?.type;
 
-        logNotificationRoute('handle:cold_start_response', {
-          key,
-          identifier,
-          type: type ?? 'undefined',
-          postId: data?.postId,
-        });
-
         if (identifier === NOTIFICATION_ID) {
           const promptIndex = Number(data?.promptIndex ?? '0');
           const followUp = getFollowUpForPrompt(promptIndex);
-          logNotificationRoute('navigate:daily_prompt_cold_start', { key, promptIndex });
           router.push({ pathname: '/(protected)/post/new', params: { notificationPrompt: followUp } });
           return;
         }
