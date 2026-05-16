@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useNavigation, type EventArg } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/Avatar';
 import { useAppSelector } from '@/store/hooks';
@@ -19,6 +20,29 @@ export default function PrivateNotesScreen() {
 	const { theme } = useTheme();
 	const insets = useSafeAreaInsets();
 	const router = useRouter();
+	const navigation = useNavigation();
+	const isRoutingToPostRef = React.useRef(false);
+
+	const goToPostDetails = React.useCallback(() => {
+		if (!postId) {
+			router.replace('/(protected)/feed');
+			return;
+		}
+		isRoutingToPostRef.current = true;
+		router.replace({ pathname: '/(protected)/post/[id]', params: { id: postId } });
+	}, [postId, router]);
+
+	useEffect(() => {
+		const unsubscribe = navigation.addListener('beforeRemove', (event: EventArg<'beforeRemove', true, { action: { type: string } }>) => {
+			if (isRoutingToPostRef.current) {
+				return;
+			}
+			event.preventDefault();
+			goToPostDetails();
+		});
+
+		return unsubscribe;
+	}, [goToPostDetails, navigation]);
 
 	const post = useAppSelector((state) => selectPostById(state, postId ?? ''));
 	const currentUser = useAppSelector((state) => state.users.currentUser);
@@ -39,9 +63,9 @@ export default function PrivateNotesScreen() {
 		if (!post || !currentUser) return;
 
 		if (!isHost) {
-			router.back();
+			goToPostDetails();
 		}
-	}, [isHost, post, currentUser, router, postId]);
+	}, [currentUser, goToPostDetails, isHost, post]);
 
 	// Mark notes as seen when the host opens the screen, so the unread indicator clears.
 	// Runs once per screen mount (postId/isHost are stable during screen lifetime).
@@ -62,7 +86,7 @@ export default function PrivateNotesScreen() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.background }}>
-			<ScreenHeader title="Private Notes" />
+			<ScreenHeader title="Private Notes" onBack={goToPostDetails} />
 			<ScrollView
 				style={{ flex: 1, backgroundColor: theme.background }}
 				contentContainerStyle={[

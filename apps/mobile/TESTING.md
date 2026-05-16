@@ -41,16 +41,16 @@ Use the iPhone when:
 
 ### Android
 
-- [ ] Open the feed -> confirm the release-notice dot is visible on the bell before visiting Notifications
-- [ ] Open Notifications -> confirm the bell dot clears on return to feed
-- [ ] Stay on Notifications without opening Notification Settings -> confirm the release notice card still shows
-- [ ] Tap the release notice card -> Notification Settings opens
-- [ ] Return to Notifications -> confirm the release card is now gone
-- [ ] In Notification Settings, confirm **Reaction Notifications**, **Message Notifications**, and **Reply Notifications** rows all exist
-- [ ] Toggle Reaction Notifications OFF -> have Account B react to Account A's post -> no reaction push arrives
-- [ ] Toggle Reaction Notifications back ON -> repeat -> reaction push arrives
-- [ ] Toggle Message Notifications OFF -> have Account B send a new conversation message on Account A's post -> no message push arrives
-- [ ] Toggle Message Notifications back ON -> repeat -> message push arrives
+- [x] Open the feed -> confirm the release-notice dot is visible on the bell before visiting Notifications
+- [x] Open Notifications -> confirm the bell dot clears on return to feed
+- [x] Stay on Notifications without opening Notification Settings -> confirm the release notice card still shows
+- [x] Tap the release notice card -> Notification Settings opens
+- [x] Return to Notifications -> confirm the release card is now gone
+- [x] In Notification Settings, confirm **Reaction Notifications**, **Message Notifications**, and **Reply Notifications** rows all exist
+- [x] Toggle Reaction Notifications OFF -> have Account B react to Account A's post -> no reaction push arrives
+- [x] Toggle Reaction Notifications back ON -> repeat -> reaction push arrives
+- [x] Toggle Message Notifications OFF -> have Account B send a new conversation message on Account A's post -> no message push arrives
+- [x] Toggle Message Notifications back ON -> repeat -> message push arrives
 - [ ] Toggle Reply Notifications OFF -> have Account B reply directly to one of Account A's conversation messages -> no reply push arrives
 - [ ] Toggle Reply Notifications back ON -> repeat -> reply push arrives
 
@@ -146,6 +146,31 @@ Use the iPhone when:
 - [ ] Confirm the deeper reply is not entered after the warning
 - [ ] Build a thread with sibling replies under the same parent -> confirm the vertical ancestor line stays visually connected across siblings
 - [ ] Open a Big News or Worth Knowing conversation -> confirm the slim banner text is centered under the header
+
+---
+
+## Feature 22: Back Navigation Consistency (Post Detail Flow)
+
+**Devices:** Android primary. iPhone recommended parity check.
+
+### Setup
+
+- [ ] Use any post that has at least one reaction so Conversation is accessible
+- [ ] Ensure the post also has at least one private note so both host/sender private-note routes can be tested
+
+### Android
+
+- [ ] Open a post from Feed -> open Conversation -> press back (header back, hardware back, and swipe-back if available) -> confirm you always land on Post Details
+- [ ] From that same post, open host Private Notes (or sender Private Notes) -> leave via header back/hardware back/swipe-back -> confirm you always land on Post Details
+- [ ] From Post Details, press back (header back and hardware back) -> confirm you always land on Feed
+- [ ] After landing on Feed from Post Details, press back again -> confirm you cannot return to Post Details/Conversation/Private Notes (stack cleared)
+- [ ] Trigger the unread-leave warning modal on Post Details (when applicable), choose **Exit Post Anyway** -> confirm it still lands on Feed with stack cleared
+- [ ] If circle suggestions appear on leave, dismiss/continue through the modal -> confirm final destination is Feed with stack cleared
+
+### iPhone
+
+- [ ] Repeat one pass for Conversation and Private Notes back navigation -> both should always return to Post Details first
+- [ ] Repeat one pass for leaving Post Details -> should always land on Feed and not allow back-navigation into prior detail screens
 
 ---
 

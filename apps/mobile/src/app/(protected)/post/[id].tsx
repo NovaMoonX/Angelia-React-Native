@@ -88,8 +88,7 @@ export default function PostDetailScreen() {
 	const [circleSuggestionsVisible, setCircleSuggestionsVisible] = useState(false);
 	const [circleSuggestionsLoading, setCircleSuggestionsLoading] = useState(false);
 	const [requestingChannelId, setRequestingChannelId] = useState<string | null>(null);
-	const pendingNavigationActionRef = useRef<NavigationAction | null>(null);
-	const pendingUnreadLeaveActionRef = useRef<NavigationAction | null>(null);
+	const isRoutingToFeedRef = useRef(false);
 	// Tracks whether the host has unseen private notes (persisted in AsyncStorage)
 	const [hasUnreadPrivateNotes, setHasUnreadPrivateNotes] = useState(false);
 	// Tracks whether there are new conversation messages the user hasn't seen
@@ -107,6 +106,12 @@ export default function PostDetailScreen() {
 	const hasUnreadAuthorActivity = unreadItems.length > 0;
 	const unreadItemsCopy = unreadItems.join(' and ');
 	const shouldWarnBeforeLeaving = isHost && !disableUnreadLeaveWarning && hasUnreadAuthorActivity;
+
+	const goToFeedAndClearStack = useCallback(() => {
+		isRoutingToFeedRef.current = true;
+		router.dismissAll();
+		router.replace('/(protected)/feed');
+	}, [router]);
 
 	// Memoize the latest note timestamp to avoid AsyncStorage reads on every render
 	const latestNoteTimestamp = useMemo(
@@ -276,18 +281,14 @@ export default function PostDetailScreen() {
 		try {
 			await dispatch(deletePostAction({ postId: post?.id ?? '' })).unwrap();
 			addToast({ type: 'success', title: 'Post deleted' });
-			if (router.canGoBack()) {
-				router.back();
-			} else {
-				router.replace('/(protected)/feed');
-			}
+			goToFeedAndClearStack();
 		} catch (err) {
 			addToast({
 				type: 'error',
 				title: err instanceof Error ? err.message : 'Failed to delete post',
 			});
 		}
-	}, [post?.id, dispatch, addToast, router, confirm]);
+	}, [post?.id, dispatch, addToast, confirm, goToFeedAndClearStack]);
 
 	const markCircleSuggestionsSeen = useCallback(async (channelIds: string[]) => {
 		if (!currentUser || channelIds.length === 0) return;
@@ -366,18 +367,23 @@ export default function PostDetailScreen() {
 
 	useEffect(() => {
 		const unsubscribe = navigation.addListener('beforeRemove', (event: EventArg<'beforeRemove', true, { action: NavigationAction }>) => {
+			if (isRoutingToFeedRef.current) {
+				return;
+			}
+
+			event.preventDefault();
+
 			if (showUnreadLeaveModal) return;
 			if (shouldWarnBeforeLeaving) {
-				event.preventDefault();
-				pendingUnreadLeaveActionRef.current = event.data.action;
 				setShowUnreadLeaveModal(true);
 				return;
 			}
 
 			if (circleSuggestionsVisible) return;
-			if (circleSuggestionsLoading || circleSuggestions.length === 0) return;
-			event.preventDefault();
-			pendingNavigationActionRef.current = event.data.action;
+			if (circleSuggestionsLoading || circleSuggestions.length === 0) {
+				goToFeedAndClearStack();
+				return;
+			}
 			setCircleSuggestionsVisible(true);
 		});
 
@@ -386,6 +392,7 @@ export default function PostDetailScreen() {
 		circleSuggestions.length,
 		circleSuggestionsLoading,
 		circleSuggestionsVisible,
+		goToFeedAndClearStack,
 		navigation,
 		shouldWarnBeforeLeaving,
 		showUnreadLeaveModal,
@@ -393,17 +400,12 @@ export default function PostDetailScreen() {
 
 	const closeUnreadLeaveModal = useCallback(() => {
 		setShowUnreadLeaveModal(false);
-		pendingUnreadLeaveActionRef.current = null;
 	}, []);
 
 	const leavePostAnyway = useCallback(() => {
 		setShowUnreadLeaveModal(false);
-		const action = pendingUnreadLeaveActionRef.current;
-		pendingUnreadLeaveActionRef.current = null;
-		if (action) {
-			navigation.dispatch(action);
-		}
-	}, [navigation]);
+		goToFeedAndClearStack();
+	}, [goToFeedAndClearStack]);
 
 	const disableWarningAndLeave = useCallback(async () => {
 		if (currentUser?.id) {
@@ -460,16 +462,11 @@ export default function PostDetailScreen() {
 		const remainingIds = circleSuggestions.map((item) => { return item.channel.id; });
 		await markCircleSuggestionsSeen(remainingIds);
 		setCircleSuggestionsVisible(false);
-		const action = pendingNavigationActionRef.current;
-		pendingNavigationActionRef.current = null;
-		if (action) {
-			navigation.dispatch(action);
-		}
-	}, [circleSuggestions, markCircleSuggestionsSeen, navigation]);
+		goToFeedAndClearStack();
+	}, [circleSuggestions, goToFeedAndClearStack, markCircleSuggestionsSeen]);
 
 	const stayOnPage = useCallback(() => {
 		setCircleSuggestionsVisible(false);
-		pendingNavigationActionRef.current = null;
 	}, []);
 
 	// Auto-close and navigate away when all suggestions have been acted upon
@@ -489,7 +486,7 @@ export default function PostDetailScreen() {
 				<Button
 					variant='outline'
 					onPress={() => {
-						router.replace('/(protected)/feed');
+						goToFeedAndClearStack();
 					}}
 				>
 					Back to Feed
@@ -554,6 +551,7 @@ export default function PostDetailScreen() {
 		<View style={{ flex: 1 }}>
 			<ScreenHeader
 			title="Post"
+			onBack={goToFeedAndClearStack}
 			rightAction={
 				isHost ? (
 					<View style={styles.headerActions}>

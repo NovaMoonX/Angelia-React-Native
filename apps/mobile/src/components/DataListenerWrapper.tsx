@@ -1029,6 +1029,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
           addToast({
             type: 'success',
             title: 'Your post is live! 🎉',
+            autoDismissMs: 2200,
           });
         }
       });

@@ -14,6 +14,8 @@ interface ToastOptions {
   type: 'success' | 'error' | 'warning' | 'info';
   /** Optional callback invoked when the user taps the toast body. The toast is auto-dismissed on tap. */
   onPress?: () => void;
+  /** Optional override for auto-dismiss timing in milliseconds. */
+  autoDismissMs?: number;
 }
 
 interface ToastItem extends ToastOptions {
@@ -45,8 +47,8 @@ const TOAST_ICONS: Record<string, string> = {
 const SWIPE_OUT_DISTANCE = 500;
 const AUTO_DISMISS_DEFAULT_MS = 4000;
 const AUTO_DISMISS_INTERACTIVE_MS = 8000;
-const MOVE_ACTIVATION_THRESHOLD = 12;
-const SWIPE_TRIGGER_THRESHOLD = 16;
+const MOVE_ACTIVATION_THRESHOLD = 20;
+const SWIPE_TRIGGER_THRESHOLD = 28;
 const DISMISS_SWIPE_DURATION_MS = 150;
 
 function Toast({ item, onDismiss }: { item: ToastItem; onDismiss: (id: string) => void }) {
@@ -62,8 +64,11 @@ function Toast({ item, onDismiss }: { item: ToastItem; onDismiss: (id: string) =
   const [isDismissing, setIsDismissing] = useState(false);
 
   const getAutoDismissDelay = useCallback(() => {
+    if (item.autoDismissMs != null) {
+      return Math.max(500, item.autoDismissMs);
+    }
     return item.onPress ? AUTO_DISMISS_INTERACTIVE_MS : AUTO_DISMISS_DEFAULT_MS;
-  }, [item.onPress]);
+  }, [item.autoDismissMs, item.onPress]);
 
   const clearAutoDismissTimer = useCallback(() => {
     if (timerRef.current) {
@@ -277,6 +282,9 @@ function Toast({ item, onDismiss }: { item: ToastItem; onDismiss: (id: string) =
             if (isDismissingRef.current) {
               return;
             }
+            // Dismiss on press-in so small finger movement doesn't cancel close
+            // taps on Android before onPress fires.
+            dismissRef.current();
           }}
           onPress={() => {
             if (isDismissingRef.current) {

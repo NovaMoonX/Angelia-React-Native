@@ -134,13 +134,14 @@ export default function FeedScreen() {
 	const [reactionTargetPostId, setReactionTargetPostId] = useState<string | null>(null);
 	const [activeReactionPillPostId, setActiveReactionPeelPostId] = useState<string | null>(null);
 	const [hasNotificationSettingsNotice, setHasNotificationSettingsNotice] = useState(false);
-	const isMountedRef = useRef(false);
+	const didRunColdLaunchInitRef = useRef(false);
+	const didRunFilterEffectRef = useRef(false);
 
 	// Cold-launch: scroll to top once per app session. Within-session navigation
 	// (e.g. going to notifications and back) preserves the user's scroll position.
 	useEffect(() => {
-		if (isMountedRef.current) return;
-		isMountedRef.current = true;
+		if (didRunColdLaunchInitRef.current) return;
+		didRunColdLaunchInitRef.current = true;
 		void AsyncStorage.getItem(FEED_SESSION_SCROLLED_KEY).then((value) => {
 			if (value === 'true') return null;
 			// Cold launch — scroll to top after posts are rendered
@@ -172,6 +173,8 @@ export default function FeedScreen() {
 	const dot3AnimatedStyle = useMemo(() => ({ transform: [{ scale: dot3Scale }] }), []);
 
 	const prevScrollY = useRef(0);
+	const didPrimeScrollRef = useRef(false);
+	const isUserScrollingRef = useRef(false);
 	const headerVisible = useRef(true);
 	const headerAnimation = useRef<Animated.CompositeAnimation | null>(null);
 	const [scrolledPast, setScrolledPast] = useState(false);
@@ -399,8 +402,8 @@ export default function FeedScreen() {
 
 	// When filters or sort order change: scroll to top, reset page, show filtering indicator
 	useEffect(() => {
-		if (!isMountedRef.current) {
-			isMountedRef.current = true;
+		if (!didRunFilterEffectRef.current) {
+			didRunFilterEffectRef.current = true;
 			return;
 		}
 		setDisplayCount(INITIAL_PAGE);
@@ -470,22 +473,33 @@ export default function FeedScreen() {
 	const onScroll = useCallback(
 		(event: NativeSyntheticEvent<NativeScrollEvent>) => {
 			const currentY = event.nativeEvent.contentOffset.y;
+
+			if (!didPrimeScrollRef.current) {
+				didPrimeScrollRef.current = true;
+				prevScrollY.current = currentY;
+				newPostsPillRef.current?.notifyScrollY(currentY);
+				setScrolledPast(currentY > 100);
+				return;
+			}
+
 			const delta = currentY - prevScrollY.current;
 			const threshold = headerHeight;
 
-			if (Math.abs(delta) > 4 && activeReactionPillPostId && !reactionPickerOpenRef.current) {
+			if (isUserScrollingRef.current && Math.abs(delta) > 4 && activeReactionPillPostId && !reactionPickerOpenRef.current) {
 				setActiveReactionPeelPostId(null);
 			}
 
-			if (currentY <= 0 && !headerVisible.current) {
-				headerVisible.current = true;
-				animateHeader(0, 150);
-			} else if (delta > 5 && currentY > threshold && headerVisible.current) {
-				headerVisible.current = false;
-				animateHeader(-threshold, 200);
-			} else if (delta < -5 && !headerVisible.current) {
-				headerVisible.current = true;
-				animateHeader(0, 200);
+			if (isUserScrollingRef.current) {
+				if (currentY <= 0 && !headerVisible.current) {
+					headerVisible.current = true;
+					animateHeader(0, 150);
+				} else if (delta > 5 && currentY > threshold && headerVisible.current) {
+					headerVisible.current = false;
+					animateHeader(-threshold, 200);
+				} else if (delta < -5 && !headerVisible.current) {
+					headerVisible.current = true;
+					animateHeader(0, 200);
+				}
 			}
 
 			// Notify the new-posts pill of the current scroll position so it can
@@ -613,6 +627,21 @@ export default function FeedScreen() {
 					onViewableItemsChanged={onViewableItemsChanged}
 					viewabilityConfig={viewabilityConfig}
 					onScroll={onScroll}
+					onScrollBeginDrag={() => {
+						isUserScrollingRef.current = true;
+					}}
+					onMomentumScrollBegin={() => {
+						isUserScrollingRef.current = true;
+					}}
+					onScrollEndDrag={(event) => {
+						const velocityY = event.nativeEvent.velocity?.y ?? 0;
+						if (Math.abs(velocityY) < 0.1) {
+							isUserScrollingRef.current = false;
+						}
+					}}
+					onMomentumScrollEnd={() => {
+						isUserScrollingRef.current = false;
+					}}
 					scrollEventThrottle={16}
 					contentContainerStyle={[
 						styles.listContent,

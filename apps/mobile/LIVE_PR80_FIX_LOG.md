@@ -30,3 +30,10 @@ Last updated: 2026-05-16
 - Updated beta modal copy direction: audio is now framed as a new user feature, post-activity notification controls explicitly mention reactions/messages, and dev-facing announcement targeting copy was removed.
 - Softened upload copy in BetaUpdateModal to be less technical and added explicit user guidance to stay in-app during uploads because uploads pause in background.
 - Refactored Firestore message-edit rule to use optionalFieldUnchanged('isSystem') instead of inline optional-field comparison logic.
+- Fixed feed filtering-spinner false positive on return-to-feed by splitting mount guards: cold-launch init and filter-change effect now use separate refs.
+- Fixed feed header auto-hide on restored scroll position by priming initial scroll Y and only animating hide/show during user-driven drag/momentum scroll.
+- Hardened Android toast close behavior: increased swipe-intent thresholds and dismisses now trigger on close-button press-in to avoid gesture-cancelled taps.
+- Added per-toast autoDismissMs support and set the "Your post is live!" foreground toast to auto-dismiss in ~2.2s as a fallback when swipe close fails.
+- Navigation flow tightened:
+	- Leaving Conversation/Private Notes now always routes back to Post Details.
+	- Leaving Post Details now always routes to Feed with stack clear so users cannot back-navigate into stale detail screens.

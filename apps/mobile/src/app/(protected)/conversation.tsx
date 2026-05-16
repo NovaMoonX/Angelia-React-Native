@@ -12,6 +12,7 @@ import {
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { useNavigation, type EventArg } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
@@ -57,6 +58,7 @@ export default function ConversationScreen() {
   const { postId } = useLocalSearchParams<{ postId: string }>();
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const navigation = useNavigation();
   const { theme } = useTheme();
   const { addToast } = useToast();
   const { confirm } = useActionModal();
@@ -77,6 +79,28 @@ export default function ConversationScreen() {
   const [showReplyHint, setShowReplyHint] = useState(false);
   const [showEditHint, setShowEditHint] = useState(false);
   const [replyDepthWarning, setReplyDepthWarning] = useState<string | null>(null);
+  const isRoutingToPostRef = useRef(false);
+
+  const goToPostDetails = useCallback(() => {
+    if (!postId) {
+      router.replace('/(protected)/feed');
+      return;
+    }
+    isRoutingToPostRef.current = true;
+    router.replace({ pathname: '/(protected)/post/[id]', params: { id: postId } });
+  }, [postId, router]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (event: EventArg<'beforeRemove', true, { action: { type: string } }>) => {
+      if (isRoutingToPostRef.current) {
+        return;
+      }
+      event.preventDefault();
+      goToPostDetails();
+    });
+
+    return unsubscribe;
+  }, [goToPostDetails, navigation]);
 
   // Tier theming
   const tierTheme = getTierTheme(post?.tier);
@@ -434,7 +458,7 @@ export default function ConversationScreen() {
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       {/* Header — lives outside KeyboardAvoidingView so it stays fixed */}
       <View style={[styles.header, { backgroundColor: headerBg, borderBottomColor: theme.border, paddingTop: isDemo ? 10 : insets.top + 10 }]}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable onPress={goToPostDetails} style={styles.backButton}>
           <Feather name="arrow-left" size={22} color={theme.foreground} />
         </Pressable>
 
