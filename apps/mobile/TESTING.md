@@ -51,13 +51,13 @@ Use the iPhone when:
 - [x] Toggle Reaction Notifications back ON -> repeat -> reaction push arrives
 - [x] Toggle Message Notifications OFF -> have Account B send a new conversation message on Account A's post -> no message push arrives
 - [x] Toggle Message Notifications back ON -> repeat -> message push arrives
-- [ ] Toggle Reply Notifications OFF -> have Account B reply directly to one of Account A's conversation messages -> no reply push arrives
-- [ ] Toggle Reply Notifications back ON -> repeat -> reply push arrives
+- [x] Toggle Reply Notifications OFF -> have Account B reply directly to one of Account A's conversation messages -> no reply push arrives
+- [x] Toggle Reply Notifications back ON -> repeat -> reply push arrives
 
 ### iPhone
 
-- [ ] Repeat one full toggle-on and toggle-off cycle for each of the three post-activity switches
-- [ ] Confirm push behavior matches Android expectations
+- [x] Repeat one full toggle-on and toggle-off cycle for each of the three post-activity switches
+- [x] Confirm push behavior matches Android expectations
 
 ---
 
@@ -171,6 +171,31 @@ Use the iPhone when:
 
 - [ ] Repeat one pass for Conversation and Private Notes back navigation -> both should always return to Post Details first
 - [ ] Repeat one pass for leaving Post Details -> should always land on Feed and not allow back-navigation into prior detail screens
+
+---
+
+## Feature 25: Android Notification Tap Back-Stack Stability
+
+**Devices:** Android required. iPhone optional parity check.
+
+### Setup
+
+- [ ] Use Account A as post host and Account B as another member
+- [ ] Ensure Account A has one post with both Conversation access and at least one private note
+- [ ] Generate one fresh `private_note` push and one fresh `conversation_message` (or `comment_reply`) push for Account A
+
+### Android
+
+- [ ] Tap a `private_note` push from the system tray -> confirm it opens Private Notes for that post
+- [ ] Press back once -> confirm you land on Post Details for the same post
+- [ ] Press back again -> confirm you land on Feed
+- [ ] Press back one more time -> confirm you do **not** get bounced back into Post Details
+- [ ] Repeat the same 4-step flow with a `conversation_message` (or `comment_reply`) push -> no bounce back into Post Details after reaching Feed
+- [ ] Repeat each flow twice in a row from fresh notifications -> behavior stays stable (no second-run stack weirdness)
+
+### iPhone
+
+- [ ] Run one sanity pass for both private-note and conversation pushes -> back flow remains Private Notes/Conversation -> Post Details -> Feed with no unexpected return jump
 
 ---
 
@@ -409,6 +434,8 @@ Use the iPhone when:
 - [ ] Notification Settings still saves Daily Reminder and time-zone preferences correctly
 - [ ] Post Detail still opens Conversation and Private Notes normally from the host view
 - [ ] Feed bell badge behavior still works for normal unread notifications, not just the release notice dot
+- [ ] **(Android only)** Tap a private note notification while on Post Details → navigates to Private Notes screen → single back press returns to Post Details (not looping back to Private Notes)
+- [ ] **(Android only)** Tap a message notification while on Post Details → navigates to Conversation → single back press returns to Post Details (not looping back to Conversation)
 
 ---
 
