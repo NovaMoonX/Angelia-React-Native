@@ -33,12 +33,20 @@ export default function PostActivityScreen() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [refreshing, setRefreshing] = useState(false);
   const markPostsSeenRef = useRef(markPostsSeen);
+  const pendingSeenPostIdsRef = useRef<Set<string>>(new Set());
   const lastVisibleKeyRef = useRef('');
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 98 }).current;
 
   useEffect(() => {
     markPostsSeenRef.current = markPostsSeen;
   }, [markPostsSeen]);
+
+  const flushPendingSeen = useCallback(async () => {
+    const pendingPostIds = Array.from(pendingSeenPostIdsRef.current);
+    if (pendingPostIds.length === 0) return;
+    pendingSeenPostIdsRef.current.clear();
+    await markPostsSeenRef.current(pendingPostIds);
+  }, []);
 
   const filteredByCircle = useMemo(() => {
     if (selectedCircleId === 'all') return summaries;
@@ -50,8 +58,10 @@ export default function PostActivityScreen() {
   useFocusEffect(
     useCallback(() => {
       void refreshSeenState().catch(() => {});
-      return undefined;
-    }, [refreshSeenState]),
+      return () => {
+        void flushPendingSeen();
+      };
+    }, [flushPendingSeen, refreshSeenState]),
   );
 
   const handleRefresh = useCallback(async () => {
@@ -158,7 +168,9 @@ export default function PostActivityScreen() {
     const nextKey = fullyVisiblePostIds.join('|');
     if (nextKey === lastVisibleKeyRef.current) return;
     lastVisibleKeyRef.current = nextKey;
-    void markPostsSeenRef.current(fullyVisiblePostIds);
+    fullyVisiblePostIds.forEach((postId) => {
+      pendingSeenPostIdsRef.current.add(postId);
+    });
   }).current;
 
   const renderSummaryCard = useCallback(({ item }: { item: (typeof filtered)[number] }) => {
@@ -292,7 +304,7 @@ export default function PostActivityScreen() {
               { color: activityScope === 'unread' ? theme.primary : theme.foreground },
             ]}
           >
-            Unread Only
+            Unread Only ({unreadPostIdSet.size})
           </Text>
           {unreadPostIdSet.size > 0 && activityScope !== 'unread' && (
             <View style={[styles.unreadDot, { backgroundColor: theme.primary }]} />

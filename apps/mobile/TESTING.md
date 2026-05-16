@@ -174,6 +174,31 @@ Use the iPhone when:
 
 ---
 
+## Feature 24: Post Activity Unread Session Stability
+
+**Devices:** Android primary. iPhone parity pass recommended.
+
+### Setup
+
+- [ ] Use Account A as post host and Account B as reactor
+- [ ] Have Account B add a fresh reaction on one of Account A's posts
+- [ ] Open Post Activity from Feed with the unread shortcut (or switch to **Unread Only**)
+
+### Android
+
+- [ ] Confirm the **Unread Only** chip label shows a count that matches the number of unread posts currently visible in that filter
+- [ ] In **Unread Only**, confirm the reacted post appears
+- [ ] Keep Post Activity open for at least 20-30 seconds -> confirm that post does not disappear on its own while you remain on this screen
+- [ ] Scroll the post fully into view multiple times -> confirm it still stays visible in **Unread Only** during the same screen session
+- [ ] Pull to refresh while still on Post Activity -> confirm the same unread post remains visible in **Unread Only**
+- [ ] Leave Post Activity (back to Feed) -> reopen Post Activity and switch to **Unread Only** -> confirm that post is now cleared from unread and appears under **All Activity** instead
+
+### iPhone
+
+- [ ] Repeat one full pass of the same flow and confirm unread cards also stay visible until leaving Post Activity
+
+---
+
 ## Feature 4: Audio Clip Metadata Editor Polish
 
 **Devices:** Android primary. iPhone optional parity check.
@@ -433,6 +458,34 @@ Use the iPhone when:
 - [ ] Open Audio Record when already at max attachments and confirm Start Recording is disabled
 - [ ] Record clips, remove one from the list, and confirm selection/timing updates correctly
 - [ ] Back out of Audio Record with unsaved clips and confirm those clips still return to Post Create (no lost work)
+
+---
+
+## Feature 23: iPhone Audio Recording Session Activation
+
+**Devices:** iPhone required.
+
+### Setup
+
+- [ ] Use an iPhone build from this branch
+- [ ] Start from Post Create with room for at least one more attachment
+- [ ] Keep Metro or Xcode logs visible so the `[audio-record]` debug lines can be observed during the pass
+
+### iPhone
+
+- [ ] Open Post Create -> tap the mic button -> confirm Audio Record opens
+- [ ] On a fresh install or after resetting microphone permission, tap **Start Recording** -> allow microphone access -> confirm the recording starts on that same attempt
+- [ ] With permission already granted, tap **Start Recording** once -> confirm the timer begins immediately and the red recording state appears
+- [ ] Check device logs after tapping Start -> confirm you see `[audio-record] audio mode -> record (start-recording)`, `[audio-record] prepareToRecordAsync resolved`, and `[audio-record] record() invoked`
+- [ ] Tap **Stop Recording** -> confirm the clip saves into the list instead of failing silently
+- [ ] Check device logs after tapping Stop -> confirm you see `[audio-record] stop requested`, `[audio-record] stop resolved`, and `[audio-record] audio mode -> playback (stop-recording)`
+- [ ] Play the saved clip inside Audio Record -> confirm playback still comes through after stopping the recording session
+- [ ] Tap **Use 1 Recording** -> return to Post Create and confirm the new audio attachment is present
+
+### Edge cases
+
+- [ ] Start a recording, leave the screen, and confirm no stuck recording session remains active when you return
+- [ ] Start and stop two recordings back to back -> both attempts should succeed without needing to relaunch the screen
 
 ---
 
