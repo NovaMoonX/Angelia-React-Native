@@ -16,6 +16,9 @@ Current branch highlights:
 - Carousel audio playback now behaves more naturally: if you swipe to another media item, the previous audio clip stops automatically.
 - Fixed a carousel audio edge case that could trigger an ErrorBoundary crash while swiping between items during playback.
 - Finished clips can now restart from the beginning with one tap on Play (instead of getting stuck at the end).
+- Audio clip editing in Post Create now uses a clean single-line title field (same 60-char limit as recording), and audio thumbnails keep the mic + title centered in the preview square.
+- In audio clip edit sheets, Remove now clears both title and caption together for existing clips (so titles no longer linger after removing metadata).
+- Post edit saves now honor removed clip metadata reliably: when you clear a title or caption and save, those cleared values stay cleared instead of reappearing from older media data.
 - Audio players got a visual refresh: waveform bars are smoother and stable (no jumpy block effect), progress feels cleaner, and the play button now sits on the right for a tidier layout.
 - The audio waveform is now taller too, so playback feels more readable at a glance.
 - Carousel audio cards now place the player a bit higher and give it more height, so it is easier to tap play without accidentally hitting the carousel next button.

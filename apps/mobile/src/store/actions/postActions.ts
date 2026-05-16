@@ -520,13 +520,15 @@ export const editPostContent = createAsyncThunk(
             const previous = (existingPost.media ?? []).find((m) => {
               return sameStorageObjectUrl(m.url, existingUrl);
             });
+            const nextTitle = item.title === undefined ? (previous?.title ?? null) : item.title;
+            const nextCaption = item.caption === undefined ? (previous?.caption ?? null) : item.caption;
             return {
               // Reuse the canonical URL from Firestore when we can, so edit
               // round-trips don't persist a malformed/transcoded URL.
               url: previous?.url ?? existingUrl,
               type: inferPostMediaType(item.type),
-              title: item.title ?? previous?.title ?? null,
-              caption: item.caption ?? null,
+              title: nextTitle,
+              caption: nextCaption,
               ...(previous?.thumbnailUrl ? { thumbnailUrl: previous.thumbnailUrl } : {}),
             };
           }

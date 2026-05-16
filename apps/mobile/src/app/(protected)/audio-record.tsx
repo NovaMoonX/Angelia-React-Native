@@ -13,14 +13,12 @@ import {
 import { AudioAttachmentPlayer } from '@/components/AudioAttachmentPlayer';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
-import { MAX_FILES } from '@/models/constants';
+import { MAX_FILES, AUDIO_TITLE_MAX_LENGTH, AUDIO_CAPTION_MAX_LENGTH } from '@/models/constants';
 import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 
 const MAX_RECORDING_SECONDS = 180;
 const COUNTDOWN_WARNING_SECONDS = 15;
-const AUDIO_TITLE_MAX = 60;
-const AUDIO_CAPTION_MAX = 300;
 
 function decodeMediaParam(value: string): MediaFile[] {
   try {
@@ -358,29 +356,29 @@ export default function AudioRecordScreen() {
             <TextInput
               value={selectedClip.title ?? ''}
               onChangeText={(next) => {
-                updateSelectedClip({ title: next.slice(0, AUDIO_TITLE_MAX) || null, caption: selectedClip.caption ?? null });
+                updateSelectedClip({ title: next.slice(0, AUDIO_TITLE_MAX_LENGTH) || null, caption: selectedClip.caption ?? null });
               }}
               placeholder='Give this clip a quick title'
               placeholderTextColor={theme.mutedForeground}
               style={[styles.input, { color: theme.foreground, borderColor: theme.border, backgroundColor: theme.background }]}
-              maxLength={AUDIO_TITLE_MAX}
+              maxLength={AUDIO_TITLE_MAX_LENGTH}
             />
-            <Text style={[styles.charCount, { color: theme.mutedForeground }]}>{(selectedClip.title ?? '').length}/{AUDIO_TITLE_MAX}</Text>
+            <Text style={[styles.charCount, { color: theme.mutedForeground }]}>{(selectedClip.title ?? '').length}/{AUDIO_TITLE_MAX_LENGTH}</Text>
 
             <Text style={[styles.inputLabel, { color: theme.mutedForeground }]}>Caption</Text>
             <TextInput
               value={selectedClip.caption ?? ''}
               onChangeText={(next) => {
-                updateSelectedClip({ title: selectedClip.title ?? null, caption: next.slice(0, AUDIO_CAPTION_MAX) || null });
+                updateSelectedClip({ title: selectedClip.title ?? null, caption: next.slice(0, AUDIO_CAPTION_MAX_LENGTH) || null });
               }}
               placeholder='Add context for this recording'
               placeholderTextColor={theme.mutedForeground}
               style={[styles.input, styles.captionInput, { color: theme.foreground, borderColor: theme.border, backgroundColor: theme.background }]}
               multiline
               textAlignVertical='top'
-              maxLength={AUDIO_CAPTION_MAX}
+              maxLength={AUDIO_CAPTION_MAX_LENGTH}
             />
-            <Text style={[styles.charCount, { color: theme.mutedForeground }]}>{(selectedClip.caption ?? '').length}/{AUDIO_CAPTION_MAX}</Text>
+            <Text style={[styles.charCount, { color: theme.mutedForeground }]}>{(selectedClip.caption ?? '').length}/{AUDIO_CAPTION_MAX_LENGTH}</Text>
           </View>
         )}
 

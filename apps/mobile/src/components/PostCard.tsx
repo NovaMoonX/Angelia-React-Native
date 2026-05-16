@@ -418,9 +418,8 @@ const styles = StyleSheet.create({
   audioContainer: {
     backgroundColor: '#0F172A',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: 12,
-    paddingBottom: 6,
+    justifyContent: 'center',
+    paddingVertical: 12,
   },
   audioPlayerWrap: {
     width: '94%',

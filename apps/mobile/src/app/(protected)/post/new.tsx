@@ -31,7 +31,7 @@ import {
   selectCurrentUserCustomChannels,
 } from '@/store/crossSelectors/channelSelectors';
 import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
-import { MAX_FILES, POST_TIERS, POST_CREATE_DRAFT_KEY } from '@/models/constants';
+import { MAX_FILES, POST_TIERS, POST_CREATE_DRAFT_KEY, AUDIO_TITLE_MAX_LENGTH, AUDIO_CAPTION_MAX_LENGTH } from '@/models/constants';
 import { generateVideoThumbnail } from '@/utils/generateVideoThumbnail';
 import type { VideoThumbnail } from 'expo-video';
 import type { UserStatus, PostTier } from '@/models/types';
@@ -210,6 +210,7 @@ export default function PostCreateScreen() {
   const [reorderIndex, setReorderIndex] = useState<number | null>(null);
   const [captionTargetIndex, setCaptionTargetIndex] = useState<number | null>(null);
   const [captionDraft, setCaptionDraft] = useState('');
+  const [titleDraft, setTitleDraft] = useState('');
 
   const [showCaptionHint, setShowCaptionHint] = useState(true);
   const [showReorderHint, setShowReorderHint] = useState(true);
@@ -549,14 +550,20 @@ export default function PostCreateScreen() {
     setShowCaptionHint(false);
     setCaptionTargetIndex(index);
     setCaptionDraft(media[index]?.caption ?? '');
+    setTitleDraft(media[index]?.title ?? '');
   };
 
   const saveCaptions = () => {
-    if (captionTargetIndex === null) return;
+    if (captionTargetIndex === null) { return; }
+    const isAudioItem = media[captionTargetIndex]?.type.startsWith('audio/');
     setMedia((prev) => {
       return prev.map((item, i) => {
-        if (i !== captionTargetIndex) return item;
-        return { ...item, caption: captionDraft.trim() || null };
+        if (i !== captionTargetIndex) { return item; }
+        return {
+          ...item,
+          caption: captionDraft.trim() || null,
+          ...(isAudioItem ? { title: titleDraft.trim() || null } : {}),
+        };
       });
     });
     setCaptionTargetIndex(null);
@@ -1047,32 +1054,54 @@ export default function PostCreateScreen() {
         onPostNow={handlePostNow}
       />
 
-      {/* Caption input modal */}
+      {/* Caption / title input modal */}
       {captionTargetIndex !== null && (
         <View style={styles.captionModal}>
           <Pressable style={styles.captionBackdrop} onPress={() => setCaptionTargetIndex(null)} />
           <View style={[styles.captionSheet, { backgroundColor: theme.card, paddingBottom: insets.bottom + 16 }]}>
-            <Text style={[styles.captionTitle, { color: theme.foreground }]}>Add a caption</Text>
+            <Text style={[styles.captionTitle, { color: theme.foreground }]}>
+              {captionTargetIndex !== null && media[captionTargetIndex]?.type.startsWith('audio/') ? 'Edit clip' : 'Add a caption'}
+            </Text>
+            {captionTargetIndex !== null && media[captionTargetIndex]?.type.startsWith('audio/') && (
+              <>
+                <TextInput
+                  value={titleDraft}
+                  onChangeText={setTitleDraft}
+                  placeholder="Clip title..."
+                  placeholderTextColor={theme.mutedForeground}
+                  maxLength={AUDIO_TITLE_MAX_LENGTH}
+                  autoFocus
+                  style={[styles.captionTitleInput, { color: theme.foreground, borderColor: theme.border, backgroundColor: theme.background }]}
+                />
+                <Text style={[styles.captionCharCount, { color: theme.mutedForeground }]}>{titleDraft.length}/{AUDIO_TITLE_MAX_LENGTH}</Text>
+              </>
+            )}
             <TextInput
               value={captionDraft}
               onChangeText={setCaptionDraft}
-              placeholder="Describe this photo..."
+              placeholder={captionTargetIndex !== null && media[captionTargetIndex]?.type.startsWith('audio/') ? 'Add a caption (optional)...' : 'Describe this photo...'}
               placeholderTextColor={theme.mutedForeground}
               multiline
-              maxLength={300}
-              autoFocus
+              maxLength={AUDIO_CAPTION_MAX_LENGTH}
+              autoFocus={captionTargetIndex !== null && !media[captionTargetIndex]?.type.startsWith('audio/')}
               style={[styles.captionInput, { color: theme.foreground, borderColor: theme.border, backgroundColor: theme.background }]}
             />
-            <Text style={[styles.captionCharCount, { color: theme.mutedForeground }]}>{captionDraft.length}/300</Text>
+            <Text style={[styles.captionCharCount, { color: theme.mutedForeground }]}>{captionDraft.length}/{AUDIO_CAPTION_MAX_LENGTH}</Text>
             <View style={styles.captionActions}>
               <Pressable
                 onPress={() => {
+                  if (captionTargetIndex === null) { return; }
+                  const isAudioItem = media[captionTargetIndex]?.type.startsWith('audio/');
                   setMedia((prev) => {
                     return prev.map((item, i) => {
-                      if (i !== captionTargetIndex) return item;
+                      if (i !== captionTargetIndex) { return item; }
+                      if (isAudioItem) {
+                        return { ...item, caption: null, title: null };
+                      }
                       return { ...item, caption: null };
                     });
                   });
+                  setTitleDraft('');
                   setCaptionTargetIndex(null);
                 }}
                 style={[styles.captionBtn, { borderColor: theme.border }]}
@@ -1359,6 +1388,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  captionTitleInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
   },
   captionCharCount: {
     fontSize: 12,

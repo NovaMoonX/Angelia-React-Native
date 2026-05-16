@@ -27,6 +27,8 @@ export const ANGELIA_WEB_BASE_URL = 'https://angelia.moondreams.dev';
 export const MAX_FILES = 5;
 export const MAX_FILE_SIZE_MB = 10;
 export const MAX_VIDEO_SECONDS = 30;
+export const AUDIO_TITLE_MAX_LENGTH = 60;
+export const AUDIO_CAPTION_MAX_LENGTH = 300;
 
 export const COMMON_EMOJIS = ['❤️', '👀', '😊', '🎉', '😮', '😢', '😄', '🔥'];
 

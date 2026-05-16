@@ -119,6 +119,31 @@ Use the iPhone when:
 - [ ] Build a thread with sibling replies under the same parent -> confirm the vertical ancestor line stays visually connected across siblings
 - [ ] Open a Big News or Worth Knowing conversation -> confirm the slim banner text is centered under the header
 
+---
+
+## Feature 4: Audio Clip Metadata Editor Polish
+
+**Devices:** Android primary. iPhone optional parity check.
+
+### Setup
+
+- [ ] Start a new post (or edit an existing post) that includes at least one audio attachment
+
+### Android
+
+- [ ] In Post Create, verify each audio attachment thumbnail shows the mic icon and title text vertically centered in the 80x80 preview square
+- [ ] Tap the caption icon on an audio attachment -> the modal opens with two fields (title first, caption second)
+- [ ] In that modal, confirm the title field is a single-line input (not a tall text area)
+- [ ] Type past 60 characters in the title field -> input stops at 60 and the counter shows `60/60`
+- [ ] Save, close, and reopen the same audio editor -> title and caption persist correctly
+- [ ] Tap Remove in the audio clip editor -> both title and caption clear (title does not persist after reopening)
+- [ ] Repeat the same flow while editing an existing post -> behavior matches create mode
+- [ ] After clearing title/caption on an existing post and tapping Save on the post, reopen that post editor -> cleared title/caption stay cleared (no old values rehydrated)
+
+### iPhone
+
+- [ ] Repeat one pass of the same audio edit flow and confirm title input behavior + thumbnail centering match Android
+
 ### iPhone
 
 - [ ] Repeat the long-press reply flow and depth-limit warning
