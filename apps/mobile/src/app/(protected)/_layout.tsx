@@ -6,6 +6,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { Loading } from '@/components/Loading';
 import { DemoModeBanner } from '@/components/DemoModeBanner';
 import { DataListenerWrapper } from '@/components/DataListenerWrapper';
+import { AuthorPostActivityProvider } from '@/providers/AuthorPostActivityProvider';
 import { View } from 'react-native';
 
 
@@ -47,88 +48,90 @@ export default function ProtectedLayout() {
 
   return (
     <DataListenerWrapper>
-      <View style={{ flex: 1 }}>
-        <DemoModeBanner />
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: theme.background },
-            headerTintColor: theme.foreground,
-            headerTitleStyle: { fontWeight: '600' },
-            contentStyle: { backgroundColor: theme.background },
-            animation: 'slide_from_right',
-          }}
-        >
-          <Stack.Screen name="feed" options={{ headerShown: false }} />
-          <Stack.Screen name="camera" options={{ headerShown: false, animation: 'fade' }} />
-          <Stack.Screen name="gallery" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-          <Stack.Screen name="audio-record" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-          <Stack.Screen
-            name="post/new"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="post/uploading"
-            options={{ headerShown: false, animation: 'fade', gestureEnabled: false }}
-          />
-          <Stack.Screen
-            name="post/[id]"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="conversation"
-            options={{
-              headerShown: false,
+      <AuthorPostActivityProvider>
+        <View style={{ flex: 1 }}>
+          <DemoModeBanner />
+          <Stack
+            screenOptions={{
+              headerStyle: { backgroundColor: theme.background },
+              headerTintColor: theme.foreground,
+              headerTitleStyle: { fontWeight: '600' },
+              contentStyle: { backgroundColor: theme.background },
               animation: 'slide_from_right',
             }}
-          />
-          <Stack.Screen
-            name="account"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen name="notifications" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="notification-settings"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="post-notification-settings"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen name="daily-reminder-settings" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="invite/[channelId]/[inviteCode]"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen name="join-request/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="connection-request/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="my-people" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="share-connection"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen name="channel-accepted" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="private-notes-host/[postId]"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="private-notes-sender/[postId]"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="post-activity"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="tasks"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="error-fallback"
-            options={{ headerShown: false }}
-          />
-        </Stack>
-      </View>
+          >
+            <Stack.Screen name="feed" options={{ headerShown: false }} />
+            <Stack.Screen name="camera" options={{ headerShown: false, animation: 'fade' }} />
+            <Stack.Screen name="gallery" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+            <Stack.Screen name="audio-record" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+            <Stack.Screen
+              name="post/new"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="post/uploading"
+              options={{ headerShown: false, animation: 'fade', gestureEnabled: false }}
+            />
+            <Stack.Screen
+              name="post/[id]"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="conversation"
+              options={{
+                headerShown: false,
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="account"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="notifications" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="notification-settings"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="post-notification-settings"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="daily-reminder-settings" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="invite/[channelId]/[inviteCode]"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="join-request/[id]" options={{ headerShown: false }} />
+            <Stack.Screen name="connection-request/[id]" options={{ headerShown: false }} />
+            <Stack.Screen name="my-people" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="share-connection"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="channel-accepted" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="private-notes-host/[postId]"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="private-notes-sender/[postId]"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="post-activity"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="tasks"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="error-fallback"
+              options={{ headerShown: false }}
+            />
+          </Stack>
+        </View>
+      </AuthorPostActivityProvider>
     </DataListenerWrapper>
   );
 }
