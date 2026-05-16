@@ -114,8 +114,10 @@ export default function PostDetailScreen() {
 			router.replace('/(protected)/post-activity');
 			return;
 		}
-		router.dismissAll();
-		router.replace('/(protected)/feed');
+		// Use router.back() instead of dismissAll() + replace() to avoid
+		// Android back-stack duplication issues where back button bounces
+		// between screens instead of proceeding to Feed.
+		router.back();
 	}, [router, shouldReturnToPostActivity]);
 
 	// Memoize the latest note timestamp to avoid AsyncStorage reads on every render
