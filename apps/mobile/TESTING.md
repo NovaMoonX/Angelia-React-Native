@@ -458,8 +458,9 @@ Use the iPhone when:
 - [ ] Notification Settings still saves Daily Reminder and time-zone preferences correctly
 - [ ] Post Detail still opens Conversation and Private Notes normally from the host view
 - [ ] Feed bell badge behavior still works for normal unread notifications, not just the release notice dot
-- [ ] **(Android only)** Tap a private note notification while on Post Details → navigates to Private Notes screen → single back press returns to Post Details (not looping back to Private Notes)
-- [ ] **(Android only)** Tap a message notification while on Post Details → navigates to Conversation → single back press returns to Post Details (not looping back to Conversation)
+- [ ] **(Android only)** From Feed, tap a post → open Post Detail → press back → returns to Feed cleanly (no bouncing back into Post Detail)
+- [ ] **(Android only)** From Feed, tap your Post Activity bell → press back → returns to Feed cleanly (no bouncing back into Post Activity)
+- [ ] **(Android only)** From Post Activity, tap a post → open Post Detail → press back → returns to Post Activity (not to Feed)
 
 ---
 
