@@ -187,6 +187,9 @@ Use the iPhone when:
 
 - [ ] Open Post Activity -> open a post -> press Post Detail back button -> confirm you return to Post Activity (not Feed)
 - [ ] Repeat the same flow using hardware back -> confirm destination is still Post Activity
+- [ ] Open Post Activity directly from a deep link or notification-style route (no prior in-app history), then press header back -> confirm you land on Feed and do not see a "GO_BACK action was not handled" error
+- [ ] With a heavier account (20+ Post Activity cards), open Post Activity and press back to Feed -> confirm the transition feels responsive and does not pause noticeably before returning
+- [ ] While toggling between Feed and Post Activity on a heavier account, confirm no duplicate message/private-note activity behavior (for example, unread counts/labels stay stable and do not flicker from repeated listener re-inits)
 - [ ] Trigger Post Detail unread-leave warning (host case) and choose **Exit Post Anyway** -> confirm destination is Post Activity when the post was opened from Post Activity
 - [ ] If circle suggestions show on leave, close/continue through the suggestion flow -> confirm final destination is Post Activity when launched from Post Activity
 - [ ] Open a post from Feed and leave Post Detail -> confirm this still returns to Feed (regression guard)

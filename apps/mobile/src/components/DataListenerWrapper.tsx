@@ -10,6 +10,8 @@ import { useToast } from '@/hooks/useToast';
 import { setPosts } from '@/store/slices/postsSlice';
 import { setChannels, setConnectionChannels, syncDailyChannelMembers } from '@/store/slices/channelsSlice';
 import { setCurrentUser, setUsers, setCurrentUserNotificationSettings } from '@/store/slices/usersSlice';
+import { setMessages } from '@/store/slices/conversationSlice';
+import { setPrivateNotes } from '@/store/slices/privateNotesSlice';
 import {
   setIncomingRequests,
   setOutgoingRequests,
@@ -42,6 +44,8 @@ import {
   subscribeToOutgoingConnectionRequests,
   subscribeToConnectionChannels,
   subscribeToTasks,
+  subscribeToMessages,
+  subscribeToPrivateNotesForPost,
 } from '@/services/firebase/firestore';
 import {
   requestNotificationPermission,
@@ -182,6 +186,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const notifSettingsUnsubRef = useRef<(() => void) | null>(null);
   const connectionChannelsUnsubRef = useRef<(() => void) | null>(null);
   const tasksUnsubRef = useRef<(() => void) | null>(null);
+  const authoredPostActivityUnsubsRef = useRef<Record<string, () => void>>({});
   const pendingInviteProcessed = useRef(false);
   const pendingConnectionProcessed = useRef(false);
   const ownPostStatusRef = useRef<Record<string, Post['status']>>({});
@@ -964,6 +969,59 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       tasksUnsubRef.current = null;
     };
   }, [isDemo, firebaseUser, dispatch]);
+
+  // Effect 11b: Keep a single centralized set of authored-post activity listeners
+  // (messages + private notes) so Feed/Post Activity screens can consume Redux
+  // data without spinning up duplicate per-screen subscriptions.
+  useEffect(() => {
+    if (isDemo || !firebaseUser || !currentUser) {
+      Object.values(authoredPostActivityUnsubsRef.current).forEach((unsub) => {
+        unsub();
+      });
+      authoredPostActivityUnsubsRef.current = {};
+      return;
+    }
+
+    const authoredPosts = posts.filter((post) => {
+      return post.authorId === currentUser.id;
+    });
+    const nextPostIds = new Set(authoredPosts.map((post) => {
+      return post.id;
+    }));
+
+    // Remove listeners for posts no longer in the authored-post set.
+    Object.entries(authoredPostActivityUnsubsRef.current).forEach(([postId, unsub]) => {
+      if (nextPostIds.has(postId)) return;
+      unsub();
+      delete authoredPostActivityUnsubsRef.current[postId];
+    });
+
+    // Add listeners for newly observed authored posts.
+    authoredPosts.forEach((post) => {
+      if (authoredPostActivityUnsubsRef.current[post.id]) return;
+
+      const unsubMessages = subscribeToMessages(post.id, (messages) => {
+        dispatch(setMessages({ postId: post.id, messages }));
+      });
+
+      const unsubNotes = subscribeToPrivateNotesForPost(
+        post.id,
+        (notes) => {
+          dispatch(setPrivateNotes({ postId: post.id, notes }));
+        },
+        () => {
+          dispatch(setPrivateNotes({ postId: post.id, notes: [] }));
+        },
+      );
+
+      authoredPostActivityUnsubsRef.current[post.id] = () => {
+        unsubMessages();
+        unsubNotes();
+      };
+    });
+
+    return undefined;
+  }, [currentUser, dispatch, firebaseUser, isDemo, posts]);
 
   // Effect 12: Show in-app toasts for new pending connection requests detected via
   // the Firestore real-time listener (covers cases where the push notification was

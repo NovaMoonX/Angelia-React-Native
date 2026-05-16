@@ -13,6 +13,9 @@ Current branch highlights:
 - Post Activity unread cards now stay put while you browse: we keep reaction activity in the Unread view for that screen session and only mark those posts as seen after you leave the screen.
 - Back navigation is now more predictable: leaving Private Notes or Conversation always returns you to Post Details, and leaving Post Details now always lands on Feed with a clean stack.
 - Back navigation now keeps Post Activity flow intact: if you open a post from Post Activity, leaving Post Details takes you back to Post Activity (instead of jumping to Feed).
+- Post Activity back now has a safe fallback path: if you open it without prior in-app history, back takes you to Feed instead of showing a go-back error.
+- Post Activity exit is now smoother: we only keep heavy activity listeners live on the screen you're actively viewing, which cuts duplicate background listener work when moving between Feed and Post Activity.
+- Post activity data listeners are now centralized through the app-level data wrapper for your authored posts, which reduces duplicate message/private-note subscriptions and helps keep Feed/Post Activity transitions steadier.
 - OTA feed prompts are now smarter to target: broadcast messages and feedback forms can now be limited by device type (iOS/Android/all) and app version range, so we can send the right in-app message to the right testers.
 - Edit mode now stays focused: the Post Create Reset action is hidden while editing, so the top bar keeps a clean Cancel + Save flow.
 - Post Detail now gives authors more room between the edit and delete actions, making those controls easier and safer to tap.

@@ -141,15 +141,15 @@ export default function PostDetailScreen() {
 		[conversationMessages, currentUserId],
 	);
 
-	// Subscribe to conversation messages so the unread indicator works without
-	// the user needing to open the conversation screen first
+	// For authored posts, DataListenerWrapper owns the global messages listener.
+	// Keep this local subscription only for non-host contexts.
 	useEffect(() => {
-		if (!id || isDemo) return;
+		if (!id || isDemo || isHost) return;
 		const unsub = subscribeToMessages(id, (msgs) => {
 			dispatch(setMessages({ postId: id, messages: msgs }));
 		});
 		return unsub;
-	}, [id, dispatch, isDemo]);
+	}, [id, dispatch, isDemo, isHost]);
 
 	// Only reaction activity should clear from simply viewing this screen, and
 	// it should clear when the user leaves post detail (not immediately on open).

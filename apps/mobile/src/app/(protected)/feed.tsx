@@ -83,14 +83,29 @@ export default function FeedScreen() {
 	const uploadingPosts = useAppSelector(selectCurrentUserUploadingPosts);
 	const uploadAggregateProgress = useAppSelector(selectCurrentUserUploadAggregateProgress);
 	const pendingTasks = useAppSelector((state) => state.tasks.items);
-	const { hasUnread: hasUnreadPostActivity, refreshSeenState } = useAuthorPostActivity({ enableSubscriptions: true });
+	const { hasUnread: hasUnreadPostActivity, refreshSeenState } = useAuthorPostActivity();
 
 	useFocusEffect(
 		useCallback(() => {
 			// If we're already at/near the top of the feed when focusing, notify
 			// the pill so it dismisses any new posts that are already visible.
 			newPostsPillRef.current?.notifyScrollY(prevScrollY.current);
-			void refreshSeenState();
+
+			let timeoutId: ReturnType<typeof setTimeout> | null = null;
+			let idleCallbackId: number | null = null;
+			const runRefresh = () => {
+				void refreshSeenState();
+			};
+			if (typeof globalThis.requestIdleCallback === 'function') {
+				idleCallbackId = globalThis.requestIdleCallback(() => {
+					runRefresh();
+				});
+			} else {
+				timeoutId = setTimeout(() => {
+					runRefresh();
+				}, 0);
+			}
+
 			void Promise.all([
 				AsyncStorage.getItem(
 					NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY(NOTIFICATION_SETTINGS_NOTICE_VERSION),
@@ -109,7 +124,14 @@ export default function FeedScreen() {
 					setHasNotificationSettingsNotice(true);
 					return null;
 				});
-			return undefined;
+			return () => {
+				if (idleCallbackId != null && typeof globalThis.cancelIdleCallback === 'function') {
+					globalThis.cancelIdleCallback(idleCallbackId);
+				}
+				if (timeoutId != null) {
+					clearTimeout(timeoutId);
+				}
+			};
 		}, [refreshSeenState]),
 	);
 

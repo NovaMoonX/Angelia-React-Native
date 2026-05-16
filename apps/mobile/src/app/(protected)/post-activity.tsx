@@ -18,12 +18,39 @@ import type { Post } from '@/models/types';
 
 type SortOrder = 'newest' | 'oldest';
 
+const getPerfNow = (): number => {
+  const perfNow = globalThis.performance?.now;
+  if (typeof perfNow === 'function') {
+    return perfNow.call(globalThis.performance);
+  }
+  return Date.now();
+};
+
+const logPostActivityPerf = (event: string, details?: Record<string, number | string | boolean>) => {
+  if (!__DEV__) return;
+  if (details) {
+    console.log(`[PostActivityPerf] ${event}`, details);
+    return;
+  }
+  console.log(`[PostActivityPerf] ${event}`);
+};
+
+const runAfterUiSettles = (task: () => void) => {
+  if (typeof globalThis.requestIdleCallback === 'function') {
+    globalThis.requestIdleCallback(() => {
+      task();
+    });
+    return;
+  }
+  setTimeout(task, 0);
+};
+
 export default function PostActivityScreen() {
   const router = useRouter();
   const { scope } = useLocalSearchParams<{ scope?: string }>();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { summaries, unreadDetailsByPostId, refreshSeenState, markPostsSeen } = useAuthorPostActivity({ enableSubscriptions: true });
+  const { summaries, unreadDetailsByPostId, refreshSeenState, markPostsSeen } = useAuthorPostActivity();
   const channels = useAppSelector(selectAllChannels);
   const uploadingPosts = useAppSelector(selectCurrentUserUploadingPosts);
   const uploadProgressMap = useAppSelector(selectCurrentUserUploadProgressMap);
@@ -36,6 +63,29 @@ export default function PostActivityScreen() {
   const pendingSeenPostIdsRef = useRef<Set<string>>(new Set());
   const lastVisibleKeyRef = useRef('');
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 98 }).current;
+
+  const handleBackPress = useCallback(() => {
+    const backStart = getPerfNow();
+    logPostActivityPerf('back_pressed', {
+      canGoBack: router.canGoBack(),
+      scope: activityScope,
+      pendingSeenCount: pendingSeenPostIdsRef.current.size,
+      unreadCount: Object.keys(unreadDetailsByPostId).length,
+      summaryCount: summaries.length,
+    });
+
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(protected)/feed');
+    }
+
+    runAfterUiSettles(() => {
+      logPostActivityPerf('back_interactions_settled', {
+        elapsedMs: Number((getPerfNow() - backStart).toFixed(1)),
+      });
+    });
+  }, [activityScope, router, summaries.length, unreadDetailsByPostId]);
 
   useEffect(() => {
     markPostsSeenRef.current = markPostsSeen;
@@ -57,11 +107,33 @@ export default function PostActivityScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      const focusStart = getPerfNow();
+      logPostActivityPerf('focus_enter', {
+        summaryCount: summaries.length,
+      });
       void refreshSeenState().catch(() => {});
       return () => {
-        void flushPendingSeen();
+        const cleanupStart = getPerfNow();
+        const pendingSeenCount = pendingSeenPostIdsRef.current.size;
+        logPostActivityPerf('focus_cleanup_started', {
+          pendingSeenCount,
+          elapsedSinceFocusMs: Number((cleanupStart - focusStart).toFixed(1)),
+        });
+        void flushPendingSeen()
+          .then(() => {
+            logPostActivityPerf('focus_cleanup_flush_complete', {
+              pendingSeenCount,
+              flushElapsedMs: Number((getPerfNow() - cleanupStart).toFixed(1)),
+            });
+          })
+          .catch(() => {
+            logPostActivityPerf('focus_cleanup_flush_failed', {
+              pendingSeenCount,
+              flushElapsedMs: Number((getPerfNow() - cleanupStart).toFixed(1)),
+            });
+          });
       };
-    }, [flushPendingSeen, refreshSeenState]),
+    }, [flushPendingSeen, refreshSeenState, summaries.length]),
   );
 
   const handleRefresh = useCallback(async () => {
@@ -387,7 +459,7 @@ export default function PostActivityScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <ScreenHeader title='Your Post Activity' />
+      <ScreenHeader title='Your Post Activity' onBack={handleBackPress} />
       {activityScope === 'uploading' ? (
         <FlashList
           style={{ flex: 1, backgroundColor: theme.background }}
