@@ -7,6 +7,7 @@ import {
   getRecordingPermissionsAsync,
   requestRecordingPermissionsAsync,
   RecordingPresets,
+  setAudioModeAsync,
   useAudioRecorder,
   useAudioRecorderState,
 } from 'expo-audio';
@@ -19,6 +20,20 @@ import type { MediaFile } from '@/components/PostCreateMediaUploader';
 
 const MAX_RECORDING_SECONDS = 180;
 const COUNTDOWN_WARNING_SECONDS = 15;
+
+function formatRecordingError(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+  if (typeof error === 'string' && error.trim()) {
+    return error.trim();
+  }
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return 'Unknown error';
+  }
+}
 
 function decodeMediaParam(value: string): MediaFile[] {
   try {
@@ -105,6 +120,14 @@ export default function AudioRecordScreen() {
     });
   };
 
+  const setRecordingAudioMode = async (allowsRecording: boolean, reason: string) => {
+    await setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: false,
+      allowsRecording,
+    });
+  };
+
   useEffect(() => {
     void getRecordingPermissionsAsync()
       .then((permission) => {
@@ -113,6 +136,12 @@ export default function AudioRecordScreen() {
       .catch(() => {
         setPermissionReady(false);
       });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      void setRecordingAudioMode(false, 'screen-unmount');
+    };
   }, []);
 
   const handleRequestPermission = async (): Promise<boolean> => {
@@ -126,6 +155,7 @@ export default function AudioRecordScreen() {
   };
 
   const handleStartRecording = async () => {
+    let startStep = 'permission-check';
     const hasPermission = permissionReady === true ? true : await handleRequestPermission();
     if (!hasPermission) {
       return;
@@ -137,16 +167,29 @@ export default function AudioRecordScreen() {
 
     try {
       autoStopTriggeredRef.current = false;
+      startStep = 'set-audio-mode';
+      await setRecordingAudioMode(true, 'start-recording');
+      startStep = 'prepare-recorder';
       await recorder.prepareToRecordAsync();
-      recorder.record();
-    } catch {
-      addToast({ type: 'error', title: 'Could not start recording' });
+      startStep = 'begin-recording';
+      await recorder.record();
+    } catch (error) {
+      const errorMessage = formatRecordingError(error);
+      await setRecordingAudioMode(false, 'start-failed');
+      addToast({
+        type: 'error',
+        title: 'Could not start recording',
+        description: `Step: ${startStep}. ${errorMessage}`,
+        autoDismissMs: 7000,
+      });
     }
   };
 
   const handleStopRecording = async (showLimitToast: boolean) => {
+    let stopStep = 'stop-recorder';
     try {
       await recorder.stop();
+      stopStep = 'read-recorder-status';
       const status = recorder.getStatus();
       const nextUri = status.url ?? recorder.uri;
       if (!nextUri) {
@@ -173,8 +216,16 @@ export default function AudioRecordScreen() {
       if (showLimitToast) {
         addToast({ type: 'info', title: 'Recording capped at 3 minutes ⏱️' });
       }
-    } catch {
-      addToast({ type: 'error', title: 'Could not stop recording' });
+    } catch (error) {
+      const errorMessage = formatRecordingError(error);
+      addToast({
+        type: 'error',
+        title: 'Could not stop recording',
+        description: `Step: ${stopStep}. ${errorMessage}`,
+        autoDismissMs: 7000,
+      });
+    } finally {
+      await setRecordingAudioMode(false, 'stop-recording');
     }
   };
 

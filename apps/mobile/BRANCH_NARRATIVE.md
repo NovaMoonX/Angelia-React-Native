@@ -168,7 +168,7 @@ Two parts of post creation/editing still felt rough: edit mode still surfaced a 
 
 ### The Solution
 
-Edit mode now hides Reset entirely, so the top bar stays focused on Cancel and Save. Post Detail now gives the author's edit/delete actions more spacing so taps feel less cramped. Audio recording now supports a true multi-clip flow: up to the attachment limit, per-clip 90-second cap, persistent timing summaries, in-screen playback preview, and per-recording title/caption editing before returning to Post Create.
+Edit mode now hides Reset entirely, so the top bar stays focused on Cancel and Save. Post Detail now gives the author's edit/delete actions more spacing so taps feel less cramped. Audio recording now supports a true multi-clip flow: up to the attachment limit, per-clip 3-minute cap, persistent timing summaries, in-screen playback preview, and per-recording title/caption editing before returning to Post Create. On iPhone, the screen now also flips the audio session into recording mode before capture starts so the microphone reliably begins recording on the first tap.
 
 ### Technical Detail
 
@@ -177,7 +177,7 @@ Edit mode now hides Reset entirely, so the top bar stays focused on Cancel and S
 - File: [src/app/(protected)/post/[id].tsx](src/app/(protected)/post/[id].tsx)
 	Adds extra spacing for author header actions and passes audio titles into post-detail audio cards and full-screen viewer.
 - File: [src/app/(protected)/audio-record.tsx](src/app/(protected)/audio-record.tsx)
-	Reworks the screen into a multi-record queue with 90-second auto-stop, clip list management, playback preview, and title/caption inputs.
+	Reworks the screen into a multi-record queue with 3-minute auto-stop, clip list management, playback preview, title/caption inputs, and explicit iOS audio-mode switching before and after capture.
 - File: [src/components/AudioAttachmentPlayer.tsx](src/components/AudioAttachmentPlayer.tsx)
 	Adds optional title rendering so named audio clips display consistently in feed/detail/full-view contexts.
 - File: [src/components/MediaViewerModal.tsx](src/components/MediaViewerModal.tsx)

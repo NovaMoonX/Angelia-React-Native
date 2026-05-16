@@ -12,6 +12,7 @@ Current branch highlights:
 - Edit mode now stays focused: the Post Create Reset action is hidden while editing, so the top bar keeps a clean Cancel + Save flow.
 - Post Detail now gives authors more room between the edit and delete actions, making those controls easier and safer to tap.
 - Audio recording got a big upgrade: you can now record multiple clips (up to your attachment limit), each clip caps at 3 minutes, and the final 15 seconds now show a clear on-screen countdown so you can wrap cleanly.
+- iPhone audio recording is now much more reliable: the recorder now flips into recording mode before capture starts, so tapping Start Recording actually kicks off the mic instead of quietly failing.
 - In Audio Record, the Preview & Details player now shows each clip’s default label (like Recording 2) when no custom title is entered yet, so it’s clearer which recording you’re editing.
 - Caption indicators now use a clean icon badge (instead of emoji) and show consistently on audio, video, and image attachments in composer/post cards/post detail.
 - Audio clips in post card carousels now sit vertically centered with an opaque media backdrop, so audio-only carousels no longer feel like they have awkward extra bottom space.
