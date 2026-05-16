@@ -114,10 +114,14 @@ export default function PostDetailScreen() {
 			router.replace('/(protected)/post-activity');
 			return;
 		}
-		// Use router.back() instead of dismissAll() + replace() to avoid
-		// Android back-stack duplication issues where back button bounces
-		// between screens instead of proceeding to Feed.
-		router.back();
+		// Use router.back() to respect native back-stack, but fall back to
+		// replacing with Feed if there's nothing to go back to (e.g., deep link).
+		// This prevents the "GO_BACK action was not handled" error on Android.
+		if (router.canGoBack()) {
+			router.back();
+		} else {
+			router.replace('/(protected)/feed');
+		}
 	}, [router, shouldReturnToPostActivity]);
 
 	// Memoize the latest note timestamp to avoid AsyncStorage reads on every render
