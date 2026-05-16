@@ -316,9 +316,14 @@ export interface FeedbackFormConfig {
   active: boolean;
   url: string | null;
   topic: string | null;
+  targetDeviceType: OtaTargetDeviceType;
+  minAppVersion: string | null;
+  maxAppVersion: string | null;
 }
 
 export type BroadcastMessageType = 'info' | 'warning' | 'success' | 'urgent';
+
+export type OtaTargetDeviceType = 'all' | 'ios' | 'android';
 
 export interface BroadcastMessageConfig {
   active: boolean;
@@ -326,6 +331,9 @@ export interface BroadcastMessageConfig {
   type: BroadcastMessageType;
   title: string | null;
   body: string | null;
+  targetDeviceType: OtaTargetDeviceType;
+  minAppVersion: string | null;
+  maxAppVersion: string | null;
 }
 
 export interface MobileAppConfig extends LatestAppVersionConfig {
@@ -392,14 +400,31 @@ export function subscribeToLatestAppVersion(
   );
 }
 
-const DEFAULT_FEEDBACK_FORM: FeedbackFormConfig = { active: false, url: null, topic: null };
+const DEFAULT_FEEDBACK_FORM: FeedbackFormConfig = {
+  active: false,
+  url: null,
+  topic: null,
+  targetDeviceType: 'all',
+  minAppVersion: null,
+  maxAppVersion: null,
+};
 const DEFAULT_BROADCAST_MESSAGE: BroadcastMessageConfig = {
   active: false,
   id: null,
   type: 'info',
   title: null,
   body: null,
+  targetDeviceType: 'all',
+  minAppVersion: null,
+  maxAppVersion: null,
 };
+
+function parseOtaTargetDeviceType(value: unknown): OtaTargetDeviceType {
+  if (value === 'ios' || value === 'android' || value === 'all') {
+    return value;
+  }
+  return 'all';
+}
 
 /**
  * Subscribes to the full mobile app config from three separate flat Firestore
@@ -408,8 +433,8 @@ const DEFAULT_BROADCAST_MESSAGE: BroadcastMessageConfig = {
  *
  * Documents:
  *   appConfig/mobile           → iosVersion, androidVersion, androidStoreUrl
- *   appConfig/broadcastMessage → active, id, type, title, body
- *   appConfig/feedbackForm     → active, url
+ *   appConfig/broadcastMessage → active, id, type, title, body, targetDeviceType, minAppVersion, maxAppVersion
+ *   appConfig/feedbackForm     → active, url, topic, targetDeviceType, minAppVersion, maxAppVersion
  *
  * All three listeners run in parallel. A merged MobileAppConfig is emitted
  * whenever any document changes. Missing documents (not yet created in Firestore)
@@ -477,6 +502,9 @@ export function subscribeToMobileAppConfig(
           type: validMsgType,
           title: asNonEmptyString(raw.title),
           body: asNonEmptyString(raw.body),
+          targetDeviceType: parseOtaTargetDeviceType(raw.targetDeviceType),
+          minAppVersion: asNonEmptyString(raw.minAppVersion),
+          maxAppVersion: asNonEmptyString(raw.maxAppVersion),
         };
       }
       emit();
@@ -498,6 +526,9 @@ export function subscribeToMobileAppConfig(
           active: raw.active === true,
           url: asNonEmptyString(raw.url),
           topic: asNonEmptyString(raw.topic),
+          targetDeviceType: parseOtaTargetDeviceType(raw.targetDeviceType),
+          minAppVersion: asNonEmptyString(raw.minAppVersion),
+          maxAppVersion: asNonEmptyString(raw.maxAppVersion),
         };
       }
       emit();

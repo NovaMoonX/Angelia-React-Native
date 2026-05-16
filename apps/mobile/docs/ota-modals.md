@@ -11,8 +11,8 @@ All three modal configs live in separate flat documents under the `appConfig` co
 | Document | Purpose |
 |---|---|
 | `appConfig/mobile` | App version gate (`iosVersion`, `androidVersion`, `androidStoreUrl`) |
-| `appConfig/broadcastMessage` | Broadcast message modal (`active`, `id`, `type`, `title`, `body`) |
-| `appConfig/feedbackForm` | Feedback form modal (`active`, `url`) |
+| `appConfig/broadcastMessage` | Broadcast message modal (`active`, `id`, `type`, `title`, `body`, `targetDeviceType`, `minAppVersion`, `maxAppVersion`) |
+| `appConfig/feedbackForm` | Feedback form modal (`active`, `url`, `topic`, `targetDeviceType`, `minAppVersion`, `maxAppVersion`) |
 
 The `subscribeToMobileAppConfig` function in `src/services/firebase/firestore.ts` opens three parallel `onSnapshot` listeners and merges their values into a single `MobileAppConfig` before emitting to callers. All three documents must exist for the merged config to be emitted — missing documents produce fallback defaults.
 
@@ -74,6 +74,9 @@ When more than one modal would trigger simultaneously, the hook shows only the h
 | `type` | `'info' \| 'warning' \| 'success' \| 'urgent'` | Controls the accent color and emoji shown at the top of the modal. |
 | `title` | `string \| null` | Short headline (e.g. `"Scheduled maintenance"`). |
 | `body` | `string \| null` | One or two sentences of detail. |
+| `targetDeviceType` | `'all' \| 'ios' \| 'android'` | Device targeting for this message. `all` (or missing) shows to both platforms. |
+| `minAppVersion` | `string \| null` | Optional lower bound (inclusive) for app version targeting. Example: `"1.0.5"`. |
+| `maxAppVersion` | `string \| null` | Optional upper bound (inclusive) for app version targeting. Example: `"1.0.9"`. |
 
 **Type → emoji / accent color mapping:**
 
@@ -86,6 +89,7 @@ When more than one modal would trigger simultaneously, the hook shows only the h
 
 **Behavior:**
 - Only shown when `active === true`.
+- Must match targeting rules: current device platform matches `targetDeviceType`, and app version falls inside `minAppVersion`/`maxAppVersion` when those bounds are provided.
 - Dismissal is stored via `APP_MESSAGE_DISMISSED_KEY` in AsyncStorage, keyed to the message `id`. Changing the `id` causes the modal to re-appear for all users.
 - Setting `active` to `false` immediately suppresses the modal for all users without requiring a dismissal.
 
@@ -111,9 +115,13 @@ When more than one modal would trigger simultaneously, the hook shows only the h
 | `active` | `boolean` | Master switch. `false` = never shown. |
 | `url` | `string \| null` | Full URL to a Google Form (or any URL). Change the URL to re-prompt users who dismissed the previous one. |
 | `topic` | `string \| null` | Optional topic shown in the modal body as **"Topic: \<value\>"** (e.g. `"App experience"`). Omitted when `null`. |
+| `targetDeviceType` | `'all' \| 'ios' \| 'android'` | Device targeting for this prompt. `all` (or missing) shows to both platforms. |
+| `minAppVersion` | `string \| null` | Optional lower bound (inclusive) for app version targeting. |
+| `maxAppVersion` | `string \| null` | Optional upper bound (inclusive) for app version targeting. |
 
 **Behavior:**
 - Only shown when `active === true`.
+- Must match targeting rules: current device platform matches `targetDeviceType`, and app version falls inside `minAppVersion`/`maxAppVersion` when those bounds are provided.
 - "Open form" button opens the URL with `Linking.openURL`; falls back to clipboard copy with a toast if the URL can't be opened.
 - Dismissal is persisted via `FEEDBACK_FORM_DISMISSED_URL_KEY` in AsyncStorage, keyed to the exact URL string. Updating `url` re-shows the modal.
 

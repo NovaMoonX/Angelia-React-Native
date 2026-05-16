@@ -61,6 +61,34 @@ Use the iPhone when:
 
 ---
 
+## Feature 21: OTA Message Targeting (Device + App Version Range)
+
+**Devices:** Android + iPhone required.
+
+### Setup
+
+- [ ] In Firestore, prepare `appConfig/broadcastMessage` with `active: true`, valid `id/title/body`, and targeting fields available: `targetDeviceType`, `minAppVersion`, `maxAppVersion`
+- [ ] In Firestore, prepare `appConfig/feedbackForm` with `active: true`, valid `url`, and the same targeting fields
+- [ ] Confirm the installed app version on both test devices (Settings/About or app logs) so range tests are deterministic
+
+### Android
+
+- [ ] Set broadcast `targetDeviceType: 'android'` with a matching version range -> confirm message appears on Android feed
+- [ ] Keep same message active and set `targetDeviceType: 'ios'` -> confirm message no longer appears on Android
+- [ ] Set `targetDeviceType: 'all'` -> confirm message appears again on Android
+- [ ] Set broadcast `minAppVersion` above current Android app version -> confirm message is hidden
+- [ ] Set broadcast `maxAppVersion` below current Android app version -> confirm message is hidden
+- [ ] Set range that includes the current Android version -> confirm message appears
+- [ ] Repeat one pass of the same targeting checks for `feedbackForm`
+
+### iPhone
+
+- [ ] Repeat the same `targetDeviceType` checks for both broadcast and feedback (`ios`, `android`, `all`)
+- [ ] Repeat one min/max version-range exclusion and one inclusion check for both modals
+- [ ] Confirm behavior matches Android expectations for identical config values
+
+---
+
 ## Feature 2: Circle Post Notification Settings
 
 **Devices:** Android primary. iPhone optional.

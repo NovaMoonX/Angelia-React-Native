@@ -7,6 +7,7 @@ Related PR: TBD
 Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
 
 Current branch highlights:
+- OTA feed prompts are now smarter to target: broadcast messages and feedback forms can now be limited by device type (iOS/Android/all) and app version range, so we can send the right in-app message to the right testers.
 - Edit mode now stays focused: the Post Create Reset action is hidden while editing, so the top bar keeps a clean Cancel + Save flow.
 - Post Detail now gives authors more room between the edit and delete actions, making those controls easier and safer to tap.
 - Audio recording got a big upgrade: you can now record multiple clips (up to your attachment limit), each clip caps at 3 minutes, and the final 15 seconds now show a clear on-screen countdown so you can wrap cleanly.
