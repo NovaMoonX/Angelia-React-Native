@@ -20,6 +20,21 @@ Current branch highlights:
 - Audio clip editing in Post Create now uses a clean single-line title field (same 60-char limit as recording), and audio thumbnails keep the mic + title centered in the preview square.
 - In audio clip edit sheets, Remove now clears both title and caption together for existing clips (so titles no longer linger after removing metadata).
 - Post edit saves now honor removed clip metadata reliably: when you clear a title or caption and save, those cleared values stay cleared instead of reappearing from older media data.
+- Posting now feels more reliable on slower connections: media uploads are queued and continue processing after you return to Feed, with automatic retry behavior and a stronger fallback path.
+- Feed + Post Activity now show live upload progress percentages for in-flight posts, and if your post finishes while the app is backgrounded, we send a local "Your post is live" notice.
+- Upload progress is now smoother and only moves forward, so percentages no longer jump backward mid-upload.
+- If your upload finishes while you're actively in the app, you now get an instant "Your post is live" toast too.
+- Post-live toasts are now easier to dismiss: close button taps and swipe-dismiss gestures are more reliable.
+- Swipe-to-dismiss on post-live toasts now catches drag gestures more consistently (even quick short swipes), so closing feels less finicky.
+- Once a post-live toast starts dismissing, extra touches are now ignored so it closes cleanly without repeated/ghost interaction behavior.
+- Post-live toast dismiss animations are now much quicker, so close taps and successful swipes disappear almost instantly instead of feeling delayed.
+- Toast dismiss now has a fallback completion path, so if animation callbacks get interrupted the toast still closes instead of getting stuck on screen.
+- Close-button taps on post-live toasts now dismiss instantly, and extra rapid taps during teardown are ignored to prevent the "it won't close" feeling.
+- Post-live toasts now require a more intentional drag before swipe takeover, so small finger movement no longer steals the close-button tap and first-tap dismiss feels immediate.
+- Post-live toasts now clear faster under heavy upload activity, so close/swipe interactions and auto-dismiss no longer feel stuck while media is still finishing in the background.
+- Post-live toast gestures now avoid the noisy native animated update warnings, so swipe/close handling stays smooth without console spam.
+- Post-live toast animations now stay on one animation path, which avoids the mixed native/JS driver crash and keeps dismissing reliable.
+- Post-live toasts now appear immediately when they mount, so they no longer depend on an entrance animation to become visible.
 - Audio players got a visual refresh: waveform bars are smoother and stable (no jumpy block effect), progress feels cleaner, and the play button now sits on the right for a tidier layout.
 - The audio waveform is now taller too, so playback feels more readable at a glance.
 - Carousel audio cards now place the player a bit higher and give it more height, so it is easier to tap play without accidentally hitting the carousel next button.

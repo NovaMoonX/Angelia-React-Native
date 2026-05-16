@@ -133,12 +133,12 @@ export default function PostUploadingScreen() {
     router.replace('/(protected)/feed');
   };
 
-  const sendPostReadyNotification = async () => {
+  const sendQueuedUploadStartedNotification = async () => {
     try {
       await Notifications.scheduleNotificationAsync({
         content: {
           title: 'Angelia',
-          body: "Your post just dropped! 🎉 Tap to check it out.",
+          body: 'Upload started in the background. We\'ll notify you when it goes live.',
         },
         trigger: null,
       });
@@ -165,6 +165,7 @@ export default function PostUploadingScreen() {
     const media: MediaFile[] = params.mediaJson ? (() => {
       try { return JSON.parse(params.mediaJson) as MediaFile[]; } catch { return []; }
     })() : [];
+    const isQueuedUpload = !isEditMode && media.length > 0;
 
     const pendingStatus: UserStatus | null = params.pendingStatusJson ? (() => {
       try { return JSON.parse(params.pendingStatusJson) as UserStatus; } catch { return null; }
@@ -237,11 +238,15 @@ export default function PostUploadingScreen() {
         if (phaseRef.current === 'background') {
           // Already navigated to feed — send notification or toast
           if (appStateRef.current !== 'active') {
-            if (!isEditMode) {
-              sendPostReadyNotification();
+            if (isQueuedUpload) {
+              sendQueuedUploadStartedNotification();
             }
           } else {
-            addToast({ type: 'success', title: isEditMode ? 'Post updated! ✨' : "Your post is live! 🎉" });
+            if (isQueuedUpload) {
+              addToast({ type: 'info', title: 'Upload started. We\'ll keep posting in the background.' });
+            } else {
+              addToast({ type: 'success', title: isEditMode ? 'Post updated! ✨' : "Your post is live! 🎉" });
+            }
           }
           return;
         }
@@ -359,10 +364,10 @@ export default function PostUploadingScreen() {
         >
           <Text style={styles.successEmoji}>🎉</Text>
           <Text style={[styles.title, { color: theme.foreground }]}>
-            {isEditMode ? 'Post updated!' : 'Your post is live!'}
+            {isEditMode ? 'Post updated!' : 'Upload started!'}
           </Text>
           <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
-            {isEditMode ? 'Your latest changes are saved 🙌' : 'Your crew can now see it 🙌'}
+            {isEditMode ? 'Your latest changes are saved 🙌' : 'You can head back to Feed while we finish uploading 🙌'}
           </Text>
         </Animated.View>
       )}

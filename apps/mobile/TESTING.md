@@ -172,6 +172,42 @@ Use the iPhone when:
 
 - [ ] Repeat one pass of the same audio edit flow and confirm title input behavior + thumbnail centering match Android
 
+---
+
+## Feature 5: Queued Upload Reliability + Progress Tracking
+
+**Devices:** Android primary. iPhone recommended for background behavior parity.
+
+### Setup
+
+- [ ] Use a post with multiple attachments (include at least one larger file)
+- [ ] Ensure Notification permission is granted so local completion notices can appear
+
+### Android
+
+- [ ] Create a post with media and publish -> app should return to Feed quickly without waiting for full media upload
+- [ ] Confirm Feed shows the upload banner with a live percentage value while uploads are in flight
+- [ ] Tap the Feed upload banner -> Post Activity opens in Uploading scope
+- [ ] Confirm uploading cards show progress percentage per post (not just a static "uploading" label)
+- [ ] Watch one long upload from ~10% to completion and confirm progress never drops backward (it should only hold or increase)
+- [ ] Background the app during upload, then return while upload is still running -> progress continues and post eventually becomes ready
+- [ ] Background the app and wait for upload completion -> if completion happens while backgrounded, confirm local "post is live" notification appears
+- [ ] Keep app in foreground during upload completion -> confirm "Your post is live" success toast appears when status transitions to ready
+- [ ] Confirm the toast appears immediately on screen instead of staying invisible for a beat before animating in
+- [ ] While that foreground success toast is visible, verify both dismiss methods work: tap the ✕ close icon and swipe (left/right/up/down) to dismiss
+- [ ] Tap ✕ once and confirm dismiss starts on the first tap (with timestamped `ToastDebug` logs, close press and dismiss request should be near-immediate)
+- [ ] After a successful swipe dismiss, confirm no extra pan logs/toast interactions continue for that same toast (no ghost gesture events after dismiss starts)
+- [ ] Do not interact with that toast -> confirm it auto-dismisses on its own within a few seconds (no stuck toast)
+- [ ] While a large upload is still reporting progress, verify toast close/swipe interactions still respond immediately (no delayed taps or missing swipe detection)
+- [ ] With a tiny finger drift while tapping ✕ (not a true swipe), confirm the toast still dismisses on that first tap instead of requiring a second try
+- [ ] Repeat the same toast dismiss flow and confirm no red screen or ErrorBoundary crash appears when the toast mounts, swipes, or closes
+- [ ] Simulate unstable network (toggle offline/online) during upload -> upload resumes/retries and eventually resolves to ready or explicit error
+
+### iPhone
+
+- [ ] Repeat one media upload while app is backgrounded and confirm progress/ready transition behavior matches Android expectations
+- [ ] Confirm local completion notice appears when upload finishes while app is backgrounded
+
 ### iPhone
 
 - [ ] Repeat the long-press reply flow and depth-limit warning

@@ -1,4 +1,7 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
+import { AppState } from 'react-native';
 import type { RootState } from '@/store';
 import type {
   Post,
@@ -34,9 +37,17 @@ import {
   updatePostFields,
 } from '@/store/slices/postsSlice';
 import {
+  setPostUploadQueued,
+  setPostUploadProgress,
+  setPostUploadFinalizing,
+  setPostUploadError,
+  clearPostUploadProgress,
+} from '@/store/slices/uploadsSlice';
+import {
   addCommentOptimistic,
   removeCommentOptimistic,
 } from '@/store/slices/commentsSlice';
+import { POST_UPLOAD_QUEUE_KEY } from '@/models/constants';
 import { isDemoActive } from './globalActions';
 
 // ── Post notification helper ───────────────────────────────────────────────
@@ -166,6 +177,202 @@ function sameStorageObjectUrl(a: string, b: string): boolean {
   return aPath != null && bPath != null && aPath === bPath;
 }
 
+interface QueuedPostUploadJob {
+  postId: string;
+  authorId: string;
+  channelId: string;
+  tier: PostTier;
+  media: MediaFile[];
+  channelName: string;
+  channelIsDaily: boolean;
+  authorFirstName: string;
+  authorLastName: string;
+  retries: number;
+  queuedAt: number;
+}
+
+const MAX_UPLOAD_RETRIES = 3;
+let queueProcessing = false;
+
+async function readUploadQueue(): Promise<QueuedPostUploadJob[]> {
+  try {
+    const raw = await AsyncStorage.getItem(POST_UPLOAD_QUEUE_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed as QueuedPostUploadJob[];
+  } catch {
+    return [];
+  }
+}
+
+async function writeUploadQueue(queue: QueuedPostUploadJob[]): Promise<void> {
+  await AsyncStorage.setItem(POST_UPLOAD_QUEUE_KEY, JSON.stringify(queue));
+}
+
+async function enqueueUploadJob(job: QueuedPostUploadJob): Promise<void> {
+  const queue = await readUploadQueue();
+  const deduped = queue.filter((item) => {
+    return item.postId !== job.postId;
+  });
+  deduped.push(job);
+  await writeUploadQueue(deduped);
+}
+
+async function sendPostReadyNotificationFromQueue(): Promise<void> {
+  if (AppState.currentState === 'active') {
+    return;
+  }
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Angelia',
+        body: 'Your post is live! 🎉',
+      },
+      trigger: null,
+    });
+  } catch {
+    // best-effort
+  }
+}
+
+async function processSingleQueuedUpload(job: QueuedPostUploadJob, dispatch: any): Promise<void> {
+  const uploadedUrls: string[] = [];
+  try {
+    dispatch(setPostUploadQueued({ postId: job.postId }));
+
+    const totalUploadSteps = job.media.reduce((count, mediaItem) => {
+      const hasThumbnailStep = mediaItem.type.startsWith('video/') && Boolean(mediaItem.thumbnailUri);
+      return count + (hasThumbnailStep ? 2 : 1);
+    }, 0);
+    let completedUploadSteps = 0;
+
+    const readyMedia: MediaItem[] = [];
+    for (let i = 0; i < job.media.length; i++) {
+      const file = job.media[i];
+      const url = await uploadPostMedia(job.postId, file.uri, file.name, file.type, (fileProgress) => {
+        const overall = (completedUploadSteps + fileProgress) / totalUploadSteps;
+        dispatch(setPostUploadProgress({ postId: job.postId, progress: overall }));
+      });
+      completedUploadSteps += 1;
+      dispatch(setPostUploadProgress({ postId: job.postId, progress: completedUploadSteps / totalUploadSteps }));
+      uploadedUrls.push(url);
+
+      let thumbnailUrl: string | undefined;
+      if (file.type.startsWith('video/') && file.thumbnailUri) {
+        const thumbName = `${file.name.replace(/\.[^.]+$/, '')}_thumb.jpg`;
+        thumbnailUrl = await uploadPostMedia(job.postId, file.thumbnailUri, thumbName, 'image/jpeg', (thumbProgress) => {
+          const overall = (completedUploadSteps + thumbProgress) / totalUploadSteps;
+          dispatch(setPostUploadProgress({ postId: job.postId, progress: overall }));
+        });
+        completedUploadSteps += 1;
+        dispatch(setPostUploadProgress({ postId: job.postId, progress: completedUploadSteps / totalUploadSteps }));
+        uploadedUrls.push(thumbnailUrl);
+      }
+
+      readyMedia.push({
+        url,
+        type: file.type.startsWith('image')
+          ? 'image'
+          : file.type.startsWith('audio')
+            ? 'audio'
+            : 'video',
+        title: file.title ?? null,
+        caption: file.caption ?? null,
+        ...(thumbnailUrl ? { thumbnailUrl } : {}),
+      });
+    }
+
+    dispatch(setPostUploadFinalizing({ postId: job.postId }));
+
+    await updatePost(job.postId, {
+      media: readyMedia,
+      status: 'ready',
+    });
+    dispatch(updatePostFields({ postId: job.postId, data: { media: readyMedia, status: 'ready' } }));
+
+    const postForNotification: Post = {
+      id: job.postId,
+      authorId: job.authorId,
+      channelId: job.channelId,
+      text: '',
+      media: readyMedia,
+      timestamp: Date.now(),
+      lastEditedAt: null,
+      reactions: [],
+      conversationEnrollees: [],
+      markedForDeletionAt: null,
+      status: 'ready',
+      tier: job.tier,
+    };
+
+    await sendPostNotification(
+      postForNotification,
+      job.authorFirstName,
+      job.authorLastName,
+      job.channelName,
+      job.channelIsDaily,
+      true,
+    );
+
+    dispatch(clearPostUploadProgress({ postId: job.postId }));
+    await sendPostReadyNotificationFromQueue();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Upload failed';
+    dispatch(setPostUploadError({ postId: job.postId, errorMessage: message }));
+
+    if (job.retries + 1 >= MAX_UPLOAD_RETRIES) {
+      await updatePost(job.postId, { status: 'error' });
+      dispatch(updatePostFields({ postId: job.postId, data: { status: 'error' } }));
+      dispatch(clearPostUploadProgress({ postId: job.postId }));
+    } else {
+      throw error;
+    }
+
+    await Promise.all(
+      uploadedUrls.map(async (url) => {
+        try {
+          await deletePostMediaByUrl(url);
+        } catch {
+          // ignore cleanup failures
+        }
+      }),
+    );
+  }
+}
+
+async function runUploadQueue(dispatch: any): Promise<void> {
+  if (queueProcessing) {
+    return;
+  }
+  queueProcessing = true;
+  try {
+    while (true) {
+      const queue = await readUploadQueue();
+      const next = queue[0];
+      if (!next) {
+        break;
+      }
+
+      try {
+        await processSingleQueuedUpload(next, dispatch);
+        await writeUploadQueue(queue.slice(1));
+      } catch {
+        const retryQueue = [...queue];
+        retryQueue[0] = { ...next, retries: next.retries + 1 };
+        await writeUploadQueue(retryQueue);
+        break;
+      }
+    }
+  } finally {
+    queueProcessing = false;
+  }
+}
+
 export const uploadPost = createAsyncThunk(
   'posts/uploadPost',
   async (
@@ -199,10 +406,8 @@ export const uploadPost = createAsyncThunk(
       return demoPost;
     }
 
-    const uploadedUrls: string[] = [];
-
     try {
-      // 1. Create post with status 'uploading' (or 'ready' if no media)
+      // 1. Create post with status 'uploading' (or 'ready' if no media).
       const uploadingPost = buildPost({
         id: postId,
         authorId: user.id,
@@ -212,13 +417,10 @@ export const uploadPost = createAsyncThunk(
         tier,
       });
 
-      // Optimistically add the post to the store
       dispatch(addPost(uploadingPost));
-
       await createPost(uploadingPost);
 
       if (!hasMedia) {
-        // Fire circle post notification for text-only posts immediately.
         void sendPostNotification(
           uploadingPost,
           user.firstName,
@@ -230,92 +432,28 @@ export const uploadPost = createAsyncThunk(
         return uploadingPost;
       }
 
-      // 2. Upload media files
-      for (let i = 0; i < media.length; i++) {
-        const file = media[i];
-        const url = await uploadPostMedia(postId, file.uri, file.name, file.type);
-        uploadedUrls.push(url);
-      }
-
-      if (uploadedUrls.length < media.length) {
-        throw new Error('Failed to upload all media files');
-      }
-
-      // 3. Update post with media and status 'ready' (without waiting for thumbnails)
-      const readyMedia: MediaItem[] = uploadedUrls.map((url, i) => ({
-        url,
-        type: media[i].type.startsWith('image')
-          ? ('image' as const)
-          : media[i].type.startsWith('audio')
-            ? ('audio' as const)
-            : ('video' as const),
-        title: media[i].title ?? null,
-        caption: media[i].caption ?? null,
-      }));
-
-      await updatePost(postId, {
-        media: readyMedia,
-        status: 'ready',
-      });
-
-      const newPost: Post = {
-        ...uploadingPost,
-        media: readyMedia,
-        status: 'ready',
-      };
-
-      // 4. Upload video thumbnails in the background (fire-and-forget).
-      //    Once uploaded, the Firestore real-time listener will propagate the
-      //    thumbnailUrl to all connected clients automatically.
-      const hasVideoWithThumbnail = media.some(
-        (f) => f.type.startsWith('video/') && f.thumbnailUri,
-      );
-      if (hasVideoWithThumbnail) {
-        void (async () => {
-          try {
-            const withThumbs = [...readyMedia];
-            let hadUpdate = false;
-            await Promise.all(
-              media.map(async (file, i) => {
-                if (file.type.startsWith('video/') && file.thumbnailUri) {
-                  try {
-                    const thumbName = `${file.name.replace(/\.[^.]+$/, '')}_thumb.jpg`;
-                    const thumbUrl = await uploadPostMedia(
-                      postId,
-                      file.thumbnailUri,
-                      thumbName,
-                      'image/jpeg',
-                    );
-                    withThumbs[i] = { ...withThumbs[i], thumbnailUrl: thumbUrl };
-                    hadUpdate = true;
-                  } catch {
-                    // Thumbnail upload failure is non-fatal; the post is already live
-                  }
-                }
-              }),
-            );
-            if (hadUpdate) {
-              await updatePost(postId, { media: withThumbs });
-            }
-          } catch {
-            // Silently ignore background thumbnail upload failures
-          }
-        })();
-      }
-
-      // Fire circle post notification after media post is ready.
-      void sendPostNotification(
-        newPost,
-        user.firstName,
-        user.lastName,
+      // 2. Queue media upload and return immediately.
+      //    The queue processor handles upload/retries/progress in the background.
+      const queuedJob: QueuedPostUploadJob = {
+        postId,
+        authorId: user.id,
+        channelId,
+        tier,
+        media,
         channelName,
         channelIsDaily,
-        true,
-      );
+        authorFirstName: user.firstName,
+        authorLastName: user.lastName,
+        retries: 0,
+        queuedAt: Date.now(),
+      };
 
-      return newPost;
+      await enqueueUploadJob(queuedJob);
+      dispatch(setPostUploadQueued({ postId }));
+      void runUploadQueue(dispatch);
+
+      return uploadingPost;
     } catch (err) {
-      // Set post status to 'error' if post was created
       try {
         await updatePost(postId, { status: 'error' });
       } catch {
@@ -325,6 +463,14 @@ export const uploadPost = createAsyncThunk(
         err instanceof Error ? err.message : 'Failed to create post',
       );
     }
+  },
+);
+
+export const resumeQueuedPostUploads = createAsyncThunk(
+  'posts/resumeQueuedPostUploads',
+  async (_, { dispatch }) => {
+    await runUploadQueue(dispatch);
+    return true;
   },
 );
 

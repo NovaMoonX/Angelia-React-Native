@@ -10,7 +10,10 @@ import { useAuthorPostActivity } from '../../hooks/useAuthorPostActivity';
 import { PostCard } from '@/components/PostCard';
 import { useAppSelector } from '@/store/hooks';
 import { selectAllChannels } from '@/store/slices/channelsSlice';
-import { selectCurrentUserUploadingPosts } from '@/store/crossSelectors/activitySelectors';
+import {
+  selectCurrentUserUploadingPosts,
+  selectCurrentUserUploadProgressMap,
+} from '@/store/crossSelectors/activitySelectors';
 import type { Post } from '@/models/types';
 
 type SortOrder = 'newest' | 'oldest';
@@ -23,6 +26,7 @@ export default function PostActivityScreen() {
   const { summaries, unreadDetailsByPostId, refreshSeenState, markPostsSeen } = useAuthorPostActivity({ enableSubscriptions: true });
   const channels = useAppSelector(selectAllChannels);
   const uploadingPosts = useAppSelector(selectCurrentUserUploadingPosts);
+  const uploadProgressMap = useAppSelector(selectCurrentUserUploadProgressMap);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const [selectedCircleId, setSelectedCircleId] = useState<string>('all');
   const [activityScope, setActivityScope] = useState<'all' | 'unread' | 'uploading'>(scope === 'unread' ? 'unread' : scope === 'uploading' ? 'uploading' : 'all');
@@ -185,6 +189,7 @@ export default function PostActivityScreen() {
   }, [router, theme.primary, unreadDetailsByPostId]);
 
   const renderUploadingCard = useCallback(({ item }: { item: Post }) => {
+    const progress = Math.round((uploadProgressMap[item.id] ?? 0) * 100);
     return (
       <View>
         <PostCard
@@ -193,10 +198,10 @@ export default function PostActivityScreen() {
             router.push(`/(protected)/post/${item.id}`);
           }}
         />
-        <Text style={[styles.newActivityText, { color: theme.primary }]}>Uploading now... we will post it as soon as it finishes.</Text>
+        <Text style={[styles.newActivityText, { color: theme.primary }]}>Uploading now... {progress}% complete.</Text>
       </View>
     );
-  }, [router, theme.primary]);
+  }, [router, theme.primary, uploadProgressMap]);
 
   const listHeader = (
     <View style={styles.filterSection}>

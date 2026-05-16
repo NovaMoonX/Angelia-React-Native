@@ -40,7 +40,11 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { updatePostReactions } from '@/store/actions/postActions';
 import { saveStatus, clearStatus } from '@/store/actions/userActions';
 import { completeTask } from '@/store/actions/taskActions';
-import { selectCurrentUserUploadingPosts, selectHasAnyPendingActivity } from '@/store/crossSelectors/activitySelectors';
+import {
+	selectCurrentUserUploadingPosts,
+	selectCurrentUserUploadAggregateProgress,
+	selectHasAnyPendingActivity,
+} from '@/store/crossSelectors/activitySelectors';
 import { selectAllChannels } from '@/store/slices/channelsSlice';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
@@ -77,6 +81,7 @@ export default function FeedScreen() {
 	const isDemo = useAppSelector((state) => state.demo.isActive);
 	const hasPendingActivity = useAppSelector(selectHasAnyPendingActivity);
 	const uploadingPosts = useAppSelector(selectCurrentUserUploadingPosts);
+	const uploadAggregateProgress = useAppSelector(selectCurrentUserUploadAggregateProgress);
 	const pendingTasks = useAppSelector((state) => state.tasks.items);
 	const { hasUnread: hasUnreadPostActivity, refreshSeenState } = useAuthorPostActivity({ enableSubscriptions: true });
 
@@ -381,6 +386,7 @@ export default function FeedScreen() {
 
 	const hasActiveFilters = isChannelFiltered || priorityFilter.length > 0;
 	const uploadingCount = uploadingPosts.length;
+	const uploadPercentLabel = Math.round(uploadAggregateProgress * 100);
 
 	const clearFilters = useCallback(() => {
 		setChannelFilter({ mode: 'all', specificIds: [] });
@@ -725,10 +731,21 @@ export default function FeedScreen() {
 						<Feather name='upload-cloud' size={14} color={theme.secondaryForeground} />
 						<Text style={[styles.uploadingBannerText, { color: theme.secondaryForeground }]}> 
 							{uploadingCount === 1
-								? 'Uploading 1 post...'
-								: `Uploading ${uploadingCount} posts...`}
+								? `Uploading 1 post... ${uploadPercentLabel}%`
+								: `Uploading ${uploadingCount} posts... ${uploadPercentLabel}%`}
 						</Text>
 						<Feather name='chevron-right' size={14} color={theme.secondaryForeground} />
+						<View style={[styles.uploadingProgressTrack, { backgroundColor: `${theme.secondaryForeground}33` }]}>
+							<View
+								style={[
+									styles.uploadingProgressFill,
+									{
+										backgroundColor: theme.secondaryForeground,
+										width: `${uploadPercentLabel}%`,
+									},
+								]}
+							/>
+						</View>
 					</Pressable>
 				)}
 
@@ -1350,5 +1367,18 @@ const styles = StyleSheet.create({
 		flex: 1,
 		fontSize: 12,
 		fontWeight: '600',
+	},
+	uploadingProgressTrack: {
+		position: 'absolute',
+		left: 12,
+		right: 12,
+		bottom: 3,
+		height: 2,
+		borderRadius: 999,
+		overflow: 'hidden',
+	},
+	uploadingProgressFill: {
+		height: '100%',
+		borderRadius: 999,
 	},
 });

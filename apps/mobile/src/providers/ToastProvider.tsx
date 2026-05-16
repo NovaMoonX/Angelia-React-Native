@@ -42,45 +42,106 @@ const TOAST_ICONS: Record<string, string> = {
   info: 'ℹ️',
 };
 
-const SWIPE_THRESHOLD = 50;
 const SWIPE_OUT_DISTANCE = 500;
+const AUTO_DISMISS_DEFAULT_MS = 4000;
+const AUTO_DISMISS_INTERACTIVE_MS = 8000;
+const MOVE_ACTIVATION_THRESHOLD = 12;
+const SWIPE_TRIGGER_THRESHOLD = 16;
+const DISMISS_SWIPE_DURATION_MS = 150;
 
 function Toast({ item, onDismiss }: { item: ToastItem; onDismiss: (id: string) => void }) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(-20)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const colors = TOAST_COLORS[item.type];
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dismissFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDismissingRef = useRef(false);
+  const didFinalizeDismissRef = useRef(false);
+  const didMovePastActivationRef = useRef(false);
+  const [isDismissing, setIsDismissing] = useState(false);
+
+  const getAutoDismissDelay = useCallback(() => {
+    return item.onPress ? AUTO_DISMISS_INTERACTIVE_MS : AUTO_DISMISS_DEFAULT_MS;
+  }, [item.onPress]);
+
+  const clearAutoDismissTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const clearDismissFallback = useCallback(() => {
+    if (dismissFallbackRef.current) {
+      clearTimeout(dismissFallbackRef.current);
+      dismissFallbackRef.current = null;
+    }
+  }, []);
+
+  const finalizeDismiss = useCallback((direction: 'left' | 'right' | 'up' | 'down' | 'auto') => {
+    if (didFinalizeDismissRef.current) {
+      return;
+    }
+    didFinalizeDismissRef.current = true;
+    clearDismissFallback();
+    onDismiss(item.id);
+  }, [clearDismissFallback, item.id, onDismiss]);
+
+  const startAutoDismissTimer = useCallback(() => {
+    clearAutoDismissTimer();
+    const delay = getAutoDismissDelay();
+    timerRef.current = setTimeout(() => {
+      dismissRef.current();
+    }, delay);
+  }, [clearAutoDismissTimer, getAutoDismissDelay]);
 
   // Use a ref so PanResponder callbacks (created once) always call the latest dismiss.
-  const dismissRef = useRef<(direction?: 'left' | 'right' | 'up') => void>(() => {});
+  const dismissRef = useRef<(direction?: 'left' | 'right' | 'up' | 'down') => void>(() => {});
 
   const dismiss = useCallback(
-    (direction?: 'left' | 'right' | 'up') => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
+    (direction?: 'left' | 'right' | 'up' | 'down') => {
+      if (isDismissingRef.current) {
+        return;
       }
+      isDismissingRef.current = true;
+      setIsDismissing(true);
+      clearAutoDismissTimer();
+      clearDismissFallback();
+      dismissFallbackRef.current = setTimeout(() => {
+        finalizeDismiss(direction ?? 'auto');
+      }, 280);
 
       if (direction === 'left' || direction === 'right') {
         const toX = direction === 'left' ? -SWIPE_OUT_DISTANCE : SWIPE_OUT_DISTANCE;
         Animated.parallel([
-          Animated.timing(translateX, { toValue: toX, duration: 220, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: true }),
-        ]).start(() => onDismiss(item.id));
+          // Keep the swipe axis on the JS driver so PanResponder updates do not
+          // fight the native animated event pipeline.
+          Animated.timing(translateX, { toValue: toX, duration: DISMISS_SWIPE_DURATION_MS, useNativeDriver: false }),
+          Animated.timing(opacity, { toValue: 0, duration: DISMISS_SWIPE_DURATION_MS, useNativeDriver: false }),
+        ]).start(() => {
+          finalizeDismiss(direction);
+        });
       } else if (direction === 'up') {
         Animated.parallel([
-          Animated.timing(translateY, { toValue: -SWIPE_OUT_DISTANCE, duration: 220, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: true }),
-        ]).start(() => onDismiss(item.id));
-      } else {
+          Animated.timing(translateY, { toValue: -SWIPE_OUT_DISTANCE, duration: DISMISS_SWIPE_DURATION_MS, useNativeDriver: false }),
+          Animated.timing(opacity, { toValue: 0, duration: DISMISS_SWIPE_DURATION_MS, useNativeDriver: false }),
+        ]).start(() => {
+          finalizeDismiss(direction);
+        });
+      } else if (direction === 'down') {
         Animated.parallel([
-          Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
-          Animated.timing(translateY, { toValue: -20, duration: 300, useNativeDriver: true }),
-        ]).start(() => onDismiss(item.id));
+          Animated.timing(translateY, { toValue: SWIPE_OUT_DISTANCE, duration: DISMISS_SWIPE_DURATION_MS, useNativeDriver: false }),
+          Animated.timing(opacity, { toValue: 0, duration: DISMISS_SWIPE_DURATION_MS, useNativeDriver: false }),
+        ]).start(() => {
+          finalizeDismiss(direction);
+        });
+      } else {
+        // Close/button body taps should feel instant; skip exit animation.
+        finalizeDismiss('auto');
       }
     },
-    [item.id, onDismiss, opacity, translateY, translateX],
+    [clearAutoDismissTimer, clearDismissFallback, finalizeDismiss, opacity, translateY, translateX],
   );
 
   // Keep the ref current so PanResponder always calls the latest version.
@@ -89,68 +150,97 @@ function Toast({ item, onDismiss }: { item: ToastItem; onDismiss: (id: string) =
   }, [dismiss]);
 
   React.useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-      Animated.timing(translateY, { toValue: 0, duration: 300, useNativeDriver: true }),
-    ]).start();
-
-    const delay = item.onPress ? 8000 : 4000;
-    timerRef.current = setTimeout(() => dismissRef.current(), delay);
+    startAutoDismissTimer();
 
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      clearAutoDismissTimer();
+      clearDismissFallback();
     };
-  }, [item.id, opacity, translateY]);
+  }, [clearAutoDismissTimer, clearDismissFallback, startAutoDismissTimer]);
 
   const panResponder = useRef(
     PanResponder.create({
-      // Don't claim the gesture on start so child Pressables still receive taps.
+      // Never claim touch start so close/body taps are always handled immediately.
+      // Swipes are captured once movement is intentional.
       onStartShouldSetPanResponder: () => false,
+      onStartShouldSetPanResponderCapture: () => false,
       // Claim the gesture once meaningful movement is detected.
       onMoveShouldSetPanResponder: (_, gs) =>
-        Math.abs(gs.dx) > 8 || gs.dy < -8,
+        Math.abs(gs.dx) > MOVE_ACTIVATION_THRESHOLD || Math.abs(gs.dy) > MOVE_ACTIVATION_THRESHOLD,
+      // Do not capture in the capture phase; let nested Pressables (especially close) win taps.
+      onMoveShouldSetPanResponderCapture: () => false,
       onPanResponderGrant: () => {
-        // Cancel the auto-dismiss timer while the user is swiping.
-        if (timerRef.current) {
-          clearTimeout(timerRef.current);
-          timerRef.current = null;
+        if (isDismissingRef.current) {
+          return;
         }
+        didMovePastActivationRef.current = false;
       },
       onPanResponderMove: (_, gs) => {
+        if (isDismissingRef.current) {
+          return;
+        }
+        if (!didMovePastActivationRef.current && (Math.abs(gs.dx) > MOVE_ACTIVATION_THRESHOLD || Math.abs(gs.dy) > MOVE_ACTIVATION_THRESHOLD)) {
+          didMovePastActivationRef.current = true;
+          // Pause auto-dismiss only once we're sure this is an intentional drag.
+          clearAutoDismissTimer();
+        }
         translateX.setValue(gs.dx);
-        // Only track upward movement for the Y axis.
-        if (gs.dy < 0) translateY.setValue(gs.dy);
+        // Track both up and down swipe movement for easier dismiss gestures.
+        translateY.setValue(gs.dy);
       },
       onPanResponderRelease: (_, gs) => {
-        if (gs.dx < -SWIPE_THRESHOLD) {
+        if (isDismissingRef.current) {
+          return;
+        }
+        if (gs.dx < -SWIPE_TRIGGER_THRESHOLD) {
           dismissRef.current('left');
-        } else if (gs.dx > SWIPE_THRESHOLD) {
+        } else if (gs.dx > SWIPE_TRIGGER_THRESHOLD) {
           dismissRef.current('right');
-        } else if (gs.dy < -SWIPE_THRESHOLD) {
+        } else if (gs.dy < -SWIPE_TRIGGER_THRESHOLD) {
           dismissRef.current('up');
+        } else if (gs.dy > SWIPE_TRIGGER_THRESHOLD) {
+          dismissRef.current('down');
         } else {
           // Incomplete swipe — spring back to resting position.
           Animated.parallel([
-            Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
-            Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
+            Animated.spring(translateX, { toValue: 0, useNativeDriver: false }),
+            Animated.spring(translateY, { toValue: 0, useNativeDriver: false }),
           ]).start();
-          // Restart the auto-dismiss timer.
-          const delay = item.onPress ? 8000 : 4000;
-          timerRef.current = setTimeout(() => dismissRef.current(), delay);
+          // Restart timer only if this interaction actually paused it.
+          if (didMovePastActivationRef.current) {
+            startAutoDismissTimer();
+          }
         }
       },
+      onPanResponderTerminate: (_, gs) => {
+        if (isDismissingRef.current) {
+          return;
+        }
+        Animated.parallel([
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: false }),
+          Animated.spring(translateY, { toValue: 0, useNativeDriver: false }),
+        ]).start();
+        if (didMovePastActivationRef.current) {
+          startAutoDismissTimer();
+        }
+      },
+      onPanResponderTerminationRequest: () => true,
     }),
   ).current;
 
   const handleBodyPress = item.onPress
     ? () => {
-        item.onPress!();
-        dismissRef.current();
+      if (isDismissingRef.current) {
+        return;
       }
+      item.onPress!();
+      dismissRef.current();
+    }
     : undefined;
 
   return (
     <Animated.View
+      pointerEvents={isDismissing ? 'none' : 'auto'}
       style={[
         styles.toast,
         {
@@ -162,22 +252,43 @@ function Toast({ item, onDismiss }: { item: ToastItem; onDismiss: (id: string) =
       ]}
       {...panResponder.panHandlers}
     >
-      <Pressable
-        style={styles.toastContent}
-        onPress={handleBodyPress}
-        disabled={!item.onPress}
-      >
-        <Text style={styles.toastIcon}>{TOAST_ICONS[item.type]}</Text>
-        <View style={styles.toastTextContainer}>
-          <Text style={[styles.toastTitle, { color: colors.text }]}>{item.title}</Text>
-          {item.description && (
-            <Text style={[styles.toastDescription, { color: colors.text }]}>{item.description}</Text>
-          )}
-        </View>
-        <Pressable onPress={() => dismissRef.current()} hitSlop={8}>
+      <View style={styles.toastContent}>
+        <Pressable
+          style={styles.toastMainPressable}
+          onPress={handleBodyPress}
+          onPressIn={() => {
+            if (isDismissingRef.current) {
+              return;
+            }
+          }}
+          disabled={!item.onPress}
+        >
+          <Text style={styles.toastIcon}>{TOAST_ICONS[item.type]}</Text>
+          <View style={styles.toastTextContainer}>
+            <Text style={[styles.toastTitle, { color: colors.text }]}>{item.title}</Text>
+            {item.description && (
+              <Text style={[styles.toastDescription, { color: colors.text }]}>{item.description}</Text>
+            )}
+          </View>
+        </Pressable>
+        <Pressable
+          style={styles.toastClosePressable}
+          onPressIn={() => {
+            if (isDismissingRef.current) {
+              return;
+            }
+          }}
+          onPress={() => {
+            if (isDismissingRef.current) {
+              return;
+            }
+            dismissRef.current();
+          }}
+          hitSlop={12}
+        >
           <Text style={[styles.toastClose, { color: colors.text }]}>✕</Text>
         </Pressable>
-      </Pressable>
+      </View>
     </Animated.View>
   );
 }
@@ -231,12 +342,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
   },
+  toastMainPressable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   toastIcon: {
     fontSize: 16,
     marginRight: 8,
   },
   toastTextContainer: {
     flex: 1,
+  },
+  toastClosePressable: {
+    marginLeft: 8,
+    paddingHorizontal: 2,
+    paddingVertical: 2,
   },
   toastTitle: {
     fontSize: 14,

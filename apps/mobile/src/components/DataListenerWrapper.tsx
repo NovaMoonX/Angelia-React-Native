@@ -25,6 +25,7 @@ import { selectAllChannels, selectUserDailyChannel } from '@/store/slices/channe
 import { processPendingInvite } from '@/store/actions/inviteActions';
 import { processPendingConnection } from '@/store/actions/connectionsActions';
 import { initNotifications } from '@/store/actions/notificationActions';
+import { resumeQueuedPostUploads } from '@/store/actions/postActions';
 import {
   subscribeToCurrentUser,
   subscribeToChannels,
@@ -48,6 +49,10 @@ import {
   getFollowUpForPrompt,
   dismissNotificationsByData,
 } from '@/services/notifications';
+import {
+  ensurePostUploadTaskDefined,
+  setPostUploadResumeHandler,
+} from '@/services/uploads/postUploadTask';
 import { APP_LAST_OPENED_AT_KEY, FEED_SESSION_SCROLLED_KEY } from '@/models/constants';
 import type { AppNotificationType, Channel, ChannelJoinRequest, Connection, ConnectionRequest, NotificationSettings, Post, User } from '@/models/types';
 
@@ -167,6 +172,9 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
   const tasksUnsubRef = useRef<(() => void) | null>(null);
   const pendingInviteProcessed = useRef(false);
   const pendingConnectionProcessed = useRef(false);
+  const ownPostStatusRef = useRef<Record<string, Post['status']>>({});
+  const ownPostStatusInitializedRef = useRef(false);
+
   /**
    * Guards against concurrent initNotifications dispatches.  Set to true while
    * any initNotifications thunk is in flight so that the Firestore subscription
@@ -378,6 +386,29 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       unsubsRef.current = [];
     };
   }, [firebaseUser, isDemo, dispatch]);
+
+  // Resume any queued post uploads when the user is signed in.
+  useEffect(() => {
+    if (isDemo || !firebaseUser) {
+      return;
+    }
+    void dispatch(resumeQueuedPostUploads());
+  }, [dispatch, firebaseUser, isDemo]);
+
+  // Keep a TaskManager handler wired so upload queue resumption logic is
+  // available whenever background tasks are triggered by the OS.
+  useEffect(() => {
+    ensurePostUploadTaskDefined();
+    setPostUploadResumeHandler(async () => {
+      if (isDemo || !firebaseUser) {
+        return;
+      }
+      await dispatch(resumeQueuedPostUploads()).unwrap();
+    });
+    return () => {
+      setPostUploadResumeHandler(null);
+    };
+  }, [dispatch, firebaseUser, isDemo]);
 
   // Effect 2: Channel changes → re-subscribe to posts.
   //
@@ -963,6 +994,48 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
     });
     return () => { subscription.remove(); };
   }, []);
+
+  // Effect 16: Foreground confirmation toast when one of the current user's
+  // posts finishes uploading and transitions to ready.
+  useEffect(() => {
+    if (isDemo || !currentUser) {
+      ownPostStatusRef.current = {};
+      ownPostStatusInitializedRef.current = false;
+      return;
+    }
+
+    const nextStatuses: Record<string, Post['status']> = {};
+    posts.forEach((post) => {
+      if (post.authorId !== currentUser.id) {
+        return;
+      }
+      if (post.markedForDeletionAt !== null) {
+        return;
+      }
+      nextStatuses[post.id] = post.status;
+    });
+
+    if (!ownPostStatusInitializedRef.current) {
+      ownPostStatusRef.current = nextStatuses;
+      ownPostStatusInitializedRef.current = true;
+      return;
+    }
+
+    const appIsActive = AppState.currentState === 'active';
+    if (appIsActive) {
+      Object.entries(nextStatuses).forEach(([postId, nextStatus]) => {
+        const prevStatus = ownPostStatusRef.current[postId];
+        if (prevStatus === 'uploading' && nextStatus === 'ready') {
+          addToast({
+            type: 'success',
+            title: 'Your post is live! 🎉',
+          });
+        }
+      });
+    }
+
+    ownPostStatusRef.current = nextStatuses;
+  }, [addToast, currentUser, isDemo, posts]);
 
   return <>{children}</>;
 }

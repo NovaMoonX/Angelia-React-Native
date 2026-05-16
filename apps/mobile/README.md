@@ -199,6 +199,16 @@ See [NOTIFICATION_TESTING.md](./NOTIFICATION_TESTING.md) for a step-by-step guid
 
 ---
 
+#### Android toast is visible in logs but not on screen until later
+
+**Symptom:** A toast mounts and auto-dismisses in the logs, but on Android it can appear missing, delayed, or unstable when the app is busy with other upload/background work. iOS looks fine.
+
+**Cause:** The toast animation path mixed native-driven and JS-driven animation updates on the same `Animated.Value`s. On Android, that combination can make the toast lifecycle unreliable, especially when other work is already keeping the JS thread busy.
+
+**Fix:** Keep the toast animation path consistent on the JS driver, and render the toast visible immediately instead of depending on a mount animation to make it appear. See `src/providers/ToastProvider.tsx`.
+
+---
+
 #### iOS push notifications not delivered (APNs key missing from Firebase)
 
 **Symptom:** Push notifications are working on Android but not arriving on iOS, despite app entitlements being correct and device permissions granted.
