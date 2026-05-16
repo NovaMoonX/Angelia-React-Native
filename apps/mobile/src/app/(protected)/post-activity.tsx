@@ -279,6 +279,7 @@ export default function PostActivityScreen() {
           }}
           style={[
             styles.filterChip,
+            styles.filterChipRow,
             {
               borderColor: activityScope === 'unread' ? theme.primary : theme.border,
               backgroundColor: activityScope === 'unread' ? `${theme.primary}18` : theme.card,
@@ -293,6 +294,9 @@ export default function PostActivityScreen() {
           >
             Unread Only
           </Text>
+          {unreadPostIdSet.size > 0 && activityScope !== 'unread' && (
+            <View style={[styles.unreadDot, { backgroundColor: theme.primary }]} />
+          )}
         </Pressable>
 
         <Pressable
@@ -471,6 +475,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 8,
+  },
+  filterChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   filterChipText: {
     fontSize: 13,

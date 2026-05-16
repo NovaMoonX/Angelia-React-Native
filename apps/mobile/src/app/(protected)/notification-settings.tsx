@@ -89,6 +89,10 @@ export default function NotificationSettingsScreen() {
           postActivity: { reactionsEnabled: !reactionsEnabled },
         }),
       ).unwrap();
+      addToast({
+        type: 'success',
+        title: !reactionsEnabled ? 'Reaction notifications on' : 'Reaction notifications off',
+      });
     } catch {
       addToast({ type: 'error', title: 'Failed to update reaction notifications' });
     }
@@ -102,6 +106,10 @@ export default function NotificationSettingsScreen() {
           postActivity: { conversationMessagesEnabled: !conversationMessagesEnabled },
         }),
       ).unwrap();
+      addToast({
+        type: 'success',
+        title: !conversationMessagesEnabled ? 'Conversation notifications on' : 'Conversation notifications off',
+      });
     } catch {
       addToast({ type: 'error', title: 'Failed to update message notifications' });
     }

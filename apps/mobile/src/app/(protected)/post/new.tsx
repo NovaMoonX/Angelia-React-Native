@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Keyboard,
   KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -210,6 +211,22 @@ export default function PostCreateScreen() {
   const [reorderIndex, setReorderIndex] = useState<number | null>(null);
   const [captionTargetIndex, setCaptionTargetIndex] = useState<number | null>(null);
   const [captionDraft, setCaptionDraft] = useState('');
+  const [captionKeyboardOffset, setCaptionKeyboardOffset] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvent, (e) => {
+      setCaptionKeyboardOffset(e.endCoordinates.height);
+    });
+    const hide = Keyboard.addListener(hideEvent, () => {
+      setCaptionKeyboardOffset(0);
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
   const [titleDraft, setTitleDraft] = useState('');
 
   const [showCaptionHint, setShowCaptionHint] = useState(true);
@@ -1056,9 +1073,9 @@ export default function PostCreateScreen() {
 
       {/* Caption / title input modal */}
       {captionTargetIndex !== null && (
-        <View style={styles.captionModal}>
+        <View style={[styles.captionModal, { paddingBottom: captionKeyboardOffset }]}>
           <Pressable style={styles.captionBackdrop} onPress={() => setCaptionTargetIndex(null)} />
-          <View style={[styles.captionSheet, { backgroundColor: theme.card, paddingBottom: insets.bottom + 16 }]}>
+          <View style={[styles.captionSheet, { backgroundColor: theme.card, paddingBottom: captionKeyboardOffset > 0 ? 16 : insets.bottom + 16 }]}>
             <Text style={[styles.captionTitle, { color: theme.foreground }]}>
               {captionTargetIndex !== null && media[captionTargetIndex]?.type.startsWith('audio/') ? 'Edit clip' : 'Add a caption'}
             </Text>

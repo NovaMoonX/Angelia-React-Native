@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -178,7 +179,7 @@ export function AccountTab() {
 
   const handleOpenBetaFeedbackForm = async () => {
     try {
-      await Linking.openURL(feedbackFormUrl);
+      await WebBrowser.openBrowserAsync(feedbackFormUrl);
     } catch {
       try {
         await Clipboard.setStringAsync(feedbackFormUrl);

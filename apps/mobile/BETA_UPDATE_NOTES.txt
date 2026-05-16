@@ -81,6 +81,9 @@ Current branch highlights:
 - Conversation headers for Big News and Worth Knowing posts no longer play entry animations — the header just shows up, clean and immediate.
 - Big News / Worth Knowing tier banners in conversation now center their label text, so the priority callout feels cleaner and easier to scan.
 - Big News / Worth Knowing tier banners in post detail now center their label text too, so both screens match visually.
+- The "Unread Only" filter on Post Activity now shows a small dot when there's unread activity, even before you switch to that tab — so you always know something new is waiting.
+- Notification setting toggles (Reactions, Conversation messages) now confirm their new state with a brief success toast, so it's clear the change saved.
+- Fixed an iOS bug where the keyboard was covering the caption/title input sheet when adding captions to media in post composer.
 
 Previous branch highlights:
 - You can now mark a custom circle as **Private** when creating or editing it — only you can invite people to a private circle, and it won't be suggested to others when they leave a post.

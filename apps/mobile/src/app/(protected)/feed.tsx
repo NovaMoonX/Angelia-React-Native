@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
 	Animated,
-	Linking,
 	NativeSyntheticEvent,
 	NativeScrollEvent,
 	Pressable,
@@ -13,6 +12,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
+import * as WebBrowser from 'expo-web-browser';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -550,7 +550,7 @@ export default function FeedScreen() {
 	const handleOpenBetaFeedbackForm = useCallback(async () => {
 		const url = mobileConfig?.feedbackForm?.url ?? BETA_FEEDBACK_FORM_URL;
 		try {
-			await Linking.openURL(url);
+			await WebBrowser.openBrowserAsync('https://docs.google.com/forms/d/e/1FAIpQLSdlCsEhqR3jTusrzqYil7n_rGGn-prtgLOn_tBiJBEhUUGa4A/viewform?usp=dialog');
 		} catch {
 			try {
 				await Clipboard.setStringAsync(url);
@@ -988,7 +988,7 @@ export default function FeedScreen() {
 			)}
 
 			{/* Beta feedback shortcut */}
-			{!fabExpanded && (
+			{!fabExpanded && !isDemo && (
 				<Pressable
 					style={[
 						styles.betaFeedbackButton,

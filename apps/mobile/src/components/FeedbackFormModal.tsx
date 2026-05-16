@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import * as Clipboard from 'expo-clipboard';
 import { Feather } from '@expo/vector-icons';
 import { Button } from '@/components/ui/Button';
@@ -24,11 +25,11 @@ export function FeedbackFormModal({ visible, onClose, config }: FeedbackFormModa
   const handleOpen = useCallback(async () => {
     if (!url) return;
     try {
-      await Linking.openURL(url);
+      await WebBrowser.openBrowserAsync(url);
     } catch {
       try {
         await Clipboard.setStringAsync(url);
-        addToast({ message: "Couldn't open the form — the link was copied instead!", type: 'info' });
+        addToast({ title: "Couldn't open the form — the link was copied instead!", type: 'info' });
       } catch {
         // Best-effort
       }
