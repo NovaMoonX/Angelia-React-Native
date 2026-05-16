@@ -13,10 +13,24 @@ import { compressImage } from '@/utils/compressImage';
 import { generateVideoThumbnailFileUri } from '@/utils/generateVideoThumbnail';
 import { useToast } from '@/hooks/useToast';
 import { MAX_FILES, MAX_VIDEO_SECONDS } from '@/models/constants';
+
+function decodeMediaParam(value: string): MediaFile[] {
+	try {
+		return JSON.parse(value) as MediaFile[];
+	} catch {
+		return JSON.parse(decodeURIComponent(value)) as MediaFile[];
+	}
+}
+
+function encodeMediaParam(files: MediaFile[]): string {
+	return encodeURIComponent(JSON.stringify(files));
+}
+
 export default function CameraScreen() {
 	const router = useRouter();
 	const insets = useSafeAreaInsets();
 	const params = useLocalSearchParams<{
+		editPostId?: string;
 		existingMedia?: string;
 		existingText?: string;
 		existingChannel?: string;
@@ -27,7 +41,7 @@ export default function CameraScreen() {
 	const existingMedia = useMemo<MediaFile[]>(() => {
 		if (!params.existingMedia) return [];
 		try {
-			return JSON.parse(params.existingMedia) as MediaFile[];
+			return decodeMediaParam(params.existingMedia);
 		} catch {
 			return [];
 		}
@@ -149,7 +163,8 @@ export default function CameraScreen() {
 			router.replace({
 				pathname: '/(protected)/post/new',
 				params: {
-					capturedMedia: JSON.stringify(allMedia),
+					editPostId: params.editPostId,
+					capturedMedia: encodeMediaParam(allMedia),
 					existingText: params.existingText,
 					existingChannel: params.existingChannel,
 					existingTier: params.existingTier,
@@ -261,7 +276,8 @@ export default function CameraScreen() {
 							router.replace({
 								pathname: '/(protected)/gallery',
 								params: {
-									existingMedia: JSON.stringify([...existingMedia, ...capturedPhotos].slice(0, MAX_FILES)),
+									editPostId: params.editPostId,
+									existingMedia: encodeMediaParam([...existingMedia, ...capturedPhotos].slice(0, MAX_FILES)),
 									existingText: params.existingText,
 									existingChannel: params.existingChannel,
 									existingTier: params.existingTier,
@@ -345,7 +361,8 @@ export default function CameraScreen() {
 										router.replace({
 											pathname: '/(protected)/gallery',
 											params: {
-												existingMedia: JSON.stringify(existingMedia),
+												editPostId: params.editPostId,
+												existingMedia: encodeMediaParam(existingMedia),
 												existingText: params.existingText,
 												existingChannel: params.existingChannel,
 												existingTier: params.existingTier,

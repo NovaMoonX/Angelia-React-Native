@@ -18,12 +18,25 @@ import type { MediaFile } from '@/components/PostCreateMediaUploader';
 import { compressImage } from '@/utils/compressImage';
 import { generateVideoThumbnailFileUri } from '@/utils/generateVideoThumbnail';
 
+function decodeMediaParam(value: string): MediaFile[] {
+  try {
+    return JSON.parse(value) as MediaFile[];
+  } catch {
+    return JSON.parse(decodeURIComponent(value)) as MediaFile[];
+  }
+}
+
+function encodeMediaParam(files: MediaFile[]): string {
+  return encodeURIComponent(JSON.stringify(files));
+}
+
 export default function GalleryScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const { addToast } = useToast();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
+    editPostId?: string;
     existingMedia?: string;
     existingText?: string;
     existingChannel?: string;
@@ -35,7 +48,7 @@ export default function GalleryScreen() {
   const existingFiles = useMemo<MediaFile[]>(() => {
     if (!params.existingMedia) return [];
     try {
-      return JSON.parse(params.existingMedia) as MediaFile[];
+      return decodeMediaParam(params.existingMedia);
     } catch {
       return [];
     }
@@ -51,7 +64,8 @@ export default function GalleryScreen() {
     router.replace({
       pathname: '/(protected)/post/new',
       params: {
-        capturedMedia: JSON.stringify(existingFiles),
+        editPostId: params.editPostId,
+        capturedMedia: encodeMediaParam(existingFiles),
         existingText: params.existingText,
         existingChannel: params.existingChannel,
         existingTier: params.existingTier,
@@ -71,6 +85,7 @@ export default function GalleryScreen() {
       router.replace({
         pathname: '/(protected)/audio-record',
         params: {
+          editPostId: params.editPostId,
           existingMedia: params.existingMedia,
           existingText: params.existingText,
           existingChannel: params.existingChannel,
@@ -160,7 +175,8 @@ export default function GalleryScreen() {
     router.replace({
       pathname: '/(protected)/post/new',
       params: {
-        capturedMedia: JSON.stringify(merged),
+        editPostId: params.editPostId,
+        capturedMedia: encodeMediaParam(merged),
         existingText: params.existingText,
         existingChannel: params.existingChannel,
         existingTier: params.existingTier,

@@ -147,6 +147,17 @@ service cloud.firestore {
 
     // Posts collection
     match /posts/{postId} {
+      function optionalFieldUnchanged(fieldName) {
+        return (
+          (!(fieldName in resource.data) && !(fieldName in request.resource.data))
+          || (
+            (fieldName in resource.data)
+            && (fieldName in request.resource.data)
+            && request.resource.data[fieldName] == resource.data[fieldName]
+          )
+        );
+      }
+
       function isAuthor() {
         return isSignedIn() && request.auth.uid == resource.data.authorId;
       }
@@ -188,9 +199,12 @@ service cloud.firestore {
         && request.resource.data.authorId == resource.data.authorId
         && request.resource.data.channelId == resource.data.channelId
         && request.resource.data.text == resource.data.text
+        && optionalFieldUnchanged('media')
         && request.resource.data.timestamp == resource.data.timestamp
+        && optionalFieldUnchanged('lastEditedAt')
         && request.resource.data.conversationEnrollees == resource.data.conversationEnrollees
         && request.resource.data.status == resource.data.status
+        && optionalFieldUnchanged('tier')
         && request.resource.data.markedForDeletionAt == resource.data.markedForDeletionAt;
 
       // Connected users (non-channel-member) may add or remove their own reaction
@@ -200,9 +214,12 @@ service cloud.firestore {
         && request.resource.data.authorId == resource.data.authorId
         && request.resource.data.channelId == resource.data.channelId
         && request.resource.data.text == resource.data.text
+        && optionalFieldUnchanged('media')
         && request.resource.data.timestamp == resource.data.timestamp
+        && optionalFieldUnchanged('lastEditedAt')
         && request.resource.data.conversationEnrollees == resource.data.conversationEnrollees
         && request.resource.data.status == resource.data.status
+        && optionalFieldUnchanged('tier')
         && request.resource.data.markedForDeletionAt == resource.data.markedForDeletionAt;
 
       // Channel members who have reacted may join the conversation
@@ -213,9 +230,12 @@ service cloud.firestore {
         && request.resource.data.authorId == resource.data.authorId
         && request.resource.data.channelId == resource.data.channelId
         && request.resource.data.text == resource.data.text
+        && optionalFieldUnchanged('media')
         && request.resource.data.timestamp == resource.data.timestamp
+        && optionalFieldUnchanged('lastEditedAt')
         && request.resource.data.reactions == resource.data.reactions
         && request.resource.data.status == resource.data.status
+        && optionalFieldUnchanged('tier')
         && request.resource.data.markedForDeletionAt == resource.data.markedForDeletionAt
         && request.resource.data.conversationEnrollees is list
         && request.resource.data.conversationEnrollees.size() == resource.data.conversationEnrollees.size() + 1
@@ -229,9 +249,12 @@ service cloud.firestore {
         && request.resource.data.authorId == resource.data.authorId
         && request.resource.data.channelId == resource.data.channelId
         && request.resource.data.text == resource.data.text
+        && optionalFieldUnchanged('media')
         && request.resource.data.timestamp == resource.data.timestamp
+        && optionalFieldUnchanged('lastEditedAt')
         && request.resource.data.reactions == resource.data.reactions
         && request.resource.data.status == resource.data.status
+        && optionalFieldUnchanged('tier')
         && request.resource.data.markedForDeletionAt == resource.data.markedForDeletionAt
         && request.resource.data.conversationEnrollees is list
         && request.resource.data.conversationEnrollees.size() == resource.data.conversationEnrollees.size() + 1

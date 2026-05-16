@@ -46,6 +46,7 @@ import {
   NOTIFICATION_ID,
   WIND_DOWN_NOTIFICATION_ID,
   getFollowUpForPrompt,
+  dismissNotificationsByData,
 } from '@/services/notifications';
 import { APP_LAST_OPENED_AT_KEY, FEED_SESSION_SCROLLED_KEY } from '@/models/constants';
 import type { AppNotificationType, Channel, ChannelJoinRequest, Connection, ConnectionRequest, NotificationSettings, Post, User } from '@/models/types';
@@ -69,8 +70,45 @@ function getNotificationKey(response: Notifications.NotificationResponse): strin
   return `${response.notification.request.identifier}_${response.notification.date}`;
 }
 
+function toStringRecord(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof v === 'string') {
+      out[k] = v;
+    } else if (typeof v === 'number' || typeof v === 'boolean') {
+      out[k] = String(v);
+    }
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function extractNotificationData(notification: Notifications.Notification): Record<string, string> | undefined {
+  const contentData = toStringRecord(notification.request.content.data);
+  if (contentData && Object.keys(contentData).length > 0) {
+    return contentData;
+  }
+
+  // iOS push notifications can place custom keys inside trigger.payload.
+  const triggerAny = notification.request.trigger as unknown as { payload?: unknown } | null;
+  const payload = triggerAny?.payload;
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return undefined;
+  }
+
+  const payloadRecord = payload as Record<string, unknown>;
+  const nestedData = toStringRecord(payloadRecord.data);
+  if (nestedData && Object.keys(nestedData).length > 0) {
+    return nestedData;
+  }
+
+  return toStringRecord(payloadRecord);
+}
+
 function getForegroundToastKey(notification: Notifications.Notification): string {
-  const data = notification.request.content.data as Record<string, string> | undefined;
+  const data = extractNotificationData(notification);
   const type = data?.type ?? 'unknown';
   const uniqueId =
     data?.joinRequestId ??
@@ -136,6 +174,82 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
    * not yet exist.
    */
   const notifInitInFlight = useRef(false);
+
+  const routeFromNotificationPayload = useRef((
+    type: string | undefined,
+    data: Record<string, string> | undefined,
+    source: 'cold-start' | 'foreground-listener',
+  ) => {
+    if (type === 'join_channel_request') {
+      const joinRequestId = data?.joinRequestId;
+      if (joinRequestId) {
+        router.push({ pathname: '/(protected)/join-request/[id]', params: { id: joinRequestId } });
+      } else {
+        router.push('/(protected)/notifications');
+      }
+      return;
+    }
+
+    if (type === 'join_channel_accepted') {
+      const channelName = data?.channelName ?? '';
+      router.push({ pathname: '/(protected)/channel-accepted', params: { channelName } });
+      return;
+    }
+
+    if (type === 'custom_circle_invite') {
+      const requestId = data?.requestId;
+      if (requestId) {
+        router.push({ pathname: '/(protected)/circle-invite/[id]', params: { id: requestId } } as never);
+      } else {
+        router.push('/(protected)/notifications');
+      }
+      return;
+    }
+
+    if (type === 'connection_request') {
+      const requestId = data?.connectionRequestId;
+      if (requestId) {
+        router.push({ pathname: '/(protected)/connection-request/[id]', params: { id: requestId } });
+      } else {
+        router.push('/(protected)/notifications');
+      }
+      return;
+    }
+
+    if (type === 'connection_accepted') {
+      router.push('/(protected)/my-people');
+      return;
+    }
+
+    if (type === 'new_post' || type === 'post_reaction') {
+      const postId = data?.postId;
+      if (postId) {
+        if (type === 'post_reaction') {
+          void dismissNotificationsByData({ type: 'post_reaction', postId });
+        }
+        router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } });
+      }
+      return;
+    }
+
+    if (type === 'conversation_message' || type === 'comment_reply') {
+      const postId = data?.postId;
+      if (postId) {
+        void dismissNotificationsByData({ type, postId });
+        router.push({ pathname: '/(protected)/conversation', params: { postId } });
+      }
+      return;
+    }
+
+    if (type === 'private_note') {
+      const postId = data?.postId;
+      if (postId) {
+        void dismissNotificationsByData({ type: 'private_note', postId });
+        router.push({ pathname: '/(protected)/private-notes-host/[postId]', params: { postId } });
+      }
+      return;
+    }
+  });
 
   // Effect 0: Track local "last app open" timestamp for the signed-in user.
   useEffect(() => {
@@ -560,23 +674,25 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
     if (!currentUser) return;
     Notifications.getLastNotificationResponseAsync()
       .then((response) => {
-        if (
-          response &&
-          response.notification.request.identifier === NOTIFICATION_ID
-        ) {
-          const key = getNotificationKey(response);
-          if (handledNotificationKeys.has(key)) return;
-          handledNotificationKeys.add(key);
-          const promptIndex = parseInt(
-            (response.notification.request.content.data?.promptIndex as string) ?? '0',
-            10,
-          );
+        if (!response) return;
+
+        const key = getNotificationKey(response);
+        if (handledNotificationKeys.has(key)) return;
+        handledNotificationKeys.add(key);
+
+        const notification = response.notification;
+        const identifier = notification.request.identifier;
+        const data = extractNotificationData(notification);
+        const type = data?.type;
+
+        if (identifier === NOTIFICATION_ID) {
+          const promptIndex = parseInt((data?.promptIndex as string) ?? '0', 10);
           const followUp = getFollowUpForPrompt(promptIndex);
-          router.push({
-            pathname: '/(protected)/post/new',
-            params: { notificationPrompt: followUp },
-          });
+          router.push({ pathname: '/(protected)/post/new', params: { notificationPrompt: followUp } });
+          return;
         }
+
+        routeFromNotificationPayload.current(type, data, 'cold-start');
       })
       .catch(() => {
         // Notification initial-launch check is best-effort; ignore errors
@@ -595,7 +711,7 @@ export function DataListenerWrapper({ children }: DataListenerWrapperProps) {
       const toastKey = getForegroundToastKey(notification);
       if (handledForegroundToastKeys.has(toastKey)) return;
       handledForegroundToastKeys.add(toastKey);
-      const data = notification.request.content.data as Record<string, string> | undefined;
+      const data = extractNotificationData(notification);
       const type = data?.type as AppNotificationType | undefined;
 
       if (type === 'join_channel_request') {

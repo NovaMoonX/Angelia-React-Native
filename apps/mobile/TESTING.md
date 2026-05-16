@@ -185,6 +185,83 @@ Use the iPhone when:
 
 ---
 
+## Feature 19: Edit Post (Author-Only, Full Content)
+
+**Devices:** Android primary, iPhone parity check.
+
+### Setup
+
+- [ ] Use Account A as post author
+- [ ] Create a post with text, tier, and at least 2 attachments (include one video if possible)
+- [ ] Open that post in Post Detail as Account A
+
+### Android
+
+- [ ] Confirm author sees an edit icon in Post Detail header
+- [ ] Tap edit icon → composer opens in edit mode with existing text/channel/tier/media prefilled
+- [ ] Change text and tier, then save → Post Detail reflects updated text/tier
+- [ ] Reorder media and update one caption, then save → Post Detail media order/caption reflect edits
+- [ ] Add one new attachment during edit and save → new attachment appears on post
+- [ ] Remove one existing attachment and save → removal succeeds only if storage delete succeeds first
+- [ ] Validate failure path: simulate/trigger storage-delete failure for a removed existing attachment
+  - Save should fail
+  - Removed attachment should remain on the post (no partial content removal)
+- [ ] Confirm post now has `lastEditedAt` set and author sees a "Last edited" timestamp in Post Detail
+- [ ] Re-open same post as non-author account → "Last edited" timestamp is not shown
+- [ ] As non-author, confirm no edit icon appears and edit route is inaccessible from normal UI
+
+### iPhone
+
+- [ ] Repeat edit flow with text/tier/media updates and confirm parity
+- [ ] Confirm author-only "Last edited" visibility rule matches Android
+
+### Edge cases
+
+- [ ] Edit a text-only post (no media) → save works and sets `lastEditedAt`
+- [ ] Edit a post but make no changes → save still succeeds without corruption
+- [ ] Remove multiple existing attachments in one edit → all must pass storage deletion before save commits
+- [ ] Edit a ready/published post and add new media where none existed before → save succeeds (no storage unauthorized error)
+- [ ] Edit a ready/published post and replace existing media with a different file → save succeeds and old file removal does not block due to storage permissions
+- [ ] Edit a post with image/audio-only attachments (no thumbnailUrl) and confirm save succeeds without Firestore "Unsupported field value: undefined"
+- [ ] Start editing a post with one existing image, open Camera, record a new video, return to composer → original image preview remains visible and new video thumbnail is also visible
+- [ ] Repeat the same flow through Gallery and Audio Record entry points → existing image preview still remains visible after returning
+- [ ] Confirm existing image preview URI still includes valid Firebase download query token after round-trip (no broken `%2F`/query truncation behavior)
+- [ ] Save edits after keeping one existing image + adding new media → existing image still renders in Feed/Post Detail after save (URL not lost)
+- [ ] Move a post from Circle B to Circle A (Daily Circle case) and verify a member of Circle A sees it appear in Feed without manual refresh
+
+---
+
+## Feature 20: Private Note Notification Routing Stability
+
+**Devices:** Android primary, iPhone strongly recommended.
+
+### Setup
+
+- [ ] Use Account A as a post host with at least one active post
+- [ ] Use Account B to send Account A a private note on that post
+- [ ] Ensure Account A receives a private-note push notification
+
+### Android
+
+- [ ] Tap the private-note notification from background/closed app state
+- [ ] Confirm app opens to Private Notes host screen and stays there (no immediate navigation back to Feed)
+- [ ] If this is the first private note on that post, confirm the screen remains stable and does not bounce
+- [ ] Return to Feed manually, then tap another private-note notification for the same post
+- [ ] Confirm routing is still stable and opens Private Notes correctly
+
+### iPhone
+
+- [ ] Repeat the same private-note tap flow from background and terminated app states
+- [ ] Confirm there is no quick route reversal to Feed after landing on Private Notes
+- [ ] Confirm the private-note screen remains open long enough to read notes without interruption
+
+### Edge cases
+
+- [ ] Host taps private-note notification while Firestore data is still loading → screen should wait without bouncing
+- [ ] Host taps notification for a post with only one note (first-note scenario) → screen should remain on Private Notes
+
+---
+
 ## Regression Checks
 
 - [ ] Posting still succeeds for a plain text-only post

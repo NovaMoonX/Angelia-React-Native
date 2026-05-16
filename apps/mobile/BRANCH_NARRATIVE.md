@@ -131,6 +131,35 @@ Unread reaction state now clears only after leaving Post Detail, while unread co
 
 ---
 
+## Feature 6: Authors Can Fully Edit Published Posts
+
+### The Problem
+
+After publishing, authors had no way to correct or improve a post. Text, tier, circle, media order, captions, and attachments were all locked. There was also no audit signal for authors that a post had been edited.
+
+### The Solution
+
+Post Detail now includes an author-only edit action. The composer opens in edit mode with existing content prefilled, and authors can change all post content (text, tier, circle, media order, captions, add/remove attachments). During save, removed existing attachments are only removed from the post after Firebase Storage deletion succeeds; if deletion fails, the edit is blocked and no partial media removal is committed. Edited posts now store `lastEditedAt`, and only the author sees a "Last edited" timestamp in Post Detail.
+
+### Technical Detail
+
+- File: [src/app/(protected)/post/[id].tsx](src/app/(protected)/post/[id].tsx)
+	Adds author-only edit entry point and author-only `lastEditedAt` display.
+- File: [src/app/(protected)/post/new.tsx](src/app/(protected)/post/new.tsx)
+	Adds edit mode hydration for existing post data and preserves edit context through media routes.
+- File: [src/app/(protected)/post/uploading.tsx](src/app/(protected)/post/uploading.tsx)
+	Supports create vs edit execution paths and edit-specific success/error copy.
+- File: [src/store/actions/postActions.ts](src/store/actions/postActions.ts)
+	Adds `editPostContent` thunk with upload/retain/remove media logic and `lastEditedAt` updates.
+- File: [src/services/firebase/storage.ts](src/services/firebase/storage.ts)
+	Adds URL-based post-media deletion helper used to verify storage deletion before content removal.
+- File: [src/models/types.ts](src/models/types.ts)
+	Adds `Post.lastEditedAt: number | null`.
+- File: [firestore.rules](firestore.rules)
+	Tightens non-author post update rules so reaction/conversation updates cannot mutate content fields like `text`, `media`, `tier`, or `lastEditedAt`.
+
+---
+
 ## Cross-Cutting Changes
 
 - **AsyncStorage state is now versioned and scoped more deliberately.** Notification-release notices, conversation hints, conversation last-seen timestamps, host leave-warning preferences, and post-create drafts all use named constants in [src/models/constants.ts](src/models/constants.ts).
@@ -148,6 +177,7 @@ Unread reaction state now clears only after leaving Post Detail, while unread co
 | Threaded replies and quoted context | Conversation threads are easier to read and respond to | Conversation |
 | Local draft persistence and safe return paths | Users stop losing half-finished posts while moving through media flows | Post Create, Camera, Gallery, Audio Record |
 | Safer unread behavior for hosts | Important message/private-note indicators stay visible until actually reviewed | Post Detail, Conversation, Private Notes |
+| Full post editing after publish | Authors can fix and improve posts without reposting | Post Detail, Post Create, Uploading |
 
 ---
 
@@ -166,6 +196,9 @@ Unread reaction state now clears only after leaving Post Detail, while unread co
 - [ ] Publish a draft successfully -> reopening Post Create does not restore the old draft.
 - [ ] As a host with unread messages or private notes, leave Post Detail -> warning modal appears with Review now, Exit Post Anyway, and Don't show this again options.
 - [ ] Open Post Detail without opening Conversation or Private Notes -> only reaction unread clears; message/private-note unread stays active.
+- [ ] As post author, open Post Detail and tap Edit -> composer is prefilled and save updates the existing post.
+- [ ] Remove an existing attachment during edit while storage deletion is blocked -> save fails and attachment remains on the post.
+- [ ] As non-author, open the same post -> no edit action and no "Last edited" timestamp are shown.
 
 ---
 
@@ -186,6 +219,10 @@ Unread reaction state now clears only after leaving Post Detail, while unread co
 | `src/app/(protected)/audio-record.tsx` | In-app audio recording return path into Post Create |
 | `src/app/(protected)/post/uploading.tsx` | Draft cleanup only after successful upload |
 | `src/app/(protected)/post/[id].tsx` | Host leave-warning modal and post-detail unread handling |
+| `src/store/actions/postActions.ts` | Full post-edit thunk and media deletion verification before removal |
+| `src/services/firebase/storage.ts` | Storage delete helper for existing post attachments |
+| `src/models/types.ts` | Adds `Post.lastEditedAt` field |
+| `firestore.rules` | Prevents non-author update paths from mutating editable post content fields |
 | `src/hooks/useAuthorPostActivity.ts` | Correct unread separation across reaction/message/private-note activity |
 | `src/models/constants.ts` | Shared AsyncStorage keys and notification/draft versions |
 

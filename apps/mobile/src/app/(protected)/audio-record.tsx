@@ -15,6 +15,18 @@ import { useToast } from '@/hooks/useToast';
 import { MAX_FILES } from '@/models/constants';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 
+function decodeMediaParam(value: string): MediaFile[] {
+  try {
+    return JSON.parse(value) as MediaFile[];
+  } catch {
+    return JSON.parse(decodeURIComponent(value)) as MediaFile[];
+  }
+}
+
+function encodeMediaParam(files: MediaFile[]): string {
+  return encodeURIComponent(JSON.stringify(files));
+}
+
 function formatSeconds(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -28,6 +40,7 @@ export default function AudioRecordScreen() {
   const { addToast } = useToast();
 
   const params = useLocalSearchParams<{
+    editPostId?: string;
     existingMedia?: string;
     existingText?: string;
     existingChannel?: string;
@@ -40,7 +53,7 @@ export default function AudioRecordScreen() {
       return [];
     }
     try {
-      return JSON.parse(params.existingMedia) as MediaFile[];
+      return decodeMediaParam(params.existingMedia);
     } catch {
       return [];
     }
@@ -56,7 +69,8 @@ export default function AudioRecordScreen() {
     router.replace({
       pathname: '/(protected)/post/new',
       params: {
-        capturedMedia: JSON.stringify(existingFiles),
+        editPostId: params.editPostId,
+        capturedMedia: encodeMediaParam(existingFiles),
         existingText: params.existingText,
         existingChannel: params.existingChannel,
         existingTier: params.existingTier,
@@ -137,7 +151,8 @@ export default function AudioRecordScreen() {
     router.replace({
       pathname: '/(protected)/post/new',
       params: {
-        capturedMedia: JSON.stringify(merged),
+        editPostId: params.editPostId,
+        capturedMedia: encodeMediaParam(merged),
         existingText: params.existingText,
         existingChannel: params.existingChannel,
         existingTier: params.existingTier,

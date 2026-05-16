@@ -85,6 +85,15 @@ const postsSlice = createSlice({
     removePost(state, action: PayloadAction<{ postId: string }>) {
       state.items = state.items.filter((p) => p.id !== action.payload.postId);
     },
+    updatePostFields(state, action: PayloadAction<{ postId: string; data: Partial<Post> }>) {
+      const post = state.items.find((item) => {
+        return item.id === action.payload.postId;
+      });
+      if (!post) {
+        return;
+      }
+      Object.assign(post, action.payload.data);
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(resetAllState, () => initialState);
@@ -102,6 +111,7 @@ export const {
   addConversationEnrollee,
   removeConversationEnrollee,
   removePost,
+  updatePostFields,
 } = postsSlice.actions;
 
 // Selectors

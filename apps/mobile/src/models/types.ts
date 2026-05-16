@@ -179,6 +179,7 @@ export interface Post {
   text: string;
   media: MediaItem[] | null;
   timestamp: number;
+  lastEditedAt: number | null;
   reactions: Reaction[];
   conversationEnrollees: string[];
   markedForDeletionAt: number | null;

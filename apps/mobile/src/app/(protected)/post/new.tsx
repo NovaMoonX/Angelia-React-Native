@@ -21,6 +21,7 @@ import { isStatusActive } from '@/components/NowStatusBadge';
 import { MediaViewerModal } from '@/components/MediaViewerModal';
 import { PostCountdownOverlay } from '@/components/PostCountdownOverlay';
 import { useAppSelector } from '@/store/hooks';
+import { selectPostById } from '@/store/slices/postsSlice';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { useActionModal } from '@/hooks/useActionModal';
@@ -47,10 +48,62 @@ type PostCreateDraft = {
   showVideoUploadNotice: boolean;
 };
 
+function normalizeIncomingMedia(files: MediaFile[]): MediaFile[] {
+  return files.map((item) => {
+    const prefersExistingUrl = item.type.endsWith('/remote') && Boolean(item.existingUrl);
+    const resolvedUri = prefersExistingUrl
+      ? (item.existingUrl as string)
+      : (item.uri || item.existingUrl || '');
+
+    return {
+      ...item,
+      uri: resolvedUri,
+      caption: item.caption ?? null,
+    };
+  });
+}
+
+function getMediaPreviewUri(item: MediaFile): string {
+  return item.uri || item.existingUrl || '';
+}
+
+function toComposerMediaType(type: 'image' | 'video' | 'audio'): string {
+  if (type === 'video') {
+    return 'video/remote';
+  }
+  if (type === 'audio') {
+    return 'audio/remote';
+  }
+  return 'image/remote';
+}
+
+function getFileNameFromUrl(url: string, fallback: string): string {
+  try {
+    const parsed = new URL(url);
+    const base = parsed.pathname.split('/').pop();
+    return base && base.length > 0 ? base : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function decodeMediaParam(value: string): MediaFile[] {
+  try {
+    return JSON.parse(value) as MediaFile[];
+  } catch {
+    return JSON.parse(decodeURIComponent(value)) as MediaFile[];
+  }
+}
+
+function encodeMediaParam(files: MediaFile[]): string {
+  return encodeURIComponent(JSON.stringify(files));
+}
+
 export default function PostCreateScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
+    editPostId?: string;
     capturedMedia?: string;
     existingText?: string;
     existingChannel?: string;
@@ -63,6 +116,10 @@ export default function PostCreateScreen() {
   const { confirm } = useActionModal();
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const currentUser = useAppSelector((state) => state.users.currentUser);
+  const editingPost = useAppSelector((state) => {
+    return selectPostById(state, params.editPostId ?? '');
+  });
+  const isEditMode = Boolean(params.editPostId);
   const dailyChannel = useAppSelector(selectCurrentUserDailyChannel);
   const customChannels = useAppSelector(selectCurrentUserCustomChannels);
 
@@ -74,7 +131,7 @@ export default function PostCreateScreen() {
 
   const dailyChannelId = dailyChannel?.id ?? '';
 
-  const draftStorageKey = currentUser?.id ? POST_CREATE_DRAFT_KEY(currentUser.id) : null;
+  const draftStorageKey = !isEditMode && currentUser?.id ? POST_CREATE_DRAFT_KEY(currentUser.id) : null;
   const didHydrateDraftRef = useRef(false);
   const hasIncomingNavigationState =
     params.capturedMedia != null ||
@@ -84,13 +141,31 @@ export default function PostCreateScreen() {
     params.existingPendingStatus != null;
 
   const initialMedia = useMemo<MediaFile[]>(() => {
-    if (!params.capturedMedia) return [];
-    try {
-      return JSON.parse(params.capturedMedia) as MediaFile[];
-    } catch {
+    if (params.capturedMedia) {
+      try {
+        const parsed = decodeMediaParam(params.capturedMedia);
+        return normalizeIncomingMedia(parsed);
+      } catch {
+        return [];
+      }
+    }
+
+    if (!isEditMode || !editingPost?.media) {
       return [];
     }
-  }, [params.capturedMedia]);
+
+    const mapped = editingPost.media.map((item, index) => {
+      return {
+        uri: item.url,
+        existingUrl: item.url,
+        name: getFileNameFromUrl(item.url, `media-${index}`),
+        type: toComposerMediaType(item.type),
+        thumbnailUri: item.thumbnailUrl ?? null,
+        caption: item.caption ?? null,
+      };
+    });
+    return normalizeIncomingMedia(mapped);
+  }, [editingPost?.media, isEditMode, params.capturedMedia]);
 
   const initialPendingStatus = useMemo<UserStatus | null>(() => {
     if (!params.existingPendingStatus) return null;
@@ -102,7 +177,7 @@ export default function PostCreateScreen() {
   }, [params.existingPendingStatus]);
 
   const [selectedChannel, setSelectedChannel] = useState(
-    params.existingChannel || dailyChannelId || sortedUserChannels[0]?.id || ''
+    params.existingChannel || editingPost?.channelId || dailyChannelId || sortedUserChannels[0]?.id || ''
   );
 
   // Once channels load (and no explicit selection was passed in), default to daily circle
@@ -113,11 +188,11 @@ export default function PostCreateScreen() {
     setSelectedChannel(dailyChannelId || sortedUserChannels[0].id);
   }, [dailyChannelId, sortedUserChannels, params.existingChannel, selectedChannel]);
 
-  const [text, setText] = useState(params.existingText || '');
+  const [text, setText] = useState(params.existingText || editingPost?.text || '');
   const [selectedTier, setSelectedTier] = useState<PostTier>(
     params.existingTier === 'worth-knowing' || params.existingTier === 'big-news' || params.existingTier === 'everyday'
       ? params.existingTier
-      : 'everyday'
+      : (editingPost?.tier ?? 'everyday')
   );
   const [media, setMedia] = useState<MediaFile[]>(initialMedia);
   const [previewItem, setPreviewItem] = useState<{ uri: string; type: 'image' | 'video' | 'audio'; caption: string | null } | null>(null);
@@ -170,6 +245,32 @@ export default function PostCreateScreen() {
     if (params.existingPendingStatus == null) return;
     setPendingStatus(initialPendingStatus);
   }, [initialPendingStatus, params.existingPendingStatus]);
+
+  useEffect(() => {
+    if (!isEditMode || !editingPost) {
+      return;
+    }
+    if (params.existingText == null) {
+      setText(editingPost.text ?? '');
+    }
+    if (params.existingChannel == null) {
+      setSelectedChannel(editingPost.channelId ?? '');
+    }
+    if (params.existingTier == null) {
+      setSelectedTier(editingPost.tier ?? 'everyday');
+    }
+    if (params.capturedMedia == null) {
+      setMedia(initialMedia);
+    }
+  }, [
+    editingPost,
+    initialMedia,
+    isEditMode,
+    params.capturedMedia,
+    params.existingChannel,
+    params.existingText,
+    params.existingTier,
+  ]);
 
   useEffect(() => {
     if (didHydrateDraftRef.current) return;
@@ -231,6 +332,24 @@ export default function PostCreateScreen() {
   }, [draftStorageKey]);
 
   const resetComposerState = useCallback(() => {
+    if (isEditMode && editingPost) {
+      setText(editingPost.text ?? '');
+      setSelectedTier(editingPost.tier ?? 'everyday');
+      setMedia(initialMedia);
+      setPendingStatus(null);
+      setVideoThumbnails({});
+      thumbnailsRef.current = {};
+      setReorderIndex(null);
+      setCaptionTargetIndex(null);
+      setCaptionDraft('');
+      setPreviewItem(null);
+      setShowCaptionHint(true);
+      setShowReorderHint(true);
+      setShowVideoUploadNotice(true);
+      setSelectedChannel(editingPost.channelId ?? dailyChannelId ?? sortedUserChannels[0]?.id ?? '');
+      return;
+    }
+
     setText('');
     setSelectedTier('everyday');
     setMedia([]);
@@ -245,7 +364,7 @@ export default function PostCreateScreen() {
     setShowReorderHint(true);
     setShowVideoUploadNotice(true);
     setSelectedChannel(dailyChannelId || sortedUserChannels[0]?.id || '');
-  }, [dailyChannelId, sortedUserChannels]);
+  }, [dailyChannelId, editingPost, initialMedia, isEditMode, sortedUserChannels]);
 
   const handleResetDraft = useCallback(async () => {
     const ok = await confirm({
@@ -275,8 +394,22 @@ export default function PostCreateScreen() {
     }
 
     await clearLocalDraft();
+    if (isEditMode && params.editPostId) {
+      router.replace({ pathname: '/(protected)/post/[id]', params: { id: params.editPostId } });
+      return;
+    }
     router.replace('/(protected)/feed');
-  }, [clearLocalDraft, confirm, media.length, pendingStatus, router, selectedTier, text]);
+  }, [
+    clearLocalDraft,
+    confirm,
+    isEditMode,
+    media.length,
+    params.editPostId,
+    pendingStatus,
+    router,
+    selectedTier,
+    text,
+  ]);
 
   // Countdown confirmation state
   const [countdownVisible, setCountdownVisible] = useState(false);
@@ -294,6 +427,8 @@ export default function PostCreateScreen() {
     router.replace({
       pathname: '/(protected)/post/uploading',
       params: {
+        mode: isEditMode ? 'edit' : 'create',
+        postId: params.editPostId,
         channelId: selectedChannel,
         text,
         mediaJson: JSON.stringify(media),
@@ -482,7 +617,7 @@ export default function PostCreateScreen() {
               { color: canPublish ? theme.primaryForeground : theme.mutedForeground },
             ]}
           >
-            Post
+            {isEditMode ? 'Save' : 'Post'}
           </Text>
         </Pressable>
       </View>
@@ -609,7 +744,7 @@ export default function PostCreateScreen() {
         )}
 
         {/* Status prompt — shown when user has no active status */}
-        {!hasActiveStatus && (
+        {!isEditMode && !hasActiveStatus && (
           <Pressable
             style={[styles.statusPrompt, { borderColor: theme.border }]}
             onPress={() => setStatusModalOpen(true)}
@@ -692,7 +827,7 @@ export default function PostCreateScreen() {
                     setReorderIndex(null);
                     return;
                   }
-                  setPreviewItem({ uri: item.uri, type: isVideo ? 'video' : isAudio ? 'audio' : 'image', caption: item.caption });
+                  setPreviewItem({ uri: getMediaPreviewUri(item), type: isVideo ? 'video' : isAudio ? 'audio' : 'image', caption: item.caption });
                 }}
                 onLongPress={() => {
                   setShowReorderHint(false);
@@ -707,10 +842,10 @@ export default function PostCreateScreen() {
                   </View>
                 ) : (
                   <Image
-                    source={thumb ?? { uri: item.uri }}
+                    source={thumb ?? { uri: getMediaPreviewUri(item) }}
                     style={styles.mediaImage}
                     contentFit="cover"
-                    recyclingKey={isGif ? undefined : item.uri}
+                    recyclingKey={isGif ? undefined : getMediaPreviewUri(item)}
                   />
                 )}
                 {isVideo && !isSelected && (
@@ -805,18 +940,19 @@ export default function PostCreateScreen() {
         <View style={styles.toolbarActions}>
           <Pressable
             style={[styles.toolbarButton, atMaxFiles && styles.toolbarButtonDisabled]}
-            onPress={() =>
+            onPress={() => {
               router.replace({
                 pathname: '/(protected)/camera',
                 params: {
-                  existingMedia: JSON.stringify(media),
+                  editPostId: params.editPostId,
+                  existingMedia: encodeMediaParam(media),
                   existingText: text,
                   existingChannel: selectedChannel,
                   existingTier: selectedTier,
                   existingPendingStatus: pendingStatus ? JSON.stringify(pendingStatus) : '',
                 },
-              })
-            }
+              });
+            }}
             disabled={atMaxFiles}
             hitSlop={8}
           >
@@ -828,7 +964,8 @@ export default function PostCreateScreen() {
               router.replace({
                 pathname: '/(protected)/gallery',
                 params: {
-                  existingMedia: JSON.stringify(media),
+                  editPostId: params.editPostId,
+                  existingMedia: encodeMediaParam(media),
                   existingText: text,
                   existingChannel: selectedChannel,
                   existingTier: selectedTier,
@@ -847,7 +984,8 @@ export default function PostCreateScreen() {
               router.replace({
                 pathname: '/(protected)/audio-record',
                 params: {
-                  existingMedia: JSON.stringify(media),
+                  editPostId: params.editPostId,
+                  existingMedia: encodeMediaParam(media),
                   existingText: text,
                   existingChannel: selectedChannel,
                   existingTier: selectedTier,

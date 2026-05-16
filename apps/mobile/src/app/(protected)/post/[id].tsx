@@ -556,9 +556,19 @@ export default function PostDetailScreen() {
 			title="Post"
 			rightAction={
 				isHost ? (
-					<Pressable onPress={handleDeletePost} hitSlop={8}>
-						<Feather name='trash-2' size={20} color='#EF4444' />
-					</Pressable>
+					<View style={styles.headerActions}>
+						<Pressable
+							onPress={() => {
+								router.push({ pathname: '/(protected)/post/new', params: { editPostId: post.id } });
+							}}
+							hitSlop={8}
+						>
+							<Feather name='edit-3' size={20} color={theme.foreground} />
+						</Pressable>
+						<Pressable onPress={handleDeletePost} hitSlop={8}>
+							<Feather name='trash-2' size={20} color='#EF4444' />
+						</Pressable>
+					</View>
 				) : undefined
 			}
 		/>
@@ -605,6 +615,11 @@ export default function PostDetailScreen() {
 							<Text style={[styles.timestamp, { color: theme.mutedForeground }]}>
 								{getRelativeTime(post.timestamp)}
 							</Text>
+							{isHost && post.lastEditedAt != null && (
+								<Text style={[styles.editedTimestamp, { color: theme.mutedForeground }]}>
+									{`Last edited: ${new Date(post.lastEditedAt).toLocaleString()}`}
+								</Text>
+							)}
 							{expiryInfo != null && (
 								<Text style={styles.expiryBadge}>
 									{expiryInfo.daysLeft === 0 ? '⏳ Going away today' : `⏳ ${expiryInfo.daysLeft}d left`}
@@ -916,6 +931,11 @@ const styles = StyleSheet.create({
 		gap: 6,
 		flexWrap: 'wrap',
 	},
+	headerActions: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 14,
+	},
 	priorityBanner: {
 		marginTop: 0,
 		marginHorizontal: -20,
@@ -947,6 +967,10 @@ const styles = StyleSheet.create({
 	},
 	timestamp: {
 		fontSize: 13,
+	},
+	editedTimestamp: {
+		fontSize: 12,
+		fontWeight: '500',
 	},
 	expiryBadge: {
 		fontSize: 12,

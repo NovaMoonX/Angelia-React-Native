@@ -7,6 +7,14 @@ Related PR: TBD
 Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
 
 Current branch highlights:
+- Editing a post now preserves existing attachment URLs reliably (we match by storage object path and keep Firestore’s canonical URL), so original media no longer disappears after save.
+- Changing a post to a different circle now re-publishes it to the destination circle timeline (including Daily Circle) so members of that circle receive it promptly.
+- Media URLs now survive Camera/Gallery/Audio navigation during post edit (we now safely encode/decode media route payloads), so existing image previews no longer break after adding new media.
+- Editing a post now keeps existing media previews visible after round-tripping through Camera/Gallery (for example, adding a new video no longer makes the original image preview disappear).
+- Editing posts with media now saves cleanly when attachments don’t have thumbnails (no more silent Firestore "Unsupported field value: undefined" failure).
+- Post media edits are now reliable after publish: adding/replacing/removing attachments while editing no longer fails from storage permission issues.
+- Opening your **first private note notification** is now stable: no more quick bounce back to Feed before the notes screen settles.
+- You can now **edit your posts after publishing** (text, circle, priority, captions, media order, and attachments), and Post Detail shows you an author-only "Last edited" timestamp.
 - Single taps on conversation messages still close the keyboard, while double taps now keep it open so editing feels natural on iPhone and Android.
 - Double tapping your own conversation messages now keeps the keyboard open, so editing feels smoother and doesn’t kick you out of the composer.
 - You can now **double tap your own conversation messages to edit them**, with a one-time tip the first time it’s available and a quick warning before switching away from a draft you were already typing.

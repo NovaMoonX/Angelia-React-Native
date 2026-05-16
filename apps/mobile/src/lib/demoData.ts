@@ -119,7 +119,7 @@ const DEMO_CHANNELS: Channel[] = [
   },
 ];
 
-const DEMO_POSTS: Post[] = [
+const DEMO_POSTS: Array<Omit<Post, 'lastEditedAt'>> = [
   {
     id: 'demo-post-1',
     authorId: 'demo-user-1',
@@ -568,7 +568,9 @@ export const DEMO_DATA = {
     users: [DEMO_USER, DEMO_USER_2, DEMO_USER_3],
   },
   channels: DEMO_CHANNELS,
-  posts: DEMO_POSTS,
+  posts: DEMO_POSTS.map((post) => {
+    return { ...post, lastEditedAt: null };
+  }),
   comments: DEMO_COMMENTS,
   invites: DEMO_INVITES,
   messages: DEMO_MESSAGES,

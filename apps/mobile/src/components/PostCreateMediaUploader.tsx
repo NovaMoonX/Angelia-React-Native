@@ -20,6 +20,8 @@ export interface MediaFile {
   name: string;
   type: string;
   size?: number;
+  /** Existing Firebase download URL for already-uploaded media in edit mode. */
+  existingUrl?: string | null;
   /** For videos: local `file://` URI of the generated thumbnail image. */
   thumbnailUri?: string | null;
   /** Optional caption for this media item. */
