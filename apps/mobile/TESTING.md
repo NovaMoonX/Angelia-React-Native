@@ -302,6 +302,12 @@ Use the iPhone when:
 - [ ] Open a mixed-media carousel (image/video + audio) and confirm media height stays correct while audio items remain vertically centered
 - [ ] Start playing an audio clip in a carousel, swipe to a different item, and confirm the previous audio stops immediately in both Feed cards and Post Detail
 - [ ] While audio is playing, swipe rapidly across multiple carousel items and confirm there is no ErrorBoundary crash or red error banner
+- [ ] Let a clip finish naturally, then tap Play once and confirm it restarts from 0:00 and plays again
+- [ ] Open an audio player and confirm the waveform bars are visually stable (no shifting/random jumping while playback progresses)
+- [ ] Confirm progress now reads through bar coloring + playhead (no opaque red block overlay look)
+- [ ] Confirm the play/pause control is positioned on the right side of the audio card in both feed/post detail and full view
+- [ ] Confirm waveform bars now render noticeably taller than before and remain readable in compact and full audio cards
+- [ ] In carousel audio cards, confirm the player sits higher and occupies more height so the play button is not crowded against the carousel next/prev controls
 
 ### iPhone
 

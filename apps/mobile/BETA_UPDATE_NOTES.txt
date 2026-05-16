@@ -15,6 +15,10 @@ Current branch highlights:
 - Audio clips in post card carousels now sit vertically centered with an opaque media backdrop, so audio-only carousels no longer feel like they have awkward extra bottom space.
 - Carousel audio playback now behaves more naturally: if you swipe to another media item, the previous audio clip stops automatically.
 - Fixed a carousel audio edge case that could trigger an ErrorBoundary crash while swiping between items during playback.
+- Finished clips can now restart from the beginning with one tap on Play (instead of getting stuck at the end).
+- Audio players got a visual refresh: waveform bars are smoother and stable (no jumpy block effect), progress feels cleaner, and the play button now sits on the right for a tidier layout.
+- The audio waveform is now taller too, so playback feels more readable at a glance.
+- Carousel audio cards now place the player a bit higher and give it more height, so it is easier to tap play without accidentally hitting the carousel next button.
 - Editing a post now preserves existing attachment URLs reliably (we match by storage object path and keep Firestore’s canonical URL), so original media no longer disappears after save.
 - Changing a post to a different circle now re-publishes it to the destination circle timeline (including Daily Circle) so members of that circle receive it promptly.
 - Media URLs now survive Camera/Gallery/Audio navigation during post edit (we now safely encode/decode media route payloads), so existing image previews no longer break after adding new media.

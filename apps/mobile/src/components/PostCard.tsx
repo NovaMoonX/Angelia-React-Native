@@ -285,7 +285,7 @@ function CardMediaItem({
     return (
       <Pressable style={[style, styles.audioContainer]} onPress={onOpen} onLongPress={onLongPress} delayLongPress={220}>
         <View style={styles.audioPlayerWrap}>
-          <AudioAttachmentPlayer uri={item.url} title={item.title} isActive={isActive} />
+          <AudioAttachmentPlayer uri={item.url} title={item.title} isActive={isActive} variant='full' />
         </View>
         {!!item.caption && (
           <View style={styles.captionBadge}>
@@ -418,10 +418,12 @@ const styles = StyleSheet.create({
   audioContainer: {
     backgroundColor: '#0F172A',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 12,
+    paddingBottom: 6,
   },
   audioPlayerWrap: {
-    width: '92%',
+    width: '94%',
   },
   videoContainer: {
     backgroundColor: '#1a1a1a',

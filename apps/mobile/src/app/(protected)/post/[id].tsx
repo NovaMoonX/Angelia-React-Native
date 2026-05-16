@@ -1001,6 +1001,17 @@ const styles = StyleSheet.create({
 		height: 250,
 		overflow: 'hidden',
 	},
+	audioContainer: {
+		position: 'relative',
+		backgroundColor: '#0F172A',
+		alignItems: 'center',
+		justifyContent: 'flex-start',
+		paddingTop: 14,
+		paddingBottom: 8,
+	},
+	audioPlayerWrap: {
+		width: '94%',
+	},
 	videoContainer: {
 		backgroundColor: '#1a1a1a',
 	},
@@ -1166,8 +1177,10 @@ const styles = StyleSheet.create({
 function MediaCard({ item, style, isActive = true, onOpen }: { item: MediaItem; style: object; isActive?: boolean; onOpen: () => void }) {
 	if (item.type === 'audio') {
 		return (
-			<Pressable style={[style, { position: 'relative' }]} onPress={onOpen}>
-				<AudioAttachmentPlayer uri={item.url} title={item.title} isActive={isActive} />
+			<Pressable style={[style, styles.audioContainer]} onPress={onOpen}>
+				<View style={styles.audioPlayerWrap}>
+					<AudioAttachmentPlayer uri={item.url} title={item.title} isActive={isActive} variant='full' />
+				</View>
 				{!!item.caption && (
 					<View style={styles.captionBadge}>
 						<Feather name='file-text' size={10} color='#FFF' />

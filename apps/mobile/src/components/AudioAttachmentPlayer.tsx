@@ -18,49 +18,75 @@ function formatDuration(seconds: number): string {
   return `${mins}:${String(secs).padStart(2, '0')}`;
 }
 
+function buildWaveHeights(seedSource: string, count = 44): number[] {
+  let seed = 0;
+  for (let i = 0; i < seedSource.length; i += 1) {
+    seed = (seed * 31 + seedSource.charCodeAt(i)) >>> 0;
+  }
+
+  const bars: number[] = [];
+  for (let i = 0; i < count; i += 1) {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const normalized = (seed & 0xffff) / 0xffff;
+    // Keep amplitudes smooth while favoring taller bars.
+    bars.push(0.38 + normalized * 0.82);
+  }
+  return bars;
+}
+
 /**
  * Simple progress bar component that's tappable to seek
  */
 function ProgressBar({
   progress,
   onSeek,
+  waveHeights,
 }: {
   progress: number;
   onSeek: (fraction: number) => void;
+  waveHeights: number[];
 }) {
-  const trackRef = useRef<View>(null);
+  const trackWidthRef = useRef<number>(0);
+
+  const handleLayout = (e: any) => {
+    trackWidthRef.current = e.nativeEvent.layout.width;
+  };
 
   const handlePress = (e: any) => {
-    trackRef.current?.measure((x, y, width) => {
-      const { locationX } = e.nativeEvent;
-      const fraction = Math.max(0, Math.min(1, locationX / width));
-      onSeek(fraction);
-    });
+    const width = trackWidthRef.current;
+    const { locationX } = e.nativeEvent;
+    if (width <= 0) { return; }
+    const fraction = Math.max(0, Math.min(1, locationX / width));
+    onSeek(fraction);
   };
 
   return (
     <Pressable
-      ref={trackRef}
       style={styles.progressTrack}
+      onLayout={handleLayout}
       onPress={handlePress}
     >
-      {/* Background bars (simulated waveform) */}
-      <View style={styles.waveformBars}>
-        {Array.from({ length: 20 }).map((_, i) => (
+      {/* pointerEvents="none" prevents child views from stealing locationX */}
+      <View style={styles.waveformBars} pointerEvents="none">
+        {waveHeights.map((heightFactor, i) => (
           <View
             key={i}
             style={[
               styles.waveformBar,
-              { height: Math.random() * 60 + 20, opacity: i / 20 < progress ? 0.6 : 0.3 },
+              {
+                height: 12 + heightFactor * 40,
+                backgroundColor: (i + 1) / waveHeights.length <= progress ? '#FB923C' : '#4B5563',
+                opacity: (i + 1) / waveHeights.length <= progress ? 0.95 : 0.45,
+              },
             ]}
           />
         ))}
       </View>
-      {/* Progress fill overlay */}
       <View
+        pointerEvents="none"
         style={[
-          styles.progressFill,
-          { width: `${Math.round(progress * 100)}%` },
+          styles.playhead,
+          { left: `${Math.round(progress * 100)}%` },
         ]}
       />
     </Pressable>
@@ -70,6 +96,9 @@ function ProgressBar({
 export function AudioAttachmentPlayer({ uri, variant = 'compact', title, isActive = true }: AudioAttachmentPlayerProps) {
   const player = useAudioPlayer({ uri });
   const status = useAudioPlayerStatus(player);
+  const waveHeights = useMemo(() => {
+    return buildWaveHeights(uri);
+  }, [uri]);
 
   // Pause playback if this audio card is no longer the active carousel item.
   useEffect(() => {
@@ -97,6 +126,11 @@ export function AudioAttachmentPlayer({ uri, variant = 'compact', title, isActiv
       if (status.playing) {
         await player.pause();
       } else {
+        const hasDuration = Number.isFinite(status.duration) && status.duration > 0;
+        const atTrackEnd = hasDuration && status.currentTime >= status.duration - 0.05;
+        if (atTrackEnd) {
+          await player.seekTo(0);
+        }
         await player.play();
       }
     } catch {
@@ -118,18 +152,18 @@ export function AudioAttachmentPlayer({ uri, variant = 'compact', title, isActiv
   return (
     <View style={[styles.card, variant === 'full' ? styles.cardFull : styles.cardCompact]}>
       <View style={styles.topRow}>
-        <Pressable onPress={() => { void togglePlayback(); }} hitSlop={8} style={styles.playButton}>
-          <Feather name={status.playing ? 'pause' : 'play'} size={18} color="#FFF" />
-        </Pressable>
         <View style={styles.textBlock}>
           <Text style={styles.title}>{title?.trim() || 'Audio clip'}</Text>
           <Text style={styles.timeText}>
             {formatDuration(status.currentTime)} / {formatDuration(status.duration)}
           </Text>
         </View>
+        <Pressable onPress={() => { void togglePlayback(); }} hitSlop={8} style={styles.playButton}>
+          <Feather name={status.playing ? 'pause' : 'play'} size={18} color="#FFF" />
+        </Pressable>
       </View>
 
-      <ProgressBar progress={progress} onSeek={handleSeek} />
+      <ProgressBar progress={progress} onSeek={handleSeek} waveHeights={waveHeights} />
     </View>
   );
 }
@@ -144,15 +178,15 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   cardCompact: {
-    minHeight: 84,
+    minHeight: 96,
   },
   cardFull: {
-    minHeight: 120,
+    minHeight: 136,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   playButton: {
     width: 34,
@@ -161,6 +195,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#374151',
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 6,
   },
   textBlock: {
     flex: 1,
@@ -177,12 +212,14 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     width: '100%',
-    height: 48,
-    borderRadius: 3,
+    height: 72,
+    borderRadius: 10,
     backgroundColor: '#1F2937',
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#2A3447',
   },
   waveformBars: {
     width: '100%',
@@ -195,13 +232,15 @@ const styles = StyleSheet.create({
   },
   waveformBar: {
     flex: 1,
-    borderRadius: 1,
-    backgroundColor: '#4B5563',
+    borderRadius: 999,
   },
-  progressFill: {
-    ...StyleSheet.absoluteFillObject,
-    height: '100%',
-    backgroundColor: '#E24B4A',
-    opacity: 0.6,
+  playhead: {
+    position: 'absolute',
+    top: 6,
+    bottom: 6,
+    width: 2,
+    marginLeft: -1,
+    borderRadius: 999,
+    backgroundColor: '#FDBA74',
   },
 });
