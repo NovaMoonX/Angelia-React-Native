@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
@@ -22,7 +22,6 @@ import { exitDemoMode } from '@/store/actions/demoActions';
 import { saveProfile, saveStatus, clearStatus, uploadAndSaveAvatar } from '@/store/actions/userActions';
 import { completeTask } from '@/store/actions/taskActions';
 import { AVATAR_PRESETS, BETA_FEEDBACK_FORM_URL } from '@/models/constants';
-import { subscribeToMobileAppConfig } from '@/services/firebase/firestore';
 import type { AvatarPreset, UserStatus } from '@/models/types';
 import { formatExactExpiry } from '@/lib/timeUtils';
 
@@ -36,6 +35,7 @@ export function AccountTab() {
   const isDemo = useAppSelector((state) => state.demo.isActive);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const tasks = useAppSelector((state) => state.tasks.items);
+  const mobileAppConfig = useAppSelector((state) => state.appConfig.mobileAppConfig);
 
   const [editingProfile, setEditingProfile] = useState(false);
   const [editFirstName, setEditFirstName] = useState(currentUser?.firstName || '');
@@ -45,16 +45,8 @@ export function AccountTab() {
   const [editAvatarUri, setEditAvatarUri] = useState<string | null>(currentUser?.avatarUrl ?? null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
-  const [feedbackFormUrl, setFeedbackFormUrl] = useState<string>(BETA_FEEDBACK_FORM_URL);
 
-  useEffect(() => {
-    const unsubscribe = subscribeToMobileAppConfig((config) => {
-      if (config.feedbackForm.url) {
-        setFeedbackFormUrl(config.feedbackForm.url);
-      }
-    });
-    return unsubscribe;
-  }, []);
+  const feedbackFormUrl = mobileAppConfig?.feedbackForm.url ?? BETA_FEEDBACK_FORM_URL;
 
   if (!currentUser) return null;
 

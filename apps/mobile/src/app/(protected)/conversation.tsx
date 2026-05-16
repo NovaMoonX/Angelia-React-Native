@@ -112,14 +112,15 @@ export default function ConversationScreen() {
   const canAccessConversation = hasReacted || isHost;
   const isInConversation = post?.conversationEnrollees.includes(currentUser?.id ?? '') ?? false;
 
-  // Subscribe to messages
+  // Skip subscription for hosted posts — global listener in useDataListenerRealtimeData
+  // already handles message subscriptions for posts where the current user is the author.
   useEffect(() => {
-    if (!postId || isDemo) return;
+    if (!postId || isDemo || isHost) return;
     const unsub = subscribeToMessages(postId, (msgs) => {
       dispatch(setMessages({ postId, messages: msgs }));
     });
     return unsub;
-  }, [postId, dispatch, isDemo]);
+  }, [postId, dispatch, isDemo, isHost]);
 
   // Record when the user last opened this conversation to drive the unread indicator
   useFocusEffect(
