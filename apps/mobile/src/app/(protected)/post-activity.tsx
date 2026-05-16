@@ -40,8 +40,7 @@ export default function PostActivityScreen() {
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 98 }).current;
 
   const handleBackPress = useCallback(() => {
-    router.dismissAll();
-    router.replace('/(protected)/feed');
+    router.dismissTo('/(protected)/feed');
   }, [router]);
 
   useEffect(() => {

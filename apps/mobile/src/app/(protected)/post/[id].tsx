@@ -111,11 +111,10 @@ export default function PostDetailScreen() {
 	const goToExitDestination = useCallback(() => {
 		isRoutingAwayRef.current = true;
 		if (shouldReturnToPostActivity) {
-			router.dismiss();
+			router.back();
 			return;
 		}
-		router.dismissAll();
-		router.replace('/(protected)/feed');
+		router.dismissTo('/(protected)/feed');
 	}, [router, shouldReturnToPostActivity]);
 
 	// Memoize the latest note timestamp to avoid AsyncStorage reads on every render
