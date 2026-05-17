@@ -31,6 +31,13 @@ export const store = configureStore({
     appConfig: appConfigReducer,
     postLeaveSuggestions: postLeaveSuggestionsReducer,
   },
+  middleware: (getDefaultMiddleware) => {
+    return getDefaultMiddleware({
+      serializableCheck: {
+        warnAfter: 96,
+      },
+    });
+  },
 });
 
 export type RootState = ReturnType<typeof store.getState>;
