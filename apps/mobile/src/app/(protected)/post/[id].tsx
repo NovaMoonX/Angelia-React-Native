@@ -21,6 +21,8 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { selectMessages, setMessages } from '@/store/slices/conversationSlice';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
+import { selectChannelsRevision } from '@/store/slices/channelsSlice';
+import { ensurePostLeaveSuggestionsLoaded, selectPostLeaveSuggestionsEntry } from '@/store/slices/postLeaveSuggestionsSlice';
 import { usePostComments } from '@/hooks/usePostComments';
 import { usePrivateNotes } from '@/hooks/usePrivateNotes';
 import { useSentPrivateNotes } from '@/hooks/useSentPrivateNotes';
@@ -44,9 +46,9 @@ import { EmojiPicker } from '@/components/EmojiPicker';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { updatePostReactions, removePostReactionEmojiForUser, deletePostAction } from '@/store/actions/postActions';
-import { getActiveCustomChannelsByOwner, subscribeToMessages } from '@/services/firebase/firestore';
+import { subscribeToMessages } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
-import { CircleJoinSuggestionsModal, type CircleJoinSuggestionItem } from '@/components/CircleJoinSuggestionsModal';
+import { CircleJoinSuggestionsModal } from '@/components/CircleJoinSuggestionsModal';
 import { sendJoinRequest } from '@/store/actions/inviteActions';
 import type { Reaction, MediaItem, Channel } from '@/models/types';
 
@@ -64,6 +66,7 @@ export default function PostDetailScreen() {
 	const channel = useAppSelector((state) => selectPostChannel(state, post?.channelId || ''));
 	const currentUser = useAppSelector((state) => state.users.currentUser);
 	const isDemo = useAppSelector((state) => state.demo.isActive);
+	const channelRevision = useAppSelector(selectChannelsRevision);
 	const conversationMessages = useAppSelector((state) => selectMessages(state, id || ''));
 	const usersMap = useAppSelector(selectAllUsersMapById);
 	const outgoingJoinRequests = useAppSelector((state) => state.invites.outgoing);
@@ -84,9 +87,8 @@ export default function PostDetailScreen() {
 	const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' | 'audio'; caption: string | null; title: string | null } | null>(null);
 	const [unlockEmoji, setUnlockEmoji] = useState<string | null>(null);
 	const [noteModalVisible, setNoteModalVisible] = useState(false);
-	const [circleSuggestions, setCircleSuggestions] = useState<CircleJoinSuggestionItem[]>([]);
+	const [seenCircleSuggestionIds, setSeenCircleSuggestionIds] = useState<string[]>([]);
 	const [circleSuggestionsVisible, setCircleSuggestionsVisible] = useState(false);
-	const [circleSuggestionsLoading, setCircleSuggestionsLoading] = useState(false);
 	const [requestingChannelId, setRequestingChannelId] = useState<string | null>(null);
 	const isRoutingAwayRef = useRef(false);
 	// Tracks whether the host has unseen private notes (persisted in AsyncStorage)
@@ -95,7 +97,11 @@ export default function PostDetailScreen() {
 	const [hasUnreadConversation, setHasUnreadConversation] = useState(false);
 	const [showUnreadLeaveModal, setShowUnreadLeaveModal] = useState(false);
 	const [disableUnreadLeaveWarning, setDisableUnreadLeaveWarning] = useState(false);
-	const seenCircleSuggestionIdsRef = useRef<string[]>([]);
+	const suggestionsEntry = useAppSelector((state) => {
+		return selectPostLeaveSuggestionsEntry(state, currentUser?.id ?? '', author?.id ?? '');
+	});
+	const suggestionsStatus = suggestionsEntry?.status ?? 'idle';
+	const suggestionChannels = suggestionsEntry?.channels ?? [];
 
 	const unreadItems = [
 		hasUnreadPrivateNotes ? 'new private notes' : null,
@@ -108,14 +114,21 @@ export default function PostDetailScreen() {
 	const shouldWarnBeforeLeaving = isHost && !disableUnreadLeaveWarning && hasUnreadAuthorActivity;
 	const shouldReturnToPostActivity = from === 'post-activity';
 
-	const goToExitDestination = useCallback(() => {
-		isRoutingAwayRef.current = true;
+	// Used by the header back button — does NOT set isRoutingAwayRef so beforeRemove can intercept.
+	const handleHeaderBack = useCallback(() => {
 		if (shouldReturnToPostActivity) {
 			router.back();
 			return;
 		}
 		router.dismissTo('/(protected)/feed');
 	}, [router, shouldReturnToPostActivity]);
+
+	// Called after the user has finished interacting with a blocking modal (suggestions, unread warning).
+	// Sets the ref so beforeRemove lets it through without intercepting again.
+	const goToExitDestination = useCallback(() => {
+		isRoutingAwayRef.current = true;
+		handleHeaderBack();
+	}, [handleHeaderBack]);
 
 	// Memoize the latest note timestamp to avoid AsyncStorage reads on every render
 	const latestNoteTimestamp = useMemo(
@@ -163,6 +176,7 @@ export default function PostDetailScreen() {
 	useEffect(() => {
 		if (!currentUser?.id) {
 			setDisableUnreadLeaveWarning(false);
+			setSeenCircleSuggestionIds([]);
 			return;
 		}
 		AsyncStorage.getItem(POST_DETAIL_UNREAD_LEAVE_WARNING_DISABLED_KEY(currentUser.id))
@@ -171,6 +185,34 @@ export default function PostDetailScreen() {
 			})
 			.catch(() => {
 				setDisableUnreadLeaveWarning(false);
+			});
+	}, [currentUser?.id]);
+
+	useEffect(() => {
+		if (!currentUser?.id) {
+			setSeenCircleSuggestionIds([]);
+			return;
+		}
+		const seenKey = JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY(currentUser.id);
+		AsyncStorage.getItem(seenKey)
+			.then((raw) => {
+				if (!raw) {
+					setSeenCircleSuggestionIds([]);
+					return;
+				}
+				try {
+					const parsed = JSON.parse(raw) as unknown;
+					if (!Array.isArray(parsed)) {
+						setSeenCircleSuggestionIds([]);
+						return;
+					}
+					setSeenCircleSuggestionIds(parsed.filter((v): v is string => { return typeof v === 'string'; }));
+				} catch {
+					setSeenCircleSuggestionIds([]);
+				}
+			})
+			.catch(() => {
+				setSeenCircleSuggestionIds([]);
 			});
 	}, [currentUser?.id]);
 
@@ -272,6 +314,26 @@ export default function PostDetailScreen() {
 		});
 	}, [post, currentUser]);
 
+	const circleSuggestions = useMemo(() => {
+		const seenIdSet = new Set(seenCircleSuggestionIds);
+		return suggestionChannels
+			.filter((circle) => {
+				if (seenIdSet.has(circle.id)) {
+					return false;
+				}
+				return true;
+			})
+			.map((circle) => {
+				const isRequested = outgoingJoinRequests.some((request) => {
+					return request.channelId === circle.id && request.status === 'pending';
+				});
+				return {
+					channel: circle,
+					isRequested,
+				};
+			});
+	}, [outgoingJoinRequests, seenCircleSuggestionIds, suggestionChannels]);
+
 	// All useCallback/useEffect hooks must be before the early return — Rules of Hooks
 
 	const handleDeletePost = useCallback(async () => {
@@ -297,107 +359,60 @@ export default function PostDetailScreen() {
 	const markCircleSuggestionsSeen = useCallback(async (channelIds: string[]) => {
 		if (!currentUser || channelIds.length === 0) return;
 		const seenKey = JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY(currentUser.id);
-		const existingSeen = seenCircleSuggestionIdsRef.current;
+		const existingSeen = seenCircleSuggestionIds;
 		const mergedSeen = Array.from(new Set([...existingSeen, ...channelIds]));
-		seenCircleSuggestionIdsRef.current = mergedSeen;
+		setSeenCircleSuggestionIds(mergedSeen);
 		await AsyncStorage.setItem(seenKey, JSON.stringify(mergedSeen)).catch(() => {});
-	}, [currentUser]);
+	}, [currentUser, seenCircleSuggestionIds]);
 
 	useEffect(() => {
-		if (!currentUser || !author || !channel || !post) {
-			setCircleSuggestions([]);
-			return;
-		}
-		if (currentUser.id === author.id || channel.isDaily !== true) {
-			setCircleSuggestions([]);
-			return;
-		}
-
-		const reacted = post.reactions.some((r) => {
-			return r.userId === currentUser.id;
+		if (!id || isDemo || !currentUser || !author || !channel || !post) return;
+		if (currentUser.id === author.id) return;
+		if (channel.isDaily !== true) return;
+		const reactedToPost = post.reactions.some((reaction) => {
+			return reaction.userId === currentUser.id;
 		});
-		if (!reacted) {
-			setCircleSuggestions([]);
-			return;
-		}
-
-		setCircleSuggestionsLoading(true);
-		const seenKey = JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY(currentUser.id);
-		void AsyncStorage.getItem(seenKey)
-			.then((raw) => {
-				if (!raw) {
-					seenCircleSuggestionIdsRef.current = [];
-					return;
-				}
-				try {
-					const parsed = JSON.parse(raw) as unknown;
-					seenCircleSuggestionIdsRef.current = Array.isArray(parsed)
-						? parsed.filter((v): v is string => { return typeof v === 'string'; })
-						: [];
-				} catch {
-					seenCircleSuggestionIdsRef.current = [];
-				}
-			})
-			.catch(() => {
-				seenCircleSuggestionIdsRef.current = [];
-			})
-			.finally(async () => {
-				const ownerCustomCircles = await getActiveCustomChannelsByOwner(author.id).catch(() => {
-					return [];
-				});
-				const filtered = ownerCustomCircles.filter((circle) => {
-					return (
-						Boolean(circle.inviteCode) &&
-						!circle.isPrivate &&
-						circle.ownerId !== currentUser.id &&
-						!circle.subscribers.includes(currentUser.id) &&
-						!seenCircleSuggestionIdsRef.current.includes(circle.id)
-					);
-				});
-				setCircleSuggestions(
-					filtered.map((circle) => {
-						const isRequested = outgoingJoinRequests.some((request) => {
-							return request.channelId === circle.id && request.status === 'pending';
-						});
-						return {
-							channel: circle,
-							isRequested,
-						};
-					}),
-				);
-				setCircleSuggestionsLoading(false);
-			});
-	}, [author, channel, currentUser, post, outgoingJoinRequests]);
+		if (!reactedToPost) return;
+		void dispatch(
+			ensurePostLeaveSuggestionsLoaded({
+				viewerId: currentUser.id,
+				authorId: author.id,
+				sourceRevision: channelRevision,
+			}),
+		);
+	}, [author, channel, channelRevision, currentUser, dispatch, id, isDemo, post]);
 
 	useEffect(() => {
 		const unsubscribe = navigation.addListener('beforeRemove', (event: EventArg<'beforeRemove', true, { action: NavigationAction }>) => {
-			if (isRoutingAwayRef.current) {
-				return;
-			}
+			// Let programmatic navigations (post-modal) pass through
+			if (isRoutingAwayRef.current) return;
 
-			event.preventDefault();
-
-			if (showUnreadLeaveModal) return;
-			if (shouldWarnBeforeLeaving) {
+			// Block while unread-leave warning is visible, or trigger it
+			if (shouldWarnBeforeLeaving && !showUnreadLeaveModal) {
+				event.preventDefault();
 				setShowUnreadLeaveModal(true);
 				return;
 			}
+			if (showUnreadLeaveModal) { event.preventDefault(); return; }
 
-			if (circleSuggestionsVisible) return;
-			if (circleSuggestionsLoading || circleSuggestions.length === 0) {
-				goToExitDestination();
+			// Block while suggestions modal is open
+			if (circleSuggestionsVisible) { event.preventDefault(); return; }
+
+			// Show suggestions modal if ready
+			if (suggestionsStatus === 'success' && circleSuggestions.length > 0) {
+				event.preventDefault();
+				setCircleSuggestionsVisible(true);
 				return;
 			}
-			setCircleSuggestionsVisible(true);
+			// Nothing to block — let navigation proceed
 		});
 
 		return unsubscribe;
 	}, [
 		circleSuggestions.length,
-		circleSuggestionsLoading,
 		circleSuggestionsVisible,
-		goToExitDestination,
 		navigation,
+		suggestionsStatus,
 		shouldWarnBeforeLeaving,
 		showUnreadLeaveModal,
 	]);
@@ -435,9 +450,6 @@ export default function PostDetailScreen() {
 						message: '',
 					}),
 				).unwrap();
-				setCircleSuggestions((prev) => {
-					return prev.filter((item) => { return item.channel.id !== suggestedChannel.id; });
-				});
 				await markCircleSuggestionsSeen([suggestedChannel.id]);
 				addToast({ type: 'success', title: 'Join request sent!' });
 			} catch (err) {
@@ -454,9 +466,6 @@ export default function PostDetailScreen() {
 
 	const handleNotInterested = useCallback(
 		async (channelId: string) => {
-			setCircleSuggestions((prev) => {
-				return prev.filter((item) => { return item.channel.id !== channelId; });
-			});
 			await markCircleSuggestionsSeen([channelId]);
 		},
 		[markCircleSuggestionsSeen],
@@ -555,7 +564,7 @@ export default function PostDetailScreen() {
 		<View style={{ flex: 1 }}>
 			<ScreenHeader
 			title="Post"
-			onBack={goToExitDestination}
+			onBack={handleHeaderBack}
 			rightAction={
 				isHost ? (
 					<View style={styles.headerActions}>

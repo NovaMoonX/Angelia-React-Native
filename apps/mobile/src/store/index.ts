@@ -12,6 +12,7 @@ import tasksReducer from './slices/tasksSlice';
 import privateNotesReducer from './slices/privateNotesSlice';
 import uploadsReducer from './slices/uploadsSlice';
 import appConfigReducer from './slices/appConfigSlice';
+import postLeaveSuggestionsReducer from './slices/postLeaveSuggestionsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -28,6 +29,7 @@ export const store = configureStore({
     privateNotes: privateNotesReducer,
     uploads: uploadsReducer,
     appConfig: appConfigReducer,
+    postLeaveSuggestions: postLeaveSuggestionsReducer,
   },
 });
 

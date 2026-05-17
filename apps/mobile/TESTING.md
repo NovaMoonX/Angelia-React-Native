@@ -483,6 +483,40 @@ Use the iPhone when:
 
 ---
 
+## Feature 28: Slice-Backed Leave Suggestions (No Leave-Time Fetch)
+
+**Devices:** Android primary. iPhone parity recommended.
+
+### Setup
+
+- [ ] Use Account A (host) and Account B (connected member)
+- [ ] Ensure Account A has at least one active public custom circle with an invite code
+- [ ] Ensure Account B is connected to Account A but is not subscribed to that custom circle
+- [ ] Ensure Account B has reacted to at least one post in Account A's Daily Circle
+
+### Android
+
+- [ ] Open Account A's Daily post as Account B, wait 2-3 seconds, then leave Post Detail -> confirm join suggestions can appear
+- [ ] Re-open another Daily post by the same host and leave quickly -> confirm modal behavior is immediate (no visible loading delay)
+- [ ] Open a Daily post and press back immediately before data settles -> confirm navigation is immediate and no suggestion modal blocks exit
+- [ ] Tap **Not interested** on one suggested circle -> leave and re-enter another eligible post -> confirm that circle stays suppressed
+- [ ] Tap **Request to Join** on one suggested circle -> confirm success toast and that circle no longer shows in suggestions
+- [ ] While Post Detail is open (or after quickly revisiting it), add/remove/update one of the host's custom circles from another session and confirm suggestions recompute on next eligible post open/leave attempt
+- [ ] Verify non-eligible cases do not show suggestions: own post, non-daily post, or no reaction from current user
+
+### iPhone
+
+- [ ] Repeat one immediate-back pass and confirm exit does not wait on suggestion computation
+- [ ] Repeat one normal eligible leave pass and confirm suggestions appear without perceptible delay
+
+### Regression checks for slice-backed suggestion loading
+
+- [ ] Feed still only shows expected posts (no unexpected custom-circle feed noise from connected users)
+- [ ] Post Activity filters still behave as expected after app restart/sign-in
+- [ ] My Circles/Subscribed views still show only intended circles for the current user
+
+---
+
 ## Regression Checks
 
 - [ ] Posting still succeeds for a plain text-only post
