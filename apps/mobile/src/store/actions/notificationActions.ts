@@ -9,10 +9,12 @@ import {
 import {
   refreshFcmToken,
   getOrCreateDeviceId,
+  getDeviceName,
   deleteLocalFcmToken,
   getDeviceTimeZone,
   scheduleDailyPrompt,
   cancelDailyPrompt,
+  getFcmToken,
 } from '@/services/notifications';
 import {
   setCurrentUserNotificationSettings,
@@ -194,5 +196,96 @@ export const cleanUpNotifications = createAsyncThunk(
       return rejectWithValue(err instanceof Error ? err.message : err);
     }
     return null;
+  },
+);
+
+/**
+ * Validates that the current device has a valid FCM token. If the token is
+ * missing or invalid (returns null), automatically regenerates it and updates
+ * Firestore. This runs periodically during app runtime to catch tokens that
+ * have become invalid due to Firebase server-side expiration or device changes.
+ *
+ * Call this from app lifecycle hooks (e.g., on foreground or periodically) to
+ * ensure uninterrupted notification delivery. Best-effort — failures are logged
+ * but do not propagate.
+ */
+export const validateAndRefreshFcmToken = createAsyncThunk(
+  'notifications/validateAndRefresh',
+  async (_: void, { getState, rejectWithValue }) => {
+    if (isDemoActive(getState)) return null;
+
+    const state = getState() as RootState;
+    const user = state.users.currentUser;
+    if (!user) return null;
+
+    try {
+      // Check if we currently have a valid FCM token
+      const currentToken = await getFcmToken();
+
+      // If token is missing or invalid, regenerate it
+      if (!currentToken) {
+        const entry = await retryWithBackoff(() => refreshFcmToken());
+        if (entry) {
+          await upsertFcmToken(user.id, entry);
+          return { regenerated: true };
+        }
+      }
+
+      return { regenerated: false };
+    } catch (err) {
+      // Token validation is best-effort; never let it break the user's session
+      return null;
+    }
+  },
+);
+
+/**
+ * Ensures Firestore contains a token entry for the current device. This is
+ * intended to run from the live notification-settings subscription so the app
+ * can self-heal after server-side token pruning (e.g. NotRegistered cleanup).
+ */
+export const ensureCurrentDeviceTokenRegistered = createAsyncThunk(
+  'notifications/ensureCurrentDeviceTokenRegistered',
+  async (_: void, { getState }) => {
+    if (isDemoActive(getState)) return null;
+
+    const state = getState() as RootState;
+    const user = state.users.currentUser;
+    const settings = state.users.currentUserNotificationSettings;
+    if (!user || !settings) return null;
+
+    try {
+      const deviceId = await getOrCreateDeviceId();
+      const currentToken = await getFcmToken();
+
+      const hasCurrentDeviceToken = (settings.fcmTokens ?? []).some((entry) => {
+        return entry.deviceId === deviceId && Boolean(entry.token) && entry.token === currentToken;
+      });
+
+      if (hasCurrentDeviceToken) {
+        return { ensured: false };
+      }
+
+      // If no local token is currently available, force a refresh.
+      if (!currentToken) {
+        const refreshed = await retryWithBackoff(() => refreshFcmToken());
+        if (refreshed) {
+          await upsertFcmToken(user.id, refreshed);
+          return { ensured: true };
+        }
+        return { ensured: false };
+      }
+
+      // Local token exists but Firestore is missing this device entry.
+      await upsertFcmToken(user.id, {
+        deviceId,
+        token: currentToken,
+        deviceName: getDeviceName(),
+      });
+      return { ensured: true };
+    } catch {
+      // Best-effort self-healing; do not surface runtime failures.
+      return null;
+    }
   },
 );

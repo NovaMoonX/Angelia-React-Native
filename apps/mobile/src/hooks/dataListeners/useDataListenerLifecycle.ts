@@ -8,6 +8,7 @@ import {
   setPostUploadResumeHandler,
 } from '@/services/uploads/postUploadTask';
 import { APP_LAST_OPENED_AT_KEY, FEED_SESSION_SCROLLED_KEY } from '@/models/constants';
+import { validateAndRefreshFcmToken } from '@/store/actions/notificationActions';
 
 interface UseDataListenerLifecycleParams {
   currentUserId: string | null;
@@ -29,12 +30,6 @@ export function useDataListenerLifecycle({
 
     const writeLastOpened = async () => {
       const now = Date.now();
-      if (AppState.currentState === 'background') {
-        console.warn('[ActivityDebug][Android] Persisting APP_LAST_OPENED_AT_KEY on background', {
-          currentUserId,
-          now,
-        });
-      }
       await AsyncStorage.setItem(APP_LAST_OPENED_AT_KEY(currentUserId), String(now)).catch((error) => {
         console.warn('Failed to persist app last opened timestamp', error);
       });
@@ -42,16 +37,9 @@ export function useDataListenerLifecycle({
 
     const handleAppStateChange = (nextState: AppStateStatus) => {
       if (nextState === 'active') {
-        console.warn('[ActivityDebug][Android] AppState active (no baseline write)', {
-          currentUserId,
-        });
         return;
       }
       if (nextState !== 'background') {
-        console.warn('[ActivityDebug][Android] AppState transition ignored', {
-          currentUserId,
-          nextState,
-        });
         return;
       }
       void writeLastOpened();
@@ -64,6 +52,29 @@ export function useDataListenerLifecycle({
     };
   }, [currentUserId]);
 
+  // Validate and regenerate FCM token on app foreground to catch tokens that have
+  // become invalid due to server-side expiration or device changes. This ensures
+  // uninterrupted notification delivery even if Firebase invalidates the token during
+  // app runtime or a long background session.
+  useEffect(() => {
+    if (!currentUserId || !hasFirebaseUser) {
+      return;
+    }
+
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState !== 'active') {
+        return;
+      }
+      void dispatch(validateAndRefreshFcmToken());
+    };
+
+    const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      appStateSubscription.remove();
+    };
+  }, [dispatch, currentUserId, hasFirebaseUser]);
+  
   useEffect(() => {
     if (isDemo || !hasFirebaseUser) {
       return;

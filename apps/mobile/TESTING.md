@@ -192,6 +192,7 @@ Use the iPhone when:
 
 - [ ] Open a post from Feed -> open Conversation -> press back (header back, hardware back, and swipe-back if available) -> confirm you always land on Post Details
 - [ ] From that same post, open host Private Notes (or sender Private Notes) -> leave via header back/hardware back/swipe-back -> confirm you always land on Post Details
+- [ ] Repeat Post Details -> Conversation -> Post Details and Post Details -> Private Notes -> Post Details twice in a row, then leave Post Details once -> confirm you do not have stacked duplicate Post Details screens
 - [ ] From Post Details, press back (header back and hardware back) -> confirm you always land on Feed
 - [ ] After landing on Feed from Post Details, press back again -> confirm you cannot return to Post Details/Conversation/Private Notes (stack cleared)
 - [ ] Trigger the unread-leave warning modal on Post Details (when applicable), choose **Exit Post Anyway** -> confirm it still lands on Feed with stack cleared
@@ -514,6 +515,39 @@ Use the iPhone when:
 - [ ] Feed still only shows expected posts (no unexpected custom-circle feed noise from connected users)
 - [ ] Post Activity filters still behave as expected after app restart/sign-in
 - [ ] My Circles/Subscribed views still show only intended circles for the current user
+
+---
+
+## Feature 29: FCM Token Stability + NotRegistered Recovery
+
+**Devices:** Android required. iPhone optional parity check.
+
+### Setup
+
+- [ ] Use a physical Android device with notifications allowed for Angelia
+- [ ] Use Account A as recipient and Account B as sender (reaction/private note/message trigger)
+- [ ] In Firestore, open `userNotificationSettings/{AccountA}` and keep `fcmTokens` visible
+
+### Android
+
+- [ ] Sign in as Account A and wait for initial sync
+- [ ] Confirm `fcmTokens` includes one entry for the active device after login
+- [ ] Sign out, then sign back in on the same device
+- [ ] Confirm the same physical device does not keep accumulating duplicate token rows for each sign-in cycle
+- [ ] Trigger a push to Account A (from Account B) and confirm delivery succeeds
+- [ ] Manually leave one known stale/invalid token in `fcmTokens` (if available from prior sessions), trigger a push, and confirm the send still succeeds to valid tokens
+- [ ] After that send, refresh Firestore and confirm stale token(s) that returned NotRegistered were pruned from `fcmTokens`
+- [ ] Repeat one more push to verify no repeated NotRegistered errors for already-pruned tokens
+
+### iPhone
+
+- [ ] Optional parity pass: repeat one sign-out/sign-in and one push trigger; confirm no duplicate-per-sign-in token growth and successful push delivery
+
+### Regression checks
+
+- [ ] Notification settings still load on login without blocking app navigation
+- [ ] Sign-out still clears local token and does not crash app
+- [ ] Post activity push types (reaction/message/private note/reply) still route correctly after token refresh
 
 ---
 

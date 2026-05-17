@@ -122,14 +122,6 @@ export function AuthorPostActivityProvider({ children }: { children: React.React
         return null;
       });
 
-      if (Platform.OS === 'android') {
-        console.warn('[ActivityDebug][Android] refreshSeenState storage reads', {
-          currentUserId,
-          rawPostActivitySeen,
-          rawAppLastOpenedAt,
-        });
-      }
-
       const parsedPostActivitySeen = parseEpochMs(rawPostActivitySeen);
       const parsedAppLastOpenedAt = parseEpochMs(rawAppLastOpenedAt);
       if (parsedPostActivitySeen === 0 && rawPostActivitySeen) {
@@ -140,12 +132,6 @@ export function AuthorPostActivityProvider({ children }: { children: React.React
           seenMaps: seenStateCache[currentUserId]?.seenMaps ?? { reactionsByPostId: {}, privateNotesByPostId: {}, conversationByPostId: {} },
         };
         await AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUserId), String(migratedTimestamp)).catch(() => {});
-        if (Platform.OS === 'android') {
-          console.warn('[ActivityDebug][Android] migrated invalid post_activity_seen', {
-            currentUserId,
-            migratedTimestamp,
-          });
-        }
       } else {
         // Critical behavior: once post_activity_seen exists, it is the source of truth.
         // App lifecycle timestamps are only a one-time bootstrap fallback.
@@ -158,16 +144,6 @@ export function AuthorPostActivityProvider({ children }: { children: React.React
         };
         if (effectiveSeenAt !== parsedPostActivitySeen) {
           await AsyncStorage.setItem(POST_ACTIVITY_SEEN_KEY(currentUserId), String(effectiveSeenAt)).catch(() => {});
-        }
-        if (Platform.OS === 'android') {
-          console.warn('[ActivityDebug][Android] baseline resolved', {
-            currentUserId,
-            parsedPostActivitySeen,
-            parsedAppLastOpenedAt,
-            fallbackTimestamp,
-            effectiveSeenAt,
-            source: parsedPostActivitySeen > 0 ? 'post_activity_seen' : 'app_last_opened_fallback',
-          });
         }
       }
 
@@ -228,13 +204,6 @@ export function AuthorPostActivityProvider({ children }: { children: React.React
     if (!currentUserId || postIdsToMark.length === 0) return;
 
     const seenAt = Date.now();
-    if (Platform.OS === 'android') {
-      console.warn('[ActivityDebug][Android] markPostsSeen', {
-        currentUserId,
-        seenAt,
-        postIdsToMark,
-      });
-    }
     await AsyncStorage.multiSet(
       postIdsToMark.map((postId) => {
         return [POST_REACTIONS_SEEN_KEY(currentUserId, postId), String(seenAt)] as [string, string];

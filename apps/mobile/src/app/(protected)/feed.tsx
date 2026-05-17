@@ -53,6 +53,7 @@ import { useAutoCompleteTasks } from '@/hooks/useAutoCompleteTasks';
 import { useAuthorPostActivity } from '../../hooks/useAuthorPostActivity';
 import { useFeedReactionHint } from '@/hooks/useFeedReactionHint';
 import { useFeedModals } from '@/hooks/useFeedModals';
+
 import {
 	BETA_FEEDBACK_FORM_URL,
 	FEED_SESSION_SCROLLED_KEY,
@@ -86,24 +87,8 @@ export default function FeedScreen() {
 	const pendingTasks = useAppSelector((state) => state.tasks.items);
 	const { hasUnread: hasUnreadPostActivity, refreshSeenState } = useAuthorPostActivity();
 
-	useEffect(() => {
-		if (Platform.OS !== 'android') {
-			return;
-		}
-		console.warn('[ActivityDebug][Android] Feed mounted', {
-			postsLoaded,
-			postsCount: posts.length,
-		});
-	}, []);
-
 	useFocusEffect(
 		useCallback(() => {
-			if (Platform.OS === 'android') {
-				console.warn('[ActivityDebug][Android] Feed focused', {
-					postsLoaded,
-					postsCount: posts.length,
-				});
-			}
 			// If we're already at/near the top of the feed when focusing, notify
 			// the pill so it dismisses any new posts that are already visible.
 			newPostsPillRef.current?.notifyScrollY(prevScrollY.current);

@@ -276,7 +276,9 @@ export async function upsertFcmToken(uid: string, entry: FcmTokenEntry): Promise
     const snap = await transaction.get(docRef);
     if (!snap.exists) return;
     const data = snap.data() as NotificationSettings;
-    const tokens = (data.fcmTokens ?? []).filter((t) => t.deviceId !== entry.deviceId);
+    const tokens = (data.fcmTokens ?? []).filter((t) => {
+      return t.deviceId !== entry.deviceId && t.token !== entry.token;
+    });
     tokens.push(entry);
     transaction.update(docRef, { fcmTokens: tokens });
   });

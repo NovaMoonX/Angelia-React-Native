@@ -31,7 +31,10 @@ import {
 } from '@/store/slices/connectionsSlice';
 import { processPendingInvite } from '@/store/actions/inviteActions';
 import { processPendingConnection } from '@/store/actions/connectionsActions';
-import { initNotifications } from '@/store/actions/notificationActions';
+import {
+  initNotifications,
+  ensureCurrentDeviceTokenRegistered,
+} from '@/store/actions/notificationActions';
 import { setMobileAppConfig } from '@/store/slices/appConfigSlice';
 import {
   subscribeToCurrentUser,
@@ -434,6 +437,12 @@ export function useDataListenerRealtimeData() {
       firebaseUid,
       (settings: NotificationSettings | null) => {
         dispatch(setCurrentUserNotificationSettings(settings));
+
+        if (settings) {
+          // Keep the current device token entry self-healed after server-side
+          // pruning of invalid tokens (NotRegistered).
+          void dispatch(ensureCurrentDeviceTokenRegistered());
+        }
 
         if (settings || notifInitInFlightRef.current) {
           return;

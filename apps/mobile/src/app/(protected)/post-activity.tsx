@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuthorPostActivity } from '../../hooks/useAuthorPostActivity';
+
 import { PostCard } from '@/components/PostCard';
 import { useAppSelector } from '@/store/hooks';
 import { selectAllChannels } from '@/store/slices/channelsSlice';
@@ -39,16 +40,7 @@ export default function PostActivityScreen() {
   const lastVisibleKeyRef = useRef('');
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 98 }).current;
 
-  useEffect(() => {
-    if (Platform.OS !== 'android') {
-      return;
-    }
-    console.warn('[ActivityDebug][Android] PostActivity mounted', {
-      scope,
-      summariesCount: summaries.length,
-      unreadCount: Object.keys(unreadDetailsByPostId).length,
-    });
-  }, []);
+
 
   const handleBackPress = useCallback(() => {
     router.dismissTo('/(protected)/feed');
@@ -61,11 +53,6 @@ export default function PostActivityScreen() {
   const flushPendingSeen = useCallback(async () => {
     const pendingPostIds = Array.from(pendingSeenPostIdsRef.current);
     if (pendingPostIds.length === 0) return;
-    if (Platform.OS === 'android') {
-      console.warn('[ActivityDebug][Android] flushPendingSeen', {
-        pendingPostIds,
-      });
-    }
     pendingSeenPostIdsRef.current.clear();
     await markPostsSeenRef.current(pendingPostIds);
   }, []);
@@ -79,12 +66,6 @@ export default function PostActivityScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (Platform.OS === 'android') {
-        console.warn('[ActivityDebug][Android] PostActivity focused', {
-          summariesCount: summaries.length,
-          unreadCount: Object.keys(unreadDetailsByPostId).length,
-        });
-      }
       void refreshSeenState().catch(() => {});
       return () => {
         void flushPendingSeen().catch(() => {});
@@ -196,12 +177,6 @@ export default function PostActivityScreen() {
     const nextKey = fullyVisiblePostIds.join('|');
     if (nextKey === lastVisibleKeyRef.current) return;
     lastVisibleKeyRef.current = nextKey;
-    if (Platform.OS === 'android') {
-      console.warn('[ActivityDebug][Android] onViewableItemsChanged', {
-        fullyVisiblePostIds,
-        activityScope,
-      });
-    }
     fullyVisiblePostIds.forEach((postId) => {
       pendingSeenPostIdsRef.current.add(postId);
     });

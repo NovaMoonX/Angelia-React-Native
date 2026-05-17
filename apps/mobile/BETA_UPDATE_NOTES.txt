@@ -7,6 +7,8 @@ Related PR: TBD
 Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
 
 Current branch highlights:
+- Push delivery is now more self-healing: the app keeps a stable per-device notification identity during sign-in transitions, and backend sends now automatically prune invalid/stale FCM tokens so old registrations stop causing repeated NotRegistered failures.
+- Backing out of Conversation or Private Notes now dismisses back to the same Post Details screen instead of stacking a second copy, so navigation feels cleaner and more predictable.
 - Leaving Post Detail now feels snappier when join suggestions are eligible: we precompute and cache suggestion candidates in a dedicated app-state slice when you open a post, so back navigation no longer waits on a last-second fetch, and suggestions automatically recompute when circle data changes.
 - General performance got a polish pass, so the app should feel smoother overall, with posting and upload progress feeling steadier.
 - Status expiry mode is now easier to choose at a glance: the old Duration/Exact Time button pair is now a clear two-option radio selector.
