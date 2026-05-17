@@ -29,7 +29,7 @@ export default function PrivateNotesScreen() {
 			return;
 		}
 		isRoutingToPostRef.current = true;
-		router.replace({ pathname: '/(protected)/post/[id]', params: { id: postId } });
+		router.dismissTo({ pathname: '/(protected)/post/[id]', params: { id: postId } });
 	}, [postId, router]);
 
 	useEffect(() => {
