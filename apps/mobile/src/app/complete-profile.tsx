@@ -638,7 +638,7 @@ export default function CompleteProfileScreen() {
       for (const circle of pendingCircles) {
         const name = (circleNameOverrides[circle.key] ?? circle.name).trim() || circle.name;
         try {
-          const createdChannel = await dispatch(createCustomChannel({ name, description: circle.description, color: circle.color })).unwrap();
+          const createdChannel = await dispatch(createCustomChannel({ name, description: circle.description, color: circle.color, isPrivate: false })).unwrap();
           // Create a task reminding the user to invite someone to each new Circle
           if (createdChannel) {
             try {

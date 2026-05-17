@@ -38,6 +38,63 @@ export const selectHasAnyPendingActivity = createSelector(
     incomingConnRequests.some((r) => r.status === 'pending'),
 );
 
+/**
+ * Current user's posts that are still uploading, newest first.
+ * Used for top-of-feed upload visibility and detailed upload activity view.
+ */
+export const selectCurrentUserUploadingPosts = createSelector(
+  [
+    (state: RootState) => state.users.currentUser,
+    (state: RootState) => state.posts.items,
+  ],
+  (currentUser, posts): Post[] => {
+    if (!currentUser) return [];
+
+    return posts
+      .filter((post) => {
+        if (post.authorId !== currentUser.id) return false;
+        if (post.markedForDeletionAt !== null) return false;
+        return post.status === 'uploading';
+      })
+      .sort((a, b) => {
+        return b.timestamp - a.timestamp;
+      });
+  },
+);
+
+/**
+ * Progress map for current user's uploading posts only.
+ */
+export const selectCurrentUserUploadProgressMap = createSelector(
+  [
+    selectCurrentUserUploadingPosts,
+    (state: RootState) => state.uploads.byPostId,
+  ],
+  (uploadingPosts, progressByPostId) => {
+    const out: Record<string, number> = {};
+    uploadingPosts.forEach((post) => {
+      out[post.id] = progressByPostId[post.id]?.progress ?? 0;
+    });
+    return out;
+  },
+);
+
+/**
+ * Aggregate progress (0..1) for current user's active uploads.
+ */
+export const selectCurrentUserUploadAggregateProgress = createSelector(
+  [selectCurrentUserUploadingPosts, (state: RootState) => state.uploads.byPostId],
+  (uploadingPosts, progressByPostId) => {
+    if (uploadingPosts.length === 0) {
+      return 0;
+    }
+    const sum = uploadingPosts.reduce((acc, post) => {
+      return acc + (progressByPostId[post.id]?.progress ?? 0);
+    }, 0);
+    return sum / uploadingPosts.length;
+  },
+);
+
 export const selectAuthorPostActivitySummaries = createSelector(
   [
     (state: RootState) => state.users.currentUser,

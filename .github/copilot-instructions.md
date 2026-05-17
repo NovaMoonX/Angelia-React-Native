@@ -342,6 +342,125 @@ Do **not** clutter the README with:
 - Internal implementation details that don't affect the dev workflow
 - Speculative or forward-looking notes
 
+### Branch Narrative (`BRANCH_NARRATIVE.md`)
+
+**For every feature branch that adds user-facing functionality or significant changes, create a `BRANCH_NARRATIVE.md` file** in `apps/mobile/`. This file tells the story of what changed, why it changed, and how it technically works — all for the PR reviewer.
+
+**Purpose:** Reviewers should be able to read the file once and understand:
+- The user problem each feature solves
+- The solution (UX & workflow)
+- Technical implementation details for that feature
+- Cross-cutting changes (data flow, selectors, types)
+- What files changed and why
+- Testing checklist
+
+**Structure:**
+
+1. **Story Overview** — 2–3 sentences about the theme and user intent
+2. **Feature 1–N sections** — One per major change:
+   - **The Problem** — user-facing pain point
+   - **The Solution** — what changed (UX/workflow)
+   - **Technical Detail** — files, key code changes, why (with `[file links](path)`)
+3. **Cross-Cutting Changes** — Redux, data flow, type safety changes shared across multiple features
+4. **User-Facing Impact** — table of features, benefits, where they appear
+5. **Testing Checklist** — manual QA steps
+6. **Files Changed** — table with line counts and purposes
+7. **Summary** — recap for users, code maintainers, and experience
+
+**When to create:**
+- Any branch that adds a new screen, feature, or workflow
+- Any branch that changes existing UI, controls, or copy
+- Any branch that touches critical data flow, selectors, or type structures
+- Do **not** create for bug fixes, refactors, or internal cleanup (unless the PR is large and complex)
+
+**Tone & Audience:**
+- Write for a code reviewer who needs both story context and technical detail
+- Mix narrative ("Alice wants to...") with technical specifics ("added compareReactionGroupPriority in reaction.utils.ts")
+- Include file links so reviewers can jump to implementation
+- Explain **why** changes matter, not just what they do
+
+**Example intro to a feature:**
+
+> **The Problem:** Bob sees 🎉 at the top on the feed, but when he opens the post details, he sees ❤️ first.  
+> **The Solution:** All reactions now sort by count → oldest timestamp → emoji strength → lexicographic, everywhere.  
+> **Technical Detail:**
+> - File: [reaction.utils.ts](../src/services/utils/reaction.utils.ts) (new shared comparator)
+> - Key Changes: Added `compareReactionGroupPriority()`, `EMOJI_STRENGTH_ORDER`, new `ReactionGroupPriorityEntry` interface
+> - Used by: post/[id].tsx, PostCard.tsx, ...
+
+**Before submitting a PR, ensure:**
+- ✅ `BRANCH_NARRATIVE.md` created with all six sections
+- ✅ All file links use workspace-relative paths and work
+- ✅ Testing checklist is concrete and manual-QA–friendly
+- ✅ Files Changed table matches actual git diff
+- ✅ Tone is warm and story-driven, not dry
+
+**After merging:**
+- Archive the branch narrative (paste it into a release notes doc or wiki)
+- Delete the file from `main` to keep the repo clean
+
+---
+
+### Testing Document (`TESTING.md`)
+
+**For every feature branch that has a `BRANCH_NARRATIVE.md`, also create and maintain a `TESTING.md` file** in `apps/mobile/`. This is the manual QA guide for the developer to verify every feature before merging.
+
+**Purpose:** The developer reads this file, then systematically checks every feature on device. Reviewers can also use it to confirm what was tested.
+
+**Device setup context** (always include at the top):
+- **Primary:** Android — used for all standard testing
+- **Secondary:** iPhone — used only when:
+  - Two different user accounts are needed simultaneously
+  - The feature likely behaves differently on iOS (pickers, keyboard, safe area, haptics)
+  - Confirming a fix works on both platforms
+
+**Structure:**
+
+1. **Before You Start Testing** — a section near the top that tells the tester what to run before their first test session:
+   - `npm install` (always)
+   - `npm run env:pull` (after clone or env changes)
+   - Whether a prebuild + native build is needed for this branch (list the commands)
+   - A quick sanity check: app launches cleanly, no Metro errors
+   - **Update this section whenever a new native package is added to the branch.** If the branch adds a dependency that requires a prebuild (i.e. any package with native code, a new Expo plugin, or a change to `app.config.js`), explicitly call it out here so testers know to re-run prebuild before testing.
+2. **Device Setup** — brief section with Android/iPhone guidance and when to use each
+3. **Feature 1–N sections** — one per feature from the Branch Narrative:
+   - **Devices:** which to test on, and when to involve the iPhone
+   - **Setup** — any state/data that needs to exist before testing
+   - **Checklist** — concrete checkbox steps a person can follow on a real device
+   - **Edge cases** — boundary conditions, unusual inputs, stress cases
+3. **Regression Checks** — a final section of quick checks to confirm nothing pre-existing broke
+4. **Known Limitations / Notes** — anything that is intentionally deferred, partially implemented, or needs follow-up
+
+**Conventions:**
+- All checklist items start with `- [ ]` so they can be mentally checked off while testing
+- Steps are written as actions + expected outcomes: "Tap X → Y happens"
+- Be specific: "Tap the 📝 badge" is better than "Open the caption modal"
+- List the Android steps first; add an iPhone section only when behavior differs
+
+**Keep it current:** Update `TESTING.md` whenever new features are added to the branch or when a bug is found during testing that reveals a gap in the checklist.
+
+**Edit-safety rules for existing `TESTING.md`:**
+- Default to **additive updates**: append a new `Feature N` section for new work.
+- **Do not delete or replace** existing feature sections/checklists unless the user explicitly asks.
+- **Do not rename** the testing guide title unless the user explicitly asks.
+- Preserve the existing section format (`Devices`, `Setup`, `Android`, optional `iPhone`) when adding new feature sections.
+- If the user asks to "add testing" for current work, add a new feature section in the existing format; do not create ad-hoc standalone sections.
+
+**⚠️ CRITICAL: Before marking any user-facing branch task complete, verify `TESTING.md` is updated for the current branch.**
+
+Required final check before completion:
+- Confirm active branch name via git (`git rev-parse --abbrev-ref HEAD`) before editing `TESTING.md`
+- Confirm `**Branch:**` in `TESTING.md` matches the active feature branch name
+- Confirm feature sections in `TESTING.md` match the current `BRANCH_NARRATIVE.md`
+- If branch detection is unavailable or ambiguous, ask the user for the branch name before editing `TESTING.md`
+- If either is stale, update `TESTING.md` first, then mark the task complete
+
+**Before submitting a PR, ensure:**
+- ✅ `TESTING.md` exists and covers every feature in `BRANCH_NARRATIVE.md`
+- ✅ Regression checklist is present
+- ✅ Device guidance is clear (Android vs iPhone, when to use each)
+- ✅ All checklist items are actionable on a real device (no vague "confirm it works")
+
 ---
 
 ## Confirming destructive actions
@@ -558,6 +677,29 @@ return (
 - `src/app/(protected)/camera.tsx` — shutter button scale animation (shutterScaleStyle)
 - `src/app/complete-profile.tsx` — loading overlay animations (pulseAnimStyle, fadeAnimStyle)
 - `src/app/(protected)/post/uploading.tsx` — rocket emoji pulse (pulseScaleStyle)
+
+---
+
+### iOS push notifications not delivered (APNs key missing from Firebase)
+
+**Symptom:** Push notifications are working on Android but not arriving on iOS. Device permissions, app entitlements, and APNS configuration appear correct, but no notifications arrive or show any error in logs.
+
+**Root cause:** The APNs (Apple Push Notification service) authentication key had not been uploaded to Firebase. Firebase requires a `.p8` APNs auth key to bridge FCM → APNs for iOS devices. Without it, Firebase silently fails all iOS notification deliveries. Android is unaffected because it uses FCM natively and does not require APNs.
+
+**Diagnostic steps taken:**
+1. **Apple Push Notifications Console → Tools**: Validated the device's APNs token was legitimate and correctly registered for the app.
+2. **Apple Push Notifications Console → Send**: Sent a direct test notification to the device via APNs. This succeeded, confirming the device, app entitlements, and Apple Developer configuration were all correct.
+3. **Firebase Console → Messaging**: Attempted a direct test send to the device's FCM token. This failed, narrowing the problem to the Firebase ↔ APNs bridge.
+4. **Firebase Console → Project Settings → Cloud Messaging → Apple app configuration**: Confirmed that no APNs key or certificate had been uploaded — the missing link.
+
+**Fix:**
+1. Go to **developer.apple.com → Certificates, Identifiers & Profiles → Keys**
+2. Create a new key with **Apple Push Notifications service (APNs)** enabled
+3. Download the `.p8` file immediately (it can only be downloaded once) and note the **Key ID** and **Team ID**
+4. Go to **Firebase Console → Project Settings → Cloud Messaging → Apple app configuration**
+5. Upload the `.p8` file, and enter the **Key ID** and **Team ID**
+
+No app reinstall or redeployment is required — notifications begin working immediately after the key is uploaded. A single `.p8` APNs auth key covers both **development and production** environments and all apps under the same Apple Developer account. If notifications still do not arrive after uploading the key, try a **full app reinstall** or **sign out/sign in** to force a fresh FCM token to be generated and saved to the backend. The `.p8` file can only be downloaded once — store it securely. If lost, the key must be revoked and a new one generated.
 
 ---
 

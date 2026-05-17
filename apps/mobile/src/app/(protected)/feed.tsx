@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
 	Animated,
-	Linking,
 	NativeSyntheticEvent,
 	NativeScrollEvent,
+	Platform,
 	Pressable,
 	RefreshControl,
 	StyleSheet,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
+import * as WebBrowser from 'expo-web-browser';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -40,7 +41,11 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { updatePostReactions } from '@/store/actions/postActions';
 import { saveStatus, clearStatus } from '@/store/actions/userActions';
 import { completeTask } from '@/store/actions/taskActions';
-import { selectHasAnyPendingActivity } from '@/store/crossSelectors/activitySelectors';
+import {
+	selectCurrentUserUploadingPosts,
+	selectCurrentUserUploadAggregateProgress,
+	selectHasAnyPendingActivity,
+} from '@/store/crossSelectors/activitySelectors';
 import { selectAllChannels } from '@/store/slices/channelsSlice';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
@@ -48,8 +53,10 @@ import { useAutoCompleteTasks } from '@/hooks/useAutoCompleteTasks';
 import { useAuthorPostActivity } from '../../hooks/useAuthorPostActivity';
 import { useFeedReactionHint } from '@/hooks/useFeedReactionHint';
 import { useFeedModals } from '@/hooks/useFeedModals';
+
 import {
 	BETA_FEEDBACK_FORM_URL,
+	FEED_SESSION_SCROLLED_KEY,
 	NOTIFICATION_SETTINGS_NOTICE_ACCENT,
 	NOTIFICATION_SETTINGS_NOTICE_BADGE_SEEN_KEY,
 	NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY,
@@ -75,15 +82,32 @@ export default function FeedScreen() {
 	const currentUser = useAppSelector((state) => state.users.currentUser);
 	const isDemo = useAppSelector((state) => state.demo.isActive);
 	const hasPendingActivity = useAppSelector(selectHasAnyPendingActivity);
+	const uploadingPosts = useAppSelector(selectCurrentUserUploadingPosts);
+	const uploadAggregateProgress = useAppSelector(selectCurrentUserUploadAggregateProgress);
 	const pendingTasks = useAppSelector((state) => state.tasks.items);
-	const { hasUnread: hasUnreadPostActivity, refreshSeenState } = useAuthorPostActivity({ enableSubscriptions: true });
+	const { hasUnread: hasUnreadPostActivity, refreshSeenState } = useAuthorPostActivity();
 
 	useFocusEffect(
 		useCallback(() => {
 			// If we're already at/near the top of the feed when focusing, notify
 			// the pill so it dismisses any new posts that are already visible.
 			newPostsPillRef.current?.notifyScrollY(prevScrollY.current);
-			void refreshSeenState();
+
+			let timeoutId: ReturnType<typeof setTimeout> | null = null;
+			let idleCallbackId: number | null = null;
+			const runRefresh = () => {
+				void refreshSeenState();
+			};
+			if (typeof globalThis.requestIdleCallback === 'function') {
+				idleCallbackId = globalThis.requestIdleCallback(() => {
+					runRefresh();
+				});
+			} else {
+				timeoutId = setTimeout(() => {
+					runRefresh();
+				}, 0);
+			}
+
 			void Promise.all([
 				AsyncStorage.getItem(
 					NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY(NOTIFICATION_SETTINGS_NOTICE_VERSION),
@@ -102,8 +126,15 @@ export default function FeedScreen() {
 					setHasNotificationSettingsNotice(true);
 					return null;
 				});
-			return undefined;
-		}, [refreshSeenState]),
+			return () => {
+				if (idleCallbackId != null && typeof globalThis.cancelIdleCallback === 'function') {
+					globalThis.cancelIdleCallback(idleCallbackId);
+				}
+				if (timeoutId != null) {
+					clearTimeout(timeoutId);
+				}
+			};
+		}, [posts.length, postsLoaded, refreshSeenState]),
 	);
 
 	// Auto-complete tasks when their conditions are already met on load.
@@ -127,7 +158,25 @@ export default function FeedScreen() {
 	const [reactionTargetPostId, setReactionTargetPostId] = useState<string | null>(null);
 	const [activeReactionPillPostId, setActiveReactionPeelPostId] = useState<string | null>(null);
 	const [hasNotificationSettingsNotice, setHasNotificationSettingsNotice] = useState(false);
-	const isMountedRef = useRef(false);
+	const didRunColdLaunchInitRef = useRef(false);
+	const didRunFilterEffectRef = useRef(false);
+
+	// Cold-launch: scroll to top once per app session. Within-session navigation
+	// (e.g. going to notifications and back) preserves the user's scroll position.
+	useEffect(() => {
+		if (didRunColdLaunchInitRef.current) return;
+		didRunColdLaunchInitRef.current = true;
+		void AsyncStorage.getItem(FEED_SESSION_SCROLLED_KEY).then((value) => {
+			if (value === 'true') return null;
+			// Cold launch — scroll to top after posts are rendered
+			void AsyncStorage.setItem(FEED_SESSION_SCROLLED_KEY, 'true');
+			setTimeout(() => {
+				flatListRef.current?.scrollToIndex({ index: 0, animated: false });
+			}, 300);
+			return null;
+		});
+	}, []);
+
 	const reactionPickerOpenRef = useRef(false);
 	const flatListRef = useRef<FlashListRef<Post>>(null);
 
@@ -148,6 +197,8 @@ export default function FeedScreen() {
 	const dot3AnimatedStyle = useMemo(() => ({ transform: [{ scale: dot3Scale }] }), []);
 
 	const prevScrollY = useRef(0);
+	const didPrimeScrollRef = useRef(false);
+	const isUserScrollingRef = useRef(false);
 	const headerVisible = useRef(true);
 	const headerAnimation = useRef<Animated.CompositeAnimation | null>(null);
 	const [scrolledPast, setScrolledPast] = useState(false);
@@ -361,6 +412,8 @@ export default function FeedScreen() {
 	const isChannelFiltered = channelFilter.mode === 'specific' && channelFilter.specificIds.length > 0;
 
 	const hasActiveFilters = isChannelFiltered || priorityFilter.length > 0;
+	const uploadingCount = uploadingPosts.length;
+	const uploadPercentLabel = Math.round(uploadAggregateProgress * 100);
 
 	const clearFilters = useCallback(() => {
 		setChannelFilter({ mode: 'all', specificIds: [] });
@@ -373,8 +426,8 @@ export default function FeedScreen() {
 
 	// When filters or sort order change: scroll to top, reset page, show filtering indicator
 	useEffect(() => {
-		if (!isMountedRef.current) {
-			isMountedRef.current = true;
+		if (!didRunFilterEffectRef.current) {
+			didRunFilterEffectRef.current = true;
 			return;
 		}
 		setDisplayCount(INITIAL_PAGE);
@@ -444,22 +497,33 @@ export default function FeedScreen() {
 	const onScroll = useCallback(
 		(event: NativeSyntheticEvent<NativeScrollEvent>) => {
 			const currentY = event.nativeEvent.contentOffset.y;
+
+			if (!didPrimeScrollRef.current) {
+				didPrimeScrollRef.current = true;
+				prevScrollY.current = currentY;
+				newPostsPillRef.current?.notifyScrollY(currentY);
+				setScrolledPast(currentY > 100);
+				return;
+			}
+
 			const delta = currentY - prevScrollY.current;
 			const threshold = headerHeight;
 
-			if (Math.abs(delta) > 4 && activeReactionPillPostId && !reactionPickerOpenRef.current) {
+			if (isUserScrollingRef.current && Math.abs(delta) > 4 && activeReactionPillPostId && !reactionPickerOpenRef.current) {
 				setActiveReactionPeelPostId(null);
 			}
 
-			if (currentY <= 0 && !headerVisible.current) {
-				headerVisible.current = true;
-				animateHeader(0, 150);
-			} else if (delta > 5 && currentY > threshold && headerVisible.current) {
-				headerVisible.current = false;
-				animateHeader(-threshold, 200);
-			} else if (delta < -5 && !headerVisible.current) {
-				headerVisible.current = true;
-				animateHeader(0, 200);
+			if (isUserScrollingRef.current) {
+				if (currentY <= 0 && !headerVisible.current) {
+					headerVisible.current = true;
+					animateHeader(0, 150);
+				} else if (delta > 5 && currentY > threshold && headerVisible.current) {
+					headerVisible.current = false;
+					animateHeader(-threshold, 200);
+				} else if (delta < -5 && !headerVisible.current) {
+					headerVisible.current = true;
+					animateHeader(0, 200);
+				}
 			}
 
 			// Notify the new-posts pill of the current scroll position so it can
@@ -510,7 +574,7 @@ export default function FeedScreen() {
 	const handleOpenBetaFeedbackForm = useCallback(async () => {
 		const url = mobileConfig?.feedbackForm?.url ?? BETA_FEEDBACK_FORM_URL;
 		try {
-			await Linking.openURL(url);
+			await WebBrowser.openBrowserAsync('https://docs.google.com/forms/d/e/1FAIpQLSdlCsEhqR3jTusrzqYil7n_rGGn-prtgLOn_tBiJBEhUUGa4A/viewform?usp=dialog');
 		} catch {
 			try {
 				await Clipboard.setStringAsync(url);
@@ -587,6 +651,21 @@ export default function FeedScreen() {
 					onViewableItemsChanged={onViewableItemsChanged}
 					viewabilityConfig={viewabilityConfig}
 					onScroll={onScroll}
+					onScrollBeginDrag={() => {
+						isUserScrollingRef.current = true;
+					}}
+					onMomentumScrollBegin={() => {
+						isUserScrollingRef.current = true;
+					}}
+					onScrollEndDrag={(event) => {
+						const velocityY = event.nativeEvent.velocity?.y ?? 0;
+						if (Math.abs(velocityY) < 0.1) {
+							isUserScrollingRef.current = false;
+						}
+					}}
+					onMomentumScrollEnd={() => {
+						isUserScrollingRef.current = false;
+					}}
 					scrollEventThrottle={16}
 					contentContainerStyle={[
 						styles.listContent,
@@ -696,6 +775,32 @@ export default function FeedScreen() {
 						</Pressable>
 					</View>
 				</View>
+
+				{uploadingCount > 0 && (
+					<Pressable
+						onPress={() => router.push({ pathname: '/(protected)/post-activity', params: { scope: 'uploading' } })}
+						style={[styles.uploadingBanner, { backgroundColor: theme.secondary, borderColor: theme.border }]}
+					>
+						<Feather name='upload-cloud' size={14} color={theme.secondaryForeground} />
+						<Text style={[styles.uploadingBannerText, { color: theme.secondaryForeground }]}> 
+							{uploadingCount === 1
+								? `Uploading 1 post... ${uploadPercentLabel}%`
+								: `Uploading ${uploadingCount} posts... ${uploadPercentLabel}%`}
+						</Text>
+						<Feather name='chevron-right' size={14} color={theme.secondaryForeground} />
+						<View style={[styles.uploadingProgressTrack, { backgroundColor: `${theme.secondaryForeground}33` }]}>
+							<View
+								style={[
+									styles.uploadingProgressFill,
+									{
+										backgroundColor: theme.secondaryForeground,
+										width: `${uploadPercentLabel}%`,
+									},
+								]}
+							/>
+						</View>
+					</Pressable>
+				)}
 
 				{/* Filters */}
 				<View style={styles.filterRow}>
@@ -907,7 +1012,7 @@ export default function FeedScreen() {
 			)}
 
 			{/* Beta feedback shortcut */}
-			{!fabExpanded && (
+			{!fabExpanded && !isDemo && (
 				<Pressable
 					style={[
 						styles.betaFeedbackButton,
@@ -1299,5 +1404,34 @@ const styles = StyleSheet.create({
 		flex: 1,
 		fontSize: 13,
 		fontWeight: '600',
+	},
+	uploadingBanner: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 6,
+		paddingHorizontal: 12,
+		paddingVertical: 6,
+		marginHorizontal: 16,
+		marginBottom: 10,
+		borderRadius: 10,
+		borderWidth: 1,
+	},
+	uploadingBannerText: {
+		flex: 1,
+		fontSize: 12,
+		fontWeight: '600',
+	},
+	uploadingProgressTrack: {
+		position: 'absolute',
+		left: 12,
+		right: 12,
+		bottom: 3,
+		height: 2,
+		borderRadius: 999,
+		overflow: 'hidden',
+	},
+	uploadingProgressFill: {
+		height: '100%',
+		borderRadius: 999,
 	},
 });

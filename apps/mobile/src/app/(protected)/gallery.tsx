@@ -18,21 +18,37 @@ import type { MediaFile } from '@/components/PostCreateMediaUploader';
 import { compressImage } from '@/utils/compressImage';
 import { generateVideoThumbnailFileUri } from '@/utils/generateVideoThumbnail';
 
+function decodeMediaParam(value: string): MediaFile[] {
+  try {
+    return JSON.parse(value) as MediaFile[];
+  } catch {
+    return JSON.parse(decodeURIComponent(value)) as MediaFile[];
+  }
+}
+
+function encodeMediaParam(files: MediaFile[]): string {
+  return encodeURIComponent(JSON.stringify(files));
+}
+
 export default function GalleryScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const { addToast } = useToast();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
+    editPostId?: string;
     existingMedia?: string;
     existingText?: string;
     existingChannel?: string;
+    existingTier?: string;
+    existingPendingStatus?: string;
+    pickMode?: string;
   }>();
 
   const existingFiles = useMemo<MediaFile[]>(() => {
     if (!params.existingMedia) return [];
     try {
-      return JSON.parse(params.existingMedia) as MediaFile[];
+      return decodeMediaParam(params.existingMedia);
     } catch {
       return [];
     }
@@ -42,11 +58,41 @@ export default function GalleryScreen() {
 
   const [selected, setSelected] = useState<MediaFile[]>([]);
   const remaining = MAX_FILES - existingCount;
+  const isAudioMode = params.pickMode === 'audio';
+
+  const returnToComposer = () => {
+    router.replace({
+      pathname: '/(protected)/post/new',
+      params: {
+        editPostId: params.editPostId,
+        capturedMedia: encodeMediaParam(existingFiles),
+        existingText: params.existingText,
+        existingChannel: params.existingChannel,
+        existingTier: params.existingTier,
+        existingPendingStatus: params.existingPendingStatus,
+      },
+    });
+  };
 
   const openPicker = async () => {
     if (remaining <= 0) {
       addToast({ type: 'warning', title: `Maximum ${MAX_FILES} files already attached` });
-      router.back();
+      returnToComposer();
+      return;
+    }
+
+    if (isAudioMode) {
+      router.replace({
+        pathname: '/(protected)/audio-record',
+        params: {
+          editPostId: params.editPostId,
+          existingMedia: params.existingMedia,
+          existingText: params.existingText,
+          existingChannel: params.existingChannel,
+          existingTier: params.existingTier,
+          existingPendingStatus: params.existingPendingStatus,
+        },
+      });
       return;
     }
 
@@ -59,7 +105,7 @@ export default function GalleryScreen() {
 
     if (result.canceled) {
       if (selected.length === 0) {
-        router.back();
+        returnToComposer();
       }
       return;
     }
@@ -81,6 +127,7 @@ export default function GalleryScreen() {
         name: asset.fileName || `media-${Date.now()}`,
         type: asset.mimeType || 'image/jpeg',
         size: asset.fileSize,
+        caption: null,
       }));
 
     // Compress images and generate thumbnails for videos
@@ -121,16 +168,19 @@ export default function GalleryScreen() {
 
   const confirmSelection = () => {
     if (selected.length === 0) {
-      router.back();
+      returnToComposer();
       return;
     }
     const merged = [...existingFiles, ...selected].slice(0, MAX_FILES);
     router.replace({
       pathname: '/(protected)/post/new',
       params: {
-        capturedMedia: JSON.stringify(merged),
+        editPostId: params.editPostId,
+        capturedMedia: encodeMediaParam(merged),
         existingText: params.existingText,
         existingChannel: params.existingChannel,
+        existingTier: params.existingTier,
+        existingPendingStatus: params.existingPendingStatus,
       },
     });
   };
@@ -139,11 +189,11 @@ export default function GalleryScreen() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable onPress={returnToComposer} hitSlop={12}>
           <Feather name="x" size={24} color={theme.foreground} />
         </Pressable>
         <Text style={[styles.title, { color: theme.foreground }]}>
-          Select Media
+          {isAudioMode ? 'Select MP3' : 'Select Media'}
         </Text>
         <Pressable
           onPress={confirmSelection}
@@ -173,7 +223,12 @@ export default function GalleryScreen() {
           contentContainerStyle={styles.grid}
           renderItem={({ item, index }) => (
             <View style={styles.gridItem}>
-              {item.type.startsWith('video/') ? (
+              {item.type.startsWith('audio/') ? (
+                <View style={[styles.gridImage, styles.audioGridItem]}>
+                  <Feather name="music" size={24} color="#FFF" />
+                  <Text style={styles.audioGridLabel} numberOfLines={1}>{item.name}</Text>
+                </View>
+              ) : item.type.startsWith('video/') ? (
                 <View style={[styles.gridImage, styles.videoGridItem]}>
                   {item.thumbnailUri ? (
                     <Image source={{ uri: item.thumbnailUri }} style={StyleSheet.absoluteFill} contentFit="cover" />
@@ -272,6 +327,18 @@ const styles = StyleSheet.create({
   videoGridItem: {
     backgroundColor: '#1a1a1a',
     overflow: 'hidden',
+  },
+  audioGridItem: {
+    backgroundColor: '#111827',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 6,
+  },
+  audioGridLabel: {
+    color: '#FFF',
+    fontSize: 10,
+    textAlign: 'center',
   },
   videoGridOverlay: {
     ...StyleSheet.absoluteFillObject,

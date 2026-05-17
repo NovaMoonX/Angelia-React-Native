@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { Modal } from '@/components/ui/Modal';
 import { Form, FormFactories, type FormCustomFieldProps } from '@/components/ui/Form';
 import { Button } from '@/components/ui/Button';
@@ -16,7 +16,7 @@ interface ChannelFormData {
 interface ChannelFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: ChannelFormData) => void;
+  onSubmit: (data: ChannelFormData & { isPrivate: boolean }) => void;
   channel?: Channel;
   mode: 'create' | 'edit';
   existingChannelNames?: string[];
@@ -77,6 +77,12 @@ export function ChannelFormModal({
   existingChannelNames = [],
 }: ChannelFormModalProps) {
   const { theme } = useTheme();
+  const [isPrivate, setIsPrivate] = useState<boolean>(channel?.isPrivate ?? false);
+
+  // Reset isPrivate when modal opens for a different channel or create mode
+  React.useEffect(() => {
+    setIsPrivate(channel?.isPrivate ?? false);
+  }, [channel?.id, isOpen]);
 
   const formFields = useMemo(
     () => [
@@ -133,16 +139,41 @@ export function ChannelFormModal({
       <Form<ChannelFormData>
         form={formFields}
         initialData={initialData}
-        onSubmit={onSubmit}
+        onSubmit={(data) => onSubmit({ ...data, isPrivate })}
         submitButton={(handleSubmit) => (
-          <View style={formModalStyles.buttonRow}>
-            <Button variant="tertiary" onPress={onClose}>
-              Cancel
-            </Button>
-            <Button onPress={handleSubmit}>
-              {mode === 'create' ? 'Create Circle' : 'Save Changes'}
-            </Button>
-          </View>
+          <>
+            {/* Private circle toggle */}
+            <Pressable
+              onPress={() => setIsPrivate((prev) => !prev)}
+              style={[formModalStyles.toggleRow, { borderColor: theme.border }]}
+            >
+              <View style={formModalStyles.toggleLabel}>
+                <Text style={[formModalStyles.toggleTitle, { color: theme.foreground }]}>
+                  🔒 Private Circle
+                </Text>
+                <Text style={[formModalStyles.toggleDescription, { color: theme.mutedForeground }]}>
+                  {isPrivate
+                    ? 'Only you can invite people. Not suggested to others.'
+                    : 'Anyone with the invite link can request to join.'}
+                </Text>
+              </View>
+              <Switch
+                value={isPrivate}
+                onValueChange={setIsPrivate}
+                trackColor={{ false: theme.border, true: theme.primary }}
+                thumbColor="#fff"
+              />
+            </Pressable>
+
+            <View style={formModalStyles.buttonRow}>
+              <Button variant="tertiary" onPress={onClose}>
+                Cancel
+              </Button>
+              <Button onPress={handleSubmit}>
+                {mode === 'create' ? 'Create Circle' : 'Save Changes'}
+              </Button>
+            </View>
+          </>
         )}
       />
     </Modal>
@@ -155,5 +186,28 @@ const formModalStyles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: 12,
     marginTop: 16,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 16,
+    gap: 12,
+  },
+  toggleLabel: {
+    flex: 1,
+    gap: 2,
+  },
+  toggleTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  toggleDescription: {
+    fontSize: 12,
+    lineHeight: 17,
   },
 });

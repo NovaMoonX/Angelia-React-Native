@@ -8,11 +8,13 @@ interface ChannelsState {
   items: Channel[];
   /** Daily channels from connected users — kept separately so setChannels doesn't overwrite them. */
   connectionChannels: Channel[];
+  revision: number;
 }
 
 const initialState: ChannelsState = {
   items: [],
   connectionChannels: [],
+  revision: 0,
 };
 
 const channelsSlice = createSlice({
@@ -21,28 +23,35 @@ const channelsSlice = createSlice({
   reducers: {
     setChannels(state, action: PayloadAction<Channel[]>) {
       state.items = action.payload;
+      state.revision += 1;
     },
     setConnectionChannels(state, action: PayloadAction<Channel[]>) {
       state.connectionChannels = action.payload;
+      state.revision += 1;
     },
     addChannel(state, action: PayloadAction<Channel>) {
       state.items.push(action.payload);
+      state.revision += 1;
     },
     updateChannel(state, action: PayloadAction<Channel>) {
       const index = state.items.findIndex((c) => c.id === action.payload.id);
       if (index !== -1) {
         state.items[index] = action.payload;
+        state.revision += 1;
       }
     },
     removeChannel(state, action: PayloadAction<string>) {
       state.items = state.items.filter((c) => c.id !== action.payload);
+      state.revision += 1;
     },
     clearChannels(state) {
       state.items = [];
       state.connectionChannels = [];
+      state.revision += 1;
     },
     loadDemoChannels(state, action: PayloadAction<Channel[]>) {
       state.items = action.payload;
+      state.revision += 1;
     },
     /**
      * Syncs the subscriber list of the current user's daily channel with their
@@ -56,6 +65,7 @@ const channelsSlice = createSlice({
       const ch = state.items.find((c) => { return c.id === action.payload.channelId; });
       if (ch) {
         ch.subscribers = action.payload.memberIds;
+        state.revision += 1;
       }
     },
   },
@@ -122,5 +132,9 @@ export const selectAllDailyChannels = createSelector(
   [(state: RootState) => state.channels.items],
   (items) => items.filter((c) => c.isDaily === true)
 );
+
+export const selectChannelsRevision = (state: RootState) => {
+  return state.channels.revision;
+};
 
 export default channelsSlice.reducer;

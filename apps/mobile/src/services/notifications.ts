@@ -14,6 +14,7 @@ export const NOTIFICATION_ID = 'daily-prompt';
 export const WIND_DOWN_NOTIFICATION_ID = 'wind-down-prompt';
 
 const DEVICE_ID_KEY = '@angelia/device_id';
+let inMemoryDeviceId: string | null = null;
 
 // Each prompt has a notification body and a set of follow-up messages shown
 // when the user taps the notification to open the post creation screen.
@@ -140,16 +141,29 @@ export function getDeviceTimeZone(): string {
  * entry in Firestore so updates replace rather than accumulate.
  */
 export async function getOrCreateDeviceId(): Promise<string> {
+  if (inMemoryDeviceId) {
+    return inMemoryDeviceId;
+  }
+
   try {
     const existing = await AsyncStorage.getItem(DEVICE_ID_KEY);
-    if (existing) return existing;
+    if (existing) {
+      inMemoryDeviceId = existing;
+      return existing;
+    }
+
     const id = generateId('nano');
-    await AsyncStorage.setItem(DEVICE_ID_KEY, id);
+    inMemoryDeviceId = id;
+    await AsyncStorage.setItem(DEVICE_ID_KEY, id).catch(() => {
+      // Keep using the in-memory ID for this session even if persistence fails.
+    });
     return id;
   } catch {
-    // If AsyncStorage is unavailable return a session-only ID — the token will
-    // be treated as a new device on every login which is better than failing.
-    return generateId('nano');
+    // Fall back to a stable in-memory ID for this app session.
+    if (!inMemoryDeviceId) {
+      inMemoryDeviceId = generateId('nano');
+    }
+    return inMemoryDeviceId;
   }
 }
 
@@ -388,10 +402,48 @@ export async function dismissDailyPromptNotifications(): Promise<void> {
 export async function dismissNotificationsByData(
   filter: Record<string, string>,
 ): Promise<void> {
+  const toStringRecord = (value: unknown): Record<string, string> | undefined => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return undefined;
+    }
+
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof v === 'string') {
+        out[k] = v;
+      } else if (typeof v === 'number' || typeof v === 'boolean') {
+        out[k] = String(v);
+      }
+    }
+
+    return Object.keys(out).length > 0 ? out : undefined;
+  };
+
+  const extractNotificationData = (notification: Notifications.Notification): Record<string, string> => {
+    const contentData = toStringRecord(notification.request.content.data);
+    if (contentData && Object.keys(contentData).length > 0) {
+      return contentData;
+    }
+
+    const triggerAny = notification.request.trigger as unknown as { payload?: unknown } | null;
+    const payload = triggerAny?.payload;
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return {};
+    }
+
+    const payloadRecord = payload as Record<string, unknown>;
+    const nestedData = toStringRecord(payloadRecord.data);
+    if (nestedData && Object.keys(nestedData).length > 0) {
+      return nestedData;
+    }
+
+    return toStringRecord(payloadRecord) ?? {};
+  };
+
   try {
     const presented = await Notifications.getPresentedNotificationsAsync();
     const toRemove = presented.filter((n) => {
-      const data = n.request.content.data as Record<string, unknown>;
+      const data = extractNotificationData(n);
       return Object.entries(filter).every(([k, v]) => { return data[k] === v; });
     });
     await Promise.allSettled(

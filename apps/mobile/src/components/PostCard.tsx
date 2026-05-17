@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View, Platform } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
@@ -8,6 +9,7 @@ import { Card } from '@/components/ui/Card';
 import { Carousel } from '@/components/ui/Carousel';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { MediaViewerModal } from '@/components/MediaViewerModal';
+import { AudioAttachmentPlayer } from '@/components/AudioAttachmentPlayer';
 import { useAppSelector } from '@/store/hooks';
 import {
   selectPostAuthor,
@@ -16,6 +18,7 @@ import {
 import { useRelativeTime } from '@/hooks/useRelativeTime';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
+import { compareReactionGroupPriority } from '@/lib/reaction/reaction.utils';
 import { POST_TIERS } from '@/models/constants';
 import type { Post, MediaItem } from '@/models/types';
 import { useTheme } from '@/hooks/useTheme';
@@ -47,10 +50,20 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
   const hasMultipleMedia = post.media && post.media.length > 1;
   const isOtherUser = author && currentUser && author.id !== currentUser.id;
   const [profileModalOpen, setProfileModalOpen] = useState(false);
-  const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
+  const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
+  const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' | 'audio'; caption: string | null; title: string | null } | null>(null);
   const cardScale = useRef(new Animated.Value(1)).current;
 
+  const triggerLongPressHaptic = useCallback(() => {
+    if (Platform.OS === 'android') {
+      void Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Long_Press).catch(() => {});
+      return;
+    }
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+  }, []);
+
   const handleCardLongPress = useCallback(() => {
+    triggerLongPressHaptic();
     Animated.sequence([
       Animated.timing(cardScale, {
         toValue: 0.97,
@@ -65,7 +78,7 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
       }),
     ]).start();
     onLongPress?.();
-  }, [cardScale, onLongPress]);
+  }, [cardScale, onLongPress, triggerLongPressHaptic]);
   const cardLongPressHandler = onLongPress ? handleCardLongPress : undefined;
   const cardScaleStyle = useMemo(() => {
     return { transform: [{ scale: cardScale }] };
@@ -80,14 +93,28 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
     : null;
 
   const topReactions = useMemo(() => {
-    const counts: Record<string, number> = {};
+    const groups: Record<string, { count: number; oldestTimestamp: number }> = {};
     post.reactions.forEach((r) => {
-      counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
+      const timestamp = typeof r.timestamp === 'number' ? r.timestamp : 0;
+      if (!groups[r.emoji]) {
+        groups[r.emoji] = { count: 0, oldestTimestamp: timestamp };
+      }
+      groups[r.emoji].count += 1;
+      if (timestamp < groups[r.emoji].oldestTimestamp) {
+        groups[r.emoji].oldestTimestamp = timestamp;
+      }
     });
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
+    return Object.entries(groups)
+      .map(([emoji, data]) => {
+        return { emoji, count: data.count, oldestTimestamp: data.oldestTimestamp };
+      })
+      .sort((a, b) => {
+        return compareReactionGroupPriority(a, b);
+      })
       .slice(0, 5)
-      .map(([emoji]) => emoji);
+      .map((group) => {
+        return group.emoji;
+      });
   }, [post.reactions]);
 
   // Show footer when there are reactions, or when this is another user's post (to prompt engagement).
@@ -158,13 +185,14 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
       {/* Media section — carousel is NOT wrapped in Pressable so swipe/buttons work */}
       {post.media && post.media.length > 0 ? (
         hasMultipleMedia ? (
-          <Carousel>
+          <Carousel onIndexChange={setActiveCarouselIndex}>
             {post.media.map((item, index) => (
               <CardMediaItem
                 key={`media-${index}`}
                 item={item}
                 style={styles.carouselImage}
-                onOpen={() => setMediaViewer({ url: item.url, type: item.type })}
+                isActive={index === activeCarouselIndex}
+                onOpen={() => setMediaViewer({ url: item.url, type: item.type, caption: item.caption ?? null, title: item.title ?? null })}
                 onLongPress={cardLongPressHandler}
               />
             ))}
@@ -173,7 +201,8 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
           <CardMediaItem
             item={post.media[0]}
             style={styles.singleImage}
-            onOpen={() => setMediaViewer({ url: post.media![0].url, type: post.media![0].type })}
+            isActive
+            onOpen={() => setMediaViewer({ url: post.media![0].url, type: post.media![0].type, caption: post.media![0].caption ?? null, title: post.media![0].title ?? null })}
             onLongPress={cardLongPressHandler}
           />
         )
@@ -224,6 +253,8 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
         <MediaViewerModal
           uri={mediaViewer.url}
           mediaType={mediaViewer.type}
+          caption={mediaViewer.caption}
+          title={mediaViewer.title}
           visible
           onClose={() => setMediaViewer(null)}
         />
@@ -240,14 +271,31 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
 function CardMediaItem({
   item,
   style,
+  isActive = true,
   onOpen,
   onLongPress,
 }: {
   item: MediaItem;
   style: object;
+  isActive?: boolean;
   onOpen: () => void;
   onLongPress?: () => void;
 }) {
+  if (item.type === 'audio') {
+    return (
+      <Pressable style={[style, styles.audioContainer]} onPress={onOpen} onLongPress={onLongPress} delayLongPress={220}>
+        <View style={styles.audioPlayerWrap}>
+          <AudioAttachmentPlayer uri={item.url} title={item.title} isActive={isActive} variant='full' />
+        </View>
+        {!!item.caption && (
+          <View style={styles.captionBadge}>
+            <Feather name='file-text' size={10} color='#FFF' />
+          </View>
+        )}
+      </Pressable>
+    );
+  }
+
   if (item.type === 'video') {
     return (
       <Pressable style={[style, styles.videoContainer]} onPress={onOpen} onLongPress={onLongPress} delayLongPress={220}>
@@ -263,18 +311,28 @@ function CardMediaItem({
           <Feather name="play-circle" size={40} color="#FFF" />
           {!item.thumbnailUrl && <Text style={styles.watchText}>Watch Video</Text>}
         </View>
+        {!!item.caption && (
+          <View style={styles.captionBadge}>
+            <Feather name='file-text' size={10} color='#FFF' />
+          </View>
+        )}
       </Pressable>
     );
   }
 
   return (
-    <Pressable onPress={onOpen} onLongPress={onLongPress} delayLongPress={220}>
+    <Pressable onPress={onOpen} onLongPress={onLongPress} delayLongPress={220} style={{ position: 'relative' }}>
       <Image
         source={{ uri: item.url }}
         style={style}
         contentFit="cover"
-        recyclingKey={item.url}
+        recyclingKey={item.url.toLowerCase().endsWith('.gif') ? undefined : item.url}
       />
+      {!!item.caption && (
+        <View style={styles.captionBadge}>
+          <Feather name='file-text' size={10} color='#FFF' />
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -357,6 +415,15 @@ const styles = StyleSheet.create({
     height: 200,
     overflow: 'hidden',
   },
+  audioContainer: {
+    backgroundColor: '#0F172A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  audioPlayerWrap: {
+    width: '94%',
+  },
   videoContainer: {
     backgroundColor: '#1a1a1a',
   },
@@ -397,5 +464,16 @@ const styles = StyleSheet.create({
   firstReactText: {
     fontSize: 11,
     opacity: 0.55,
+  },
+  captionBadge: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 10,
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

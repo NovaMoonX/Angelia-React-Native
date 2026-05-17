@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { Provider as ReduxProvider } from 'react-redux';
 import { router } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { setAudioModeAsync } from 'expo-audio';
 import { store } from '@/store';
 import { ThemeProvider } from '@/providers/ThemeProvider';
 import { ToastProvider } from '@/providers/ToastProvider';
@@ -24,6 +25,53 @@ import {
 
 /** Matches the key used in DataListenerWrapper to track whether the in-app daily notice has already been shown today. */
 const DAILY_PROMPT_SHOWN_DATE_KEY = '@angelia/daily_prompt_shown_date';
+
+function toStringRecord(value: unknown): Record<string, string> | undefined {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		return undefined;
+	}
+	const out: Record<string, string> = {};
+	for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+		if (typeof v === 'string') {
+			out[k] = v;
+		} else if (typeof v === 'number' || typeof v === 'boolean') {
+			out[k] = String(v);
+		}
+	}
+	return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function extractNotificationData(notification: Notifications.Notification): Record<string, string> | undefined {
+	const contentData = toStringRecord(notification.request.content.data);
+	if (contentData && Object.keys(contentData).length > 0) {
+		return contentData;
+	}
+
+	// iOS push notifications can surface custom keys in trigger.payload, not content.data.
+	const triggerAny = notification.request.trigger as unknown as { payload?: unknown } | null;
+	const payload = triggerAny?.payload;
+	if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+		return undefined;
+	}
+
+	const payloadRecord = payload as Record<string, unknown>;
+
+	// Common shapes: payload.data.{...} OR payload.{type, postId, ...}
+	const nestedData = toStringRecord(payloadRecord.data);
+	if (nestedData && Object.keys(nestedData).length > 0) {
+		return nestedData;
+	}
+
+	return toStringRecord(payloadRecord);
+}
+
+function pushRoute(pathname: string, params?: Record<string, string>) {
+	if (params) {
+		router.push({ pathname, params } as never);
+	} else {
+		router.push(pathname as never);
+	}
+}
 
 // Configure how notifications are presented when the app is in the foreground.
 // Daily prompt local notifications are handled in-app by DataListenerWrapper
@@ -82,7 +130,7 @@ Notifications.setNotificationHandler({
 // background / quit states navigate to the appropriate screen.
 Notifications.addNotificationResponseReceivedListener((response) => {
 	const notification = response.notification;
-	const data = notification.request.content.data as Record<string, string> | undefined;
+	const data = extractNotificationData(notification);
 	const type = data?.type;
 	const identifier = notification.request.identifier;
 
@@ -91,64 +139,70 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 		const followUp = identifier === WIND_DOWN_NOTIFICATION_ID
 			? getFollowUpForWindDown(promptIndex)
 			: getFollowUpForPrompt(promptIndex);
-		router.push({
-			pathname: '/(protected)/post/new',
-			params: { existingText: followUp },
-		});
+		pushRoute('/(protected)/post/new', { existingText: followUp });
 	} else if (type === 'join_channel_request') {
 		const joinRequestId = data?.joinRequestId;
 		if (joinRequestId) {
-			router.push({ pathname: '/(protected)/join-request/[id]', params: { id: joinRequestId } });
+			pushRoute('/(protected)/join-request/[id]', { id: joinRequestId });
 		} else {
-			router.push('/(protected)/notifications');
+			pushRoute('/(protected)/notifications');
 		}
 	} else if (type === 'join_channel_accepted') {
 		const channelName = data?.channelName ?? '';
-		router.push({ pathname: '/(protected)/channel-accepted', params: { channelName } });
+		pushRoute('/(protected)/channel-accepted', { channelName });
 	} else if (type === 'custom_circle_invite') {
 		const requestId = data?.requestId;
 		if (requestId) {
-			router.push({ pathname: '/(protected)/circle-invite/[id]', params: { id: requestId } } as never);
+			pushRoute('/(protected)/circle-invite/[id]', { id: requestId });
 		} else {
-			router.push('/(protected)/notifications');
+			pushRoute('/(protected)/notifications');
 		}
 	} else if (type === 'connection_request') {
 		const requestId = data?.connectionRequestId;
 		if (requestId) {
-			router.push({ pathname: '/(protected)/connection-request/[id]', params: { id: requestId } });
+			pushRoute('/(protected)/connection-request/[id]', { id: requestId });
 		} else {
-			router.push('/(protected)/notifications');
+			pushRoute('/(protected)/notifications');
 		}
 	} else if (type === 'connection_accepted') {
-		router.push('/(protected)/my-people');
+		pushRoute('/(protected)/my-people');
 	} else if (type === 'new_post') {
 		const postId = data?.postId;
 		if (postId) {
-			router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } });
+			void dismissNotificationsByData({ type: 'new_post', postId });
+			pushRoute('/(protected)/post/[id]', { id: postId });
 		}
 	} else if (type === 'post_reaction') {
 		const postId = data?.postId;
 		if (postId) {
 			void dismissNotificationsByData({ type: 'post_reaction', postId });
-			router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } });
+			pushRoute('/(protected)/post/[id]', { id: postId });
 		}
 	} else if (type === 'conversation_message' || type === 'comment_reply') {
 		const postId = data?.postId;
 		if (postId) {
 			void dismissNotificationsByData({ type, postId });
-			router.push({ pathname: '/(protected)/conversation', params: { postId } });
+			pushRoute('/(protected)/conversation', { postId });
 		}
 	} else if (type === 'private_note') {
 		const postId = data?.postId;
 		if (postId) {
 			void dismissNotificationsByData({ type: 'private_note', postId });
-			router.push({ pathname: '/(protected)/private-notes-host/[postId]', params: { postId } });
+			pushRoute('/(protected)/private-notes-host/[postId]', { postId });
 		}
 	}
 });
 
 function NavigationLayout() {
 	const { resolvedTheme, theme } = useTheme();
+
+	useEffect(() => {
+		void setAudioModeAsync({
+			playsInSilentMode: true,
+			shouldPlayInBackground: false,
+			allowsRecording: false,
+		});
+	}, []);
 
 	return (
 		<>

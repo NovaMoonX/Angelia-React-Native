@@ -413,6 +413,7 @@ function buildUnifiedPostPayload(n: UnifiedPostNotificationInput): {
 async function sendFcmToTokens(
 	tokens: string[],
 	payload: { title: string; body: string; data: Record<string, string> },
+	tokenOwnersByToken?: Map<string, Set<string>>,
 ): Promise<void> {
 	if (tokens.length === 0) return;
 	const { title, body, data } = payload;
@@ -437,11 +438,52 @@ async function sendFcmToTokens(
 			},
 		});
 		if (res.failureCount > 0) {
+			const invalidTokens: string[] = [];
 			res.responses.forEach((r, idx) => {
 				if (!r.success) {
+					const errCode = r.error?.code ?? '';
+					if (errCode === 'messaging/registration-token-not-registered') {
+						invalidTokens.push(tokens[idx]);
+					}
 					console.error(`Failed to send FCM to token ${tokens[idx]}:`, r.error);
 				}
 			});
+
+			if (invalidTokens.length > 0 && tokenOwnersByToken) {
+				const ownerIds = new Set<string>();
+				invalidTokens.forEach((token) => {
+					const owners = tokenOwnersByToken.get(token);
+					if (!owners) {
+						return;
+					}
+					owners.forEach((ownerId) => {
+						ownerIds.add(ownerId);
+					});
+				});
+
+				await Promise.all(
+					Array.from(ownerIds).map(async (ownerId) => {
+						try {
+							const settingsRef = db.collection('userNotificationSettings').doc(ownerId);
+							await db.runTransaction(async (transaction) => {
+								const settingsSnap = await transaction.get(settingsRef);
+								if (!settingsSnap.exists) {
+									return;
+								}
+
+								const settings = settingsSnap.data() as UserNotificationSettings;
+								const nextTokens = (settings.fcmTokens ?? []).filter((entry) => {
+									return !invalidTokens.includes(entry.token);
+								});
+
+								transaction.update(settingsRef, { fcmTokens: nextTokens });
+							});
+						} catch (pruneErr) {
+							console.error(`Failed pruning invalid FCM tokens for ${ownerId}:`, pruneErr);
+						}
+					}),
+				);
+			}
 		} else {
 			console.log(`Successfully sent FCM to ${tokens.length} tokens`);
 		}
@@ -621,6 +663,11 @@ export const sendAppNotification = onDocumentCreated('notifications/{notificatio
 			return;
 		}
 
+		const tokenOwnersByToken = new Map<string, Set<string>>();
+		tokens.forEach((token) => {
+			tokenOwnersByToken.set(token, new Set([targetUserId]));
+		});
+
 		if (notification.type === 'post_reaction') {
 			const shouldSend = await reserveReactionCooldownSlot(notification, targetUserId);
 			if (!shouldSend) {
@@ -628,7 +675,7 @@ export const sendAppNotification = onDocumentCreated('notifications/{notificatio
 				return;
 			}
 		}
-		await sendFcmToTokens(tokens, payload);
+		await sendFcmToTokens(tokens, payload, tokenOwnersByToken);
 	} else if (notification.target.type === 'channel_tier') {
 		// ── Channel-tier target: fan-out to all channel subscribers ────────
 		const channelSnap = await db.collection('channels').doc(notification.target.channelId).get();
@@ -652,14 +699,25 @@ export const sendAppNotification = onDocumentCreated('notifications/{notificatio
 			}),
 		);
 
-		const allTokens = recipientSettings
-			.filter(({ settings }) => {
+		const enabledRecipients = recipientSettings.filter(({ settings }) => {
 				return isCirclePostNotificationEnabled(notification, settings);
-			})
-			.flatMap(({ settings }) => {
+			});
+
+		const allTokens = enabledRecipients.flatMap(({ settings }) => {
 				return getTokensFromSettings(settings);
 			});
-		await sendFcmToTokens(allTokens, payload);
+
+		const tokenOwnersByToken = new Map<string, Set<string>>();
+		enabledRecipients.forEach(({ recipientId, settings }) => {
+			const recipientTokens = getTokensFromSettings(settings);
+			recipientTokens.forEach((token) => {
+				const owners = tokenOwnersByToken.get(token) ?? new Set<string>();
+				owners.add(recipientId);
+				tokenOwnersByToken.set(token, owners);
+			});
+		});
+
+		await sendFcmToTokens(allTokens, payload, tokenOwnersByToken);
 	} else {
 		// `thread` targets and any future unrecognized target types are not yet
 		// supported.  Fall through to deletion so the document is cleaned up.

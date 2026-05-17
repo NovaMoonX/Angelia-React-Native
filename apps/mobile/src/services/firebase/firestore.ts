@@ -276,7 +276,9 @@ export async function upsertFcmToken(uid: string, entry: FcmTokenEntry): Promise
     const snap = await transaction.get(docRef);
     if (!snap.exists) return;
     const data = snap.data() as NotificationSettings;
-    const tokens = (data.fcmTokens ?? []).filter((t) => t.deviceId !== entry.deviceId);
+    const tokens = (data.fcmTokens ?? []).filter((t) => {
+      return t.deviceId !== entry.deviceId && t.token !== entry.token;
+    });
     tokens.push(entry);
     transaction.update(docRef, { fcmTokens: tokens });
   });
@@ -316,9 +318,14 @@ export interface FeedbackFormConfig {
   active: boolean;
   url: string | null;
   topic: string | null;
+  targetDeviceType: OtaTargetDeviceType;
+  minAppVersion: string | null;
+  maxAppVersion: string | null;
 }
 
 export type BroadcastMessageType = 'info' | 'warning' | 'success' | 'urgent';
+
+export type OtaTargetDeviceType = 'all' | 'ios' | 'android';
 
 export interface BroadcastMessageConfig {
   active: boolean;
@@ -326,6 +333,9 @@ export interface BroadcastMessageConfig {
   type: BroadcastMessageType;
   title: string | null;
   body: string | null;
+  targetDeviceType: OtaTargetDeviceType;
+  minAppVersion: string | null;
+  maxAppVersion: string | null;
 }
 
 export interface MobileAppConfig extends LatestAppVersionConfig {
@@ -392,14 +402,31 @@ export function subscribeToLatestAppVersion(
   );
 }
 
-const DEFAULT_FEEDBACK_FORM: FeedbackFormConfig = { active: false, url: null, topic: null };
+const DEFAULT_FEEDBACK_FORM: FeedbackFormConfig = {
+  active: false,
+  url: null,
+  topic: null,
+  targetDeviceType: 'all',
+  minAppVersion: null,
+  maxAppVersion: null,
+};
 const DEFAULT_BROADCAST_MESSAGE: BroadcastMessageConfig = {
   active: false,
   id: null,
   type: 'info',
   title: null,
   body: null,
+  targetDeviceType: 'all',
+  minAppVersion: null,
+  maxAppVersion: null,
 };
+
+function parseOtaTargetDeviceType(value: unknown): OtaTargetDeviceType {
+  if (value === 'ios' || value === 'android' || value === 'all') {
+    return value;
+  }
+  return 'all';
+}
 
 /**
  * Subscribes to the full mobile app config from three separate flat Firestore
@@ -408,8 +435,8 @@ const DEFAULT_BROADCAST_MESSAGE: BroadcastMessageConfig = {
  *
  * Documents:
  *   appConfig/mobile           → iosVersion, androidVersion, androidStoreUrl
- *   appConfig/broadcastMessage → active, id, type, title, body
- *   appConfig/feedbackForm     → active, url
+ *   appConfig/broadcastMessage → active, id, type, title, body, targetDeviceType, minAppVersion, maxAppVersion
+ *   appConfig/feedbackForm     → active, url, topic, targetDeviceType, minAppVersion, maxAppVersion
  *
  * All three listeners run in parallel. A merged MobileAppConfig is emitted
  * whenever any document changes. Missing documents (not yet created in Firestore)
@@ -477,6 +504,9 @@ export function subscribeToMobileAppConfig(
           type: validMsgType,
           title: asNonEmptyString(raw.title),
           body: asNonEmptyString(raw.body),
+          targetDeviceType: parseOtaTargetDeviceType(raw.targetDeviceType),
+          minAppVersion: asNonEmptyString(raw.minAppVersion),
+          maxAppVersion: asNonEmptyString(raw.maxAppVersion),
         };
       }
       emit();
@@ -498,6 +528,9 @@ export function subscribeToMobileAppConfig(
           active: raw.active === true,
           url: asNonEmptyString(raw.url),
           topic: asNonEmptyString(raw.topic),
+          targetDeviceType: parseOtaTargetDeviceType(raw.targetDeviceType),
+          minAppVersion: asNonEmptyString(raw.minAppVersion),
+          maxAppVersion: asNonEmptyString(raw.maxAppVersion),
         };
       }
       emit();
@@ -562,6 +595,7 @@ export async function createDailyChannel(userId: string): Promise<Channel> {
     description: 'Your daily updates channel',
     color: 'AMBER',
     isDaily: true,
+    isPrivate: false,
     ownerId: userId,
     subscribers: [],
     inviteCode: null,
@@ -579,6 +613,7 @@ export async function createCustomChannel(channelData: NewChannel): Promise<Chan
     ...channelData,
     id: channelId,
     isDaily: false,
+    isPrivate: channelData.isPrivate ?? false,
     inviteCode,
     createdAt: Date.now(),
     markedForDeletionAt: null,
@@ -822,8 +857,23 @@ export async function updatePostReactions(postId: string, reactions: unknown[]):
 }
 
 export async function addReactionToPost(postId: string, reaction: Reaction): Promise<void> {
-  await updateDoc(doc(getDb(), 'posts', postId), {
-    reactions: arrayUnion(reaction),
+  await runTransaction(getDb(), async (transaction) => {
+    const postRef = doc(getDb(), 'posts', postId);
+    const postSnap = await transaction.get(postRef);
+    if (!postSnap.exists) return;
+
+    const post = postSnap.data() as Post;
+    const currentReactions = post.reactions ?? [];
+    const alreadyHasReaction = currentReactions.some((item) => {
+      return item.userId === reaction.userId && item.emoji === reaction.emoji;
+    });
+    if (alreadyHasReaction) {
+      return;
+    }
+
+    transaction.update(postRef, {
+      reactions: [...currentReactions, reaction],
+    });
   });
 }
 
@@ -836,6 +886,23 @@ export async function removeReactionsFromPostByUser(postId: string, userId: stri
     const post = postSnap.data() as Post;
     const nextReactions = (post.reactions ?? []).filter((item) => {
       return item.userId !== userId;
+    });
+
+    transaction.update(postRef, {
+      reactions: nextReactions,
+    });
+  });
+}
+
+export async function removeReactionFromPostByUserAndEmoji(postId: string, userId: string, emoji: string): Promise<void> {
+  await runTransaction(getDb(), async (transaction) => {
+    const postRef = doc(getDb(), 'posts', postId);
+    const postSnap = await transaction.get(postRef);
+    if (!postSnap.exists) return;
+
+    const post = postSnap.data() as Post;
+    const nextReactions = (post.reactions ?? []).filter((item) => {
+      return !(item.userId === userId && item.emoji === emoji);
     });
 
     transaction.update(postRef, {
@@ -1175,6 +1242,17 @@ export async function addMessage(postId: string, message: Message): Promise<void
     doc(getDb(), 'posts', postId, 'messages', message.id),
     message,
   );
+}
+
+export async function updateMessageText(
+  postId: string,
+  messageId: string,
+  text: string,
+): Promise<void> {
+  const messageRef = doc(getDb(), 'posts', postId, 'messages', messageId);
+  await updateDoc(messageRef, {
+    text,
+  });
 }
 
 export function subscribeToMessages(

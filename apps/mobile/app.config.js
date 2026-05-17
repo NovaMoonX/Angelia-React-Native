@@ -26,7 +26,7 @@ export default {
 		owner: 'novamoon',
 		name: 'Angelia',
 		slug: 'angelia',
-		version: '1.0.6',
+		version: '1.0.7',
 		orientation: 'portrait',
 		icon: './assets/images/icon.png',
 		scheme: 'angelia',
@@ -37,6 +37,7 @@ export default {
 			googleServicesFile: './GoogleService-Info.plist',
 			infoPlist: {
 				ITSAppUsesNonExemptEncryption: false,
+				NSLocationWhenInUseUsageDescription: 'Angelia uses your location to help you connect with people nearby.',
 			},
 		},
 		android: {
@@ -56,6 +57,12 @@ export default {
 		plugins: [
 			'./plugins/withFirebaseMessagingColor',
 			'expo-router',
+			[
+				'expo-audio',
+				{
+					microphonePermission: 'Allow $(PRODUCT_NAME) to access your microphone.',
+				},
+			],
 			'@react-native-community/datetimepicker',
 			[
 				'expo-splash-screen',

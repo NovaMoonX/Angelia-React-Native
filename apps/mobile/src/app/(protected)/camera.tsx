@@ -13,19 +13,35 @@ import { compressImage } from '@/utils/compressImage';
 import { generateVideoThumbnailFileUri } from '@/utils/generateVideoThumbnail';
 import { useToast } from '@/hooks/useToast';
 import { MAX_FILES, MAX_VIDEO_SECONDS } from '@/models/constants';
+
+function decodeMediaParam(value: string): MediaFile[] {
+	try {
+		return JSON.parse(value) as MediaFile[];
+	} catch {
+		return JSON.parse(decodeURIComponent(value)) as MediaFile[];
+	}
+}
+
+function encodeMediaParam(files: MediaFile[]): string {
+	return encodeURIComponent(JSON.stringify(files));
+}
+
 export default function CameraScreen() {
 	const router = useRouter();
 	const insets = useSafeAreaInsets();
 	const params = useLocalSearchParams<{
+		editPostId?: string;
 		existingMedia?: string;
 		existingText?: string;
 		existingChannel?: string;
+		existingTier?: string;
+		existingPendingStatus?: string;
 	}>();
 
 	const existingMedia = useMemo<MediaFile[]>(() => {
 		if (!params.existingMedia) return [];
 		try {
-			return JSON.parse(params.existingMedia) as MediaFile[];
+			return decodeMediaParam(params.existingMedia);
 		} catch {
 			return [];
 		}
@@ -144,21 +160,32 @@ export default function CameraScreen() {
 		(extra?: MediaFile) => {
 			const newPhotos = extra ? [...capturedPhotos, extra] : capturedPhotos;
 			const allMedia = [...existingMedia, ...newPhotos].slice(0, MAX_FILES);
-			if (allMedia.length === 0) {
-				router.back();
-				return;
-			}
 			router.replace({
 				pathname: '/(protected)/post/new',
 				params: {
-					capturedMedia: JSON.stringify(allMedia),
+					editPostId: params.editPostId,
+					capturedMedia: encodeMediaParam(allMedia),
 					existingText: params.existingText,
 					existingChannel: params.existingChannel,
+					existingTier: params.existingTier,
+					existingPendingStatus: params.existingPendingStatus,
 				},
 			});
 		},
-		[capturedPhotos, existingMedia, params.existingChannel, params.existingText, router],
+		[
+			capturedPhotos,
+			existingMedia,
+			params.existingChannel,
+			params.existingPendingStatus,
+			params.existingText,
+			params.existingTier,
+			router,
+		],
 	);
+
+	const handleCloseCamera = useCallback(() => {
+		confirmCaptures();
+	}, [confirmCaptures]);
 
 	const takePhoto = async () => {
 		if (!camera.current || atMax) return;
@@ -179,7 +206,7 @@ export default function CameraScreen() {
 			]).start();
 
 			const compressedUri = await compressImage(rawUri, 'image/jpeg');
-			const file: MediaFile = { uri: compressedUri, name: `photo-${generateId()}.jpg`, type: 'image/jpeg' };
+			const file: MediaFile = { uri: compressedUri, name: `photo-${generateId()}.jpg`, type: 'image/jpeg', caption: null };
 			const newCount = totalCount + 1;
 			if (newCount >= MAX_FILES) {
 				// Immediately confirm once we hit the limit
@@ -208,6 +235,7 @@ export default function CameraScreen() {
 					name: `video-${generateId()}.mp4`,
 					type: 'video/mp4',
 					thumbnailUri,
+					caption: null,
 				};
 				const newCount = totalCount + 1;
 				if (newCount >= MAX_FILES) {
@@ -232,7 +260,7 @@ export default function CameraScreen() {
 	if (!hasCameraPermission) {
 		return (
 			<View style={[styles.container, { paddingTop: insets.top }]}>
-				<Pressable style={[styles.closeButton, { top: insets.top + 8 }]} onPress={() => router.back()} hitSlop={12}>
+				<Pressable style={[styles.closeButton, { top: insets.top + 8 }]} onPress={handleCloseCamera} hitSlop={12}>
 					<Feather name='x' size={24} color='#FFF' />
 				</Pressable>
 				<View style={styles.body}>
@@ -242,7 +270,22 @@ export default function CameraScreen() {
 					<Pressable style={styles.primaryButton} onPress={handleRequestPermissions}>
 						<Text style={styles.primaryButtonText}>Grant Permission</Text>
 					</Pressable>
-					<Pressable style={styles.secondaryButton} onPress={() => router.replace('/(protected)/gallery')}>
+					<Pressable
+						style={styles.secondaryButton}
+						onPress={() =>
+							router.replace({
+								pathname: '/(protected)/gallery',
+								params: {
+									editPostId: params.editPostId,
+									existingMedia: encodeMediaParam([...existingMedia, ...capturedPhotos].slice(0, MAX_FILES)),
+									existingText: params.existingText,
+									existingChannel: params.existingChannel,
+									existingTier: params.existingTier,
+									existingPendingStatus: params.existingPendingStatus,
+								},
+							})
+						}
+					>
 						<Feather name='image' size={16} color='#888' />
 						<Text style={styles.secondaryButtonText}>Use Gallery Instead</Text>
 					</Pressable>
@@ -255,7 +298,7 @@ export default function CameraScreen() {
 	if (!device) {
 		return (
 			<View style={[styles.container, { paddingTop: insets.top }]}>
-				<Pressable style={[styles.closeButton, { top: insets.top + 8 }]} onPress={() => router.back()} hitSlop={12}>
+				<Pressable style={[styles.closeButton, { top: insets.top + 8 }]} onPress={handleCloseCamera} hitSlop={12}>
 					<Feather name='x' size={24} color='#FFF' />
 				</Pressable>
 				<View style={styles.body}>
@@ -289,7 +332,7 @@ export default function CameraScreen() {
 					{/* Top controls */}
 					<View style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
 						<Animated.View style={iconRotateStyle}>
-							<Pressable style={styles.iconButton} onPress={() => router.back()} hitSlop={12}>
+							<Pressable style={styles.iconButton} onPress={handleCloseCamera} hitSlop={12}>
 								<Feather name='x' size={24} color='#FFF' />
 							</Pressable>
 						</Animated.View>
@@ -318,9 +361,12 @@ export default function CameraScreen() {
 										router.replace({
 											pathname: '/(protected)/gallery',
 											params: {
-												existingMedia: JSON.stringify(existingMedia),
+												editPostId: params.editPostId,
+												existingMedia: encodeMediaParam(existingMedia),
 												existingText: params.existingText,
 												existingChannel: params.existingChannel,
+												existingTier: params.existingTier,
+												existingPendingStatus: params.existingPendingStatus,
 											},
 										})
 									}

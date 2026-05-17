@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
-import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, type EventArg, type NavigationAction } from '@react-navigation/native';
 import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -15,39 +16,44 @@ import { ReactionPill } from '@/components/ReactionPill';
 import { UserProfileModal } from '@/components/UserProfileModal';
 import { MediaViewerModal } from '@/components/MediaViewerModal';
 import { PrivateNoteModal } from '@/components/PrivateNoteModal';
+import { AudioAttachmentPlayer } from '@/components/AudioAttachmentPlayer';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { selectMessages, setMessages } from '@/store/slices/conversationSlice';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
+import { selectChannelsRevision } from '@/store/slices/channelsSlice';
+import { ensurePostLeaveSuggestionsLoaded, selectPostLeaveSuggestionsEntry } from '@/store/slices/postLeaveSuggestionsSlice';
 import { usePostComments } from '@/hooks/usePostComments';
 import { usePrivateNotes } from '@/hooks/usePrivateNotes';
 import { useSentPrivateNotes } from '@/hooks/useSentPrivateNotes';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { useActionModal } from '@/hooks/useActionModal';
-import { getSuggestedReactionEmojis } from '@/lib/reaction/reaction.utils';
+import { compareReactionGroupPriority, getSuggestedReactionEmojis } from '@/lib/reaction/reaction.utils';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { getUserDisplayName } from '@/lib/user/user.utils';
 import {
+	POST_TIERS,
 	POST_REACTIONS_SEEN_KEY,
 	PRIVATE_NOTES_SEEN_KEY,
 	CONVERSATION_LAST_SEEN_KEY,
 	JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY,
+	POST_DETAIL_UNREAD_LEAVE_WARNING_DISABLED_KEY,
 } from '@/models/constants';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { updatePostReactions, removeAllPostReactionsForUser, deletePostAction } from '@/store/actions/postActions';
-import { getActiveCustomChannelsByOwner, subscribeToMessages } from '@/services/firebase/firestore';
+import { updatePostReactions, removePostReactionEmojiForUser, deletePostAction } from '@/store/actions/postActions';
+import { subscribeToMessages } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
-import { CircleJoinSuggestionsModal, type CircleJoinSuggestionItem } from '@/components/CircleJoinSuggestionsModal';
+import { CircleJoinSuggestionsModal } from '@/components/CircleJoinSuggestionsModal';
 import { sendJoinRequest } from '@/store/actions/inviteActions';
 import type { Reaction, MediaItem, Channel } from '@/models/types';
 
 export default function PostDetailScreen() {
-	const { id } = useLocalSearchParams<{ id: string }>();
+	const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
 	const dispatch = useAppDispatch();
 	const router = useRouter();
 	const navigation = useNavigation();
@@ -60,6 +66,7 @@ export default function PostDetailScreen() {
 	const channel = useAppSelector((state) => selectPostChannel(state, post?.channelId || ''));
 	const currentUser = useAppSelector((state) => state.users.currentUser);
 	const isDemo = useAppSelector((state) => state.demo.isActive);
+	const channelRevision = useAppSelector(selectChannelsRevision);
 	const conversationMessages = useAppSelector((state) => selectMessages(state, id || ''));
 	const usersMap = useAppSelector(selectAllUsersMapById);
 	const outgoingJoinRequests = useAppSelector((state) => state.invites.outgoing);
@@ -77,19 +84,51 @@ export default function PostDetailScreen() {
 	const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
 	const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
 	const [profileModalOpen, setProfileModalOpen] = useState(false);
-	const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
+	const [mediaViewer, setMediaViewer] = useState<{ url: string; type: 'image' | 'video' | 'audio'; caption: string | null; title: string | null } | null>(null);
 	const [unlockEmoji, setUnlockEmoji] = useState<string | null>(null);
 	const [noteModalVisible, setNoteModalVisible] = useState(false);
-	const [circleSuggestions, setCircleSuggestions] = useState<CircleJoinSuggestionItem[]>([]);
+	const [seenCircleSuggestionIds, setSeenCircleSuggestionIds] = useState<string[]>([]);
 	const [circleSuggestionsVisible, setCircleSuggestionsVisible] = useState(false);
-	const [circleSuggestionsLoading, setCircleSuggestionsLoading] = useState(false);
 	const [requestingChannelId, setRequestingChannelId] = useState<string | null>(null);
-	const pendingNavigationActionRef = useRef<any>(null);
+	const isRoutingAwayRef = useRef(false);
 	// Tracks whether the host has unseen private notes (persisted in AsyncStorage)
 	const [hasUnreadPrivateNotes, setHasUnreadPrivateNotes] = useState(false);
 	// Tracks whether there are new conversation messages the user hasn't seen
 	const [hasUnreadConversation, setHasUnreadConversation] = useState(false);
-	const seenCircleSuggestionIdsRef = useRef<string[]>([]);
+	const [showUnreadLeaveModal, setShowUnreadLeaveModal] = useState(false);
+	const [disableUnreadLeaveWarning, setDisableUnreadLeaveWarning] = useState(false);
+	const suggestionsEntry = useAppSelector((state) => {
+		return selectPostLeaveSuggestionsEntry(state, currentUser?.id ?? '', author?.id ?? '');
+	});
+	const suggestionsStatus = suggestionsEntry?.status ?? 'idle';
+	const suggestionChannels = suggestionsEntry?.channels ?? [];
+
+	const unreadItems = [
+		hasUnreadPrivateNotes ? 'new private notes' : null,
+		hasUnreadConversation ? 'new messages' : null,
+	].filter((item): item is string => {
+		return item != null;
+	});
+	const hasUnreadAuthorActivity = unreadItems.length > 0;
+	const unreadItemsCopy = unreadItems.join(' and ');
+	const shouldWarnBeforeLeaving = isHost && !disableUnreadLeaveWarning && hasUnreadAuthorActivity;
+	const shouldReturnToPostActivity = from === 'post-activity';
+
+	// Used by the header back button — does NOT set isRoutingAwayRef so beforeRemove can intercept.
+	const handleHeaderBack = useCallback(() => {
+		if (shouldReturnToPostActivity) {
+			router.back();
+			return;
+		}
+		router.dismissTo('/(protected)/feed');
+	}, [router, shouldReturnToPostActivity]);
+
+	// Called after the user has finished interacting with a blocking modal (suggestions, unread warning).
+	// Sets the ref so beforeRemove lets it through without intercepting again.
+	const goToExitDestination = useCallback(() => {
+		isRoutingAwayRef.current = true;
+		handleHeaderBack();
+	}, [handleHeaderBack]);
 
 	// Memoize the latest note timestamp to avoid AsyncStorage reads on every render
 	const latestNoteTimestamp = useMemo(
@@ -108,32 +147,78 @@ export default function PostDetailScreen() {
 		[conversationMessages, currentUserId],
 	);
 
-	// Subscribe to conversation messages so the unread indicator works without
-	// the user needing to open the conversation screen first
+	// For authored posts, DataListenerWrapper owns the global messages listener.
+	// Keep this local subscription only for non-host contexts.
 	useEffect(() => {
-		if (!id || isDemo) return;
+		if (!id || isDemo || isHost) return;
 		const unsub = subscribeToMessages(id, (msgs) => {
 			dispatch(setMessages({ postId: id, messages: msgs }));
 		});
 		return unsub;
-	}, [id, dispatch, isDemo]);
+	}, [id, dispatch, isDemo, isHost]);
 
-	// Re-check the unread dot every time this screen comes into focus (e.g. after
-	// returning from the private-notes-host screen, where PRIVATE_NOTES_SEEN_KEY
-	// gets written). Using useFocusEffect ensures the dot clears on return.
+	// Only reaction activity should clear from simply viewing this screen, and
+	// it should clear when the user leaves post detail (not immediately on open).
+	// Private notes and conversation unread state are owned by their detail screens.
 	useFocusEffect(
 		useCallback(() => {
-			if (!currentUser?.id || !id) return;
-			const seenAt = String(Date.now());
-			void AsyncStorage.multiSet([
-				[POST_REACTIONS_SEEN_KEY(currentUser.id, id), seenAt],
-				[PRIVATE_NOTES_SEEN_KEY(id), seenAt],
-				[CONVERSATION_LAST_SEEN_KEY(id), seenAt],
-			]).catch(() => {});
-			// Dismiss reaction notifications for this specific post
+			if (!currentUser?.id || !id) return undefined;
+
+			// Viewing this post means post-targeted push cards are now stale.
+			void dismissNotificationsByData({ type: 'new_post', postId: id }).catch(() => {});
 			void dismissNotificationsByData({ type: 'post_reaction', postId: id }).catch(() => {});
+
+			return () => {
+				const seenAt = String(Date.now());
+				void AsyncStorage.setItem(POST_REACTIONS_SEEN_KEY(currentUser.id, id), seenAt).catch(() => {});
+				// Dismiss reaction notifications for this specific post.
+				void dismissNotificationsByData({ type: 'post_reaction', postId: id }).catch(() => {});
+			};
 		}, [currentUser?.id, id]),
 	);
+
+	useEffect(() => {
+		if (!currentUser?.id) {
+			setDisableUnreadLeaveWarning(false);
+			setSeenCircleSuggestionIds([]);
+			return;
+		}
+		AsyncStorage.getItem(POST_DETAIL_UNREAD_LEAVE_WARNING_DISABLED_KEY(currentUser.id))
+			.then((val) => {
+				setDisableUnreadLeaveWarning(val === 'true');
+			})
+			.catch(() => {
+				setDisableUnreadLeaveWarning(false);
+			});
+	}, [currentUser?.id]);
+
+	useEffect(() => {
+		if (!currentUser?.id) {
+			setSeenCircleSuggestionIds([]);
+			return;
+		}
+		const seenKey = JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY(currentUser.id);
+		AsyncStorage.getItem(seenKey)
+			.then((raw) => {
+				if (!raw) {
+					setSeenCircleSuggestionIds([]);
+					return;
+				}
+				try {
+					const parsed = JSON.parse(raw) as unknown;
+					if (!Array.isArray(parsed)) {
+						setSeenCircleSuggestionIds([]);
+						return;
+					}
+					setSeenCircleSuggestionIds(parsed.filter((v): v is string => { return typeof v === 'string'; }));
+				} catch {
+					setSeenCircleSuggestionIds([]);
+				}
+			})
+			.catch(() => {
+				setSeenCircleSuggestionIds([]);
+			});
+	}, [currentUser?.id]);
 
 	useFocusEffect(
 		useCallback(() => {
@@ -170,15 +255,24 @@ export default function PostDetailScreen() {
 		setActiveCarouselIndex(index);
 	};
 
-	// Group reactions by emoji, sorted by count descending — must be before early return to satisfy Rules of Hooks
+	// Group reactions by emoji, sorted by count, oldest reaction, then emoji strength.
 	const reactionGroups = useMemo(() => {
 		if (!post || !currentUser) return [] as { emoji: string; count: number; currentUserReacted: boolean; names: string[] }[];
-		const groups: Record<string, { count: number; currentUserReacted: boolean; names: string[] }> = {};
+		const groups: Record<string, { count: number; oldestTimestamp: number; currentUserReacted: boolean; names: string[] }> = {};
 		post.reactions.forEach((r) => {
+			const timestamp = typeof r.timestamp === 'number' ? r.timestamp : 0;
 			if (!groups[r.emoji]) {
-				groups[r.emoji] = { count: 0, currentUserReacted: false, names: [] };
+				groups[r.emoji] = {
+					count: 0,
+					oldestTimestamp: timestamp,
+					currentUserReacted: false,
+					names: [],
+				};
 			}
 			groups[r.emoji].count += 1;
+			if (timestamp < groups[r.emoji].oldestTimestamp) {
+				groups[r.emoji].oldestTimestamp = timestamp;
+			}
 			if (r.userId === currentUser.id) {
 				groups[r.emoji].currentUserReacted = true;
 				groups[r.emoji].names.unshift('You');
@@ -188,8 +282,29 @@ export default function PostDetailScreen() {
 			}
 		});
 		return Object.entries(groups)
-			.sort((a, b) => { return b[1].count - a[1].count; })
-			.map(([emoji, data]) => { return { emoji, count: data.count, currentUserReacted: data.currentUserReacted, names: data.names }; });
+			.map(([emoji, data]) => {
+				return {
+					emoji,
+					count: data.count,
+					oldestTimestamp: data.oldestTimestamp,
+					currentUserReacted: data.currentUserReacted,
+					names: data.names,
+				};
+			})
+			.sort((a, b) => {
+				return compareReactionGroupPriority(
+					{ emoji: a.emoji, count: a.count, oldestTimestamp: a.oldestTimestamp },
+					{ emoji: b.emoji, count: b.count, oldestTimestamp: b.oldestTimestamp },
+				);
+			})
+			.map((group) => {
+				return {
+					emoji: group.emoji,
+					count: group.count,
+					currentUserReacted: group.currentUserReacted,
+					names: group.names,
+				};
+			});
 	}, [post, currentUser, usersMap]);
 
 	const suggestedReactionEmojis = useMemo(() => {
@@ -202,6 +317,26 @@ export default function PostDetailScreen() {
 			max: 12,
 		});
 	}, [post, currentUser]);
+
+	const circleSuggestions = useMemo(() => {
+		const seenIdSet = new Set(seenCircleSuggestionIds);
+		return suggestionChannels
+			.filter((circle) => {
+				if (seenIdSet.has(circle.id)) {
+					return false;
+				}
+				return true;
+			})
+			.map((circle) => {
+				const isRequested = outgoingJoinRequests.some((request) => {
+					return request.channelId === circle.id && request.status === 'pending';
+				});
+				return {
+					channel: circle,
+					isRequested,
+				};
+			});
+	}, [outgoingJoinRequests, seenCircleSuggestionIds, suggestionChannels]);
 
 	// All useCallback/useEffect hooks must be before the early return — Rules of Hooks
 
@@ -216,104 +351,95 @@ export default function PostDetailScreen() {
 		try {
 			await dispatch(deletePostAction({ postId: post?.id ?? '' })).unwrap();
 			addToast({ type: 'success', title: 'Post deleted' });
-			if (router.canGoBack()) {
-				router.back();
-			} else {
-				router.replace('/(protected)/feed');
-			}
+			goToExitDestination();
 		} catch (err) {
 			addToast({
 				type: 'error',
 				title: err instanceof Error ? err.message : 'Failed to delete post',
 			});
 		}
-	}, [post?.id, dispatch, addToast, router, confirm]);
+	}, [post?.id, dispatch, addToast, confirm, goToExitDestination]);
 
 	const markCircleSuggestionsSeen = useCallback(async (channelIds: string[]) => {
 		if (!currentUser || channelIds.length === 0) return;
 		const seenKey = JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY(currentUser.id);
-		const existingSeen = seenCircleSuggestionIdsRef.current;
+		const existingSeen = seenCircleSuggestionIds;
 		const mergedSeen = Array.from(new Set([...existingSeen, ...channelIds]));
-		seenCircleSuggestionIdsRef.current = mergedSeen;
+		setSeenCircleSuggestionIds(mergedSeen);
 		await AsyncStorage.setItem(seenKey, JSON.stringify(mergedSeen)).catch(() => {});
-	}, [currentUser]);
+	}, [currentUser, seenCircleSuggestionIds]);
 
 	useEffect(() => {
-		if (!currentUser || !author || !channel || !post) {
-			setCircleSuggestions([]);
-			return;
-		}
-		if (currentUser.id === author.id || channel.isDaily !== true) {
-			setCircleSuggestions([]);
-			return;
-		}
-
-		const reacted = post.reactions.some((r) => {
-			return r.userId === currentUser.id;
+		if (!id || isDemo || !currentUser || !author || !channel || !post) return;
+		if (currentUser.id === author.id) return;
+		if (channel.isDaily !== true) return;
+		const reactedToPost = post.reactions.some((reaction) => {
+			return reaction.userId === currentUser.id;
 		});
-		if (!reacted) {
-			setCircleSuggestions([]);
-			return;
-		}
-
-		setCircleSuggestionsLoading(true);
-		const seenKey = JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY(currentUser.id);
-		void AsyncStorage.getItem(seenKey)
-			.then((raw) => {
-				if (!raw) {
-					seenCircleSuggestionIdsRef.current = [];
-					return;
-				}
-				try {
-					const parsed = JSON.parse(raw) as unknown;
-					seenCircleSuggestionIdsRef.current = Array.isArray(parsed)
-						? parsed.filter((v): v is string => { return typeof v === 'string'; })
-						: [];
-				} catch {
-					seenCircleSuggestionIdsRef.current = [];
-				}
-			})
-			.catch(() => {
-				seenCircleSuggestionIdsRef.current = [];
-			})
-			.finally(async () => {
-				const ownerCustomCircles = await getActiveCustomChannelsByOwner(author.id).catch(() => {
-					return [];
-				});
-				const filtered = ownerCustomCircles.filter((circle) => {
-					return (
-						Boolean(circle.inviteCode) &&
-						circle.ownerId !== currentUser.id &&
-						!circle.subscribers.includes(currentUser.id) &&
-						!seenCircleSuggestionIdsRef.current.includes(circle.id)
-					);
-				});
-				setCircleSuggestions(
-					filtered.map((circle) => {
-						const isRequested = outgoingJoinRequests.some((request) => {
-							return request.channelId === circle.id && request.status === 'pending';
-						});
-						return {
-							channel: circle,
-							isRequested,
-						};
-					}),
-				);
-				setCircleSuggestionsLoading(false);
-			});
-	}, [author, channel, currentUser, post, outgoingJoinRequests]);
+		if (!reactedToPost) return;
+		void dispatch(
+			ensurePostLeaveSuggestionsLoaded({
+				viewerId: currentUser.id,
+				authorId: author.id,
+				sourceRevision: channelRevision,
+			}),
+		);
+	}, [author, channel, channelRevision, currentUser, dispatch, id, isDemo, post]);
 
 	useEffect(() => {
-		const unsubscribe = navigation.addListener('beforeRemove', (event: any) => {
-			if (circleSuggestionsVisible) return;
-			if (circleSuggestionsLoading || circleSuggestions.length === 0) return;
-			event.preventDefault();
-			pendingNavigationActionRef.current = event.data.action;
-			setCircleSuggestionsVisible(true);
+		const unsubscribe = navigation.addListener('beforeRemove', (event: EventArg<'beforeRemove', true, { action: NavigationAction }>) => {
+			// Let programmatic navigations (post-modal) pass through
+			if (isRoutingAwayRef.current) return;
+
+			// Block while unread-leave warning is visible, or trigger it
+			if (shouldWarnBeforeLeaving && !showUnreadLeaveModal) {
+				event.preventDefault();
+				setShowUnreadLeaveModal(true);
+				return;
+			}
+			if (showUnreadLeaveModal) { event.preventDefault(); return; }
+
+			// Block while suggestions modal is open
+			if (circleSuggestionsVisible) { event.preventDefault(); return; }
+
+			// Show suggestions modal if ready
+			if (suggestionsStatus === 'success' && circleSuggestions.length > 0) {
+				event.preventDefault();
+				setCircleSuggestionsVisible(true);
+				return;
+			}
+			// Nothing to block — let navigation proceed
 		});
 
 		return unsubscribe;
-	}, [circleSuggestions.length, circleSuggestionsLoading, circleSuggestionsVisible, navigation]);
+	}, [
+		circleSuggestions.length,
+		circleSuggestionsVisible,
+		navigation,
+		suggestionsStatus,
+		shouldWarnBeforeLeaving,
+		showUnreadLeaveModal,
+	]);
+
+	const closeUnreadLeaveModal = useCallback(() => {
+		setShowUnreadLeaveModal(false);
+	}, []);
+
+	const leavePostAnyway = useCallback(() => {
+		setShowUnreadLeaveModal(false);
+		goToExitDestination();
+	}, [goToExitDestination]);
+
+	const disableWarningAndLeave = useCallback(async () => {
+		if (currentUser?.id) {
+			await AsyncStorage.setItem(
+				POST_DETAIL_UNREAD_LEAVE_WARNING_DISABLED_KEY(currentUser.id),
+				'true',
+			).catch(() => {});
+			setDisableUnreadLeaveWarning(true);
+		}
+		leavePostAnyway();
+	}, [currentUser?.id, leavePostAnyway]);
 
 	const handleRequestJoinFromSuggestion = useCallback(
 		async (suggestedChannel: Channel) => {
@@ -328,9 +454,6 @@ export default function PostDetailScreen() {
 						message: '',
 					}),
 				).unwrap();
-				setCircleSuggestions((prev) => {
-					return prev.filter((item) => { return item.channel.id !== suggestedChannel.id; });
-				});
 				await markCircleSuggestionsSeen([suggestedChannel.id]);
 				addToast({ type: 'success', title: 'Join request sent!' });
 			} catch (err) {
@@ -347,9 +470,6 @@ export default function PostDetailScreen() {
 
 	const handleNotInterested = useCallback(
 		async (channelId: string) => {
-			setCircleSuggestions((prev) => {
-				return prev.filter((item) => { return item.channel.id !== channelId; });
-			});
 			await markCircleSuggestionsSeen([channelId]);
 		},
 		[markCircleSuggestionsSeen],
@@ -359,16 +479,11 @@ export default function PostDetailScreen() {
 		const remainingIds = circleSuggestions.map((item) => { return item.channel.id; });
 		await markCircleSuggestionsSeen(remainingIds);
 		setCircleSuggestionsVisible(false);
-		const action = pendingNavigationActionRef.current;
-		pendingNavigationActionRef.current = null;
-		if (action) {
-			navigation.dispatch(action);
-		}
-	}, [circleSuggestions, markCircleSuggestionsSeen, navigation]);
+		goToExitDestination();
+	}, [circleSuggestions, goToExitDestination, markCircleSuggestionsSeen]);
 
 	const stayOnPage = useCallback(() => {
 		setCircleSuggestionsVisible(false);
-		pendingNavigationActionRef.current = null;
 	}, []);
 
 	// Auto-close and navigate away when all suggestions have been acted upon
@@ -388,7 +503,7 @@ export default function PostDetailScreen() {
 				<Button
 					variant='outline'
 					onPress={() => {
-						router.replace('/(protected)/feed');
+						goToExitDestination();
 					}}
 				>
 					Back to Feed
@@ -399,6 +514,8 @@ export default function PostDetailScreen() {
 
 	const colors = channel ? getColorPair(channel) : { backgroundColor: '#6366F1', textColor: '#FFF' };
 	const channelBadgeLabel = channel?.isDaily ? 'Daily' : channel?.name;
+	const tierBadgeConfig = post.tier ? POST_TIERS.find((t) => { return t.value === post.tier; }) ?? null : null;
+	const showTierBadge = tierBadgeConfig != null && post.tier !== 'everyday';
 	const authorName = getPostAuthorName(author, currentUser);
 	const hasReacted = post.reactions.some((r) => r.userId === currentUser.id);
 	const canAccessConversation = hasReacted || isHost;
@@ -430,11 +547,20 @@ export default function PostDetailScreen() {
 		}
 	};
 
-	const handleRemoveAllReactions = async () => {
+	const handleReactionGroupPress = async (group: { emoji: string; currentUserReacted: boolean }) => {
+		void Haptics.selectionAsync().catch(() => {});
+		if (group.currentUserReacted) {
+			await handleRemoveSingleEmojiReaction(group.emoji);
+			return;
+		}
+		await handleReaction(group.emoji);
+	};
+
+	const handleRemoveSingleEmojiReaction = async (emoji: string) => {
 		try {
-			await dispatch(removeAllPostReactionsForUser({ postId: post.id, userId: currentUser.id })).unwrap();
+			await dispatch(removePostReactionEmojiForUser({ postId: post.id, userId: currentUser.id, emoji })).unwrap();
 		} catch {
-			addToast({ type: 'error', title: 'Failed to remove reactions' });
+			addToast({ type: 'error', title: 'Failed to remove reaction' });
 		}
 	};
 
@@ -442,11 +568,23 @@ export default function PostDetailScreen() {
 		<View style={{ flex: 1 }}>
 			<ScreenHeader
 			title="Post"
+			onBack={handleHeaderBack}
 			rightAction={
 				isHost ? (
-					<Pressable onPress={handleDeletePost} hitSlop={8}>
-						<Feather name='trash-2' size={20} color='#EF4444' />
-					</Pressable>
+					<View style={styles.headerActions}>
+						<Pressable
+							onPress={() => {
+								router.push({ pathname: '/(protected)/post/new', params: { editPostId: post.id } });
+							}}
+							hitSlop={8}
+							style={styles.headerActionButton}
+						>
+							<Feather name='edit-3' size={20} color={theme.foreground} />
+						</Pressable>
+						<Pressable onPress={handleDeletePost} hitSlop={8} style={styles.headerActionButton}>
+							<Feather name='trash-2' size={20} color='#EF4444' />
+						</Pressable>
+					</View>
 				) : undefined
 			}
 		/>
@@ -466,6 +604,15 @@ export default function PostDetailScreen() {
 				]}
 				keyboardShouldPersistTaps='handled'
 			>
+				{showTierBadge && tierBadgeConfig && (
+					<View style={[styles.priorityBanner, { backgroundColor: tierBadgeConfig.badgeBg }]}> 
+						<Text style={styles.priorityBannerEmoji}>{tierBadgeConfig.emoji}</Text>
+						<Text style={[styles.priorityBannerText, { color: tierBadgeConfig.badgeText }]}> 
+							{tierBadgeConfig.label}
+						</Text>
+					</View>
+				)}
+
 				{/* Post Header */}
 				<View style={styles.header}>
 					<Pressable
@@ -484,6 +631,11 @@ export default function PostDetailScreen() {
 							<Text style={[styles.timestamp, { color: theme.mutedForeground }]}>
 								{getRelativeTime(post.timestamp)}
 							</Text>
+							{isHost && post.lastEditedAt != null && (
+								<Text style={[styles.editedTimestamp, { color: theme.mutedForeground }]}>
+									{`Last edited: ${new Date(post.lastEditedAt).toLocaleString()}`}
+								</Text>
+							)}
 							{expiryInfo != null && (
 								<Text style={styles.expiryBadge}>
 									{expiryInfo.daysLeft === 0 ? '⏳ Going away today' : `⏳ ${expiryInfo.daysLeft}d left`}
@@ -491,17 +643,19 @@ export default function PostDetailScreen() {
 							)}
 						</View>
 					</View>
-					{channel && (
-						<Badge
-							style={{
-								backgroundColor: colors.backgroundColor,
-								borderColor: colors.backgroundColor,
-							}}
-							textStyle={{ color: colors.textColor }}
-						>
-							{channelBadgeLabel}
-						</Badge>
-					)}
+					<View style={styles.badgesColumn}>
+						{channel && (
+							<Badge
+								style={{
+									backgroundColor: colors.backgroundColor,
+									borderColor: colors.backgroundColor,
+								}}
+								textStyle={{ color: colors.textColor }}
+							>
+								{channelBadgeLabel}
+							</Badge>
+						)}
+					</View>
 				</View>
 
 				{/* Post Content */}
@@ -513,7 +667,8 @@ export default function PostDetailScreen() {
 						<MediaCard
 							item={post.media[0]}
 							style={styles.singleMedia}
-							onOpen={() => setMediaViewer({ url: post.media![0].url, type: post.media![0].type })}
+							isActive
+							onOpen={() => setMediaViewer({ url: post.media![0].url, type: post.media![0].type, caption: post.media![0].caption ?? null, title: post.media![0].title ?? null })}
 						/>
 					) : (
 						<Carousel style={{ borderRadius: 12 }} onIndexChange={handleCarouselIndexChange}>
@@ -522,7 +677,8 @@ export default function PostDetailScreen() {
 									key={`media-${index}`}
 									item={item}
 									style={styles.carouselMedia}
-									onOpen={() => setMediaViewer({ url: item.url, type: item.type })}
+									isActive={index === activeCarouselIndex}
+									onOpen={() => setMediaViewer({ url: item.url, type: item.type, caption: item.caption ?? null, title: item.title ?? null })}
 								/>
 							))}
 						</Carousel>
@@ -541,9 +697,7 @@ export default function PostDetailScreen() {
 									names={group.names}
 									currentUserReacted={group.currentUserReacted}
 									onClick={() => {
-										if (group.currentUserReacted) {
-											handleRemoveAllReactions();
-										}
+										void handleReactionGroupPress(group);
 									}}
 								/>
 							))}
@@ -624,7 +778,9 @@ export default function PostDetailScreen() {
 									<Feather name='mail' size={15} color={hostPrivateNotesTextColor} />
 									{hasUnreadPrivateNotes && <View style={[styles.unreadDot, { backgroundColor: '#EF4444' }]} />}
 								</View>
-								<Text style={[styles.secondaryActionText, { color: hostPrivateNotesTextColor }]}>Private Notes</Text>
+								<Text style={[styles.secondaryActionText, { color: hostPrivateNotesTextColor }]}>
+									{`Private Notes (${privateNotes.length})`}
+								</Text>
 							</View>
 						</Pressable>
 					)}
@@ -704,6 +860,33 @@ export default function PostDetailScreen() {
 
 			<UserProfileModal visible={profileModalOpen} onClose={() => setProfileModalOpen(false)} user={author} />
 
+			<Modal
+				visible={showUnreadLeaveModal}
+				transparent
+				animationType='fade'
+				onRequestClose={closeUnreadLeaveModal}
+			>
+				<View style={styles.unreadLeaveModalOverlay}>
+					<Pressable style={StyleSheet.absoluteFill} onPress={closeUnreadLeaveModal} />
+					<View style={[styles.unreadLeaveModalCard, { backgroundColor: theme.card, borderColor: theme.border }]}> 
+						<Text style={[styles.unreadLeaveModalTitle, { color: theme.foreground }]}>Before you leave…</Text>
+						<Text style={[styles.unreadLeaveModalBody, { color: theme.mutedForeground }]}> 
+							You still have {unreadItemsCopy} marked with the red indicator dot on this post.
+						</Text>
+						<Text style={[styles.unreadLeaveModalBody, { color: theme.mutedForeground }]}> 
+							Stay here to review them now, or exit this post anyway.
+						</Text>
+						<View style={styles.unreadLeaveModalActions}>
+							<Button variant='outline' onPress={closeUnreadLeaveModal}>Look at now</Button>
+							<Button variant='secondary' onPress={leavePostAnyway}>Exit Post Anyway</Button>
+							<Pressable style={styles.unreadLeaveDontShowWrap} onPress={() => { void disableWarningAndLeave(); }} hitSlop={8}>
+								<Text style={[styles.unreadLeaveDontShowText, { color: theme.mutedForeground }]}>Don't show this again</Text>
+							</Pressable>
+						</View>
+					</View>
+				</View>
+			</Modal>
+
 			{/* Solid background behind system nav buttons */}
 			{insets.bottom > 0 && (
 				<View
@@ -719,6 +902,8 @@ export default function PostDetailScreen() {
 				<MediaViewerModal
 					uri={mediaViewer.url}
 					mediaType={mediaViewer.type}
+					caption={mediaViewer.caption}
+					title={mediaViewer.title}
 					visible
 					onClose={() => setMediaViewer(null)}
 				/>
@@ -767,12 +952,49 @@ const styles = StyleSheet.create({
 		gap: 6,
 		flexWrap: 'wrap',
 	},
+	headerActions: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 20,
+	},
+	headerActionButton: {
+		paddingHorizontal: 2,
+	},
+	priorityBanner: {
+		marginTop: 0,
+		marginHorizontal: -20,
+		marginBottom: 12,
+		paddingVertical: 6,
+		paddingHorizontal: 20,
+		borderRadius: 0,
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 6,
+	},
+	priorityBannerEmoji: {
+		fontSize: 13,
+	},
+	priorityBannerText: {
+		fontSize: 12,
+		fontWeight: '600',
+		letterSpacing: 0.2,
+		textAlign: 'center',
+	},
+	badgesColumn: {
+		alignItems: 'flex-end',
+		gap: 6,
+	},
 	authorName: {
 		fontSize: 16,
 		fontWeight: '600',
 	},
 	timestamp: {
 		fontSize: 13,
+	},
+	editedTimestamp: {
+		fontSize: 12,
+		fontWeight: '500',
 	},
 	expiryBadge: {
 		fontSize: 12,
@@ -796,6 +1018,17 @@ const styles = StyleSheet.create({
 		height: 250,
 		overflow: 'hidden',
 	},
+	audioContainer: {
+		position: 'relative',
+		backgroundColor: '#0F172A',
+		alignItems: 'center',
+		justifyContent: 'flex-start',
+		paddingTop: 14,
+		paddingBottom: 8,
+	},
+	audioPlayerWrap: {
+		width: '94%',
+	},
 	videoContainer: {
 		backgroundColor: '#1a1a1a',
 	},
@@ -814,6 +1047,17 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		fontWeight: '700',
 		letterSpacing: 0.5,
+	},
+	captionBadge: {
+		position: 'absolute',
+		bottom: 6,
+		right: 6,
+		backgroundColor: 'rgba(0,0,0,0.6)',
+		borderRadius: 10,
+		width: 22,
+		height: 22,
+		alignItems: 'center',
+		justifyContent: 'center',
 	},
 	reactionsSection: {
 		marginTop: 16,
@@ -900,6 +1144,40 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		gap: 8,
 	},
+	unreadLeaveModalOverlay: {
+		...StyleSheet.absoluteFillObject,
+		justifyContent: 'center',
+		paddingHorizontal: 20,
+		backgroundColor: 'rgba(0,0,0,0.45)',
+	},
+	unreadLeaveModalCard: {
+		borderWidth: 1,
+		borderRadius: 16,
+		paddingHorizontal: 16,
+		paddingVertical: 14,
+		gap: 8,
+	},
+	unreadLeaveModalTitle: {
+		fontSize: 18,
+		fontWeight: '700',
+	},
+	unreadLeaveModalBody: {
+		fontSize: 14,
+		lineHeight: 20,
+	},
+	unreadLeaveModalActions: {
+		marginTop: 4,
+		gap: 8,
+	},
+	unreadLeaveDontShowWrap: {
+		marginTop: 10,
+	},
+	unreadLeaveDontShowText: {
+		textAlign: 'center',
+		fontSize: 13,
+		fontWeight: '500',
+		textDecorationLine: 'underline',
+	},
 	secondaryActionIconWrap: {
 		position: 'relative',
 		width: 18,
@@ -913,7 +1191,22 @@ const styles = StyleSheet.create({
 
 // ── MediaCard ────────────────────────────────────────────────────────────────
 
-function MediaCard({ item, style, onOpen }: { item: MediaItem; style: object; onOpen: () => void }) {
+function MediaCard({ item, style, isActive = true, onOpen }: { item: MediaItem; style: object; isActive?: boolean; onOpen: () => void }) {
+	if (item.type === 'audio') {
+		return (
+			<Pressable style={[style, styles.audioContainer]} onPress={onOpen}>
+				<View style={styles.audioPlayerWrap}>
+					<AudioAttachmentPlayer uri={item.url} title={item.title} isActive={isActive} variant='full' />
+				</View>
+				{!!item.caption && (
+					<View style={styles.captionBadge}>
+						<Feather name='file-text' size={10} color='#FFF' />
+					</View>
+				)}
+			</Pressable>
+		);
+	}
+
 	if (item.type === 'video') {
 		return (
 			<Pressable style={[style, styles.videoContainer]} onPress={onOpen}>
@@ -924,13 +1217,23 @@ function MediaCard({ item, style, onOpen }: { item: MediaItem; style: object; on
 					<Feather name='play-circle' size={48} color='#FFF' />
 					{!item.thumbnailUrl && <Text style={styles.watchVideoText}>Watch Video</Text>}
 				</View>
+				{!!item.caption && (
+					<View style={styles.captionBadge}>
+						<Feather name='file-text' size={10} color='#FFF' />
+					</View>
+				)}
 			</Pressable>
 		);
 	}
 
 	return (
-		<Pressable onPress={onOpen}>
+		<Pressable onPress={onOpen} style={{ position: 'relative' }}>
 			<Image source={{ uri: item.url }} style={style} contentFit='cover' />
+			{!!item.caption && (
+				<View style={styles.captionBadge}>
+					<Feather name='file-text' size={10} color='#FFF' />
+				</View>
+			)}
 		</Pressable>
 	);
 }

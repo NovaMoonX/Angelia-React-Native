@@ -80,13 +80,14 @@ export const ensureDailyChannelExists = createAsyncThunk(
 // ── Custom channel CRUD ────────────────────────────────────────────────────
 
 // Helper to build a local Channel object (used in demo mode)
-function buildCustomChannel(ownerId: string, data: { name: string; description: string; color: string }): Channel {
+function buildCustomChannel(ownerId: string, data: { name: string; description: string; color: string; isPrivate: boolean }): Channel {
   return {
     id: generateId('nano'),
     name: data.name.trim(),
     description: data.description.trim(),
     color: data.color,
     isDaily: false,
+    isPrivate: data.isPrivate,
     ownerId,
     subscribers: [],
     inviteCode: generateId('nano').slice(0, 8).toUpperCase(),
@@ -98,7 +99,7 @@ function buildCustomChannel(ownerId: string, data: { name: string; description: 
 export const createCustomChannel = createAsyncThunk(
   'channels/createCustom',
   async (
-    data: { name: string; description: string; color: string },
+    data: { name: string; description: string; color: string; isPrivate: boolean },
     { getState, dispatch, rejectWithValue },
   ) => {
     const state = getState() as RootState;
@@ -116,6 +117,7 @@ export const createCustomChannel = createAsyncThunk(
         name: data.name.trim(),
         description: data.description.trim(),
         color: data.color,
+        isPrivate: data.isPrivate,
         ownerId: user.id,
         subscribers: [],
       });
@@ -129,7 +131,7 @@ export const createCustomChannel = createAsyncThunk(
 export const editCustomChannel = createAsyncThunk(
   'channels/editCustom',
   async (
-    { channel, data }: { channel: Channel; data: { name: string; description: string; color: string } },
+    { channel, data }: { channel: Channel; data: { name: string; description: string; color: string; isPrivate: boolean } },
     { getState, dispatch, rejectWithValue },
   ) => {
     const updated: Channel = {
@@ -137,6 +139,7 @@ export const editCustomChannel = createAsyncThunk(
       name: data.name.trim(),
       description: data.description.trim(),
       color: data.color,
+      isPrivate: data.isPrivate,
     };
 
     if (isDemoActive(getState)) {

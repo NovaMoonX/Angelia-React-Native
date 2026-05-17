@@ -10,6 +10,9 @@ import commentsReducer from './slices/commentsSlice';
 import connectionsReducer from './slices/connectionsSlice';
 import tasksReducer from './slices/tasksSlice';
 import privateNotesReducer from './slices/privateNotesSlice';
+import uploadsReducer from './slices/uploadsSlice';
+import appConfigReducer from './slices/appConfigSlice';
+import postLeaveSuggestionsReducer from './slices/postLeaveSuggestionsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -24,6 +27,16 @@ export const store = configureStore({
     connections: connectionsReducer,
     tasks: tasksReducer,
     privateNotes: privateNotesReducer,
+    uploads: uploadsReducer,
+    appConfig: appConfigReducer,
+    postLeaveSuggestions: postLeaveSuggestionsReducer,
+  },
+  middleware: (getDefaultMiddleware) => {
+    return getDefaultMiddleware({
+      serializableCheck: {
+        warnAfter: 96,
+      },
+    });
   },
 });
 

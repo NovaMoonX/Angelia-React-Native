@@ -22,7 +22,7 @@ export function ReactionDisplay({
 
   return (
     <Pressable
-      onPress={currentUserReacted ? onClick : undefined}
+      onPress={onClick}
       style={[
         styles.container,
         {

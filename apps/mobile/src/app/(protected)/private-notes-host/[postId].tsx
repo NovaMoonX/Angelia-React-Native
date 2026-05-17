@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useNavigation, type EventArg } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/Avatar';
 import { useAppSelector } from '@/store/hooks';
@@ -19,6 +20,29 @@ export default function PrivateNotesScreen() {
 	const { theme } = useTheme();
 	const insets = useSafeAreaInsets();
 	const router = useRouter();
+	const navigation = useNavigation();
+	const isRoutingToPostRef = React.useRef(false);
+
+	const goToPostDetails = React.useCallback(() => {
+		if (!postId) {
+			router.replace('/(protected)/feed');
+			return;
+		}
+		isRoutingToPostRef.current = true;
+		router.dismissTo({ pathname: '/(protected)/post/[id]', params: { id: postId } });
+	}, [postId, router]);
+
+	useEffect(() => {
+		const unsubscribe = navigation.addListener('beforeRemove', (event: EventArg<'beforeRemove', true, { action: { type: string } }>) => {
+			if (isRoutingToPostRef.current) {
+				return;
+			}
+			event.preventDefault();
+			goToPostDetails();
+		});
+
+		return unsubscribe;
+	}, [goToPostDetails, navigation]);
 
 	const post = useAppSelector((state) => selectPostById(state, postId ?? ''));
 	const currentUser = useAppSelector((state) => state.users.currentUser);
@@ -33,14 +57,15 @@ export default function PrivateNotesScreen() {
 	});
 
 	// Guard: redirect back if not the host, or notes are genuinely empty after loading.
-	// `subscriptionFailed` prevents a false redirect when Firestore denies the read —
-	// in that case we stay on-screen so the error is visible in logs.
+	// For host views, do not auto-exit on empty notes: first-note timing can briefly
+	// resolve as loaded+empty and cause an unintended bounce to feed.
 	useEffect(() => {
 		if (!post || !currentUser) return;
-		if (!isHost || (loaded && !subscriptionFailed && notes.length === 0)) {
-			router.back();
+
+		if (!isHost) {
+			goToPostDetails();
 		}
-	}, [isHost, loaded, subscriptionFailed, notes.length, post, currentUser, router]);
+	}, [currentUser, goToPostDetails, isHost, post]);
 
 	// Mark notes as seen when the host opens the screen, so the unread indicator clears.
 	// Runs once per screen mount (postId/isHost are stable during screen lifetime).
@@ -53,7 +78,7 @@ export default function PrivateNotesScreen() {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [postId, isHost]);
 
-	if (!post || !currentUser || !isHost || (loaded && !subscriptionFailed && notes.length === 0)) {
+	if (!post || !currentUser || !isHost) {
 		return (
 			<View style={[styles.centered, { backgroundColor: theme.background }]} />
 		);
@@ -61,7 +86,7 @@ export default function PrivateNotesScreen() {
 
 	return (
 		<View style={{ flex: 1, backgroundColor: theme.background }}>
-			<ScreenHeader title="Private Notes" />
+			<ScreenHeader title="Private Notes" onBack={goToPostDetails} />
 			<ScrollView
 				style={{ flex: 1, backgroundColor: theme.background }}
 				contentContainerStyle={[
@@ -69,6 +94,17 @@ export default function PrivateNotesScreen() {
 					{ paddingBottom: insets.bottom + 24 },
 				]}
 			>
+				{loaded && !subscriptionFailed && notes.length === 0 ? (
+					<View
+						style={[
+							styles.emptyState,
+							{ backgroundColor: theme.card, borderColor: theme.border },
+						]}
+					>
+						<Text style={[styles.emptyStateTitle, { color: theme.foreground }]}>No private notes yet</Text>
+						<Text style={[styles.emptyStateBody, { color: theme.mutedForeground }]}>As soon as someone sends one, it will pop up here.</Text>
+					</View>
+				) : null}
 				{notes.map((note) => {
 					const author = usersMap[note.authorId];
 					const authorName = author
@@ -148,5 +184,20 @@ const styles = StyleSheet.create({
 	noteText: {
 		fontSize: 14,
 		lineHeight: 20,
+	},
+	emptyState: {
+		borderWidth: 1,
+		borderRadius: 12,
+		paddingHorizontal: 14,
+		paddingVertical: 16,
+		gap: 4,
+	},
+	emptyStateTitle: {
+		fontSize: 15,
+		fontWeight: '600',
+	},
+	emptyStateBody: {
+		fontSize: 13,
+		lineHeight: 18,
 	},
 });

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { useAppSelector } from '@/store/hooks';
-import { subscribeToMobileAppConfig, type MobileAppConfig } from '@/services/firebase/firestore';
+import type { MobileAppConfig, OtaTargetDeviceType } from '@/services/firebase/firestore';
 import {
+  APP_VERSION,
   BETA_UPDATE_MODAL_SEEN_KEY,
   BETA_UPDATE_VERSION,
   ONBOARDING_FEED_GUIDE_STATE_KEY,
@@ -61,11 +61,32 @@ function compareVersions(current: string, target: string): number {
 
 const CURRENT_PLATFORM: 'ios' | 'android' = Platform.OS === 'ios' ? 'ios' : 'android';
 
+function matchesTargetDevice(targetDeviceType: OtaTargetDeviceType): boolean {
+  if (targetDeviceType === 'all') {
+    return true;
+  }
+  return targetDeviceType === CURRENT_PLATFORM;
+}
+
+function isWithinVersionRange(
+  currentVersion: string,
+  minAppVersion: string | null,
+  maxAppVersion: string | null,
+): boolean {
+  if (minAppVersion && compareVersions(currentVersion, minAppVersion) < 0) {
+    return false;
+  }
+  if (maxAppVersion && compareVersions(currentVersion, maxAppVersion) > 0) {
+    return false;
+  }
+  return true;
+}
+
 export function useFeedModals(): FeedModalsState {
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const isDemo = useAppSelector((state) => state.demo.isActive);
+  const mobileConfig = useAppSelector((state) => state.appConfig.mobileAppConfig);
 
-  const [mobileConfig, setMobileConfig] = useState<MobileAppConfig | null>(null);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [betaUpdateSeen, setBetaUpdateSeen] = useState(false);
   const [dismissedAppVersion, setDismissedAppVersion] = useState<string | null>(null);
@@ -111,21 +132,7 @@ export function useFeedModals(): FeedModalsState {
     return () => { cancelled = true; };
   }, [currentUser, isDemo]);
 
-  // Subscribe to Firestore app config.
-  useEffect(() => {
-    if (!currentUser || isDemo) {
-      setMobileConfig(null);
-      return () => {};
-    }
-
-    const unsubscribe = subscribeToMobileAppConfig((config) => {
-      setMobileConfig(config);
-    });
-
-    return unsubscribe;
-  }, [currentUser, isDemo]);
-
-  const deviceVersion = String(Constants.expoConfig?.version ?? '0.0.0');
+  const deviceVersion = APP_VERSION;
 
   const targetVersion = useMemo(() => {
     if (!mobileConfig) return null;
@@ -152,13 +159,27 @@ export function useFeedModals(): FeedModalsState {
 
     // 4. Broadcast message.
     const msg = mobileConfig?.broadcastMessage;
-    if (msg?.active && msg.id && msg.id !== appMessageDismissedId && msg.title && msg.body) {
+    if (
+      msg?.active
+      && msg.id
+      && msg.id !== appMessageDismissedId
+      && msg.title
+      && msg.body
+      && matchesTargetDevice(msg.targetDeviceType)
+      && isWithinVersionRange(deviceVersion, msg.minAppVersion, msg.maxAppVersion)
+    ) {
       return 'appMessage';
     }
 
     // 5. Feedback form.
     const form = mobileConfig?.feedbackForm;
-    if (form?.active && form.url && form.url !== feedbackFormDismissedUrl) {
+    if (
+      form?.active
+      && form.url
+      && form.url !== feedbackFormDismissedUrl
+      && matchesTargetDevice(form.targetDeviceType)
+      && isWithinVersionRange(deviceVersion, form.minAppVersion, form.maxAppVersion)
+    ) {
       return 'feedbackForm';
     }
 

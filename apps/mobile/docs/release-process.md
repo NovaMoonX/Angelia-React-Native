@@ -30,7 +30,19 @@ version: '1.0.1',  // e.g. bump from 1.0.0 → 1.0.1
 
 > **Why this matters:** EAS and the app stores use the version to distinguish builds. Increment it with every new production release. Use semantic versioning — minor bumps (e.g. `1.0.0` → `1.0.1`) for standard updates, major bumps for large feature releases.
 
-### 1d. Bump Notification Settings Notice Version (when needed)
+### 1d. Sync Runtime App Version Constant
+
+Open [`src/models/constants.ts`](../src/models/constants.ts) and update:
+
+```ts
+export const APP_VERSION = '1.0.1';
+```
+
+Set it to the exact same semantic version used in `app.config.js`.
+
+> **Why this matters:** update gating compares server-required versions against this runtime constant. Keeping it in sync prevents false "new update" prompts when users already installed the latest build but still have older cached dismissal metadata.
+
+### 1e. Bump Notification Settings Notice Version (when needed)
 
 If this release introduces **new notification controls** (or changes the release notice copy for those controls), bump:
 
@@ -121,6 +133,7 @@ Set `iosVersion` and `androidVersion` to the **exact semantic version** you put 
 [ ] BETA_UPDATE_NOTES.txt updated
 [ ] BetaUpdateModal.tsx version bumped + changes updated
 [ ] app.config.js version incremented
+[ ] APP_VERSION in src/models/constants.ts synced to app.config.js version
 [ ] (If shipping new notification controls) NOTIFICATION_SETTINGS_NOTICE_VERSION bumped
 [ ] npm run prod:android triggered
 [ ] npm run prod:ios triggered

@@ -8,6 +8,12 @@ import type {
 
 export const CUSTOM_CHANNEL_LIMIT = 3;
 
+/**
+ * Source-of-truth app version for runtime version-gating checks.
+ * Keep this in sync with expo.version in app.config.js.
+ */
+export const APP_VERSION = '1.0.7';
+
 /** How long posts are retained before deletion. Must stay in sync with Cloud Functions. */
 export const DAILY_POST_RETENTION_DAYS = 14;   // Posts in a Daily Circle expire after 14 days.
 export const CUSTOM_POST_RETENTION_DAYS = 90;  // Posts in a Custom Circle expire after 90 days.
@@ -21,6 +27,8 @@ export const ANGELIA_WEB_BASE_URL = 'https://angelia.moondreams.dev';
 export const MAX_FILES = 5;
 export const MAX_FILE_SIZE_MB = 10;
 export const MAX_VIDEO_SECONDS = 30;
+export const AUDIO_TITLE_MAX_LENGTH = 60;
+export const AUDIO_CAPTION_MAX_LENGTH = 300;
 
 export const COMMON_EMOJIS = ['❤️', '👀', '😊', '🎉', '😮', '😢', '😄', '🔥'];
 
@@ -85,6 +93,7 @@ export const ALL_POST_TIERS: PostTier[] = POST_TIERS.map((t) => t.value);
 
 /** AsyncStorage key that persists the newest post timestamp the user has acknowledged on the feed. */
 export const FEED_LAST_SEEN_TIMESTAMP_KEY = '@angelia/feed_last_seen_timestamp';
+export const POST_UPLOAD_QUEUE_KEY = '@angelia/post_upload_queue_v1';
 
 /** AsyncStorage key storing the latest per-post activity snapshot the user has reviewed. */
 export const POST_ACTIVITY_SEEN_KEY = (userId: string) => `@angelia/post_activity_seen_${userId}`;
@@ -137,16 +146,41 @@ export const CONVERSATION_LAST_SEEN_KEY = (postId: string) => `@angelia/conversa
 export const CONVERSATION_REPLY_HINT_SEEN_KEY = '@angelia/conversation_reply_hint_seen';
 
 /**
+ * AsyncStorage key recording whether the user has already seen the
+ * "double-tap to edit" hint in conversations.
+ */
+export const CONVERSATION_EDIT_HINT_SEEN_KEY = '@angelia/conversation_edit_hint_seen';
+
+/**
  * AsyncStorage key that tracks which custom circles have already been suggested
  * to a user after they react to a connection's Daily Circle post.
  */
 export const JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY = (userId: string) => `@angelia/join_custom_circle_suggestions_seen_${userId}`;
 
 /**
+ * AsyncStorage key recording whether a post author has disabled the
+ * leave-warning modal when unread private notes/messages still exist.
+ */
+export const POST_DETAIL_UNREAD_LEAVE_WARNING_DISABLED_KEY = (userId: string) => {
+  return `@angelia/post_detail_unread_leave_warning_disabled_${userId}`;
+};
+
+/**
  * AsyncStorage key that records which beta update version the user has already dismissed.
  * When BETA_UPDATE_VERSION in BetaUpdateModal is bumped, the modal will show again automatically.
  */
-export const BETA_UPDATE_VERSION = '2026-05-14-replies';
+export const BETA_UPDATE_VERSION = '2026-05-16-beta-v1.0.7';
+
+/**
+ * Version for the one-time private-circles notice shown on the My Circles tab.
+ * Bump when the private circles feature ships or notice copy changes.
+ */
+export const PRIVATE_CIRCLES_NOTICE_VERSION = '2026-05-private-circles';
+
+/** AsyncStorage key recording whether the user has seen the private-circles notice. */
+export const PRIVATE_CIRCLES_NOTICE_SEEN_KEY = (version: string) => {
+  return `@angelia/private_circles_notice_seen_${version}`;
+};
 
 export const BETA_UPDATE_MODAL_SEEN_KEY = (version: string) => `@angelia/beta_update_modal_seen_${version}`;
 
@@ -154,7 +188,7 @@ export const BETA_UPDATE_MODAL_SEEN_KEY = (version: string) => `@angelia/beta_up
  * Version for the one-time notification-settings release notice shown on the
  * Notifications screen. Bump when new notification controls are introduced.
  */
-export const NOTIFICATION_SETTINGS_NOTICE_VERSION = '2026-05-reply-notification-controls';
+export const NOTIFICATION_SETTINGS_NOTICE_VERSION = '2026-05-16-reactions-and-messages-notifications';
 
 /** Accent color for notification-settings release notice card and bell badge dot. */
 export const NOTIFICATION_SETTINGS_NOTICE_ACCENT = '#0EA5E9';
@@ -197,3 +231,13 @@ export const FEEDBACK_FORM_DISMISSED_URL_KEY = '@angelia/feedback_form_dismissed
 
 /** Sentinel timestamp used for statuses that stay active until manually cleared. */
 export const STATUS_INDEFINITE_EXPIRES_AT = 8_640_000_000_000;
+
+/**
+ * AsyncStorage key used to track whether the current app session already
+ * performed the cold-launch scroll-to-top. Cleared on each cold launch;
+ * preserved during within-session navigation so scroll position is kept.
+ */
+export const FEED_SESSION_SCROLLED_KEY = '@angelia/feed_session_scrolled';
+
+/** AsyncStorage key storing the in-progress post compose draft for a user. */
+export const POST_CREATE_DRAFT_KEY = (userId: string) => `@angelia/post_create_draft_${userId}`;

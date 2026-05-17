@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Button } from '@/components/ui/Button';
 import { ChannelCard } from '@/components/ChannelCard';
 import { ChannelFormModal } from '@/components/ChannelFormModal';
@@ -19,7 +20,7 @@ import {
 import { disconnectUser } from '@/store/actions/connectionsActions';
 import { sendCustomCircleInvite } from '@/store/actions/inviteActions';
 import { completeTask } from '@/store/actions/taskActions';
-import { CUSTOM_CHANNEL_LIMIT } from '@/models/constants';
+import { CUSTOM_CHANNEL_LIMIT, PRIVATE_CIRCLES_NOTICE_VERSION, PRIVATE_CIRCLES_NOTICE_SEEN_KEY } from '@/models/constants';
 import {
   selectCurrentUserDailyChannel,
   selectCurrentUserCustomChannels,
@@ -56,6 +57,21 @@ export function MyChannelsTab() {
   const [removingSubscriberId, setRemovingSubscriberId] = useState<string | null>(null);
   const [invitingCandidateId, setInvitingCandidateId] = useState<string | null>(null);
   const [optimisticInvitedIds, setOptimisticInvitedIds] = useState<string[]>([]);
+  const [noticeSeen, setNoticeSeen] = useState(true); // true until loaded from AsyncStorage
+  const [learnMoreOpen, setLearnMoreOpen] = useState(false);
+
+  useEffect(() => {
+    const key = PRIVATE_CIRCLES_NOTICE_SEEN_KEY(PRIVATE_CIRCLES_NOTICE_VERSION);
+    void AsyncStorage.getItem(key).then((val) => {
+      setNoticeSeen(val === 'true');
+    });
+  }, []);
+
+  const dismissNotice = () => {
+    setNoticeSeen(true);
+    const key = PRIVATE_CIRCLES_NOTICE_SEEN_KEY(PRIVATE_CIRCLES_NOTICE_VERSION);
+    void AsyncStorage.setItem(key, 'true');
+  };
 
   const selectedChannel = useMemo(
     () => channels.find((c) => c.id === selectedChannelId) ?? null,
@@ -101,6 +117,7 @@ export function MyChannelsTab() {
     name: string;
     description: string;
     color: string;
+    isPrivate: boolean;
   }) => {
     const createCustomCircleTaskId = tasks.find((t) => t.type === 'create_custom_circle')?.id ?? null;
     try {
@@ -124,6 +141,7 @@ export function MyChannelsTab() {
     name: string;
     description: string;
     color: string;
+    isPrivate: boolean;
   }) => {
     if (!editingChannel) return;
     try {
@@ -225,6 +243,64 @@ export function MyChannelsTab() {
 
   return (
     <>
+      {/* One-time private circles notice */}
+      {!noticeSeen && (
+        <View style={[styles.noticeCard, { backgroundColor: '#f0fdf4', borderColor: '#4ade80' }]}>
+          <View style={styles.noticeContent}>
+            <Text style={[styles.noticeText, { color: '#15803d' }]}>
+              🔒 You can now mark circles as private!
+            </Text>
+            <Pressable onPress={() => setLearnMoreOpen(true)}>
+              <Text style={[styles.noticeLink, { color: '#16a34a' }]}>Learn more</Text>
+            </Pressable>
+          </View>
+          <Pressable onPress={dismissNotice} style={styles.noticeDismiss}>
+            <Text style={{ color: '#15803d', fontSize: 16 }}>✕</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* Learn More modal about private circles */}
+      <Modal visible={learnMoreOpen} transparent animationType="fade">
+        <Pressable
+          style={styles.learnMoreBackdrop}
+          onPress={() => setLearnMoreOpen(false)}
+        >
+          <Pressable style={[styles.learnMoreSheet, { backgroundColor: '#fff' }]}>
+            <Text style={styles.learnMoreTitle}>🔒 Private Circles</Text>
+            <Text style={[styles.learnMoreBody, { color: '#374151' }]}>
+              By default, your circles are <Text style={{ fontWeight: '700' }}>public</Text> — anyone with the invite link can request to join, and members can share that link with others.
+            </Text>
+            <Text style={[styles.learnMoreBody, { color: '#374151' }]}>
+              When you make a circle <Text style={{ fontWeight: '700' }}>private</Text>:
+            </Text>
+            <View style={styles.learnMoreList}>
+              <Text style={[styles.learnMoreItem, { color: '#374151' }]}>
+                {'•  '}Only you (the Host) can invite people directly.
+              </Text>
+              <Text style={[styles.learnMoreItem, { color: '#374151' }]}>
+                {'•  '}The invite link is hidden from members — they can't share it.
+              </Text>
+              <Text style={[styles.learnMoreItem, { color: '#374151' }]}>
+                {'•  '}Your private circle won't be suggested to others when they view your posts.
+              </Text>
+            </View>
+            <Text style={[styles.learnMoreBody, { color: '#374151' }]}>
+              Perfect for close-knit groups where you want full control over who's in.
+            </Text>
+            <Pressable
+              onPress={() => {
+                setLearnMoreOpen(false);
+                dismissNotice();
+              }}
+              style={[styles.learnMoreButton, { backgroundColor: '#16a34a' }]}
+            >
+              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>Got it!</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {canCreateChannel ? (
         <Button
           onPress={() => {
@@ -301,6 +377,7 @@ export function MyChannelsTab() {
             setSelectedChannelId(null);
           }}
           channel={selectedChannel}
+          isOwner={selectedChannel.ownerId === currentUser.id}
           subscribers={selectedChannel.subscribers
             .map((id) => usersMap[id])
             .filter(Boolean)}
@@ -346,5 +423,68 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     marginTop: 6,
     marginBottom: 12,
+  },
+  noticeCard: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  noticeContent: {
+    flex: 1,
+    gap: 2,
+  },
+  noticeText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  noticeLink: {
+    fontSize: 13,
+    textDecorationLine: 'underline',
+  },
+  noticeDismiss: {
+    padding: 4,
+  },
+  learnMoreBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  learnMoreSheet: {
+    borderRadius: 16,
+    padding: 24,
+    gap: 12,
+    width: '100%',
+    maxWidth: 400,
+  },
+  learnMoreTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  learnMoreBody: {
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  learnMoreList: {
+    gap: 6,
+    paddingLeft: 4,
+  },
+  learnMoreItem: {
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  learnMoreButton: {
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 8,
   },
 });

@@ -71,6 +71,7 @@ const DEMO_CHANNELS: Channel[] = [
     description: 'Your daily updates channel',
     color: 'AMBER',
     isDaily: true,
+    isPrivate: false,
     ownerId: 'demo-user-1',
     subscribers: ['demo-user-2', 'demo-user-3'],
     inviteCode: null,
@@ -83,6 +84,7 @@ const DEMO_CHANNELS: Channel[] = [
     description: 'Sharing our family travel stories and photos',
     color: 'EMERALD',
     isDaily: false,
+    isPrivate: false,
     ownerId: 'demo-user-1',
     subscribers: ['demo-user-2'],
     inviteCode: 'TRVL2024',
@@ -95,6 +97,7 @@ const DEMO_CHANNELS: Channel[] = [
     description: "Grandma's secret recipes and new favorites",
     color: 'PINK',
     isDaily: false,
+    isPrivate: false,
     ownerId: 'demo-user-2',
     subscribers: ['demo-user-1', 'demo-user-3'],
     inviteCode: 'COOK2024',
@@ -107,6 +110,7 @@ const DEMO_CHANNELS: Channel[] = [
     description: 'Your daily updates channel',
     color: 'AMBER',
     isDaily: true,
+    isPrivate: false,
     ownerId: 'demo-user-2',
     subscribers: ['demo-user-1'],
     inviteCode: null,
@@ -115,7 +119,7 @@ const DEMO_CHANNELS: Channel[] = [
   },
 ];
 
-const DEMO_POSTS: Post[] = [
+const DEMO_POSTS: Array<Omit<Post, 'lastEditedAt'>> = [
   {
     id: 'demo-post-1',
     authorId: 'demo-user-1',
@@ -124,7 +128,8 @@ const DEMO_POSTS: Post[] = [
     media: [
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1506815444479-bfdb1e96c566?w=800&h=600&fit=crop'
+        url: 'https://images.unsplash.com/photo-1506815444479-bfdb1e96c566?w=800&h=600&fit=crop',
+      caption: null
       }
     ],
     timestamp: Date.now() - 2 * 60 * 60 * 1000,
@@ -145,11 +150,13 @@ const DEMO_POSTS: Post[] = [
     media: [
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1535920527002-b35e96722eb9?w=800&h=600&fit=crop'
+        url: 'https://images.unsplash.com/photo-1535920527002-b35e96722eb9?w=800&h=600&fit=crop',
+      caption: null
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1464305795204-6f5bbfc7fb81?w=800&h=600&fit=crop'
+        url: 'https://images.unsplash.com/photo-1464305795204-6f5bbfc7fb81?w=800&h=600&fit=crop',
+      caption: null
       }
     ],
     timestamp: Date.now() - 5 * 60 * 60 * 1000,
@@ -171,15 +178,18 @@ const DEMO_POSTS: Post[] = [
     media: [
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=800&h=600&fit=crop'
+        url: 'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=800&h=600&fit=crop',
+      caption: null
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=800&h=600&fit=crop'
+        url: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=800&h=600&fit=crop',
+      caption: null
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1480796927426-f609979314bd?w=800&h=600&fit=crop'
+        url: 'https://images.unsplash.com/photo-1480796927426-f609979314bd?w=800&h=600&fit=crop',
+      caption: null
       }
     ],
     timestamp: Date.now() - 24 * 60 * 60 * 1000,
@@ -197,7 +207,8 @@ const DEMO_POSTS: Post[] = [
     media: [
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&h=600&fit=crop'
+        url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&h=600&fit=crop',
+      caption: null
       }
     ],
     timestamp: Date.now() - 2 * 24 * 60 * 60 * 1000,
@@ -221,6 +232,7 @@ const DEMO_POSTS: Post[] = [
         url: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
         // url: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4'
         // url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+        caption: null,
       }
     ],
     timestamp: Date.now() - 3 * 24 * 60 * 60 * 1000,
@@ -241,20 +253,24 @@ const DEMO_POSTS: Post[] = [
     media: [
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&h=600&fit=crop'
+        url: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&h=600&fit=crop',
+      caption: null
       },
       {
         type: 'video',
         url: 'https://samplelib.com/preview/mp4/sample-5s.mp4',
         // url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
+        caption: null,
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop'
+        url: 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop',
+      caption: null
       },
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&h=600&fit=crop'
+        url: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&h=600&fit=crop',
+      caption: null
       }
     ],
     timestamp: Date.now() - 4 * 24 * 60 * 60 * 1000,
@@ -275,7 +291,8 @@ const DEMO_POSTS: Post[] = [
     media: [
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=800&h=600&fit=crop'
+        url: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=800&h=600&fit=crop',
+      caption: null
       }
     ],
     timestamp: Date.now() - 6 * 60 * 60 * 1000,
@@ -309,7 +326,8 @@ const DEMO_POSTS: Post[] = [
     media: [
       {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&h=600&fit=crop'
+        url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&h=600&fit=crop',
+      caption: null
       }
     ],
     timestamp: Date.now() - 10 * 60 * 60 * 1000,
@@ -370,6 +388,7 @@ const DEMO_POSTS: Post[] = [
       {
         type: 'image',
         url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=600&fit=crop',
+        caption: null,
       },
     ],
     timestamp: Date.now() - 85 * 24 * 60 * 60 * 1000,
@@ -549,7 +568,9 @@ export const DEMO_DATA = {
     users: [DEMO_USER, DEMO_USER_2, DEMO_USER_3],
   },
   channels: DEMO_CHANNELS,
-  posts: DEMO_POSTS,
+  posts: DEMO_POSTS.map((post) => {
+    return { ...post, lastEditedAt: null };
+  }),
   comments: DEMO_COMMENTS,
   invites: DEMO_INVITES,
   messages: DEMO_MESSAGES,

@@ -37,6 +37,12 @@ export function ChannelCard({
   return (
     <Pressable onPress={onClick}>
       <Card style={styles.card}>
+        {channel.isPrivate && (
+          <View style={[styles.cornerLock, { backgroundColor: theme.card, borderColor: theme.border }]}> 
+            <Feather name="lock" size={12} color={theme.mutedForeground} />
+          </View>
+        )}
+
         <View style={styles.header}>
           <Badge
             style={{
@@ -110,6 +116,19 @@ export function ChannelCard({
 const styles = StyleSheet.create({
   card: {
     marginBottom: 12,
+    position: 'relative',
+  },
+  cornerLock: {
+    position: 'absolute',
+    right: 10,
+    top: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
   },
   header: {
     flexDirection: 'row',

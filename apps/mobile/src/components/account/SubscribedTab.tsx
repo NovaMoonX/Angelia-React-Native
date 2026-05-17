@@ -120,6 +120,7 @@ export function SubscribedTab() {
             setSelectedChannelId(null);
           }}
           channel={selectedChannel}
+          isOwner={selectedChannel.ownerId === currentUser.id}
           subscribers={selectedChannel.subscribers
             .map((id) => usersMap[id])
             .filter(Boolean)}

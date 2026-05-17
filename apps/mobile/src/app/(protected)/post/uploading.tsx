@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Animated,
   AppState,
@@ -14,10 +15,11 @@ import * as Notifications from 'expo-notifications';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
-import { uploadPost } from '@/store/actions/postActions';
+import { uploadPost, editPostContent } from '@/store/actions/postActions';
 import { saveStatus } from '@/store/actions/userActions';
 import { completeTask } from '@/store/actions/taskActions';
 import { dismissDailyPromptNotifications } from '@/services/notifications';
+import { POST_CREATE_DRAFT_KEY } from '@/models/constants';
 import type { MediaFile } from '@/components/PostCreateMediaUploader';
 import type { PostTier, UserStatus } from '@/models/types';
 
@@ -47,17 +49,21 @@ export default function PostUploadingScreen() {
   // Capture the make_first_post task ID at mount time. Using a ref ensures
   // the value is stable inside the one-shot upload effect.
   const tasks = useAppSelector((state) => state.tasks.items);
+  const currentUserId = useAppSelector((state) => state.users.currentUser?.id ?? null);
   const makeFirstPostTaskIdRef = useRef(
     tasks.find((t) => t.type === 'make_first_post')?.id ?? null,
   );
 
   const params = useLocalSearchParams<{
+    mode?: string;
+    postId?: string;
     channelId: string;
     text: string;
     mediaJson: string;
     tier: string;
     pendingStatusJson?: string;
   }>();
+  const isEditMode = params.mode === 'edit';
 
   const [phase, setPhase] = useState<UploadPhase>('pending');
   const [errorMessage, setErrorMessage] = useState('');
@@ -127,12 +133,12 @@ export default function PostUploadingScreen() {
     router.replace('/(protected)/feed');
   };
 
-  const sendPostReadyNotification = async () => {
+  const sendQueuedUploadStartedNotification = async () => {
     try {
       await Notifications.scheduleNotificationAsync({
         content: {
           title: 'Angelia',
-          body: "Your post just dropped! 🎉 Tap to check it out.",
+          body: 'Upload started in the background. We\'ll notify you when it goes live.',
         },
         trigger: null,
       });
@@ -159,13 +165,13 @@ export default function PostUploadingScreen() {
     const media: MediaFile[] = params.mediaJson ? (() => {
       try { return JSON.parse(params.mediaJson) as MediaFile[]; } catch { return []; }
     })() : [];
+    const isQueuedUpload = !isEditMode && media.length > 0;
 
     const pendingStatus: UserStatus | null = params.pendingStatusJson ? (() => {
       try { return JSON.parse(params.pendingStatusJson) as UserStatus; } catch { return null; }
     })() : null;
 
     const tier = (params.tier || 'everyday') as PostTier;
-
     // After REVEAL_DELAY_MS, reveal the UI if still uploading
     const revealTimer = setTimeout(() => {
       if (phaseRef.current === 'pending') {
@@ -183,14 +189,22 @@ export default function PostUploadingScreen() {
       }
     }, MAX_UPLOAD_DISPLAY_MS);
 
-    dispatch(
-      uploadPost({
-        channelId: params.channelId,
-        text: params.text || '',
-        media,
-        tier,
-      })
-    )
+    const request = isEditMode
+      ? dispatch(editPostContent({
+          postId: params.postId ?? '',
+          channelId: params.channelId,
+          text: params.text || '',
+          media,
+          tier,
+        }))
+      : dispatch(uploadPost({
+          channelId: params.channelId,
+          text: params.text || '',
+          media,
+          tier,
+        }));
+
+    request
       .unwrap()
       .then(async () => {
         clearTimeout(revealTimer);
@@ -200,15 +214,20 @@ export default function PostUploadingScreen() {
         // that the user has posted.
         dismissDailyPromptNotifications();
 
-        // Save pending status
-        if (pendingStatus) {
+        // Save pending status on new-post flow only.
+        if (!isEditMode && pendingStatus) {
           try { await dispatch(saveStatus(pendingStatus)).unwrap(); } catch { /* ignore */ }
+        }
+
+        // Clear the local post draft only after a successful new-post publish.
+        if (!isEditMode && currentUserId) {
+          await AsyncStorage.removeItem(POST_CREATE_DRAFT_KEY(currentUserId)).catch(() => {});
         }
 
         // Auto-complete the make_first_post task on the first successful post.
         // The congratulatory toast is delayed so it appears after the upload
         // confirmation UI/toast has had time to show and fade (~5 s).
-        if (makeFirstPostTaskIdRef.current) {
+        if (!isEditMode && makeFirstPostTaskIdRef.current) {
           dispatch(completeTask(makeFirstPostTaskIdRef.current));
           makeFirstPostTaskIdRef.current = null; // prevent double-fire
           setTimeout(() => {
@@ -219,9 +238,15 @@ export default function PostUploadingScreen() {
         if (phaseRef.current === 'background') {
           // Already navigated to feed — send notification or toast
           if (appStateRef.current !== 'active') {
-            sendPostReadyNotification();
+            if (isQueuedUpload) {
+              sendQueuedUploadStartedNotification();
+            }
           } else {
-            addToast({ type: 'success', title: "Your post is live! 🎉" });
+            if (isQueuedUpload) {
+              addToast({ type: 'info', title: 'Upload started. We\'ll keep posting in the background.' });
+            } else {
+              addToast({ type: 'success', title: isEditMode ? 'Post updated! ✨' : "Your post is live! 🎉" });
+            }
           }
           return;
         }
@@ -251,14 +276,14 @@ export default function PostUploadingScreen() {
           if (appStateRef.current === 'active') {
             addToast({
               type: 'error',
-              title: err instanceof Error ? err.message : 'Failed to create post',
+              title: err instanceof Error ? err.message : isEditMode ? 'Failed to edit post' : 'Failed to create post',
             });
           }
           return;
         }
 
         setPhaseAndRef('error');
-        setErrorMessage(err instanceof Error ? err.message : 'Failed to create post');
+        setErrorMessage(err instanceof Error ? err.message : isEditMode ? 'Failed to edit post' : 'Failed to create post');
         // If error happened before UI was revealed, we still need to show it
         runReveal();
       });
@@ -268,7 +293,7 @@ export default function PostUploadingScreen() {
       clearTimeout(bgTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentUserId]);
 
   const spinInterpolate = spin.interpolate({
     inputRange: [0, 1],
@@ -310,10 +335,10 @@ export default function PostUploadingScreen() {
             </Animated.Text>
           </View>
           <Text style={[styles.title, { color: theme.foreground }]}>
-            Sharing with your crew...
+            {isEditMode ? 'Saving your edits...' : 'Sharing with your crew...'}
           </Text>
           <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
-            Hang tight while your post goes up ✨
+            {isEditMode ? 'Hang tight while we update your post ✨' : 'Hang tight while your post goes up ✨'}
           </Text>
         </View>
       )}
@@ -325,7 +350,7 @@ export default function PostUploadingScreen() {
             Taking a bit longer...
           </Text>
           <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
-            We'll let you know when your post is live.
+            {isEditMode ? "We'll let you know when your post update finishes." : "We'll let you know when your post is live."}
           </Text>
         </View>
       )}
@@ -339,10 +364,10 @@ export default function PostUploadingScreen() {
         >
           <Text style={styles.successEmoji}>🎉</Text>
           <Text style={[styles.title, { color: theme.foreground }]}>
-            Your post is live!
+            {isEditMode ? 'Post updated!' : 'Upload started!'}
           </Text>
           <Text style={[styles.subtitle, { color: theme.mutedForeground }]}>
-            Your crew can now see it 🙌
+            {isEditMode ? 'Your latest changes are saved 🙌' : 'You can head back to Feed while we finish uploading 🙌'}
           </Text>
         </Animated.View>
       )}

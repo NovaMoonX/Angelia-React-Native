@@ -136,6 +136,7 @@ export interface Channel {
   description: string;
   color: string;
   isDaily: boolean | null;
+  isPrivate: boolean | null;
   ownerId: string;
   subscribers: string[];
   inviteCode: string | null;
@@ -146,10 +147,14 @@ export interface Channel {
 export type NewChannel = Omit<Channel, 'id' | 'isDaily' | 'inviteCode' | 'createdAt' | 'markedForDeletionAt'>;
 
 export interface MediaItem {
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'audio';
   url: string;
   /** For videos: Firebase Storage download URL of the thumbnail image. */
   thumbnailUrl?: string;
+  /** Optional title for audio attachments. */
+  title: string | null;
+  /** Optional caption for this media item. */
+  caption: string | null;
 }
 
 export interface Reaction {
@@ -176,6 +181,7 @@ export interface Post {
   text: string;
   media: MediaItem[] | null;
   timestamp: number;
+  lastEditedAt: number | null;
   reactions: Reaction[];
   conversationEnrollees: string[];
   markedForDeletionAt: number | null;

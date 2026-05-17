@@ -199,6 +199,39 @@ See [NOTIFICATION_TESTING.md](./NOTIFICATION_TESTING.md) for a step-by-step guid
 
 ---
 
+#### Android toast is visible in logs but not on screen until later
+
+**Symptom:** A toast mounts and auto-dismisses in the logs, but on Android it can appear missing, delayed, or unstable when the app is busy with other upload/background work. iOS looks fine.
+
+**Cause:** The toast animation path mixed native-driven and JS-driven animation updates on the same `Animated.Value`s. On Android, that combination can make the toast lifecycle unreliable, especially when other work is already keeping the JS thread busy.
+
+**Fix:** Keep the toast animation path consistent on the JS driver, and render the toast visible immediately instead of depending on a mount animation to make it appear. See `src/providers/ToastProvider.tsx`.
+
+---
+
+#### iOS push notifications not delivered (APNs key missing from Firebase)
+
+**Symptom:** Push notifications are working on Android but not arriving on iOS, despite app entitlements being correct and device permissions granted.
+
+**Cause:** The APNs (Apple Push Notification service) authentication key had not been uploaded to Firebase. Firebase requires a `.p8` APNs auth key to bridge FCM → APNs for iOS devices. Without it, Firebase cannot forward notifications to Apple's servers and silently fails all iOS deliveries. Android is unaffected because it uses FCM natively.
+
+**Diagnostic steps:**
+1. Use Apple's Push Notifications Console → **Tools** to validate the device's APNs token is legitimate and correctly registered.
+2. Use Apple's Push Notifications Console → **Send** to send a direct test notification to the device via APNs. Success here confirms the device, app entitlements, and Apple Developer configuration are all correct.
+3. Use Firebase Console → **Messaging** to attempt a direct test send to the device's FCM token. Failure here isolates the problem to the Firebase ↔ APNs bridge.
+4. Check Firebase Console → **Project Settings → Cloud Messaging → Apple app configuration** to confirm whether an APNs key has been uploaded.
+
+**Fix:**
+1. Go to **developer.apple.com → Certificates, Identifiers & Profiles → Keys**
+2. Create a new key with **Apple Push Notifications service (APNs)** enabled
+3. Download the `.p8` file immediately (it can only be downloaded once) and note the **Key ID** and **Team ID**
+4. Go to **Firebase Console → Project Settings → Cloud Messaging → Apple app configuration**
+5. Upload the `.p8` file and enter the **Key ID** and **Team ID**
+
+No app reinstall or redeployment is required — notifications begin working immediately after the key is uploaded. A single `.p8` APNs auth key covers both development and production environments and all apps under the same Apple Developer account. If notifications still do not arrive after uploading the key, try a full app reinstall or sign out/sign in to force a fresh FCM token. The `.p8` file can only be downloaded once — store it securely. If lost, revoke the key and generate a new one. See [IOS_NOTIFICATIONS_DEBUG.md](./IOS_NOTIFICATIONS_DEBUG.md) for more detailed debugging steps.
+
+---
+
 #### Firestore subscription crashes with `Cannot read property 'docs' of null`
 
 **Symptom:** The app throws `TypeError: Cannot read property 'docs' of null` from Firestore listeners, often in request/task/private-note subscriptions.

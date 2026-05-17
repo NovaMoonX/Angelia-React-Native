@@ -40,6 +40,12 @@ const postsSlice = createSlice({
     ) {
       const post = state.items.find((p) => p.id === action.payload.postId);
       if (post) {
+        const alreadyHasReaction = post.reactions.some((reaction) => {
+          return reaction.userId === action.payload.newReaction.userId && reaction.emoji === action.payload.newReaction.emoji;
+        });
+        if (alreadyHasReaction) {
+          return;
+        }
         state.previousReactions[action.payload.postId] = [...post.reactions];
         post.reactions = [...post.reactions, action.payload.newReaction];
       }
@@ -52,6 +58,18 @@ const postsSlice = createSlice({
       if (post) {
         state.previousReactions[action.payload.postId] = [...post.reactions];
         post.reactions = post.reactions.filter((r) => r.userId !== action.payload.userId);
+      }
+    },
+    removeReactionByUserAndEmojiOptimistic(
+      state,
+      action: PayloadAction<{ postId: string; userId: string; emoji: string }>
+    ) {
+      const post = state.items.find((p) => p.id === action.payload.postId);
+      if (post) {
+        state.previousReactions[action.payload.postId] = [...post.reactions];
+        post.reactions = post.reactions.filter((r) => {
+          return !(r.userId === action.payload.userId && r.emoji === action.payload.emoji);
+        });
       }
     },
     revertReactionsOptimistic(state, action: PayloadAction<{ postId: string }>) {
@@ -85,6 +103,15 @@ const postsSlice = createSlice({
     removePost(state, action: PayloadAction<{ postId: string }>) {
       state.items = state.items.filter((p) => p.id !== action.payload.postId);
     },
+    updatePostFields(state, action: PayloadAction<{ postId: string; data: Partial<Post> }>) {
+      const post = state.items.find((item) => {
+        return item.id === action.payload.postId;
+      });
+      if (!post) {
+        return;
+      }
+      Object.assign(post, action.payload.data);
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(resetAllState, () => initialState);
@@ -98,10 +125,12 @@ export const {
   loadDemoPosts,
   updateReactionsOptimistic,
   removeReactionsByUserOptimistic,
+  removeReactionByUserAndEmojiOptimistic,
   revertReactionsOptimistic,
   addConversationEnrollee,
   removeConversationEnrollee,
   removePost,
+  updatePostFields,
 } = postsSlice.actions;
 
 // Selectors
