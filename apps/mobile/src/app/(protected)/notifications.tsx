@@ -142,7 +142,7 @@ export default function NotificationsScreen() {
                   New Notification Controls
                 </Text>
                 <Text style={[styles.settingsRowSub, { color: settingsNoticeAccent }]}> 
-                  You can now tune post alerts by Circle and choose whether replies to your messages ping you. Tap to set yours.
+                  You can now whether new reactions or messages for your posts ping you. Both are enabled by default. 
                 </Text>
               </View>
             </View>

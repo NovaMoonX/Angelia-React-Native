@@ -188,7 +188,7 @@ export const BETA_UPDATE_MODAL_SEEN_KEY = (version: string) => `@angelia/beta_up
  * Version for the one-time notification-settings release notice shown on the
  * Notifications screen. Bump when new notification controls are introduced.
  */
-export const NOTIFICATION_SETTINGS_NOTICE_VERSION = '2026-05-reply-notification-controls';
+export const NOTIFICATION_SETTINGS_NOTICE_VERSION = '2026-05-16-reactions-and-messages-notifications';
 
 /** Accent color for notification-settings release notice card and bell badge dot. */
 export const NOTIFICATION_SETTINGS_NOTICE_ACCENT = '#0EA5E9';

@@ -29,6 +29,7 @@
     "build:android": "eas build --profile development --platform android",
     "prod:ios": "eas build --profile production --platform ios",
     "prod:android": "eas build --profile production --platform android",
+    "ios:submit": "eas submit --platform ios",
     "web": "expo start --web",
     "lint": "expo lint",
     "ts:check": "tsc --noEmit",
