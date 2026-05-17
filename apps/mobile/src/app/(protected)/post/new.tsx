@@ -858,7 +858,7 @@ export default function PostCreateScreen() {
           </View>
         )}
 
-        {showReorderHint && (
+        {showReorderHint && media.length > 1 && (
           <View style={[styles.featureHint, { backgroundColor: theme.card, borderColor: theme.border }]}> 
             <Text style={[styles.featureHintText, { color: theme.mutedForeground }]}> 
               Reorder media: long press any media item, then use arrows.
