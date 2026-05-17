@@ -40,6 +40,12 @@ const postsSlice = createSlice({
     ) {
       const post = state.items.find((p) => p.id === action.payload.postId);
       if (post) {
+        const alreadyHasReaction = post.reactions.some((reaction) => {
+          return reaction.userId === action.payload.newReaction.userId && reaction.emoji === action.payload.newReaction.emoji;
+        });
+        if (alreadyHasReaction) {
+          return;
+        }
         state.previousReactions[action.payload.postId] = [...post.reactions];
         post.reactions = [...post.reactions, action.payload.newReaction];
       }

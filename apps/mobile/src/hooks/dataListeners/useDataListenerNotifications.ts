@@ -16,6 +16,7 @@ import {
 import type { AppNotificationType, Post } from '@/models/types';
 
 const DAILY_PROMPT_SHOWN_DATE_KEY = '@angelia/daily_prompt_shown_date';
+const STARTUP_TOAST_SUPPRESSION_MS = 5000;
 
 const handledNotificationKeys = new Set<string>();
 const handledForegroundToastKeys = new Set<string>();
@@ -107,6 +108,7 @@ export function useDataListenerNotifications() {
   const circleInvitesLoadedRef = useRef(false);
   const ownPostStatusRef = useRef<Record<string, Post['status']>>({});
   const ownPostStatusInitializedRef = useRef(false);
+  const foregroundToastsEnabledAtRef = useRef(Number.MAX_SAFE_INTEGER);
 
   const routeFromNotificationPayloadRef = useRef(
     (type: string | undefined, data: Record<string, string> | undefined, source: 'cold-start' | 'foreground-listener') => {
@@ -156,6 +158,8 @@ export function useDataListenerNotifications() {
         if (postId) {
           if (type === 'post_reaction') {
             void dismissNotificationsByData({ type: 'post_reaction', postId });
+          } else {
+            void dismissNotificationsByData({ type: 'new_post', postId });
           }
           router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } });
         }
@@ -204,6 +208,7 @@ export function useDataListenerNotifications() {
     seenCircleInviteIdsRef.current = new Set();
     circleInvitesLoadedRef.current = false;
     handledForegroundToastKeys.clear();
+    foregroundToastsEnabledAtRef.current = Date.now() + STARTUP_TOAST_SUPPRESSION_MS;
   }, [firebaseUser?.uid, isDemo]);
 
   useEffect(() => {
@@ -324,6 +329,10 @@ export function useDataListenerNotifications() {
         return;
       }
       handledForegroundToastKeys.add(toastKey);
+
+      if (Date.now() < foregroundToastsEnabledAtRef.current) {
+        return;
+      }
 
       const data = extractNotificationData(notification);
       const type = data?.type as AppNotificationType | undefined;
@@ -485,8 +494,13 @@ export function useDataListenerNotifications() {
       return request.status === 'pending' && !seenConnectionRequestIdsRef.current.has(request.id);
     });
 
+    const suppressDuringStartup = Date.now() < foregroundToastsEnabledAtRef.current;
+
     freshRequests.forEach((request) => {
       seenConnectionRequestIdsRef.current.add(request.id);
+      if (suppressDuringStartup) {
+        return;
+      }
       const sender = allUsers.find((user) => {
         return user.id === request.fromId;
       });
@@ -522,8 +536,13 @@ export function useDataListenerNotifications() {
       return request.status === 'pending' && !seenJoinRequestIdsRef.current.has(request.id);
     });
 
+    const suppressDuringStartup = Date.now() < foregroundToastsEnabledAtRef.current;
+
     freshRequests.forEach((request) => {
       seenJoinRequestIdsRef.current.add(request.id);
+      if (suppressDuringStartup) {
+        return;
+      }
       const requester = allUsers.find((user) => {
         return user.id === request.requesterId;
       });
@@ -563,8 +582,13 @@ export function useDataListenerNotifications() {
       return invite.status === 'pending' && !seenCircleInviteIdsRef.current.has(invite.id);
     });
 
+    const suppressDuringStartup = Date.now() < foregroundToastsEnabledAtRef.current;
+
     freshInvites.forEach((invite) => {
       seenCircleInviteIdsRef.current.add(invite.id);
+      if (suppressDuringStartup) {
+        return;
+      }
       const inviter = allUsers.find((user) => {
         return user.id === invite.inviterId;
       });

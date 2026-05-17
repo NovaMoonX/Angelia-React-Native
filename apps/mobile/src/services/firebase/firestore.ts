@@ -855,8 +855,23 @@ export async function updatePostReactions(postId: string, reactions: unknown[]):
 }
 
 export async function addReactionToPost(postId: string, reaction: Reaction): Promise<void> {
-  await updateDoc(doc(getDb(), 'posts', postId), {
-    reactions: arrayUnion(reaction),
+  await runTransaction(getDb(), async (transaction) => {
+    const postRef = doc(getDb(), 'posts', postId);
+    const postSnap = await transaction.get(postRef);
+    if (!postSnap.exists) return;
+
+    const post = postSnap.data() as Post;
+    const currentReactions = post.reactions ?? [];
+    const alreadyHasReaction = currentReactions.some((item) => {
+      return item.userId === reaction.userId && item.emoji === reaction.emoji;
+    });
+    if (alreadyHasReaction) {
+      return;
+    }
+
+    transaction.update(postRef, {
+      reactions: [...currentReactions, reaction],
+    });
   });
 }
 

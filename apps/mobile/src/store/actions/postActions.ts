@@ -195,6 +195,7 @@ interface QueuedPostUploadJob {
 
 const MAX_UPLOAD_RETRIES = 3;
 let queueProcessing = false;
+const pendingReactionKeys = new Set<string>();
 
 async function readUploadQueue(): Promise<QueuedPostUploadJob[]> {
   try {
@@ -515,10 +516,25 @@ export const updatePostReactions = createAsyncThunk(
       return item.id === postId;
     });
 
-    dispatch(updateReactionsOptimistic({ postId, newReaction }));
-    if (isDemoActive(getState)) {
+    const reactionKey = `${postId}_${newReaction.userId}_${newReaction.emoji}`;
+    if (pendingReactionKeys.has(reactionKey)) {
       return { postId, newReaction };
     }
+
+    const alreadyReactedWithEmoji = post?.reactions.some((reaction) => {
+      return reaction.userId === newReaction.userId && reaction.emoji === newReaction.emoji;
+    }) ?? false;
+    if (alreadyReactedWithEmoji) {
+      return { postId, newReaction };
+    }
+
+    pendingReactionKeys.add(reactionKey);
+    dispatch(updateReactionsOptimistic({ postId, newReaction }));
+    if (isDemoActive(getState)) {
+      pendingReactionKeys.delete(reactionKey);
+      return { postId, newReaction };
+    }
+
     try {
       await addReactionToPost(postId, newReaction);
 
@@ -541,6 +557,8 @@ export const updatePostReactions = createAsyncThunk(
     } catch (err) {
       dispatch(revertReactionsOptimistic({ postId }));
       return rejectWithValue(err instanceof Error ? err.message : err);
+    } finally {
+      pendingReactionKeys.delete(reactionKey);
     }
   },
 );
