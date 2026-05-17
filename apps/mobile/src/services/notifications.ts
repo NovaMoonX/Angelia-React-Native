@@ -388,12 +388,70 @@ export async function dismissDailyPromptNotifications(): Promise<void> {
 export async function dismissNotificationsByData(
   filter: Record<string, string>,
 ): Promise<void> {
+  const toStringRecord = (value: unknown): Record<string, string> | undefined => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return undefined;
+    }
+
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof v === 'string') {
+        out[k] = v;
+      } else if (typeof v === 'number' || typeof v === 'boolean') {
+        out[k] = String(v);
+      }
+    }
+
+    return Object.keys(out).length > 0 ? out : undefined;
+  };
+
+  const extractNotificationData = (notification: Notifications.Notification): Record<string, string> => {
+    const contentData = toStringRecord(notification.request.content.data);
+    if (contentData && Object.keys(contentData).length > 0) {
+      return contentData;
+    }
+
+    const triggerAny = notification.request.trigger as unknown as { payload?: unknown } | null;
+    const payload = triggerAny?.payload;
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return {};
+    }
+
+    const payloadRecord = payload as Record<string, unknown>;
+    const nestedData = toStringRecord(payloadRecord.data);
+    if (nestedData && Object.keys(nestedData).length > 0) {
+      return nestedData;
+    }
+
+    return toStringRecord(payloadRecord) ?? {};
+  };
+
   try {
     const presented = await Notifications.getPresentedNotificationsAsync();
+    if (Platform.OS === 'android') {
+      console.warn('[NotifDebug][Android] dismissNotificationsByData presented notifications', {
+        filter,
+        presentedCount: presented.length,
+      });
+    }
     const toRemove = presented.filter((n) => {
-      const data = n.request.content.data as Record<string, unknown>;
+      const data = extractNotificationData(n);
+      if (Platform.OS === 'android') {
+        console.warn('[NotifDebug][Android] presented notification payload', {
+          identifier: n.request.identifier,
+          data,
+        });
+      }
       return Object.entries(filter).every(([k, v]) => { return data[k] === v; });
     });
+    if (Platform.OS === 'android') {
+      console.warn('[NotifDebug][Android] dismissNotificationsByData matched notifications', {
+        filter,
+        matchedIdentifiers: toRemove.map((n) => {
+          return n.request.identifier;
+        }),
+      });
+    }
     await Promise.allSettled(
       toRemove.map((n) => { return Notifications.dismissNotificationAsync(n.request.identifier); }),
     );

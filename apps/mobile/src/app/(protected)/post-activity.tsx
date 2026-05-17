@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, type ViewToken, View } from 'react-native';
+import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, type ViewToken, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
@@ -39,6 +39,17 @@ export default function PostActivityScreen() {
   const lastVisibleKeyRef = useRef('');
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 98 }).current;
 
+  useEffect(() => {
+    if (Platform.OS !== 'android') {
+      return;
+    }
+    console.warn('[ActivityDebug][Android] PostActivity mounted', {
+      scope,
+      summariesCount: summaries.length,
+      unreadCount: Object.keys(unreadDetailsByPostId).length,
+    });
+  }, []);
+
   const handleBackPress = useCallback(() => {
     router.dismissTo('/(protected)/feed');
   }, [router]);
@@ -50,6 +61,11 @@ export default function PostActivityScreen() {
   const flushPendingSeen = useCallback(async () => {
     const pendingPostIds = Array.from(pendingSeenPostIdsRef.current);
     if (pendingPostIds.length === 0) return;
+    if (Platform.OS === 'android') {
+      console.warn('[ActivityDebug][Android] flushPendingSeen', {
+        pendingPostIds,
+      });
+    }
     pendingSeenPostIdsRef.current.clear();
     await markPostsSeenRef.current(pendingPostIds);
   }, []);
@@ -63,11 +79,17 @@ export default function PostActivityScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (Platform.OS === 'android') {
+        console.warn('[ActivityDebug][Android] PostActivity focused', {
+          summariesCount: summaries.length,
+          unreadCount: Object.keys(unreadDetailsByPostId).length,
+        });
+      }
       void refreshSeenState().catch(() => {});
       return () => {
         void flushPendingSeen().catch(() => {});
       };
-    }, [flushPendingSeen, refreshSeenState]),
+    }, [flushPendingSeen, refreshSeenState, summaries.length, unreadDetailsByPostId]),
   );
 
   const handleRefresh = useCallback(async () => {
@@ -174,6 +196,12 @@ export default function PostActivityScreen() {
     const nextKey = fullyVisiblePostIds.join('|');
     if (nextKey === lastVisibleKeyRef.current) return;
     lastVisibleKeyRef.current = nextKey;
+    if (Platform.OS === 'android') {
+      console.warn('[ActivityDebug][Android] onViewableItemsChanged', {
+        fullyVisiblePostIds,
+        activityScope,
+      });
+    }
     fullyVisiblePostIds.forEach((postId) => {
       pendingSeenPostIdsRef.current.add(postId);
     });

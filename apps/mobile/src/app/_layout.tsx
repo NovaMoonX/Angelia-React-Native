@@ -169,6 +169,7 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 	} else if (type === 'new_post') {
 		const postId = data?.postId;
 		if (postId) {
+			void dismissNotificationsByData({ type: 'new_post', postId });
 			pushRoute('/(protected)/post/[id]', { id: postId });
 		}
 	} else if (type === 'post_reaction') {

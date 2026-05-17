@@ -28,19 +28,34 @@ export function useDataListenerLifecycle({
     }
 
     const writeLastOpened = async () => {
-      await AsyncStorage.setItem(APP_LAST_OPENED_AT_KEY(currentUserId), String(Date.now())).catch((error) => {
+      const now = Date.now();
+      if (AppState.currentState === 'background') {
+        console.warn('[ActivityDebug][Android] Persisting APP_LAST_OPENED_AT_KEY on background', {
+          currentUserId,
+          now,
+        });
+      }
+      await AsyncStorage.setItem(APP_LAST_OPENED_AT_KEY(currentUserId), String(now)).catch((error) => {
         console.warn('Failed to persist app last opened timestamp', error);
       });
     };
 
     const handleAppStateChange = (nextState: AppStateStatus) => {
-      if (nextState !== 'active') {
+      if (nextState === 'active') {
+        console.warn('[ActivityDebug][Android] AppState active (no baseline write)', {
+          currentUserId,
+        });
+        return;
+      }
+      if (nextState !== 'background') {
+        console.warn('[ActivityDebug][Android] AppState transition ignored', {
+          currentUserId,
+          nextState,
+        });
         return;
       }
       void writeLastOpened();
     };
-
-    void writeLastOpened();
 
     const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
 

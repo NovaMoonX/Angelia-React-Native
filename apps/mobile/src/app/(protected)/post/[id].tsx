@@ -164,6 +164,10 @@ export default function PostDetailScreen() {
 		useCallback(() => {
 			if (!currentUser?.id || !id) return undefined;
 
+			// Viewing this post means post-targeted push cards are now stale.
+			void dismissNotificationsByData({ type: 'new_post', postId: id }).catch(() => {});
+			void dismissNotificationsByData({ type: 'post_reaction', postId: id }).catch(() => {});
+
 			return () => {
 				const seenAt = String(Date.now());
 				void AsyncStorage.setItem(POST_REACTIONS_SEEN_KEY(currentUser.id, id), seenAt).catch(() => {});
