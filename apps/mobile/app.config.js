@@ -89,6 +89,8 @@ export default {
 				{
 					ios: {
 						useFrameworks: 'static',
+						extraPodfileConfig:
+							"post_install do |installer|\n  installer.pods_project.targets.each do |target|\n    if target.name.start_with?('RNFB')\n      target.build_configurations.each do |config|\n        config.build_settings['DEFINES_MODULE'] = 'NO'\n        config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'\n      end\n    end\n  end\nend",
 					},
 					android: {
 						minSdkVersion: 24,

@@ -294,6 +294,23 @@ Use it as the compact source of truth for the next beta update modal:
 
 If you forget to update the beta notes after making user-facing changes, the task is not complete. Add a bullet under "Current branch highlights" in plain, warm, friendly language that explains the benefit to users (not just what was changed).
 
+### Version release notes (`/versions`)
+
+Create plain text release note files in the repo root `versions/` folder for every production release. Name the file with the semantic version exactly as it appears in `app.config.js`, for example `versions/1.0.1.txt`.
+
+Each file should be simple text and list the release updates, improvements, and bug fixes as short bullets. This is the release-specific changelog for the version and is separate from `apps/mobile/BETA_UPDATE_NOTES.txt`, which is branch/beta-focused.
+
+Example:
+
+```
+Branch: release/1.0.1
+- Bug fixes & reliability improvements for Daily Circle feed sync
+- Updated release alert behavior
+- Minor onboarding copy polish
+```
+
+Keep the file and version name aligned with `app.config.js` and `src/models/constants.ts`.
+
 ### Notifications release notice area (`src/app/(protected)/notifications.tsx`)
 
 The top callout area in the Notifications screen is a **release-scoped, one-time notice area** for new notification controls.

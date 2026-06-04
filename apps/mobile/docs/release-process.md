@@ -12,7 +12,17 @@ Do these steps **before** triggering any build. This is mandatory — see the co
 
 Edit [`BETA_UPDATE_NOTES.txt`](../BETA_UPDATE_NOTES.txt) with a concise, friendly summary of everything that changed in this release. Write like you're texting a friend — warmly and clearly.
 
-### 1b. Update the Beta Update Modal
+### 1b. Create or update the version release notes file
+
+Create or update `versions/<version>.txt` using the same semantic version as `app.config.js` and `APP_VERSION`. Keep it plain text and list the release updates, improvements, and bug fixes as simple bullets, e.g.:
+
+- Bug fixes & reliability improvements for Daily Circle feed sync
+- Updated the release alert logic
+- Minor onboarding copy polish
+
+This folder is the source of truth for version release notes.
+
+### 1c. Update the Beta Update Modal
 
 Open [`src/models/constants.ts`](../src/models/constants.ts)
 Open [`src/components/BetaUpdateModal.tsx`](../src/components/BetaUpdateModal.tsx) and:
@@ -21,7 +31,7 @@ Open [`src/components/BetaUpdateModal.tsx`](../src/components/BetaUpdateModal.ts
 2. **Update `BETA_UPDATE_TITLE`** with a friendly headline (optional but encouraged).
 3. **Replace `BETA_UPDATE_CHANGES`** with the current list of changes (max 5 entries). Draw from `BETA_UPDATE_NOTES.txt`. Roll minor fixes into a single `"Bug fixes & reliability"` entry.
 
-### 1c. Bump the App Version
+### 1d. Bump the App Version
 
 Open [`app.config.js`](../app.config.js) and increment the `version` field under `expo`:
 
@@ -31,7 +41,7 @@ version: '1.0.1',  // e.g. bump from 1.0.0 → 1.0.1
 
 > **Why this matters:** EAS and the app stores use the version to distinguish builds. Increment it with every new production release. Use semantic versioning — minor bumps (e.g. `1.0.0` → `1.0.1`) for standard updates, major bumps for large feature releases.
 
-### 1d. Sync Runtime App Version Constant
+### 1e. Sync Runtime App Version Constant
 
 Open [`src/models/constants.ts`](../src/models/constants.ts) and update:
 
@@ -43,7 +53,7 @@ Set it to the exact same semantic version used in `app.config.js`.
 
 > **Why this matters:** update gating compares server-required versions against this runtime constant. Keeping it in sync prevents false "new update" prompts when users already installed the latest build but still have older cached dismissal metadata.
 
-### 1e. Bump Notification Settings Notice Version (when needed)
+### 1f. Bump Notification Settings Notice Version (when needed)
 
 If this release introduces **new notification controls** (or changes the release notice copy for those controls), bump:
 
@@ -132,6 +142,7 @@ Set `iosVersion` and `androidVersion` to the **exact semantic version** you put 
 
 ```
 [ ] BETA_UPDATE_NOTES.txt updated
+[ ] versions/<version>.txt created or updated
 [ ] BetaUpdateModal.tsx version bumped + changes updated
 [ ] app.config.js version incremented
 [ ] APP_VERSION in src/models/constants.ts synced to app.config.js version

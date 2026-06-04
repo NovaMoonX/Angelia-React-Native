@@ -1,0 +1,5 @@
+Branch: more-fixings-start-may-17
+- Fixed connected users' Daily Circle posts not appearing in the feed.
+- Addressed Android build stability issues.
+- Improved media reorder UX by only showing reorder hints when there are 2+ items.
+- Fixed media item reordering behavior.
