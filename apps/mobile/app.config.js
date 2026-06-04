@@ -89,6 +89,13 @@ export default {
 				{
 					ios: {
 						useFrameworks: 'static',
+						forceStaticLinking: [
+							'RNFBApp',
+							'RNFBAuth',
+							'RNFBFirestore',
+							'RNFBMessaging',
+							'RNFBStorage',
+						],
 					},
 					android: {
 						minSdkVersion: 24,
