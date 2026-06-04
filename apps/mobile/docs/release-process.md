@@ -14,6 +14,7 @@ Edit [`BETA_UPDATE_NOTES.txt`](../BETA_UPDATE_NOTES.txt) with a concise, friendl
 
 ### 1b. Update the Beta Update Modal
 
+Open [`src/models/constants.ts`](../src/models/constants.ts)
 Open [`src/components/BetaUpdateModal.tsx`](../src/components/BetaUpdateModal.tsx) and:
 
 1. **Bump `BETA_UPDATE_VERSION`** to a new string (e.g. `"1.1.0"` or a date like `"2026-06-01"`). This is the key that determines whether a user sees the modal — bumping it causes the modal to show again for everyone.
