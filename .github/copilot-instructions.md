@@ -216,7 +216,17 @@ The individual `preset` and `uri` props are only for non-User contexts, such as 
 ---
 
 ## Keeping docs up to date
+### Repo-wide investigation docs (`/docs`)
 
+All implementation and investigation writeups belong in the repo's central `/docs` folder. For current investigations, store documents under `/docs/YYYY/MM/DD/` so they are easy to find by date and context.
+
+**Store docs this way when you create or archive a troubleshooting writeup:**
+- `/docs/2026/06/04/INVESTIGATION_REPORT_daily_circle_post_missing.md`
+- `/docs/2026/06/04/TROUBLESHOOTING_GUIDE_daily_circle_post_missing.md`
+- `/docs/2026/06/04/QUICK_REFERENCE_daily_circle_post_missing.md`
+- `/docs/2026/06/04/INVESTIGATION_DIAGRAMS_daily_circle_post_missing.md`
+
+This keeps implementation notes, root-cause reports, and quick references centralized and organized by date.
 ### OTA / server-side feed modals (`apps/mobile/docs/ota-modals.md`)
 
 `apps/mobile/docs/ota-modals.md` is the reference for all three Firestore-driven feed modals (app version update, broadcast message, feedback form). **Update it whenever:**
