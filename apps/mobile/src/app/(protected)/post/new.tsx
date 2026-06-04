@@ -209,6 +209,13 @@ export default function PostCreateScreen() {
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const hasActiveStatus = isStatusActive(currentUser?.status);
   const [reorderIndex, setReorderIndex] = useState<number | null>(null);
+  const mediaStripRef = useRef<View>(null);
+  const [mediaStripBounds, setMediaStripBounds] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const [captionTargetIndex, setCaptionTargetIndex] = useState<number | null>(null);
   const [captionDraft, setCaptionDraft] = useState('');
   const [captionKeyboardOffset, setCaptionKeyboardOffset] = useState(0);
@@ -233,7 +240,18 @@ export default function PostCreateScreen() {
   const [showReorderHint, setShowReorderHint] = useState(true);
   const [showVideoUploadNotice, setShowVideoUploadNotice] = useState(true);
 
+  const updateMediaStripBounds = useCallback(() => {
+    mediaStripRef.current?.measureInWindow((x, y, width, height) => {
+      setMediaStripBounds({ x, y, width, height });
+    });
+  }, []);
+
   const atMaxFiles = media.length >= MAX_FILES;
+
+  useEffect(() => {
+    if (reorderIndex === null) return;
+    updateMediaStripBounds();
+  }, [reorderIndex, media.length, updateMediaStripBounds]);
 
   useEffect(() => {
     if (!params.capturedMedia) return;
@@ -652,11 +670,33 @@ export default function PostCreateScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 120 }]}
         keyboardShouldPersistTaps="handled"
-        onTouchStart={() => {
-          if (reorderIndex !== null) {
+        onTouchStart={(event) => {
+          if (reorderIndex === null) {
+            return;
+          }
+          if (!mediaStripBounds) {
+            setReorderIndex(null);
+            return;
+          }
+
+          const { pageX, pageY } = event.nativeEvent;
+          const withinStrip =
+            pageX >= mediaStripBounds.x &&
+            pageX <= mediaStripBounds.x + mediaStripBounds.width &&
+            pageY >= mediaStripBounds.y &&
+            pageY <= mediaStripBounds.y + mediaStripBounds.height;
+
+          if (!withinStrip) {
             setReorderIndex(null);
           }
         }}
+        onScroll={() => {
+          if (reorderIndex === null) {
+            return;
+          }
+          updateMediaStripBounds();
+        }}
+        scrollEventThrottle={16}
       >
         {/* Circle selector */}
         <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>Circle</Text>
@@ -818,7 +858,7 @@ export default function PostCreateScreen() {
           </View>
         )}
 
-        {showReorderHint && (
+        {showReorderHint && media.length > 1 && (
           <View style={[styles.featureHint, { backgroundColor: theme.card, borderColor: theme.border }]}> 
             <Text style={[styles.featureHintText, { color: theme.mutedForeground }]}> 
               Reorder media: long press any media item, then use arrows.
@@ -829,6 +869,10 @@ export default function PostCreateScreen() {
           </View>
         )}
 
+        <View
+          ref={mediaStripRef}
+          onLayout={updateMediaStripBounds}
+        >
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -937,6 +981,7 @@ export default function PostCreateScreen() {
             );
           })}
         </ScrollView>
+        </View>
           </>
         )}
 

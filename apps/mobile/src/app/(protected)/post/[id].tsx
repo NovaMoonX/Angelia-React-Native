@@ -659,7 +659,7 @@ export default function PostDetailScreen() {
 				</View>
 
 				{/* Post Content */}
-				{post.text ? <Text style={[styles.postText, { color: theme.foreground }]}>{post.text}</Text> : null}
+				{post.text ? <Text selectable={true} style={[styles.postText, { color: theme.foreground }]}>{post.text}</Text> : null}
 
 				{/* Media */}
 				{post.media && post.media.length > 0 ? (

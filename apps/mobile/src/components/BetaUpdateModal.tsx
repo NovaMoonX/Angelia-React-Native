@@ -17,7 +17,7 @@ import { useTheme } from '@/hooks/useTheme';
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BETA_UPDATE_TITLE = 'Big upgrades are here 🎉';
+const BETA_UPDATE_TITLE = 'Small update' // 'Big upgrades are here 🎉';
 
 interface ChangeEntry {
   emoji: string;
@@ -30,29 +30,9 @@ interface ChangeEntry {
 // "Bug fixes & reliability" entry rather than called out individually.
 const BETA_UPDATE_CHANGES: ChangeEntry[] = [
   {
-    emoji: '✍️',
-    title: 'Edit posts after publishing',
-    description: 'You can now update text, circle, priority, captions, and media after a post goes live.',
-  },
-  {
-    emoji: '🎙️',
-    title: 'Audio recordings are here',
-    description: 'Record clips right in the app, add titles/captions, and keep sharing without leaving your flow.',
-  },
-  {
-    emoji: '🔔',
-    title: 'New post activity controls',
-    description: 'Choose whether you get notified for new reactions and new conversation messages.',
-  },
-  {
-    emoji: '💬',
-    title: 'Edit conversation messages',
-    description: 'Double tap your own message to edit it without losing your place in the thread.',
-  },
-  {
-    emoji: '🚀',
-    title: 'Smoother performance',
-    description: 'The app should feel snappier overall, and posting is steadier now with clearer upload progress. For best results, stay in the app until your post is live.',
+    emoji: '🐛',
+    title: 'Bug fixes',
+    description: 'Some posts from certain users were not showing up in the feed. This is now fixed.',
   },
 ];
 

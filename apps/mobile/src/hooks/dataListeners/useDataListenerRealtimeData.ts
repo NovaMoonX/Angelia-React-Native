@@ -237,24 +237,37 @@ export function useDataListenerRealtimeData() {
           )
         : () => {};
 
-    const unsubConnectionPosts =
-      connectionDailyIds.length > 0
-        ? subscribeToPosts(
-            firebaseUid,
-            connectionDailyIds,
-            (nextConnectionPosts: Post[]) => {
-              connectionPosts = nextConnectionPosts;
-              dispatchMergedPosts();
-            },
-            () => {
-              dispatchMergedPosts();
-            },
-          )
-        : () => {};
+    // Query connection daily channels SEPARATELY instead of batching them together.
+    // This avoids a Firestore security rule evaluation issue where multiple different
+    // channelIds in a single `in` query cause the isConnectedToAuthorDailyChannel()
+    // rule to fail with permission-denied. Each single-channel query passes.
+    const unsubConnectionPostsArray: Array<() => void> = [];
+    const connectionPostsByChannelId = new Map<string, Post[]>();
+
+    const updateConnectionPosts = () => {
+      connectionPosts = Array.from(connectionPostsByChannelId.values()).flat();
+      dispatchMergedPosts();
+    };
+
+    for (const channelId of connectionDailyIds) {
+      const unsub = subscribeToPosts(
+        firebaseUid,
+        [channelId],
+        (nextPosts: Post[]) => {
+          connectionPostsByChannelId.set(channelId, nextPosts);
+          updateConnectionPosts();
+        },
+        () => {
+          connectionPostsByChannelId.set(channelId, []);
+          updateConnectionPosts();
+        },
+      );
+      unsubConnectionPostsArray.push(unsub);
+    }
 
     postsUnsubRef.current = () => {
       unsubOwnPosts();
-      unsubConnectionPosts();
+      unsubConnectionPostsArray.forEach((unsub) => unsub());
     };
 
     return () => {

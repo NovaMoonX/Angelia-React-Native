@@ -216,7 +216,17 @@ The individual `preset` and `uri` props are only for non-User contexts, such as 
 ---
 
 ## Keeping docs up to date
+### Repo-wide investigation docs (`/docs`)
 
+All implementation and investigation writeups belong in the repo's central `/docs` folder. For current investigations, store documents under `/docs/YYYY/MM/DD/` so they are easy to find by date and context.
+
+**Store docs this way when you create or archive a troubleshooting writeup:**
+- `/docs/2026/06/04/INVESTIGATION_REPORT_daily_circle_post_missing.md`
+- `/docs/2026/06/04/TROUBLESHOOTING_GUIDE_daily_circle_post_missing.md`
+- `/docs/2026/06/04/QUICK_REFERENCE_daily_circle_post_missing.md`
+- `/docs/2026/06/04/INVESTIGATION_DIAGRAMS_daily_circle_post_missing.md`
+
+This keeps implementation notes, root-cause reports, and quick references centralized and organized by date.
 ### OTA / server-side feed modals (`apps/mobile/docs/ota-modals.md`)
 
 `apps/mobile/docs/ota-modals.md` is the reference for all three Firestore-driven feed modals (app version update, broadcast message, feedback form). **Update it whenever:**
@@ -283,6 +293,23 @@ Use it as the compact source of truth for the next beta update modal:
 3. ✅ Confirm both files are committed together
 
 If you forget to update the beta notes after making user-facing changes, the task is not complete. Add a bullet under "Current branch highlights" in plain, warm, friendly language that explains the benefit to users (not just what was changed).
+
+### Version release notes (`/versions`)
+
+Create plain text release note files in the repo root `versions/` folder for every production release. Name the file with the semantic version exactly as it appears in `app.config.js`, for example `versions/1.0.1.txt`.
+
+Each file should be simple text and list the release updates, improvements, and bug fixes as short bullets. This is the release-specific changelog for the version and is separate from `apps/mobile/BETA_UPDATE_NOTES.txt`, which is branch/beta-focused.
+
+Example:
+
+```
+Branch: release/1.0.1
+- Bug fixes & reliability improvements for Daily Circle feed sync
+- Updated release alert behavior
+- Minor onboarding copy polish
+```
+
+Keep the file and version name aligned with `app.config.js` and `src/models/constants.ts`.
 
 ### Notifications release notice area (`src/app/(protected)/notifications.tsx`)
 

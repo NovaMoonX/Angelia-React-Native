@@ -1394,9 +1394,10 @@ export function subscribeToConnections(
   return onSnapshot(
     collection(getDb(), 'connections', uid, 'people'),
     (snap) => {
-      callback(getSnapshotDocs(snap).map((d) => {
+      const connections = getSnapshotDocs(snap).map((d) => {
         return d.data() as Connection;
-      }));
+      });
+      callback(connections);
     },
   );
 }

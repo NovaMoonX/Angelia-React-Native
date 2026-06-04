@@ -189,7 +189,43 @@ See [NOTIFICATION_TESTING.md](./NOTIFICATION_TESTING.md) for a step-by-step guid
 
 ---
 
-#### Android bottom-sheet modal jumps when keyboard is dismissed
+#### EAS iOS build fails: RNFB non-modular header error during cloud build
+
+**Symptom:** EAS Build exits with `include of non-modular header inside framework module 'RNFBApp.*'` errors. Xcode cannot compile because React-Core headers (`RCTConvert.h`, `RCTBridgeModule.h`, etc.) conflict with framework module rules. The `post_install` script fix doesn't work in cloud builds because EAS regenerates the Podfile fresh.
+
+**Cause:** In EAS cloud builds, the Podfile is generated fresh without the local `setup-ios.sh` patch. Adding a `post_install` block via `extraPodfileConfig` in `expo-build-properties` fails because it conflicts with the existing `post_install` block created by `useFrameworks: 'static'` — Ruby only honors the last `post_install` block, so the two conflict and the second one wins.
+
+**Fix:** Use `forceStaticLinking` in `expo-build-properties` to force static linking (not dynamic frameworks) for the RNFB pods:
+
+```js
+[
+  'expo-build-properties',
+  {
+    ios: {
+      useFrameworks: 'static',
+      forceStaticLinking: [
+        'RNFBApp',
+        'RNFBAuth',
+        'RNFBFirestore',
+        'RNFBMessaging',
+        'RNFBStorage',
+        // add only the RNFB packages you actually have installed
+      ],
+    },
+    android: {
+      minSdkVersion: 24,
+    },
+  },
+],
+```
+
+Only include the `RNFB*` pods you have installed — check with `grep "@react-native-firebase" package.json` and map package names to their pod names (e.g. `@react-native-firebase/app` → `RNFBApp`). Static linking avoids the framework module non-modular header issue entirely.
+
+**References:**
+- https://github.com/invertase/react-native-firebase/issues/8657
+- https://github.com/expo/expo/issues/39607
+
+---
 
 **Symptom:** On Android, when a keyboard is dismissed *inside* a bottom-sheet `<Modal>` (e.g. the private-note composer), the sheet snaps/jumps between its bottom-aligned position and a padded-from-bottom position.
 
