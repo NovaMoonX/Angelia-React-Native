@@ -1,7 +1,12 @@
 import * as admin from 'firebase-admin';
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { FieldValue } from 'firebase-admin/firestore';
+import {
+	type AvatarPreset,
+	generateUniquePublicDisplayName,
+} from './publicDisplayName';
 
 admin.initializeApp();
 
@@ -225,6 +230,10 @@ interface Channel {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
+function withActorId(data: Record<string, string>, actorId: string): Record<string, string> {
+	return { ...data, actorId };
+}
+
 function buildFcmPayload(notification: AppNotification): {
 	title: string;
 	body: string;
@@ -235,7 +244,7 @@ function buildFcmPayload(notification: AppNotification): {
 		return {
 			title: 'New Join Request',
 			body: `${n.requesterFirstName} ${n.requesterLastName} wants to join ${n.channelName}`,
-			data: {
+			data: withActorId({
 				type: n.type,
 				channelId: n.channelId,
 				channelName: n.channelName,
@@ -243,7 +252,7 @@ function buildFcmPayload(notification: AppNotification): {
 				requesterId: n.requesterId,
 				requesterFirstName: n.requesterFirstName,
 				requesterLastName: n.requesterLastName,
-			},
+			}, n.actorId),
 		};
 	}
 
@@ -252,12 +261,12 @@ function buildFcmPayload(notification: AppNotification): {
 		return {
 			title: 'Request Accepted! 🎉',
 			body: `You've been accepted into ${n.channelName}`,
-			data: {
+			data: withActorId({
 				type: n.type,
 				channelId: n.channelId,
 				channelName: n.channelName,
 				joinRequestId: n.joinRequestId,
-			},
+			}, n.actorId),
 		};
 	}
 
@@ -266,7 +275,7 @@ function buildFcmPayload(notification: AppNotification): {
 		return {
 			title: '✨ Circle Invite',
 			body: `${n.inviterFirstName} ${n.inviterLastName} invited you to join ${n.channelName}`,
-			data: {
+			data: withActorId({
 				type: n.type,
 				requestId: n.requestId,
 				inviterId: n.inviterId,
@@ -275,7 +284,7 @@ function buildFcmPayload(notification: AppNotification): {
 				channelId: n.channelId,
 				channelName: n.channelName,
 				inviteCode: n.inviteCode,
-			},
+			}, n.actorId),
 		};
 	}
 
@@ -284,13 +293,13 @@ function buildFcmPayload(notification: AppNotification): {
 		return {
 			title: '🤝 Connection Request',
 			body: `${n.fromFirstName} ${n.fromLastName} wants to connect with you`,
-			data: {
+			data: withActorId({
 				type: n.type,
 				fromId: n.fromId,
 				fromFirstName: n.fromFirstName,
 				fromLastName: n.fromLastName,
 				connectionRequestId: n.connectionRequestId,
-			},
+			}, n.actorId),
 		};
 	}
 
@@ -304,13 +313,13 @@ function buildFcmPayload(notification: AppNotification): {
 		return {
 			title: 'New Reaction on Your Post',
 			body: `${n.reactorFirstName} reacted with ${n.emoji}`,
-			data: {
+			data: withActorId({
 				type: n.type,
 				postId: n.postId,
 				reactorFirstName: n.reactorFirstName,
 				reactorLastName: n.reactorLastName,
 				emoji: n.emoji,
-			},
+			}, n.actorId),
 		};
 	}
 
@@ -319,13 +328,13 @@ function buildFcmPayload(notification: AppNotification): {
 		return {
 			title: 'New Message on Your Post',
 			body: `${n.senderFirstName}: ${n.messagePreview}`,
-			data: {
+			data: withActorId({
 				type: n.type,
 				postId: n.postId,
 				senderFirstName: n.senderFirstName,
 				senderLastName: n.senderLastName,
 				messagePreview: n.messagePreview,
-			},
+			}, n.actorId),
 		};
 	}
 
@@ -334,14 +343,14 @@ function buildFcmPayload(notification: AppNotification): {
 		return {
 			title: 'New Reply to Your Message',
 			body: `${n.senderFirstName}: ${n.messagePreview}`,
-			data: {
+			data: withActorId({
 				type: n.type,
 				postId: n.postId,
 				parentMessageId: n.parentMessageId,
 				senderFirstName: n.senderFirstName,
 				senderLastName: n.senderLastName,
 				messagePreview: n.messagePreview,
-			},
+			}, n.actorId),
 		};
 	}
 
@@ -350,12 +359,12 @@ function buildFcmPayload(notification: AppNotification): {
 		return {
 			title: '🔒 Private Note',
 			body: `${n.authorFirstName} ${n.authorLastName} sent you a private note`,
-			data: {
+			data: withActorId({
 				type: n.type,
 				postId: n.postId,
 				authorFirstName: n.authorFirstName,
 				authorLastName: n.authorLastName,
-			},
+			}, n.actorId),
 		};
 	}
 
@@ -364,13 +373,93 @@ function buildFcmPayload(notification: AppNotification): {
 	return {
 		title: `🎉 You're connected!`,
 		body: `${n.toFirstName} ${n.toLastName} accepted your connection request`,
-		data: {
+		data: withActorId({
 			type: n.type,
 			toFirstName: n.toFirstName,
 			toLastName: n.toLastName,
 			connectionRequestId: n.connectionRequestId,
-		},
+		}, n.actorId),
 	};
+}
+
+async function lookupNickname(viewerId: string, actorId: string): Promise<string | null> {
+	const snap = await db
+		.collection('connectionNicknames')
+		.doc(viewerId)
+		.collection('people')
+		.doc(actorId)
+		.get();
+	if (!snap.exists) {
+		return null;
+	}
+	const data = snap.data() as { nickname?: unknown } | undefined;
+	const nickname = typeof data?.nickname === 'string' ? data.nickname.trim() : '';
+	return nickname || null;
+}
+
+function applyNicknameToNotification(
+	notification: AppNotification,
+	nickname: string,
+): AppNotification {
+	switch (notification.type) {
+		case 'join_channel_request':
+			return {
+				...notification,
+				requesterFirstName: nickname,
+				requesterLastName: '',
+			};
+		case 'custom_circle_invite':
+			return {
+				...notification,
+				inviterFirstName: nickname,
+				inviterLastName: '',
+			};
+		case 'connection_request':
+			return {
+				...notification,
+				fromFirstName: nickname,
+				fromLastName: '',
+			};
+		case 'connection_accepted':
+			return {
+				...notification,
+				toFirstName: nickname,
+				toLastName: '',
+			};
+		case 'post_reaction':
+			return {
+				...notification,
+				reactorFirstName: nickname,
+				reactorLastName: '',
+			};
+		case 'conversation_message':
+		case 'comment_reply':
+			return {
+				...notification,
+				senderFirstName: nickname,
+				senderLastName: '',
+			};
+		case 'private_note':
+		case 'new_post':
+			return {
+				...notification,
+				authorFirstName: nickname,
+				authorLastName: '',
+			};
+		default:
+			return notification;
+	}
+}
+
+async function buildPersonalizedFcmPayload(
+	notification: AppNotification,
+	viewerId: string,
+): Promise<ReturnType<typeof buildFcmPayload>> {
+	const nickname = await lookupNickname(viewerId, notification.actorId);
+	const personalized = nickname
+		? applyNicknameToNotification(notification, nickname)
+		: notification;
+	return buildFcmPayload(personalized);
 }
 
 function buildUnifiedPostPayload(n: UnifiedPostNotificationInput): {
@@ -392,7 +481,7 @@ function buildUnifiedPostPayload(n: UnifiedPostNotificationInput): {
 	return {
 		title,
 		body: `New post${attachmentText} in ${circleLabel}`,
-		data: {
+		data: withActorId({
 			type: 'new_post',
 			postId: n.postId,
 			channelId: n.channelId,
@@ -402,7 +491,7 @@ function buildUnifiedPostPayload(n: UnifiedPostNotificationInput): {
 			hasAttachments: String(n.hasAttachments),
 			authorFirstName: n.authorFirstName,
 			authorLastName: n.authorLastName,
-		},
+		}, n.actorId),
 	};
 }
 
@@ -645,7 +734,6 @@ export const sendAppNotification = onDocumentCreated('notifications/{notificatio
 	if (!snap) return;
 
 	const notification = snap.data() as AppNotification;
-	const payload = buildFcmPayload(notification);
 
 	if (notification.target.type === 'user') {
 		// ── Single-user target ─────────────────────────────────────────────
@@ -675,6 +763,7 @@ export const sendAppNotification = onDocumentCreated('notifications/{notificatio
 				return;
 			}
 		}
+		const payload = await buildPersonalizedFcmPayload(notification, targetUserId);
 		await sendFcmToTokens(tokens, payload, tokenOwnersByToken);
 	} else if (notification.target.type === 'channel_tier') {
 		// ── Channel-tier target: fan-out to all channel subscribers ────────
@@ -703,21 +792,20 @@ export const sendAppNotification = onDocumentCreated('notifications/{notificatio
 				return isCirclePostNotificationEnabled(notification, settings);
 			});
 
-		const allTokens = enabledRecipients.flatMap(({ settings }) => {
-				return getTokensFromSettings(settings);
-			});
-
-		const tokenOwnersByToken = new Map<string, Set<string>>();
-		enabledRecipients.forEach(({ recipientId, settings }) => {
-			const recipientTokens = getTokensFromSettings(settings);
-			recipientTokens.forEach((token) => {
-				const owners = tokenOwnersByToken.get(token) ?? new Set<string>();
-				owners.add(recipientId);
-				tokenOwnersByToken.set(token, owners);
-			});
-		});
-
-		await sendFcmToTokens(allTokens, payload, tokenOwnersByToken);
+		await Promise.all(
+			enabledRecipients.map(async ({ recipientId, settings }) => {
+				const recipientTokens = getTokensFromSettings(settings);
+				if (recipientTokens.length === 0) {
+					return;
+				}
+				const payload = await buildPersonalizedFcmPayload(notification, recipientId);
+				const tokenOwnersByToken = new Map<string, Set<string>>();
+				recipientTokens.forEach((token) => {
+					tokenOwnersByToken.set(token, new Set([recipientId]));
+				});
+				await sendFcmToTokens(recipientTokens, payload, tokenOwnersByToken);
+			}),
+		);
 	} else {
 		// `thread` targets and any future unrecognized target types are not yet
 		// supported.  Fall through to deletion so the document is cleaned up.
@@ -1190,3 +1278,125 @@ export const deleteExpiredPosts = onSchedule('every 24 hours', async () => {
 		console.log(`deleteExpiredPosts: cleaned up ${deleteCount} expired post(s)`);
 	}
 });
+
+/**
+ * One-time backfill: assign avatar-themed publicDisplayName to active users missing it.
+ * Invoke manually via authenticated HTTPS (private invoker). Idempotent on re-run.
+ */
+export const backfillPublicDisplayNames = onRequest(
+	{ cors: false, invoker: 'private' },
+	async (req, res) => {
+		if (req.method !== 'POST') {
+			res.status(405).json({ error: 'Method not allowed. Use POST.' });
+			return;
+		}
+
+		const taken = new Set<string>();
+		const existingSnap = await db.collection('usersPublic').select('publicDisplayName').get();
+		for (const doc of existingSnap.docs) {
+			const name = doc.get('publicDisplayName');
+			if (typeof name === 'string' && name.trim()) {
+				taken.add(name.trim());
+			}
+		}
+
+		let updated = 0;
+		let skipped = 0;
+		let errors = 0;
+		const BATCH_SIZE = 400;
+
+		let lastDoc: admin.firestore.QueryDocumentSnapshot | undefined;
+		// eslint-disable-next-line no-constant-condition
+		while (true) {
+			let query = db.collection('usersPublic').orderBy('joinedAt').limit(BATCH_SIZE);
+			if (lastDoc) query = query.startAfter(lastDoc);
+			const snap = await query.get();
+			if (snap.empty) break;
+
+			const batch = db.batch();
+			let batchWrites = 0;
+
+			for (const pubDoc of snap.docs) {
+				const uid = pubDoc.id;
+				const data = pubDoc.data();
+				const existing = data.publicDisplayName;
+				if (typeof existing === 'string' && existing.trim()) {
+					skipped++;
+					continue;
+				}
+
+				const secretSnap = await db.doc(`usersSecret/${uid}`).get();
+				const progress = secretSnap.data()?.accountProgress;
+				const isActive =
+					progress?.signUpComplete === true || progress?.onboardingComplete === true;
+				if (!isActive) {
+					skipped++;
+					continue;
+				}
+
+				const avatar = (data.avatar as AvatarPreset | undefined) ?? 'moon';
+				const name = generateUniquePublicDisplayName(avatar, taken);
+				taken.add(name);
+				batch.update(pubDoc.ref, { publicDisplayName: name });
+				batchWrites++;
+				updated++;
+			}
+
+			if (batchWrites > 0) {
+				try {
+					await batch.commit();
+				} catch (err) {
+					console.error('backfillPublicDisplayNames batch failed:', err);
+					errors += batchWrites;
+					updated -= batchWrites;
+				}
+			}
+
+			lastDoc = snap.docs[snap.docs.length - 1];
+			if (snap.size < BATCH_SIZE) break;
+		}
+
+		// Default privacy flags on usersPrivate for active users missing them
+		let privacyUpdated = 0;
+		lastDoc = undefined;
+		// eslint-disable-next-line no-constant-condition
+		while (true) {
+			let query = db.collection('usersPrivate').limit(BATCH_SIZE);
+			if (lastDoc) query = query.startAfter(lastDoc);
+			const snap = await query.get();
+			if (snap.empty) break;
+
+			const batch = db.batch();
+			let batchWrites = 0;
+
+			for (const privDoc of snap.docs) {
+				const data = privDoc.data();
+				const patch: Record<string, boolean> = {};
+				if (data.hideNameFromNonConnections === undefined) {
+					patch.hideNameFromNonConnections = true;
+				}
+				if (data.hideAvatarFromNonConnections === undefined) {
+					patch.hideAvatarFromNonConnections = true;
+				}
+				if (Object.keys(patch).length > 0) {
+					batch.update(privDoc.ref, patch);
+					batchWrites++;
+					privacyUpdated++;
+				}
+			}
+
+			if (batchWrites > 0) {
+				try {
+					await batch.commit();
+				} catch (err) {
+					console.error('backfillPublicDisplayNames privacy batch failed:', err);
+				}
+			}
+
+			lastDoc = snap.docs[snap.docs.length - 1];
+			if (snap.size < BATCH_SIZE) break;
+		}
+
+		res.status(200).json({ updated, skipped, errors, privacyUpdated });
+	},
+);

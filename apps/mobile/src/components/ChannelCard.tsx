@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import type { Channel, User } from '@/models/types';
 import { useTheme } from '@/hooks/useTheme';
+import { useUserIdentity } from '@/hooks/useUserIdentity';
 
 interface ChannelCardProps {
   channel: Channel;
@@ -31,6 +32,7 @@ export function ChannelCard({
   isLoading = false,
 }: ChannelCardProps) {
   const { theme } = useTheme();
+  const ownerIdentity = useUserIdentity(owner?.id, owner);
   const colors = getColorPair(channel);
   const memberCount = channel.subscribers.length;
 
@@ -71,9 +73,14 @@ export function ChannelCard({
           </Text>
           {owner && (
             <View style={styles.ownerRow}>
-              <Avatar user={owner} size="sm" showStatus={false} />
+              <Avatar
+                preset={ownerIdentity.avatarPreset}
+                uri={ownerIdentity.avatarUrl}
+                size="sm"
+                showStatus={false}
+              />
               <Text style={[styles.metaText, { color: theme.mutedForeground }]}>
-                {owner.firstName} {owner.lastName}
+                {ownerIdentity.displayName}
               </Text>
             </View>
           )}

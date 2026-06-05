@@ -5,7 +5,11 @@ import {
   updateAccountProgress as firestoreUpdateAccountProgress,
   updateUserProfile as firestoreUpdateUserProfile,
   updateUserStatus as firestoreUpdateUserStatus,
+  updatePublicDisplayName as firestoreUpdatePublicDisplayName,
+  updateIdentityPrivacy as firestoreUpdateIdentityPrivacy,
+  findPublicDisplayNameOwner,
 } from '@/services/firebase/firestore';
+import { isValidPublicDisplayName, normalizePublicDisplayNameInput } from '@/lib/user/publicDisplayName';
 import { uploadUserAvatar } from '@/services/firebase/storage';
 import { setCurrentUser, updateCurrentUser, updateCurrentUserStatus } from '@/store/slices/usersSlice';
 import type { NewUser, UpdateUserProfileData, UserStatus, User } from '@/models/types';
@@ -130,6 +134,62 @@ export const clearStatus = createAsyncThunk(
  * then persists the resulting download URL to Firestore and Redux via saveProfile.
  * Resolves to the download URL on success.
  */
+export const savePublicDisplayName = createAsyncThunk(
+  'users/savePublicDisplayName',
+  async (name: string, { getState, dispatch, rejectWithValue }) => {
+    const state = getState() as RootState;
+    const user = state.users.currentUser;
+    if (!user) return rejectWithValue('User not authenticated');
+
+    const normalized = normalizePublicDisplayNameInput(name);
+    if (!isValidPublicDisplayName(normalized)) {
+      return rejectWithValue('Name must be between 3 and 40 characters.');
+    }
+
+    if (isDemoActive(getState)) {
+      dispatch(updateCurrentUser({ publicDisplayName: normalized }));
+      return normalized;
+    }
+
+    try {
+      const owner = await findPublicDisplayNameOwner(normalized, user.id);
+      if (owner) {
+        return rejectWithValue('That name is taken — try another number.');
+      }
+      await firestoreUpdatePublicDisplayName(user.id, normalized);
+      dispatch(updateCurrentUser({ publicDisplayName: normalized }));
+      return normalized;
+    } catch (err) {
+      return rejectWithValue(err instanceof Error ? err.message : err);
+    }
+  },
+);
+
+export const saveIdentityPrivacy = createAsyncThunk(
+  'users/saveIdentityPrivacy',
+  async (
+    data: Partial<Pick<User, 'hideNameFromNonConnections' | 'hideAvatarFromNonConnections'>>,
+    { getState, dispatch, rejectWithValue },
+  ) => {
+    const state = getState() as RootState;
+    const user = state.users.currentUser;
+    if (!user) return rejectWithValue('User not authenticated');
+
+    if (isDemoActive(getState)) {
+      dispatch(updateCurrentUser(data));
+      return data;
+    }
+
+    try {
+      await firestoreUpdateIdentityPrivacy(user.id, data);
+      dispatch(updateCurrentUser(data));
+      return data;
+    } catch (err) {
+      return rejectWithValue(err instanceof Error ? err.message : err);
+    }
+  },
+);
+
 export const uploadAndSaveAvatar = createAsyncThunk(
   'users/uploadAndSaveAvatar',
   async (

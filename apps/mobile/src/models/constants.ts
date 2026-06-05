@@ -209,6 +209,27 @@ export const NOTIFICATION_SETTINGS_NOTICE_BADGE_SEEN_KEY = (version: string) => 
   return `@angelia/notification_settings_notice_badge_seen_${version}`;
 };
 
+/** Avatar preset shown to non-connections when hide-avatar privacy is on. */
+export const PSEUDONYM_AVATAR_PRESET = 'constellation' as const;
+
+export const PUBLIC_DISPLAY_NAME_MIN_LENGTH = 3;
+export const PUBLIC_DISPLAY_NAME_MAX_LENGTH = 40;
+
+export const DEFAULT_IDENTITY_PRIVACY = {
+  hideNameFromNonConnections: true,
+  hideAvatarFromNonConnections: true,
+} as const;
+
+/**
+ * Version for the one-time public-display-name notice on the Account tab.
+ * Bump when copy or behavior changes.
+ */
+export const PUBLIC_DISPLAY_NAME_NOTICE_VERSION = '2026-06-public-display-name';
+
+export const PUBLIC_DISPLAY_NAME_NOTICE_SEEN_KEY = (version: string) => {
+  return `@angelia/public_display_name_notice_seen_${version}`;
+};
+
 /**
  * AsyncStorage key that records the latest required app version the user has
  * dismissed for a specific platform update prompt.

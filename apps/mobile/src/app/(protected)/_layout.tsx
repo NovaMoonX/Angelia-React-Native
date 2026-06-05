@@ -87,6 +87,10 @@ export default function ProtectedLayout() {
               name="account"
               options={{ headerShown: false }}
             />
+            <Stack.Screen
+              name="privacy-settings"
+              options={{ headerShown: false }}
+            />
             <Stack.Screen name="notifications" options={{ headerShown: false }} />
             <Stack.Screen
               name="notification-settings"

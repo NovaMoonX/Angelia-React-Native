@@ -20,6 +20,9 @@ import { AudioAttachmentPlayer } from '@/components/AudioAttachmentPlayer';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { selectMessages, setMessages } from '@/store/slices/conversationSlice';
+import { store } from '@/store';
+import { mergeMessagesWithPendingWrites } from '@/lib/mergePendingSnapshots';
+import { isPendingWriteLocked } from '@/lib/pendingWrites';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { selectChannelsRevision } from '@/store/slices/channelsSlice';
 import { ensurePostLeaveSuggestionsLoaded, selectPostLeaveSuggestionsEntry } from '@/store/slices/postLeaveSuggestionsSlice';
@@ -32,8 +35,8 @@ import { useActionModal } from '@/hooks/useActionModal';
 import { compareReactionGroupPriority, getSuggestedReactionEmojis } from '@/lib/reaction/reaction.utils';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { getColorPair } from '@/lib/channel/channel.utils';
-import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
-import { getUserDisplayName } from '@/lib/user/user.utils';
+import { getPostExpiryInfo } from '@/lib/post/post.utils';
+import { resolveUserIdentity, useUserIdentity } from '@/hooks/useUserIdentity';
 import {
 	POST_TIERS,
 	POST_REACTIONS_SEEN_KEY,
@@ -63,8 +66,12 @@ export default function PostDetailScreen() {
 	const insets = useSafeAreaInsets();
 	const post = useAppSelector((state) => selectPostById(state, id || ''));
 	const author = useAppSelector((state) => selectPostAuthor(state, post?.authorId || ''));
+	const authorIdentity = useUserIdentity(post?.authorId, author ?? undefined);
 	const channel = useAppSelector((state) => selectPostChannel(state, post?.channelId || ''));
 	const currentUser = useAppSelector((state) => state.users.currentUser);
+	const connections = useAppSelector((state) => state.connections.connections);
+	const nicknamesMap = useAppSelector((state) => state.connectionNicknames.nicknames);
+	const isAuthorConnection = connections.some((c) => c.userId === post?.authorId);
 	const isDemo = useAppSelector((state) => state.demo.isActive);
 	const channelRevision = useAppSelector(selectChannelsRevision);
 	const conversationMessages = useAppSelector((state) => selectMessages(state, id || ''));
@@ -151,10 +158,29 @@ export default function PostDetailScreen() {
 	// Keep this local subscription only for non-host contexts.
 	useEffect(() => {
 		if (!id || isDemo || isHost) return;
-		const unsub = subscribeToMessages(id, (msgs) => {
-			dispatch(setMessages({ postId: id, messages: msgs }));
+		let unsub: (() => void) | null = null;
+
+		unsub = subscribeToMessages(id, (msgs) => {
+			const state = store.getState();
+			const local = state.conversation.messagesByPost[id] ?? [];
+			dispatch(
+				setMessages({
+					postId: id,
+					messages: mergeMessagesWithPendingWrites(msgs, local),
+				}),
+			);
 		});
-		return unsub;
+
+		return () => {
+			const doUnsub = () => {
+				unsub?.();
+			};
+			if (isPendingWriteLocked(id)) {
+				setTimeout(doUnsub, 800);
+			} else {
+				doUnsub();
+			}
+		};
 	}, [id, dispatch, isDemo, isHost]);
 
 	// Only reaction activity should clear from simply viewing this screen, and
@@ -278,7 +304,8 @@ export default function PostDetailScreen() {
 				groups[r.emoji].names.unshift('You');
 			} else {
 				const reactingUser = usersMap[r.userId];
-				groups[r.emoji].names.push(getUserDisplayName(reactingUser, currentUser.id, r.userId, 'first-last-initial'));
+				const name = resolveUserIdentity(currentUser.id, connections, reactingUser, nicknamesMap).displayName;
+				groups[r.emoji].names.push(name);
 			}
 		});
 		return Object.entries(groups)
@@ -305,7 +332,7 @@ export default function PostDetailScreen() {
 					names: group.names,
 				};
 			});
-	}, [post, currentUser, usersMap]);
+	}, [post, currentUser, usersMap, connections, nicknamesMap]);
 
 	const suggestedReactionEmojis = useMemo(() => {
 		if (!post || !currentUser) {
@@ -516,7 +543,7 @@ export default function PostDetailScreen() {
 	const channelBadgeLabel = channel?.isDaily ? 'Daily' : channel?.name;
 	const tierBadgeConfig = post.tier ? POST_TIERS.find((t) => { return t.value === post.tier; }) ?? null : null;
 	const showTierBadge = tierBadgeConfig != null && post.tier !== 'everyday';
-	const authorName = getPostAuthorName(author, currentUser);
+	const authorName = authorIdentity.isSelf ? 'You' : authorIdentity.displayName;
 	const hasReacted = post.reactions.some((r) => r.userId === currentUser.id);
 	const canAccessConversation = hasReacted || isHost;
 	const expiryInfo = channel != null
@@ -621,7 +648,8 @@ export default function PostDetailScreen() {
 						}
 					>
 						<Avatar
-							user={author}
+							preset={authorIdentity.avatarPreset}
+							uri={authorIdentity.avatarUrl}
 							size='md'
 						/>
 					</Pressable>
@@ -854,11 +882,16 @@ export default function PostDetailScreen() {
 					onClose={() => setNoteModalVisible(false)}
 					postId={post.id}
 					postAuthorId={post.authorId}
-					authorFirstName={author?.firstName}
+					authorFirstName={authorIdentity.displayName}
 				/>
 			)}
 
-			<UserProfileModal visible={profileModalOpen} onClose={() => setProfileModalOpen(false)} user={author} />
+			<UserProfileModal
+				visible={profileModalOpen}
+				onClose={() => setProfileModalOpen(false)}
+				user={author}
+				isConnection={isAuthorConnection}
+			/>
 
 			<Modal
 				visible={showUnreadLeaveModal}

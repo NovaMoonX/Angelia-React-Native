@@ -48,6 +48,18 @@ const conversationSlice = createSlice({
       if (!target) return;
       target.text = text;
     },
+    removeMessagesOptimistic(
+      state,
+      action: PayloadAction<{ postId: string; messageIds: string[] }>,
+    ) {
+      const { postId, messageIds } = action.payload;
+      const messages = state.messagesByPost[postId];
+      if (!messages) {
+        return;
+      }
+      const idSet = new Set(messageIds);
+      state.messagesByPost[postId] = messages.filter((message) => !idSet.has(message.id));
+    },
     clearConversation(state, action: PayloadAction<string>) {
       delete state.messagesByPost[action.payload];
     },
@@ -63,8 +75,14 @@ const conversationSlice = createSlice({
   },
 });
 
-export const { setMessages, addMessageOptimistic, updateMessageTextOptimistic, clearConversation, loadDemoMessages } =
-  conversationSlice.actions;
+export const {
+  setMessages,
+  addMessageOptimistic,
+  updateMessageTextOptimistic,
+  removeMessagesOptimistic,
+  clearConversation,
+  loadDemoMessages,
+} = conversationSlice.actions;
 
 // Selectors
 const EMPTY_MESSAGES: Message[] = [];

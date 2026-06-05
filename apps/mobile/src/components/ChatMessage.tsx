@@ -4,6 +4,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { useAppSelector } from '@/store/hooks';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { useTheme } from '@/hooks/useTheme';
+import { useUserIdentity } from '@/hooks/useUserIdentity';
 
 interface ChatMessageProps {
   authorId: string;
@@ -21,12 +22,13 @@ export function ChatMessage({
   const author = useAppSelector((state) =>
     state.users.users.find((u) => u.id === authorId)
   );
+  const authorIdentity = useUserIdentity(authorId, author);
   const { theme } = useTheme();
 
   return (
     <View style={[styles.container, isCurrentUser && styles.currentUser]}>
       {!isCurrentUser && (
-        <Avatar user={author} size="sm" />
+        <Avatar preset={authorIdentity.avatarPreset} uri={authorIdentity.avatarUrl} size="sm" />
       )}
       <View
         style={[
@@ -40,11 +42,11 @@ export function ChatMessage({
               },
         ]}
       >
-        {!isCurrentUser && author && (
+        {!isCurrentUser && (
           <Text
             style={[styles.authorName, { color: theme.mutedForeground }]}
           >
-            {author.firstName}
+            {authorIdentity.displayName}
           </Text>
         )}
         <Text
