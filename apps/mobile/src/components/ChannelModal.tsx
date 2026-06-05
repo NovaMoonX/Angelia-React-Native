@@ -16,6 +16,17 @@ import {
 } from '@/lib/channel/channel.utils';
 import type { Channel, User } from '@/models/types';
 import { useTheme } from '@/hooks/useTheme';
+import { useConnectionDisplayName } from '@/hooks/useConnectionDisplayName';
+
+function MemberDisplayName({ user }: { user: User }) {
+  const displayName = useConnectionDisplayName(user.id);
+  const { theme } = useTheme();
+  return (
+    <Text style={[styles.subscriberName, { color: theme.foreground }]}>
+      {displayName}
+    </Text>
+  );
+}
 
 interface ChannelModalProps {
   isOpen: boolean;
@@ -230,9 +241,7 @@ export function ChannelModal({
                       return (
                         <View key={person.id} style={styles.subscriberRow}>
                           <Avatar user={person} size="sm" showStatus={false} />
-                          <Text style={[styles.subscriberName, { color: theme.foreground }]}>
-                            {person.firstName} {person.lastName}
-                          </Text>
+                          <MemberDisplayName user={person} />
                           <Button
                             variant={isInvited ? 'secondary' : 'outline'}
                             size="sm"
@@ -266,11 +275,7 @@ export function ChannelModal({
             subscribers.map((sub) => (
               <View key={sub.id} style={styles.subscriberRow}>
                 <Avatar user={sub} size="sm" showStatus={false} />
-                <Text
-                  style={[styles.subscriberName, { color: theme.foreground }]}
-                >
-                  {sub.firstName} {sub.lastName}
-                </Text>
+                <MemberDisplayName user={sub} />
                 {onRemoveSubscriber && (
                   <Button
                     variant="destructive"

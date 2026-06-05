@@ -6,7 +6,7 @@ import { createDefaultCirclePostNotificationSettings } from '@/models/constants'
 import type { Channel, CirclePostNotificationSettings } from '@/models/types';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
-import { getUserDisplayName } from '@/lib/user/user.utils';
+import { resolveConnectionDisplayName } from '@/lib/user/user.utils';
 import { saveNotificationSettings } from '@/store/actions/notificationActions';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { selectAllChannels } from '@/store/slices/channelsSlice';
@@ -67,6 +67,7 @@ export default function PostNotificationSettingsScreen() {
   });
   const allChannels = useAppSelector(selectAllChannels);
   const usersById = useAppSelector(selectAllUsersMapById);
+  const nicknamesMap = useAppSelector((state) => state.connectionNicknames.nicknames);
   const notificationSettings = useAppSelector((state) => {
     return state.users.currentUserNotificationSettings;
   });
@@ -92,7 +93,13 @@ export default function PostNotificationSettingsScreen() {
 
     for (const channel of involved) {
       const owner = usersById[channel.ownerId];
-      const ownerLabel = getUserDisplayName(owner, currentUser.id, channel.ownerId, 'first-last-initial');
+      const ownerLabel = resolveConnectionDisplayName(
+        channel.ownerId,
+        owner,
+        currentUser.id,
+        nicknamesMap,
+        'first-last-initial',
+      );
       const existing = grouped.get(channel.ownerId) ?? {
         ownerId: channel.ownerId,
         ownerLabel,
@@ -100,7 +107,13 @@ export default function PostNotificationSettingsScreen() {
       };
 
       const displayName = channel.isDaily === true
-        ? getUserDisplayName(owner, currentUser.id, channel.ownerId, 'first-last-initial')
+        ? resolveConnectionDisplayName(
+            channel.ownerId,
+            owner,
+            currentUser.id,
+            nicknamesMap,
+            'first-last-initial',
+          )
         : channel.name;
 
       existing.circles.push({
@@ -127,7 +140,7 @@ export default function PostNotificationSettingsScreen() {
       .sort((a, b) => {
         return a.ownerLabel.localeCompare(b.ownerLabel);
       });
-  }, [allChannels, currentUser, usersById]);
+  }, [allChannels, currentUser, usersById, nicknamesMap]);
 
   const handleToggleAll = useCallback(
     async (channelId: string) => {

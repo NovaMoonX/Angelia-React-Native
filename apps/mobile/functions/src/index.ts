@@ -225,6 +225,12 @@ interface Channel {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function withActorId(data: Record<string, string>, actorId: string): Record<string, string> {
+	return { ...data, actorId };
+}
+
 function buildFcmPayload(notification: AppNotification): {
 	title: string;
 	body: string;
@@ -235,7 +241,7 @@ function buildFcmPayload(notification: AppNotification): {
 		return {
 			title: 'New Join Request',
 			body: `${n.requesterFirstName} ${n.requesterLastName} wants to join ${n.channelName}`,
-			data: {
+			data: withActorId({
 				type: n.type,
 				channelId: n.channelId,
 				channelName: n.channelName,
@@ -243,7 +249,7 @@ function buildFcmPayload(notification: AppNotification): {
 				requesterId: n.requesterId,
 				requesterFirstName: n.requesterFirstName,
 				requesterLastName: n.requesterLastName,
-			},
+			}, n.actorId),
 		};
 	}
 
@@ -252,12 +258,12 @@ function buildFcmPayload(notification: AppNotification): {
 		return {
 			title: 'Request Accepted! 🎉',
 			body: `You've been accepted into ${n.channelName}`,
-			data: {
+			data: withActorId({
 				type: n.type,
 				channelId: n.channelId,
 				channelName: n.channelName,
 				joinRequestId: n.joinRequestId,
-			},
+			}, n.actorId),
 		};
 	}
 
@@ -266,7 +272,7 @@ function buildFcmPayload(notification: AppNotification): {
 		return {
 			title: '✨ Circle Invite',
 			body: `${n.inviterFirstName} ${n.inviterLastName} invited you to join ${n.channelName}`,
-			data: {
+			data: withActorId({
 				type: n.type,
 				requestId: n.requestId,
 				inviterId: n.inviterId,
@@ -275,7 +281,7 @@ function buildFcmPayload(notification: AppNotification): {
 				channelId: n.channelId,
 				channelName: n.channelName,
 				inviteCode: n.inviteCode,
-			},
+			}, n.actorId),
 		};
 	}
 
@@ -284,13 +290,13 @@ function buildFcmPayload(notification: AppNotification): {
 		return {
 			title: '🤝 Connection Request',
 			body: `${n.fromFirstName} ${n.fromLastName} wants to connect with you`,
-			data: {
+			data: withActorId({
 				type: n.type,
 				fromId: n.fromId,
 				fromFirstName: n.fromFirstName,
 				fromLastName: n.fromLastName,
 				connectionRequestId: n.connectionRequestId,
-			},
+			}, n.actorId),
 		};
 	}
 
@@ -304,13 +310,13 @@ function buildFcmPayload(notification: AppNotification): {
 		return {
 			title: 'New Reaction on Your Post',
 			body: `${n.reactorFirstName} reacted with ${n.emoji}`,
-			data: {
+			data: withActorId({
 				type: n.type,
 				postId: n.postId,
 				reactorFirstName: n.reactorFirstName,
 				reactorLastName: n.reactorLastName,
 				emoji: n.emoji,
-			},
+			}, n.actorId),
 		};
 	}
 
@@ -319,13 +325,13 @@ function buildFcmPayload(notification: AppNotification): {
 		return {
 			title: 'New Message on Your Post',
 			body: `${n.senderFirstName}: ${n.messagePreview}`,
-			data: {
+			data: withActorId({
 				type: n.type,
 				postId: n.postId,
 				senderFirstName: n.senderFirstName,
 				senderLastName: n.senderLastName,
 				messagePreview: n.messagePreview,
-			},
+			}, n.actorId),
 		};
 	}
 
@@ -334,14 +340,14 @@ function buildFcmPayload(notification: AppNotification): {
 		return {
 			title: 'New Reply to Your Message',
 			body: `${n.senderFirstName}: ${n.messagePreview}`,
-			data: {
+			data: withActorId({
 				type: n.type,
 				postId: n.postId,
 				parentMessageId: n.parentMessageId,
 				senderFirstName: n.senderFirstName,
 				senderLastName: n.senderLastName,
 				messagePreview: n.messagePreview,
-			},
+			}, n.actorId),
 		};
 	}
 
@@ -350,12 +356,12 @@ function buildFcmPayload(notification: AppNotification): {
 		return {
 			title: '🔒 Private Note',
 			body: `${n.authorFirstName} ${n.authorLastName} sent you a private note`,
-			data: {
+			data: withActorId({
 				type: n.type,
 				postId: n.postId,
 				authorFirstName: n.authorFirstName,
 				authorLastName: n.authorLastName,
-			},
+			}, n.actorId),
 		};
 	}
 
@@ -364,13 +370,93 @@ function buildFcmPayload(notification: AppNotification): {
 	return {
 		title: `🎉 You're connected!`,
 		body: `${n.toFirstName} ${n.toLastName} accepted your connection request`,
-		data: {
+		data: withActorId({
 			type: n.type,
 			toFirstName: n.toFirstName,
 			toLastName: n.toLastName,
 			connectionRequestId: n.connectionRequestId,
-		},
+		}, n.actorId),
 	};
+}
+
+async function lookupNickname(viewerId: string, actorId: string): Promise<string | null> {
+	const snap = await db
+		.collection('connectionNicknames')
+		.doc(viewerId)
+		.collection('people')
+		.doc(actorId)
+		.get();
+	if (!snap.exists) {
+		return null;
+	}
+	const data = snap.data() as { nickname?: unknown } | undefined;
+	const nickname = typeof data?.nickname === 'string' ? data.nickname.trim() : '';
+	return nickname || null;
+}
+
+function applyNicknameToNotification(
+	notification: AppNotification,
+	nickname: string,
+): AppNotification {
+	switch (notification.type) {
+		case 'join_channel_request':
+			return {
+				...notification,
+				requesterFirstName: nickname,
+				requesterLastName: '',
+			};
+		case 'custom_circle_invite':
+			return {
+				...notification,
+				inviterFirstName: nickname,
+				inviterLastName: '',
+			};
+		case 'connection_request':
+			return {
+				...notification,
+				fromFirstName: nickname,
+				fromLastName: '',
+			};
+		case 'connection_accepted':
+			return {
+				...notification,
+				toFirstName: nickname,
+				toLastName: '',
+			};
+		case 'post_reaction':
+			return {
+				...notification,
+				reactorFirstName: nickname,
+				reactorLastName: '',
+			};
+		case 'conversation_message':
+		case 'comment_reply':
+			return {
+				...notification,
+				senderFirstName: nickname,
+				senderLastName: '',
+			};
+		case 'private_note':
+		case 'new_post':
+			return {
+				...notification,
+				authorFirstName: nickname,
+				authorLastName: '',
+			};
+		default:
+			return notification;
+	}
+}
+
+async function buildPersonalizedFcmPayload(
+	notification: AppNotification,
+	viewerId: string,
+): Promise<ReturnType<typeof buildFcmPayload>> {
+	const nickname = await lookupNickname(viewerId, notification.actorId);
+	const personalized = nickname
+		? applyNicknameToNotification(notification, nickname)
+		: notification;
+	return buildFcmPayload(personalized);
 }
 
 function buildUnifiedPostPayload(n: UnifiedPostNotificationInput): {
@@ -392,7 +478,7 @@ function buildUnifiedPostPayload(n: UnifiedPostNotificationInput): {
 	return {
 		title,
 		body: `New post${attachmentText} in ${circleLabel}`,
-		data: {
+		data: withActorId({
 			type: 'new_post',
 			postId: n.postId,
 			channelId: n.channelId,
@@ -402,10 +488,7 @@ function buildUnifiedPostPayload(n: UnifiedPostNotificationInput): {
 			hasAttachments: String(n.hasAttachments),
 			authorFirstName: n.authorFirstName,
 			authorLastName: n.authorLastName,
-		},
-	};
-}
-
+		}, n.actorId),
 /**
  * Sends an FCM multicast to all provided tokens with the given payload.
  * Failure is best-effort — individual token failures are swallowed.
@@ -645,7 +728,6 @@ export const sendAppNotification = onDocumentCreated('notifications/{notificatio
 	if (!snap) return;
 
 	const notification = snap.data() as AppNotification;
-	const payload = buildFcmPayload(notification);
 
 	if (notification.target.type === 'user') {
 		// ── Single-user target ─────────────────────────────────────────────
@@ -675,6 +757,7 @@ export const sendAppNotification = onDocumentCreated('notifications/{notificatio
 				return;
 			}
 		}
+		const payload = await buildPersonalizedFcmPayload(notification, targetUserId);
 		await sendFcmToTokens(tokens, payload, tokenOwnersByToken);
 	} else if (notification.target.type === 'channel_tier') {
 		// ── Channel-tier target: fan-out to all channel subscribers ────────
@@ -703,21 +786,20 @@ export const sendAppNotification = onDocumentCreated('notifications/{notificatio
 				return isCirclePostNotificationEnabled(notification, settings);
 			});
 
-		const allTokens = enabledRecipients.flatMap(({ settings }) => {
-				return getTokensFromSettings(settings);
-			});
-
-		const tokenOwnersByToken = new Map<string, Set<string>>();
-		enabledRecipients.forEach(({ recipientId, settings }) => {
-			const recipientTokens = getTokensFromSettings(settings);
-			recipientTokens.forEach((token) => {
-				const owners = tokenOwnersByToken.get(token) ?? new Set<string>();
-				owners.add(recipientId);
-				tokenOwnersByToken.set(token, owners);
-			});
-		});
-
-		await sendFcmToTokens(allTokens, payload, tokenOwnersByToken);
+		await Promise.all(
+			enabledRecipients.map(async ({ recipientId, settings }) => {
+				const recipientTokens = getTokensFromSettings(settings);
+				if (recipientTokens.length === 0) {
+					return;
+				}
+				const payload = await buildPersonalizedFcmPayload(notification, recipientId);
+				const tokenOwnersByToken = new Map<string, Set<string>>();
+				recipientTokens.forEach((token) => {
+					tokenOwnersByToken.set(token, new Set([recipientId]));
+				});
+				await sendFcmToTokens(recipientTokens, payload, tokenOwnersByToken);
+			}),
+		);
 	} else {
 		// `thread` targets and any future unrecognized target types are not yet
 		// supported.  Fall through to deletion so the document is cleaned up.

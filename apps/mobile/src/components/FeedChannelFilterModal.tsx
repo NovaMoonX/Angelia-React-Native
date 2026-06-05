@@ -8,6 +8,8 @@ import { CheckboxGroup } from '@/components/ui/CheckboxGroup';
 import { useTheme } from '@/hooks/useTheme';
 import { useAppSelector } from '@/store/hooks';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
+import { selectConnectionNicknamesMap } from '@/store/slices/connectionNicknamesSlice';
+import { resolveConnectionDisplayName } from '@/lib/user/user.utils';
 import type { Channel } from '@/models/types';
 
 export type ChannelFilterMode = 'all' | 'specific';
@@ -36,6 +38,7 @@ export function FeedChannelFilterModal({
 }: FeedChannelFilterModalProps) {
   const { theme } = useTheme();
   const usersById = useAppSelector(selectAllUsersMapById);
+  const nicknamesMap = useAppSelector(selectConnectionNicknamesMap);
 
   const [localFilter, setLocalFilter] = useState<ChannelFilterState>(value);
   const [searchQuery, setSearchQuery] = useState('');
@@ -70,11 +73,11 @@ export function FeedChannelFilterModal({
     return dailyChannels.filter((ch) => {
       const owner = usersById[ch.ownerId];
       const name = owner
-        ? `${owner.firstName} ${owner.lastName}`.toLowerCase()
+        ? resolveConnectionDisplayName(ch.ownerId, owner, currentUserId, nicknamesMap, 'full').toLowerCase()
         : ch.name.toLowerCase();
       return name.includes(q);
     });
-  }, [dailyChannels, searchQuery, usersById]);
+  }, [dailyChannels, searchQuery, usersById, currentUserId, nicknamesMap]);
 
   const filteredRegular = useMemo(() => {
     if (!searchQuery.trim()) return regularChannels;
@@ -83,10 +86,10 @@ export function FeedChannelFilterModal({
       if (ch.name.toLowerCase().includes(q)) return true;
       const owner = usersById[ch.ownerId];
       return owner
-        ? `${owner.firstName} ${owner.lastName}`.toLowerCase().includes(q)
+        ? resolveConnectionDisplayName(ch.ownerId, owner, currentUserId, nicknamesMap, 'full').toLowerCase().includes(q)
         : false;
     });
-  }, [regularChannels, searchQuery, usersById]);
+  }, [regularChannels, searchQuery, usersById, currentUserId, nicknamesMap]);
 
   // Daily items sorted alphabetically by owner name.
   const filteredDailyItems = useMemo(() => {
@@ -94,16 +97,22 @@ export function FeedChannelFilterModal({
       .sort((a, b) => {
         const ownerA = usersById[a.ownerId];
         const ownerB = usersById[b.ownerId];
-        return (ownerA ? `${ownerA.firstName} ${ownerA.lastName}` : '').localeCompare(
-          ownerB ? `${ownerB.firstName} ${ownerB.lastName}` : '',
-        );
+        const nameA = ownerA
+          ? resolveConnectionDisplayName(a.ownerId, ownerA, currentUserId, nicknamesMap, 'full')
+          : '';
+        const nameB = ownerB
+          ? resolveConnectionDisplayName(b.ownerId, ownerB, currentUserId, nicknamesMap, 'full')
+          : '';
+        return nameA.localeCompare(nameB);
       })
       .map((ch) => {
         const owner = usersById[ch.ownerId];
-        const label = owner ? `${owner.firstName} ${owner.lastName[0]}.` : ch.name;
+        const label = owner
+          ? resolveConnectionDisplayName(ch.ownerId, owner, currentUserId, nicknamesMap, 'first-last-initial')
+          : ch.name;
         return { id: ch.id, label };
       });
-  }, [filteredDaily, usersById, currentUserId]);
+  }, [filteredDaily, usersById, currentUserId, nicknamesMap]);
 
   // Regular channels grouped by owner: current user's group first, then alphabetical
   const filteredRegularGroups = useMemo(() => {
@@ -115,13 +124,15 @@ export function FeedChannelFilterModal({
     return Array.from(groupMap.entries())
       .map(([ownerId, chs]) => {
         const owner = usersById[ownerId];
-        const label = owner ? `${owner.firstName} ${owner.lastName[0]}.` : 'Unknown';
+        const label = owner
+          ? resolveConnectionDisplayName(ownerId, owner, currentUserId, nicknamesMap, 'first-last-initial')
+          : 'Unknown';
         return { ownerId, label, items: chs.map((ch) => ({ id: ch.id, label: ch.name })) };
       })
       .sort((a, b) => {
         return a.label.localeCompare(b.label);
       });
-  }, [filteredRegular, usersById, currentUserId]);
+  }, [filteredRegular, usersById, currentUserId, nicknamesMap]);
 
   const selectedIds = localFilter.mode === 'specific' ? localFilter.specificIds : [];
 

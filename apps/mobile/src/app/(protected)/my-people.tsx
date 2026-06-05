@@ -14,6 +14,7 @@ import { useActionModal } from '@/hooks/useActionModal';
 import { selectMyPeopleData } from '@/store/crossSelectors/myPeopleSelectors';
 import { disconnectUser } from '@/store/actions/connectionsActions';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { useConnectionDisplayName } from '@/hooks/useConnectionDisplayName';
 import type { User } from '@/models/types';
 
 interface PersonRowProps {
@@ -24,6 +25,7 @@ interface PersonRowProps {
 
 function PersonRow({ user, tag, onPress }: PersonRowProps) {
   const { theme } = useTheme();
+  const displayName = useConnectionDisplayName(user.id);
   return (
     <Pressable
       onPress={onPress}
@@ -35,7 +37,7 @@ function PersonRow({ user, tag, onPress }: PersonRowProps) {
       <Avatar user={user} size="sm" showStatus={false} />
       <View style={{ flex: 1, marginLeft: 12 }}>
         <Text style={[styles.personName, { color: theme.foreground }]}>
-          {user.firstName} {user.lastName}
+          {displayName}
         </Text>
         {user.funFact ? (
           <Text
@@ -151,6 +153,7 @@ export default function MyPeopleScreen() {
         visible={!!selectedUser}
         onClose={() => setSelectedUser(null)}
         user={selectedUser}
+        isConnection
         onDisconnect={
           selectedUser
             ? () => handleDisconnect(selectedUser.id)

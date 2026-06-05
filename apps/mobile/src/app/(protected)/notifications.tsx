@@ -10,6 +10,7 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
+import { resolveConnectionDisplayName } from '@/lib/user/user.utils';
 import { respondToJoinRequest, respondToCircleInviteRequest } from '@/store/actions/inviteActions';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import {
@@ -29,6 +30,14 @@ export default function NotificationsScreen() {
   const incomingCircleInvites = useAppSelector((state) => state.invites.incomingCircleInvites);
   const incomingConnRequests = useAppSelector((state) => state.connections.incomingRequests);
   const usersMap = useAppSelector(selectAllUsersMapById);
+  const currentUserId = useAppSelector((state) => state.users.currentUser?.id ?? null);
+  const nicknamesMap = useAppSelector((state) => state.connectionNicknames.nicknames);
+
+  const getPersonDisplayName = (userId: string) => {
+    const user = usersMap[userId];
+    if (!user) return 'Unknown User';
+    return resolveConnectionDisplayName(userId, user, currentUserId, nicknamesMap, 'full');
+  };
 
   const pendingIncoming = incoming.filter((r) => r.status === 'pending');
   const pendingCircleInvites = incomingCircleInvites.filter((r) => r.status === 'pending');
@@ -177,8 +186,9 @@ export default function NotificationsScreen() {
                         <Avatar user={requester} size="sm" showStatus={false} />
                         <View style={{ flex: 1, marginLeft: 8 }}>
                           <Text style={[styles.requestName, { color: theme.foreground }]}>
-                            {requester?.firstName || 'Unknown'}{' '}
-                            {requester?.lastName || 'User'}
+                            {requester
+                              ? `${requester.firstName || 'Unknown'} ${requester.lastName || 'User'}`
+                              : 'Unknown User'}
                           </Text>
                           <Text style={[styles.requestChannel, { color: theme.mutedForeground }]}>
                             wants to connect with you
@@ -225,8 +235,7 @@ export default function NotificationsScreen() {
                               { color: theme.foreground },
                             ]}
                           >
-                            {requester?.firstName || 'Unknown'}{' '}
-                            {requester?.lastName || 'User'}
+                            {getPersonDisplayName(req.requesterId)}
                           </Text>
                           <Text
                             style={[
@@ -289,7 +298,7 @@ export default function NotificationsScreen() {
                         <Avatar user={inviter} size="sm" showStatus={false} />
                         <View style={{ flex: 1, marginLeft: 8 }}>
                           <Text style={[styles.requestName, { color: theme.foreground }]}> 
-                            {inviter?.firstName || 'Unknown'} {inviter?.lastName || 'User'}
+                            {getPersonDisplayName(req.inviterId)}
                           </Text>
                           <Text style={[styles.requestChannel, { color: theme.mutedForeground }]}> 
                             invited you to join{' '}

@@ -4,7 +4,7 @@ import {
   CUSTOM_POST_RETENTION_DAYS,
   DAILY_POST_RETENTION_DAYS,
 } from '@/models/constants';
-import { getUserDisplayName } from '@/lib/user/user.utils';
+import { resolveConnectionDisplayName } from '@/lib/user/user.utils';
 import type { Post } from '@/models/types';
 
 export interface AuthorPostActivitySummary {
@@ -104,6 +104,7 @@ export const selectAuthorPostActivitySummaries = createSelector(
     (state: RootState) => state.channels.connectionChannels,
     (state: RootState) => state.privateNotes.notesByPost,
     (state: RootState) => state.conversation.messagesByPost,
+    (state: RootState) => state.connectionNicknames.nicknames,
   ],
   (
     currentUser,
@@ -113,6 +114,7 @@ export const selectAuthorPostActivitySummaries = createSelector(
     connectionChannels,
     notesByPost,
     messagesByPost,
+    nicknamesMap,
   ): AuthorPostActivitySummary[] => {
     if (!currentUser) return [];
 
@@ -138,7 +140,7 @@ export const selectAuthorPostActivitySummaries = createSelector(
         const owner = channel ? usersById.get(channel.ownerId) : undefined;
         const circleLabel = channel
           ? channel.isDaily === true
-            ? getUserDisplayName(owner, currentUser.id, channel.ownerId)
+            ? resolveConnectionDisplayName(channel.ownerId, owner, currentUser.id, nicknamesMap, 'first-last-initial')
             : channel.name
           : 'Circle';
 

@@ -7,6 +7,7 @@ import {
   getExistingConnectionRequest,
 } from '@/services/firebase/firestore';
 import { updateConnectionRequest, removeConnection } from '@/store/slices/connectionsSlice';
+import { clearConnectionNicknameForUser } from '@/store/actions/connectionNicknameActions';
 import { updateChannel } from '@/store/slices/channelsSlice';
 import type { RootState } from '@/store';
 import type { ConnectionRequestNotification } from '@/models/types';
@@ -140,6 +141,7 @@ export const disconnectUser = createAsyncThunk(
 
     // Optimistic update: remove from connections list and from owned channel subscriber arrays.
     dispatch(removeConnection(targetUserId));
+    dispatch(clearConnectionNicknameForUser(targetUserId));
 
     const ownedChannels = state.channels.items.filter((ch) => {
       return ch.ownerId === user.id && ch.subscribers.includes(targetUserId);

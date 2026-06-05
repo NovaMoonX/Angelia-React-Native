@@ -12,8 +12,19 @@ import { useTheme } from '@/hooks/useTheme';
 import { usePrivateNotes } from '@/hooks/usePrivateNotes';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { useConnectionDisplayName } from '@/hooks/useConnectionDisplayName';
 import { PRIVATE_NOTES_SEEN_KEY } from '@/models/constants';
 import { dismissNotificationsByData } from '@/services/notifications';
+
+function NoteAuthorName({ authorId }: { authorId: string }) {
+	const { theme } = useTheme();
+	const displayName = useConnectionDisplayName(authorId);
+	return (
+		<Text style={[styles.authorName, { color: theme.foreground }]}>
+			{displayName}
+		</Text>
+	);
+}
 
 export default function PrivateNotesScreen() {
 	const { postId } = useLocalSearchParams<{ postId: string }>();
@@ -107,9 +118,6 @@ export default function PrivateNotesScreen() {
 				) : null}
 				{notes.map((note) => {
 					const author = usersMap[note.authorId];
-					const authorName = author
-						? `${author.firstName} ${author.lastName}`
-						: 'Someone';
 
 					return (
 						<View
@@ -129,9 +137,7 @@ export default function PrivateNotesScreen() {
 							/>
 							<View style={styles.noteContent}>
 								<View style={styles.noteHeader}>
-									<Text style={[styles.authorName, { color: theme.foreground }]}>
-										{authorName}
-									</Text>
+									<NoteAuthorName authorId={note.authorId} />
 									<Text style={[styles.timestamp, { color: theme.mutedForeground }]}>
 										{getRelativeTime(note.timestamp)}
 									</Text>

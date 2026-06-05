@@ -2,6 +2,8 @@ import { createSelector } from '@reduxjs/toolkit';
 import type { RootState } from '@/store';
 import type { User } from '@/models/types';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
+import { selectConnectionNicknamesMap } from '@/store/slices/connectionNicknamesSlice';
+import { resolveConnectionDisplayName } from '@/lib/user/user.utils';
 
 /**
  * Derives the people list for the My People screen.
@@ -24,8 +26,9 @@ export const selectMyPeopleData = createSelector(
     (state: RootState) => state.channels.items,
     selectAllUsersMapById,
     (state: RootState) => state.users.currentUser?.id ?? '',
+    selectConnectionNicknamesMap,
   ],
-  (connections, channels, usersMap, currentUserId) => {
+  (connections, channels, usersMap, currentUserId, nicknamesMap) => {
     // ── Direct connections ────────────────────────────────────────────────
     const directIds = new Set(connections.map((c) => c.userId));
 
@@ -56,7 +59,11 @@ export const selectMyPeopleData = createSelector(
         return { user, inCircle: sharedCircleIds.has(id) };
       })
       .filter((p): p is { user: User; inCircle: boolean } => !!p)
-      .sort((a, b) => a.user.firstName.localeCompare(b.user.firstName));
+      .sort((a, b) => {
+        const nameA = resolveConnectionDisplayName(a.user.id, a.user, currentUserId, nicknamesMap, 'full');
+        const nameB = resolveConnectionDisplayName(b.user.id, b.user, currentUserId, nicknamesMap, 'full');
+        return nameA.localeCompare(nameB);
+      });
 
     return { people };
   },

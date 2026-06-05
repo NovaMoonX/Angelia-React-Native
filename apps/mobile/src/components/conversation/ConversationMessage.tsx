@@ -4,6 +4,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { useAppSelector } from '@/store/hooks';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { useTheme } from '@/hooks/useTheme';
+import { useConnectionDisplayName } from '@/hooks/useConnectionDisplayName';
 import type { Message } from '@/models/types';
 
 interface ConversationMessageProps {
@@ -33,6 +34,7 @@ export function ConversationMessage({
   const author = useAppSelector((state) =>
     state.users.users.find((u) => u.id === message.authorId),
   );
+  const authorDisplayName = useConnectionDisplayName(message.authorId);
   const { theme } = useTheme();
   const lastPressAtRef = useRef(0);
   const singlePressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -51,7 +53,7 @@ export function ConversationMessage({
       <View style={styles.systemRow}>
         <Avatar user={author} size="sm" />
         <Text style={[styles.systemText, { color: theme.mutedForeground }]}>
-          {author?.firstName ?? 'Someone'} {message.text}
+          {authorDisplayName} {message.text}
         </Text>
       </View>
     );
@@ -144,7 +146,7 @@ export function ConversationMessage({
         {/* Header: Name | Timestamp */}
         <View style={styles.headerLine}>
           <Text style={[styles.displayName, { color: theme.foreground }]}>
-            {author?.firstName ?? 'Unknown'}
+            {authorDisplayName}
           </Text>
           <Text style={[styles.timestamp, { color: theme.mutedForeground }]}>
             {getRelativeTime(message.timestamp)}
