@@ -25,6 +25,10 @@ import { ConversationEmptyState } from '@/components/conversation/ConversationEm
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { selectMessages, setMessages } from '@/store/slices/conversationSlice';
+import { store } from '@/store';
+import { mergeMessagesWithPendingWrites } from '@/lib/mergePendingSnapshots';
+import { normalizeMessageList } from '@/lib/conversation/threadLineage';
+import { isPendingWriteLocked } from '@/lib/pendingWrites';
 import { joinConversation } from '@/store/actions/postActions';
 import { subscribeToMessages } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
@@ -36,6 +40,7 @@ import { usePostComments } from '@/hooks/usePostComments';
 import { getTierTheme } from '@/lib/conversation/tierTheme';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
+import { resolveUserIdentity } from '@/hooks/useUserIdentity';
 import {
   POST_TIERS,
   CONVERSATION_EDIT_HINT_SEEN_KEY,
@@ -71,7 +76,10 @@ export default function ConversationScreen() {
   const author = useAppSelector((state) => selectPostAuthor(state, post?.authorId ?? ''));
   const channel = useAppSelector((state) => selectPostChannel(state, post?.channelId ?? ''));
   const currentUser = useAppSelector((state) => state.users.currentUser);
-  const messages = useAppSelector((state) => selectMessages(state, postId ?? ''));
+  const connections = useAppSelector((state) => state.connections.connections);
+  const nicknamesMap = useAppSelector((state) => state.connectionNicknames.nicknames);
+  const rawMessages = useAppSelector((state) => selectMessages(state, postId ?? ''));
+  const messages = useMemo(() => normalizeMessageList(rawMessages), [rawMessages]);
 
   const [messageText, setMessageText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -116,10 +124,25 @@ export default function ConversationScreen() {
   // already handles message subscriptions for posts where the current user is the author.
   useEffect(() => {
     if (!postId || isDemo || isHost) return;
-    const unsub = subscribeToMessages(postId, (msgs) => {
-      dispatch(setMessages({ postId, messages: msgs }));
+    let unsub: (() => void) | null = null;
+
+    unsub = subscribeToMessages(postId, (msgs) => {
+      const state = store.getState();
+      const local = state.conversation.messagesByPost[postId] ?? [];
+      const merged = mergeMessagesWithPendingWrites(normalizeMessageList(msgs), local);
+      dispatch(setMessages({ postId, messages: merged }));
     });
-    return unsub;
+
+    return () => {
+      const doUnsub = () => {
+        unsub?.();
+      };
+      if (isPendingWriteLocked(postId)) {
+        setTimeout(doUnsub, 800);
+      } else {
+        doUnsub();
+      }
+    };
   }, [postId, dispatch, isDemo, isHost]);
 
   // Record when the user last opened this conversation to drive the unread indicator
@@ -200,10 +223,28 @@ export default function ConversationScreen() {
 
   // Build threaded display to 2 levels: root -> reply -> reply-to-reply.
   const threadedMessages = useMemo(() => {
+    const messageIds = new Set(messages.map((message) => message.id));
+
+    const resolveThreadParentKey = (message: Message): string | null => {
+      if (message.parentId == null) {
+        return null;
+      }
+      if (messageIds.has(message.parentId)) {
+        return message.parentId;
+      }
+      if (message.grandparentId && messageIds.has(message.grandparentId)) {
+        return message.grandparentId;
+      }
+      if (message.rootId && messageIds.has(message.rootId)) {
+        return message.rootId;
+      }
+      return message.parentId;
+    };
+
     const childrenByParent = new Map<string | null, Message[]>();
 
     messages.forEach((message) => {
-      const key = message.parentId ?? null;
+      const key = resolveThreadParentKey(message);
       const siblings = childrenByParent.get(key) ?? [];
       siblings.push(message);
       childrenByParent.set(key, siblings);
@@ -392,10 +433,18 @@ export default function ConversationScreen() {
 
   const renderMessage = useCallback(
     ({ item }: { item: ThreadedConversationRow }) => {
+      const depth = messageDepthById[item.message.id] ?? 0;
       const parentMsg = item.message.parentId
         ? messages.find((m) => { return m.id === item.message.parentId; })
         : null;
-      const depth = messageDepthById[item.message.id] ?? 0;
+      const grandparentMsg =
+        depth >= 2 && item.message.grandparentId
+          ? messages.find((m) => { return m.id === item.message.grandparentId; })
+          : null;
+      const quoteText =
+        depth >= 2 && grandparentMsg?.text
+          ? grandparentMsg.text
+          : parentMsg?.text ?? null;
       const canEditMessage =
         item.message.authorId === currentUser?.id && item.message.isSystem !== true;
       return (
@@ -405,7 +454,7 @@ export default function ConversationScreen() {
           hasReplies={messageIdsWithReplies.has(item.message.id)}
           continuationDepths={item.continuationDepths}
           depth={depth}
-          parentText={parentMsg?.text ?? null}
+          parentText={quoteText}
           onSinglePress={() => {
             Keyboard.dismiss();
           }}
@@ -425,6 +474,9 @@ export default function ConversationScreen() {
       ? state.users.users.find((u) => u.id === replyingTo.authorId)
       : undefined,
   );
+  const replyAuthorName = replyAuthor
+    ? resolveUserIdentity(currentUser?.id, connections, replyAuthor, nicknamesMap).displayName
+    : 'someone';
 
   if (!post || !currentUser) {
     return (
@@ -446,7 +498,7 @@ export default function ConversationScreen() {
     ? getColorPair(channel)
     : { backgroundColor: '#6366F1', textColor: '#FFF' };
   const channelBadgeLabel = channel?.isDaily ? 'Daily' : channel?.name;
-  const authorName = getPostAuthorName(author, currentUser);
+  const authorName = getPostAuthorName(author, currentUser, connections, nicknamesMap);
   const expiryInfo = channel != null
     ? getPostExpiryInfo(post.timestamp, channel.isDaily === true)
     : null;
@@ -584,7 +636,7 @@ export default function ConversationScreen() {
               <View style={styles.replyBanner}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.replyText, { color: theme.mutedForeground }]}>
-                    Replying to {replyAuthor?.firstName ?? 'someone'}
+                    Replying to {replyAuthorName}
                   </Text>
                   <Text style={[styles.replyPreview, { color: theme.mutedForeground }]} numberOfLines={1}>
                     “{replyingTo.text.length > 60 ? replyingTo.text.slice(0, 60) + '…' : replyingTo.text}”

@@ -15,8 +15,14 @@ import { Avatar } from '@/components/ui/Avatar';
 import { useAppSelector } from '@/store/hooks';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { useTheme } from '@/hooks/useTheme';
+import { useUserIdentity } from '@/hooks/useUserIdentity';
 import { FEED_LAST_SEEN_TIMESTAMP_KEY } from '@/models/constants';
 import type { Post, User } from '@/models/types';
+
+function PillAuthorAvatar({ author }: { author: User }) {
+  const identity = useUserIdentity(author.id, author);
+  return <Avatar preset={identity.avatarPreset} uri={identity.avatarUrl} size="sm" />;
+}
 
 export interface NewPostsPillRef {
   /**
@@ -264,7 +270,7 @@ export const NewPostsPill = forwardRef<NewPostsPillRef, NewPostsPillProps>(
                     },
                   ]}
                 >
-                  <Avatar user={author} size="sm" />
+                  <PillAuthorAvatar author={author} />
                 </View>
               ))}
             </View>

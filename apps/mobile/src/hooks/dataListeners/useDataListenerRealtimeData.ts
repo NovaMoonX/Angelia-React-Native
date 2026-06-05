@@ -29,7 +29,10 @@ import {
   setIncomingConnectionRequests,
   setOutgoingConnectionRequests,
 } from '@/store/slices/connectionsSlice';
+import { setConnectionNicknames } from '@/store/slices/connectionNicknamesSlice';
 import { processPendingInvite } from '@/store/actions/inviteActions';
+import { store } from '@/store';
+import { mergeMessagesWithPendingWrites, mergePostsWithPendingWrites } from '@/lib/mergePendingSnapshots';
 import { processPendingConnection } from '@/store/actions/connectionsActions';
 import {
   initNotifications,
@@ -47,6 +50,7 @@ import {
   subscribeToChannelUsers,
   subscribeToNotificationSettings,
   subscribeToConnections,
+  subscribeToConnectionNicknames,
   subscribeToIncomingConnectionRequests,
   subscribeToOutgoingConnectionRequests,
   subscribeToConnectionChannels,
@@ -148,6 +152,10 @@ export function useDataListenerRealtimeData() {
       dispatch(setConnections(nextConnections));
     });
 
+    const unsubConnectionNicknames = subscribeToConnectionNicknames(firebaseUid, (nicknames) => {
+      dispatch(setConnectionNicknames(nicknames));
+    });
+
     const unsubIncomingConnections = subscribeToIncomingConnectionRequests(
       firebaseUid,
       (reqs: ConnectionRequest[]) => {
@@ -168,6 +176,7 @@ export function useDataListenerRealtimeData() {
       unsubIncomingJoinRequests,
       unsubOutgoingJoinRequests,
       unsubConnections,
+      unsubConnectionNicknames,
       unsubIncomingConnections,
       unsubOutgoingConnections,
       unsubIncomingCircleInvites,
@@ -219,7 +228,13 @@ export function useDataListenerRealtimeData() {
     let connectionPosts: Post[] = [];
 
     const dispatchMergedPosts = () => {
-      dispatch(setPosts([...ownPosts, ...connectionPosts]));
+      const state = store.getState();
+      const merged = mergePostsWithPendingWrites(
+        [...ownPosts, ...connectionPosts],
+        state.posts.items,
+        state.posts.previousReactions,
+      );
+      dispatch(setPosts(merged));
     };
 
     const unsubOwnPosts =
@@ -526,7 +541,14 @@ export function useDataListenerRealtimeData() {
       }
 
       const unsubMessages = subscribeToMessages(post.id, (messages) => {
-        dispatch(setMessages({ postId: post.id, messages }));
+        const state = store.getState();
+        const local = state.conversation.messagesByPost[post.id] ?? [];
+        dispatch(
+          setMessages({
+            postId: post.id,
+            messages: mergeMessagesWithPendingWrites(messages, local),
+          }),
+        );
       });
 
       const unsubNotes = subscribeToPrivateNotesForPost(

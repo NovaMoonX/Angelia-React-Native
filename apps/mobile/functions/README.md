@@ -41,6 +41,25 @@ From the **project root**, prefer:
 
 ---
 
+### `backfillPublicDisplayNames`
+
+**Trigger:** HTTPS `POST` (private invoker — admin / IAM only)
+
+One-time migration that assigns avatar-themed `publicDisplayName` values (with numeric suffix) to active `usersPublic` documents missing the field, and sets default privacy flags on `usersPrivate`.
+
+**Invoke (example):**
+
+```bash
+# From apps/mobile — after deploy
+curl -X POST \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  "https://us-central1-<PROJECT_ID>.cloudfunctions.net/backfillPublicDisplayNames"
+```
+
+Re-running is safe: documents that already have `publicDisplayName` are skipped.
+
+---
+
 ## Type Sync
 
 The types in `src/index.ts` mirror `src/models/types.ts` in the app.

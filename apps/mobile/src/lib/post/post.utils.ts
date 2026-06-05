@@ -1,4 +1,5 @@
-import type { User } from '@/models/types';
+import type { Connection, User } from '@/models/types';
+import { resolveUserIdentity } from '@/hooks/useUserIdentity';
 import {
   CUSTOM_POST_EXPIRY_WARNING_DAYS,
   CUSTOM_POST_RETENTION_DAYS,
@@ -35,12 +36,14 @@ export function getPostExpiryInfo(
 
 export function getPostAuthorName(
   author: User | undefined,
-  currentUser: User | null
+  currentUser: User | null,
+  connections: Connection[] = [],
+  nicknamesMap: Record<string, string> = {},
 ): string {
   if (!author) return 'Unknown';
-  const name = `${author.firstName} ${author.lastName}`;
-  if (currentUser && author.id === currentUser.id) {
-    return `${name} (You)`;
+  const identity = resolveUserIdentity(currentUser?.id, connections, author, nicknamesMap);
+  if (identity.isSelf) {
+    return 'You';
   }
-  return name;
+  return identity.displayName;
 }

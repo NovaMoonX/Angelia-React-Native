@@ -16,8 +16,9 @@ import {
   selectPostChannel,
 } from '@/store/slices/postsSlice';
 import { useRelativeTime } from '@/hooks/useRelativeTime';
+import { useUserIdentity } from '@/hooks/useUserIdentity';
 import { getColorPair } from '@/lib/channel/channel.utils';
-import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
+import { getPostExpiryInfo } from '@/lib/post/post.utils';
 import { compareReactionGroupPriority } from '@/lib/reaction/reaction.utils';
 import { POST_TIERS } from '@/models/constants';
 import type { Post, MediaItem } from '@/models/types';
@@ -38,14 +39,19 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
     selectPostChannel(state, post.channelId)
   );
   const currentUser = useAppSelector((state) => state.users.currentUser);
+  const connections = useAppSelector((state) => state.connections.connections);
   const { theme } = useTheme();
+  const isAuthorConnection = connections.some((c) => c.userId === post.authorId);
 
   const channelBadgeLabel = channel?.isDaily ? 'Daily' : channel?.name;
 
   const colors = channel
     ? getColorPair(channel)
     : { backgroundColor: '#6366F1', textColor: '#FFF' };
-  const authorName = getPostAuthorName(author, currentUser);
+  const authorIdentity = useUserIdentity(post.authorId, author ?? undefined);
+  const authorName = authorIdentity.isSelf
+    ? 'You'
+    : authorIdentity.displayName;
   const relativeTime = useRelativeTime(post.timestamp);
   const hasMultipleMedia = post.media && post.media.length > 1;
   const isOtherUser = author && currentUser && author.id !== currentUser.id;
@@ -140,7 +146,8 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
               onPress={isOtherUser ? () => setProfileModalOpen(true) : undefined}
             >
               <Avatar
-                user={author}
+                preset={authorIdentity.avatarPreset}
+                uri={authorIdentity.avatarUrl}
                 size="sm"
               />
             </Pressable>
@@ -246,6 +253,7 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
         visible={profileModalOpen}
         onClose={() => setProfileModalOpen(false)}
         user={author}
+        isConnection={isAuthorConnection}
       />
 
       {/* Full-screen media viewer */}

@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
@@ -21,7 +23,12 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { exitDemoMode } from '@/store/actions/demoActions';
 import { saveProfile, saveStatus, clearStatus, uploadAndSaveAvatar } from '@/store/actions/userActions';
 import { completeTask } from '@/store/actions/taskActions';
-import { AVATAR_PRESETS, BETA_FEEDBACK_FORM_URL } from '@/models/constants';
+import {
+  AVATAR_PRESETS,
+  BETA_FEEDBACK_FORM_URL,
+  PUBLIC_DISPLAY_NAME_NOTICE_SEEN_KEY,
+  PUBLIC_DISPLAY_NAME_NOTICE_VERSION,
+} from '@/models/constants';
 import type { AvatarPreset, UserStatus } from '@/models/types';
 import { formatExactExpiry } from '@/lib/timeUtils';
 
@@ -45,6 +52,20 @@ export function AccountTab() {
   const [editAvatarUri, setEditAvatarUri] = useState<string | null>(currentUser?.avatarUrl ?? null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [displayNameNoticeSeen, setDisplayNameNoticeSeen] = useState(true);
+
+  useEffect(() => {
+    const key = PUBLIC_DISPLAY_NAME_NOTICE_SEEN_KEY(PUBLIC_DISPLAY_NAME_NOTICE_VERSION);
+    void AsyncStorage.getItem(key).then((val) => {
+      setDisplayNameNoticeSeen(val === 'true');
+    });
+  }, []);
+
+  const dismissDisplayNameNotice = () => {
+    setDisplayNameNoticeSeen(true);
+    const key = PUBLIC_DISPLAY_NAME_NOTICE_SEEN_KEY(PUBLIC_DISPLAY_NAME_NOTICE_VERSION);
+    void AsyncStorage.setItem(key, 'true');
+  };
 
   const feedbackFormUrl = mobileAppConfig?.feedbackForm.url ?? BETA_FEEDBACK_FORM_URL;
 
@@ -189,6 +210,32 @@ export function AccountTab() {
   return (
     <>
       <Card style={styles.profileCard}>
+        {!displayNameNoticeSeen && (
+          <View style={[styles.noticeCard, { backgroundColor: `${theme.primary}14`, borderColor: theme.border }]}>
+            <View style={styles.noticeHeader}>
+              <Text style={[styles.noticeTitle, { color: theme.foreground }]}>
+                You have a public display name
+              </Text>
+              <Pressable onPress={dismissDisplayNameNotice} hitSlop={8} accessibilityLabel="Dismiss">
+                <Feather name="x" size={18} color={theme.mutedForeground} />
+              </Pressable>
+            </View>
+            <Text style={[styles.noticeBody, { color: theme.mutedForeground }]}>
+              In shared Circles, people you have not connected with see{' '}
+              <Text style={{ fontWeight: '600', color: theme.foreground }}>
+                {currentUser.publicDisplayName}
+              </Text>{' '}
+              instead of your real name. You can change it anytime in Privacy settings.
+            </Text>
+            <Button
+              variant="outline"
+              onPress={() => router.push('/(protected)/privacy-settings')}
+              style={{ marginTop: 10 }}
+            >
+              Privacy settings
+            </Button>
+          </View>
+        )}
         <View style={styles.profileHeader}>
           <View style={styles.avatarWrapper}>
             <Avatar user={currentUser} size="xl" showStatus={false} />
@@ -205,6 +252,11 @@ export function AccountTab() {
           <Text style={[styles.profileName, { color: theme.foreground }]}>
             {currentUser.firstName} {currentUser.lastName}
           </Text>
+          <Pressable onPress={() => router.push('/(protected)/privacy-settings')}>
+            <Text style={[styles.profileSharedAs, { color: theme.mutedForeground }]}>
+              Shared as: {currentUser.publicDisplayName}
+            </Text>
+          </Pressable>
           <Text style={[styles.profileEmail, { color: theme.mutedForeground }]}>
             {currentUser.email}
           </Text>
@@ -352,6 +404,29 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
   },
+  noticeCard: {
+    width: '100%',
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 16,
+  },
+  noticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 8,
+  },
+  noticeTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+  },
+  noticeBody: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
   profileHeader: {
     alignItems: 'center',
     alignSelf: 'stretch',
@@ -375,6 +450,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     marginTop: 12,
+  },
+  profileSharedAs: {
+    fontSize: 14,
+    marginTop: 4,
+    textDecorationLine: 'underline',
   },
   profileEmail: {
     fontSize: 14,

@@ -25,12 +25,37 @@ service cloud.firestore {
         );
     }
 
+    // ── Public circle invite previews — readable without auth ─────────────────
+    // Sanitized metadata for join-link landing screens before sign-in.
+    match /publicChannelInvites/{inviteCode} {
+      allow read: if true;
+      allow create, update: if isSignedIn()
+        && request.auth.uid == request.resource.data.ownerId
+        && request.resource.data.channelId is string
+        && request.resource.data.inviteCode is string;
+      allow delete: if isSignedIn()
+        && request.auth.uid == resource.data.ownerId;
+    }
+
     // ── User public profiles — readable by anyone, including unauthenticated ──
-    // Public profiles contain only display name and avatar, which must be
-    // visible on the public connect-request screen before the visitor signs in.
+    // Contains real name fields plus publicDisplayName (friendly label for shared
+    // spaces). The app masks real identity for non-connections; fields remain in
+    // this doc for connect-request and legacy clients.
     match /usersPublic/{userId} {
       allow read: if true;
-      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn() && request.auth.uid == userId
+        && request.resource.data.publicDisplayName is string
+        && request.resource.data.publicDisplayName.size() >= 3
+        && request.resource.data.publicDisplayName.size() <= 40;
+      allow update: if isSignedIn() && request.auth.uid == userId
+        && (
+          !('publicDisplayName' in request.resource.data)
+          || (
+            request.resource.data.publicDisplayName is string
+            && request.resource.data.publicDisplayName.size() >= 3
+            && request.resource.data.publicDisplayName.size() <= 40
+          )
+        );
       allow delete: if false;
     }
 
@@ -289,6 +314,8 @@ service cloud.firestore {
           && request.resource.data.timestamp == resource.data.timestamp
           && request.resource.data.parentId == resource.data.parentId
           && optionalFieldUnchanged('isSystem')
+          && optionalFieldUnchanged('rootId')
+          && optionalFieldUnchanged('grandparentId')
           && request.resource.data.reactions == resource.data.reactions;
 
         allow delete: if false;
@@ -483,6 +510,23 @@ service cloud.firestore {
       allow read: if isSignedIn() && (request.auth.uid == userId || request.auth.uid == personId);
       // Writes are handled exclusively by the Admin SDK (Cloud Function).
       allow create, update, delete: if false;
+    }
+
+    // Private connection nicknames — owner-only labels for connected users.
+    // Stored at connectionNicknames/{userId}/people/{targetUserId}.
+    match /connectionNicknames/{userId}/people/{targetUserId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+
+      allow create, update: if isSignedIn()
+        && request.auth.uid == userId
+        && exists(/databases/$(database)/documents/connections/$(userId)/people/$(targetUserId))
+        && request.resource.data.targetUserId == targetUserId
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() > 0
+        && request.resource.data.nickname.size() <= 40
+        && request.resource.data.updatedAt is int;
+
+      allow delete: if isSignedIn() && request.auth.uid == userId;
     }
 
     // Tasks — a user's personal to-do items (e.g. invite someone to a Circle).

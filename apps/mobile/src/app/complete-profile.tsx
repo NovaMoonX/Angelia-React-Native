@@ -39,6 +39,7 @@ import { savePublicProfile } from '@/services/firebase/firestore';
 import { getConnectionShareLink } from '@/lib/links';
 import { AVATAR_PRESETS, CHANNEL_COLORS, ONBOARDING_FEED_GUIDE_STATE_KEY } from '@/models/constants';
 import type { AvatarPreset } from '@/models/types';
+import { generatePublicDisplayName } from '@/lib/user/publicDisplayName';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -355,8 +356,17 @@ export default function CompleteProfileScreen() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [avatar, setAvatar] = useState<AvatarPreset>('moon');
+  const [publicDisplayName, setPublicDisplayName] = useState(() => generatePublicDisplayName('moon'));
   /** Local file URI of a custom photo picked during sign-up. Uploaded in handleFinish. */
   const [avatarPhotoUri, setAvatarPhotoUri] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPublicDisplayName(generatePublicDisplayName(avatar));
+  }, [avatar]);
+
+  const handleShufflePublicDisplayName = useCallback(() => {
+    setPublicDisplayName(generatePublicDisplayName(avatar));
+  }, [avatar]);
 
   // Step 2 — if a pending circle invite exists we already know the answer is "yes";
   // if a pending connection invite exists we already know the answer is "no" (not a circle invite).
@@ -609,6 +619,7 @@ export default function CompleteProfileScreen() {
           id: firebaseUser.uid,
           firstName: firstName.trim(),
           lastName: lastName.trim(),
+          publicDisplayName,
           email: firebaseUser.email ?? '',
           funFact,
           avatar,
@@ -872,6 +883,22 @@ export default function CompleteProfileScreen() {
           autoCapitalize="words"
         />
       </View>
+
+      <InfoCallout style={styles.displayNameCard}>
+        <Label>Your public display name</Label>
+        <Text style={[calloutStyles.text, { color: theme.mutedForeground, marginTop: 8, marginBottom: 12 }]}>
+          Your real name is for people you connect with directly. In shared Circles — when you react or join a
+          conversation with someone you have not connected with — others see this friendly name instead, so you
+          stay recognizable without sharing your full identity.
+        </Text>
+        <Text style={[styles.displayNamePreview, { color: theme.foreground }]}>{publicDisplayName}</Text>
+        <Text style={[calloutStyles.text, { color: theme.mutedForeground, marginTop: 8, marginBottom: 12 }]}>
+          Picked to match your avatar. You can change it later in Account → Privacy settings.
+        </Text>
+        <Button variant="outline" onPress={handleShufflePublicDisplayName}>
+          Shuffle name
+        </Button>
+      </InfoCallout>
 
       {/* Avatar picker */}
       <View style={styles.section}>
@@ -1943,6 +1970,14 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 20,
     gap: 8,
+  },
+  displayNameCard: {
+    marginBottom: 20,
+  },
+  displayNamePreview: {
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
   },
 
   // Avatar

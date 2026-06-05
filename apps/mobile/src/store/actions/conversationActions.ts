@@ -6,9 +6,15 @@ import {
   updateMessageText as firestoreUpdateMessageText,
   createAppNotification,
 } from '@/services/firebase/firestore';
-import { addMessageOptimistic, updateMessageTextOptimistic } from '@/store/slices/conversationSlice';
+import {
+  addMessageOptimistic,
+  updateMessageTextOptimistic,
+  removeMessagesOptimistic,
+} from '@/store/slices/conversationSlice';
 import { generateId } from '@/utils/generateId';
 import { isDemoActive } from './globalActions';
+import { acquirePendingWrite, releasePendingWrite } from '@/lib/pendingWrites';
+import { resolveMessageLineage } from '@/lib/conversation/threadLineage';
 
 function buildMessagePreview(text: string): string {
   const normalized = text.replace(/\s+/g, ' ').trim();
@@ -68,12 +74,19 @@ export const sendMessage = createAsyncThunk(
     const joinEmoji = latestReactionEmoji ?? '✨';
     const now = Date.now();
 
+    const messagesById = new Map(
+      existingMessages.map((existingMessage) => [existingMessage.id, existingMessage]),
+    );
+    const lineage = resolveMessageLineage(parentId, messagesById);
+
     const message: Message = {
       id: generateId('nano'),
       authorId: user.id,
       text: text.trim(),
       timestamp: now,
       parentId,
+      rootId: lineage.rootId,
+      grandparentId: lineage.grandparentId,
       reactions: {},
     };
     const joinMessage: Message | null = shouldSendJoinMessage
@@ -94,7 +107,14 @@ export const sendMessage = createAsyncThunk(
 
     dispatch(addMessageOptimistic({ postId, message }));
 
+    const optimisticIds = [
+      ...(joinMessage ? [joinMessage.id] : []),
+      message.id,
+    ];
+    acquirePendingWrite(postId, 'message');
+
     if (isDemoActive(getState)) {
+      releasePendingWrite(postId, 'message');
       return message;
     }
 
@@ -139,9 +159,12 @@ export const sendMessage = createAsyncThunk(
 
       return message;
     } catch (err) {
+      dispatch(removeMessagesOptimistic({ postId, messageIds: optimisticIds }));
       return rejectWithValue(
         err instanceof Error ? err.message : 'Failed to send message',
       );
+    } finally {
+      releasePendingWrite(postId, 'message');
     }
   },
 );

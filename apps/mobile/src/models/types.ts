@@ -18,6 +18,8 @@ export interface UserPublic {
   id: string;
   firstName: string;
   lastName: string;
+  /** Whimsical name shown to non-connected users in shared spaces. */
+  publicDisplayName: string;
   avatar: AvatarPreset;
   /** Firebase Storage download URL for a custom profile photo. When set, takes precedence over `avatar`. */
   avatarUrl: string | null;
@@ -32,6 +34,10 @@ export interface UserPrivate {
   email: string;
   funFact: string;
   status: UserStatus | null;
+  /** When true (default), non-connections see `publicDisplayName` instead of real name. */
+  hideNameFromNonConnections: boolean;
+  /** When true (default), non-connections see a generic placeholder avatar. */
+  hideAvatarFromNonConnections: boolean;
 }
 
 /**
@@ -54,7 +60,18 @@ export interface UserSecret {
  */
 export interface User extends UserPublic, UserPrivate, UserSecret {}
 
-export type NewUser = Omit<User, 'joinedAt' | 'accountProgress' | 'customChannelCount' | 'status'>;
+export type NewUser = Omit<
+  User,
+  | 'joinedAt'
+  | 'accountProgress'
+  | 'customChannelCount'
+  | 'status'
+  | 'hideNameFromNonConnections'
+  | 'hideAvatarFromNonConnections'
+> & {
+  hideNameFromNonConnections?: boolean;
+  hideAvatarFromNonConnections?: boolean;
+};
 
 export interface FcmTokenEntry {
   /** Stable per-device ID stored locally in AsyncStorage. */
@@ -146,6 +163,17 @@ export interface Channel {
 
 export type NewChannel = Omit<Channel, 'id' | 'isDaily' | 'inviteCode' | 'createdAt' | 'markedForDeletionAt'>;
 
+/** Sanitized circle metadata for public invite links (readable without auth). */
+export interface PublicChannelInvitePreview {
+  channelId: string;
+  inviteCode: string;
+  name: string;
+  description: string;
+  subscriberCount: number;
+  ownerId: string;
+  markedForDeletionAt: number | null;
+}
+
 export interface MediaItem {
   type: 'image' | 'video' | 'audio';
   url: string;
@@ -222,6 +250,10 @@ export interface Message {
   text: string;
   timestamp: number;
   parentId: string | null;
+  /** Top-level thread anchor; null for root messages. */
+  rootId?: string | null;
+  /** Original top-level comment when replying at depth 2. */
+  grandparentId?: string | null;
   reactions: Record<string, string[]>;
   /** System messages (e.g. "joined with 🎉") have no real author interaction. */
   isSystem?: boolean;
@@ -244,6 +276,17 @@ export interface Connection {
   userId: string;
   /** Epoch ms when the connection was established. */
   connectedAt: number;
+}
+
+/**
+ * A private nickname the owner assigns to a connected user.
+ * Stored in `connectionNicknames/{userId}/people/{targetUserId}`.
+ * Only visible to the owner — never shared with the target or third parties.
+ */
+export interface ConnectionNickname {
+  targetUserId: string;
+  nickname: string;
+  updatedAt: number;
 }
 
 /**
