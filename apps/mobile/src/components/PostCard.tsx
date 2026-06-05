@@ -38,6 +38,9 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
     selectPostChannel(state, post.channelId)
   );
   const currentUser = useAppSelector((state) => state.users.currentUser);
+  const connections = useAppSelector((state) => state.connections.connections);
+  const nicknamesMap = useAppSelector((state) => state.connectionNicknames.nicknames);
+  const isAuthorConnection = connections.some((c) => c.userId === post.authorId);
   const { theme } = useTheme();
 
   const channelBadgeLabel = channel?.isDaily ? 'Daily' : channel?.name;
@@ -45,7 +48,7 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
   const colors = channel
     ? getColorPair(channel)
     : { backgroundColor: '#6366F1', textColor: '#FFF' };
-  const authorName = getPostAuthorName(author, currentUser);
+  const authorName = getPostAuthorName(author, currentUser, nicknamesMap);
   const relativeTime = useRelativeTime(post.timestamp);
   const hasMultipleMedia = post.media && post.media.length > 1;
   const isOtherUser = author && currentUser && author.id !== currentUser.id;
@@ -246,6 +249,7 @@ export function PostCard({ post, onNavigate, onLongPress, reactionPill: reaction
         visible={profileModalOpen}
         onClose={() => setProfileModalOpen(false)}
         user={author}
+        isConnection={isAuthorConnection}
       />
 
       {/* Full-screen media viewer */}

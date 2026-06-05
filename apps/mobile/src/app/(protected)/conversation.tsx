@@ -36,6 +36,7 @@ import { usePostComments } from '@/hooks/usePostComments';
 import { getTierTheme } from '@/lib/conversation/tierTheme';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
+import { resolveConnectionDisplayName } from '@/lib/user/user.utils';
 import {
   POST_TIERS,
   CONVERSATION_EDIT_HINT_SEEN_KEY,
@@ -71,6 +72,7 @@ export default function ConversationScreen() {
   const author = useAppSelector((state) => selectPostAuthor(state, post?.authorId ?? ''));
   const channel = useAppSelector((state) => selectPostChannel(state, post?.channelId ?? ''));
   const currentUser = useAppSelector((state) => state.users.currentUser);
+  const nicknamesMap = useAppSelector((state) => state.connectionNicknames.nicknames);
   const messages = useAppSelector((state) => selectMessages(state, postId ?? ''));
 
   const [messageText, setMessageText] = useState('');
@@ -446,7 +448,10 @@ export default function ConversationScreen() {
     ? getColorPair(channel)
     : { backgroundColor: '#6366F1', textColor: '#FFF' };
   const channelBadgeLabel = channel?.isDaily ? 'Daily' : channel?.name;
-  const authorName = getPostAuthorName(author, currentUser);
+  const authorName = getPostAuthorName(author, currentUser, nicknamesMap);
+  const replyAuthorName = replyAuthor
+    ? resolveConnectionDisplayName(replyAuthor.id, replyAuthor, currentUser?.id ?? null, nicknamesMap, 'full')
+    : 'someone';
   const expiryInfo = channel != null
     ? getPostExpiryInfo(post.timestamp, channel.isDaily === true)
     : null;
@@ -584,7 +589,7 @@ export default function ConversationScreen() {
               <View style={styles.replyBanner}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.replyText, { color: theme.mutedForeground }]}>
-                    Replying to {replyAuthor?.firstName ?? 'someone'}
+                    Replying to {replyAuthorName}
                   </Text>
                   <Text style={[styles.replyPreview, { color: theme.mutedForeground }]} numberOfLines={1}>
                     “{replyingTo.text.length > 60 ? replyingTo.text.slice(0, 60) + '…' : replyingTo.text}”

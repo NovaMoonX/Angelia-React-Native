@@ -12,6 +12,7 @@ import { selectPostById, selectPostAuthor } from '@/store/slices/postsSlice';
 import { useTheme } from '@/hooks/useTheme';
 import { useSentPrivateNotes } from '@/hooks/useSentPrivateNotes';
 import { getRelativeTime } from '@/lib/timeUtils';
+import { useConnectionDisplayName } from '@/hooks/useConnectionDisplayName';
 
 /**
  * Screen that shows a visitor (note sender) all private notes they have sent
@@ -51,6 +52,7 @@ export default function PrivateNotesSenderScreen() {
 	const author = useAppSelector((state) =>
 		selectPostAuthor(state, post?.authorId ?? ''),
 	);
+	const authorDisplayName = useConnectionDisplayName(post?.authorId ?? '');
 
 	// Only the visitor (non-host) should view this screen
 	const isHost = currentUser?.id === post?.authorId;
@@ -122,7 +124,7 @@ export default function PrivateNotesSenderScreen() {
 					onClose={() => { setModalVisible(false); }}
 					postId={post.id}
 					postAuthorId={post.authorId}
-					authorFirstName={author?.firstName}
+					authorFirstName={authorDisplayName}
 				/>
 			)}
 		</View>

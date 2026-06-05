@@ -10,9 +10,16 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
 import { isStatusActive } from '@/components/NowStatusBadge';
 import { useTheme } from '@/hooks/useTheme';
+import { useToast } from '@/hooks/useToast';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { saveConnectionNickname } from '@/store/actions/connectionNicknameActions';
+import { CONNECTION_NICKNAME_MAX_LENGTH } from '@/services/firebase/firestore';
 import { getRelativeTime, formatTimeRemaining } from '@/lib/timeUtils';
+import { getLegalFullName, resolveConnectionDisplayName } from '@/lib/user/user.utils';
 import type { User } from '@/models/types';
 
 interface UserProfileModalProps {
@@ -21,16 +28,78 @@ interface UserProfileModalProps {
   user: User | null | undefined;
   /** When provided, shows a destructive "Disconnect" button at the bottom of the sheet. */
   onDisconnect?: () => Promise<void>;
+  /** When true, shows the private nickname editor for this approved connection. */
+  isConnection?: boolean;
 }
 
-export function UserProfileModal({ visible, onClose, user, onDisconnect }: UserProfileModalProps) {
+export function UserProfileModal({
+  visible,
+  onClose,
+  user,
+  onDisconnect,
+  isConnection = false,
+}: UserProfileModalProps) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const dispatch = useAppDispatch();
+  const { addToast } = useToast();
+  const isDemo = useAppSelector((state) => state.demo.isActive);
+  const currentUserId = useAppSelector((state) => state.users.currentUser?.id ?? null);
+  const nicknamesMap = useAppSelector((state) => state.connectionNicknames.nicknames);
   const [disconnecting, setDisconnecting] = React.useState(false);
+  const [savingNickname, setSavingNickname] = React.useState(false);
+  const existingNickname = useAppSelector((state) => {
+    if (!user) return null;
+    return state.connectionNicknames.nicknames[user.id] ?? null;
+  });
+  const [nicknameInput, setNicknameInput] = React.useState('');
+  const [editingNickname, setEditingNickname] = React.useState(false);
+
+  React.useEffect(() => {
+    if (visible && user) {
+      setNicknameInput(existingNickname ?? '');
+      setEditingNickname(false);
+    }
+  }, [visible, user?.id, existingNickname]);
 
   if (!user) return null;
 
   const hasActiveStatus = isStatusActive(user.status);
+  const displayName = resolveConnectionDisplayName(user.id, user, currentUserId, nicknamesMap, 'full');
+  const legalName = getLegalFullName(user);
+  const hasNickname = !!existingNickname?.trim();
+  const showNicknameEditor = isConnection && !isDemo;
+
+  const handleSaveNickname = async () => {
+    setSavingNickname(true);
+    try {
+      await dispatch(
+        saveConnectionNickname({ targetUserId: user.id, nickname: nicknameInput }),
+      ).unwrap();
+      addToast({ type: 'success', title: hasNickname || nicknameInput.trim() ? 'Nickname saved' : 'Nickname cleared' });
+      setEditingNickname(false);
+    } catch {
+      addToast({ type: 'error', title: 'Failed to save nickname' });
+    } finally {
+      setSavingNickname(false);
+    }
+  };
+
+  const handleClearNickname = async () => {
+    setNicknameInput('');
+    setSavingNickname(true);
+    try {
+      await dispatch(
+        saveConnectionNickname({ targetUserId: user.id, nickname: '' }),
+      ).unwrap();
+      addToast({ type: 'success', title: 'Nickname cleared' });
+      setEditingNickname(false);
+    } catch {
+      addToast({ type: 'error', title: 'Failed to clear nickname' });
+    } finally {
+      setSavingNickname(false);
+    }
+  };
 
   return (
     <Modal
@@ -63,14 +132,84 @@ export function UserProfileModal({ visible, onClose, user, onDisconnect }: UserP
             <View style={styles.profileHeader}>
               <Avatar user={user} size="xl" />
               <Text style={[styles.name, { color: theme.foreground }]}>
-                {user.firstName} {user.lastName}
+                {displayName}
               </Text>
+              {hasNickname && legalName ? (
+                <Text style={[styles.legalName, { color: theme.mutedForeground }]}>
+                  Legal name: {legalName}
+                </Text>
+              ) : null}
               {user.funFact ? (
                 <Text style={[styles.funFact, { color: theme.mutedForeground }]}>
                   💡 {user.funFact}
                 </Text>
               ) : null}
             </View>
+
+            {showNicknameEditor && (
+              <View style={[styles.nicknameSection, { borderColor: theme.border }]}>
+                <Label>Nickname</Label>
+                <Text style={[styles.nicknameHint, { color: theme.mutedForeground }]}>
+                  Only you can see this nickname
+                </Text>
+                {editingNickname || !hasNickname ? (
+                  <>
+                    <Input
+                      value={nicknameInput}
+                      onChangeText={setNicknameInput}
+                      placeholder={legalName || 'Add a nickname'}
+                      maxLength={CONNECTION_NICKNAME_MAX_LENGTH}
+                      autoCapitalize="words"
+                    />
+                    <View style={styles.nicknameActions}>
+                      <Button
+                        size="sm"
+                        loading={savingNickname}
+                        onPress={handleSaveNickname}
+                        disabled={!nicknameInput.trim() && !hasNickname}
+                      >
+                        Save
+                      </Button>
+                      {hasNickname ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          loading={savingNickname}
+                          onPress={handleClearNickname}
+                        >
+                          Clear
+                        </Button>
+                      ) : null}
+                      {hasNickname ? (
+                        <Button
+                          size="sm"
+                          variant="link"
+                          onPress={() => {
+                            setNicknameInput(existingNickname ?? '');
+                            setEditingNickname(false);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      ) : null}
+                    </View>
+                  </>
+                ) : (
+                  <View style={styles.nicknameDisplayRow}>
+                    <Text style={[styles.nicknameValue, { color: theme.foreground }]}>
+                      {existingNickname}
+                    </Text>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onPress={() => setEditingNickname(true)}
+                    >
+                      Edit
+                    </Button>
+                  </View>
+                )}
+              </View>
+            )}
 
             {/* Status — prominent section */}
             {hasActiveStatus && (
@@ -185,6 +324,37 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
     paddingHorizontal: 12,
+  },
+  legalName: {
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  nicknameSection: {
+    width: '100%',
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 8,
+  },
+  nicknameHint: {
+    fontSize: 12,
+  },
+  nicknameActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  nicknameDisplayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  nicknameValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
   },
   statusCard: {
     flexDirection: 'row',

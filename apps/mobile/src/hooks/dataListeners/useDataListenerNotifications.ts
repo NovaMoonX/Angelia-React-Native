@@ -13,6 +13,7 @@ import {
   getFollowUpForPrompt,
   dismissNotificationsByData,
 } from '@/services/notifications';
+import { resolveNotificationActorName } from '@/lib/user/user.utils';
 import type { AppNotificationType, Post } from '@/models/types';
 
 const DAILY_PROMPT_SHOWN_DATE_KEY = '@angelia/daily_prompt_shown_date';
@@ -97,9 +98,11 @@ export function useDataListenerNotifications() {
   const incomingConnectionRequests = useAppSelector((state) => state.connections.incomingRequests);
   const incomingJoinRequests = useAppSelector((state) => state.invites.incoming);
   const incomingCircleInvites = useAppSelector((state) => state.invites.incomingCircleInvites);
+  const nicknamesMap = useAppSelector((state) => state.connectionNicknames.nicknames);
 
   const currentUserRef = useRef(currentUser);
   const postsRef = useRef(posts);
+  const nicknamesMapRef = useRef(nicknamesMap);
   const seenConnectionRequestIdsRef = useRef(new Set<string>());
   const connectionRequestsLoadedRef = useRef(false);
   const seenJoinRequestIdsRef = useRef(new Set<string>());
@@ -195,6 +198,10 @@ export function useDataListenerNotifications() {
   useEffect(() => {
     postsRef.current = posts;
   }, [posts]);
+
+  useEffect(() => {
+    nicknamesMapRef.current = nicknamesMap;
+  }, [nicknamesMap]);
 
   useEffect(() => {
     if (isDemo || !firebaseUser) {
@@ -339,7 +346,12 @@ export function useDataListenerNotifications() {
 
       if (type === 'join_channel_request') {
         const channelName = data?.channelName ?? 'your circle';
-        const firstName = data?.requesterFirstName ?? 'Someone';
+        const firstName = resolveNotificationActorName(
+          data?.requesterId,
+          nicknamesMapRef.current,
+          data?.requesterFirstName ?? 'Someone',
+          data?.requesterLastName ?? '',
+        );
         const joinRequestId = data?.joinRequestId;
         if (joinRequestId) {
           seenJoinRequestIdsRef.current.add(joinRequestId);
@@ -373,7 +385,12 @@ export function useDataListenerNotifications() {
 
       if (type === 'custom_circle_invite') {
         const channelName = data?.channelName ?? 'this circle';
-        const firstName = data?.inviterFirstName ?? 'Someone';
+        const firstName = resolveNotificationActorName(
+          data?.inviterId,
+          nicknamesMapRef.current,
+          data?.inviterFirstName ?? 'Someone',
+          data?.inviterLastName ?? '',
+        );
         const inviteCode = data?.inviteCode;
         const requestId = data?.requestId;
 
@@ -420,7 +437,12 @@ export function useDataListenerNotifications() {
       }
 
       if (type === 'connection_accepted') {
-        const firstName = data?.toFirstName ?? 'Someone';
+        const firstName = resolveNotificationActorName(
+          data?.actorId,
+          nicknamesMapRef.current,
+          data?.toFirstName ?? 'Someone',
+          data?.toLastName ?? '',
+        );
         addToast({
           type: 'success',
           title: `🎉 You're connected with ${firstName}!`,
@@ -433,10 +455,16 @@ export function useDataListenerNotifications() {
       }
 
       if (type === 'new_post') {
-        const firstName = data?.authorFirstName ?? 'Someone';
-        const lastName = data?.authorLastName ?? '';
-        const fullName = lastName ? `${firstName} ${lastName}` : firstName;
         const postId = data?.postId;
+        const postAuthorId = postId
+          ? postsRef.current.find((post) => post.id === postId)?.authorId
+          : undefined;
+        const fullName = resolveNotificationActorName(
+          postAuthorId,
+          nicknamesMapRef.current,
+          data?.authorFirstName ?? 'Someone',
+          data?.authorLastName ?? '',
+        );
         const isDaily = data?.isDaily === 'true';
         const channelName = data?.channelName ?? '';
         const tier = data?.tier ?? 'everyday';
@@ -550,7 +578,12 @@ export function useDataListenerNotifications() {
         return channel.id === request.channelId;
       });
 
-      const firstName = requester?.firstName ?? 'Someone';
+      const firstName = resolveNotificationActorName(
+        request.requesterId,
+        nicknamesMap,
+        requester?.firstName ?? 'Someone',
+        requester?.lastName ?? '',
+      );
       const channelName = circle?.name ?? 'your circle';
       addToast({
         type: 'info',
@@ -561,7 +594,7 @@ export function useDataListenerNotifications() {
         },
       });
     });
-  }, [addToast, allUsers, channels, incomingJoinRequests, isDemo]);
+  }, [addToast, allUsers, channels, incomingJoinRequests, isDemo, nicknamesMap]);
 
   useEffect(() => {
     if (isDemo) {
@@ -596,7 +629,12 @@ export function useDataListenerNotifications() {
         return channel.id === invite.channelId;
       });
 
-      const firstName = inviter?.firstName ?? 'Someone';
+      const firstName = resolveNotificationActorName(
+        invite.inviterId,
+        nicknamesMap,
+        inviter?.firstName ?? 'Someone',
+        inviter?.lastName ?? '',
+      );
       const channelName = circle?.name ?? 'your circle';
       addToast({
         type: 'info',
@@ -607,7 +645,7 @@ export function useDataListenerNotifications() {
         },
       });
     });
-  }, [addToast, allUsers, channels, incomingCircleInvites, isDemo]);
+  }, [addToast, allUsers, channels, incomingCircleInvites, isDemo, nicknamesMap]);
 
   useEffect(() => {
     if (isDemo || !currentUser) {

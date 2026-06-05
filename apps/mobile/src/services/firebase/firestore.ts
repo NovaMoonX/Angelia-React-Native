@@ -6,6 +6,7 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  deleteDoc,
   runTransaction,
   onSnapshot,
   query,
@@ -16,7 +17,7 @@ import {
   arrayRemove,
 } from '@react-native-firebase/firestore';
 import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
-import type { User, UserPublic, UserPrivate, UserSecret, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, CircleInviteRequest, UpdateUserProfileData, UserStatus, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, AppTask, Comment, PrivateNote, Reaction } from '@/models/types';
+import type { User, UserPublic, UserPrivate, UserSecret, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, CircleInviteRequest, UpdateUserProfileData, UserStatus, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, ConnectionNickname, FeedbackSubmission, AppTask, Comment, PrivateNote, Reaction, PublicChannelInvitePreview } from '@/models/types';
 import {
   DAILY_CHANNEL_SUFFIX,
   DEFAULT_WIND_DOWN_PROMPT,
@@ -24,6 +25,7 @@ import {
   createDefaultCirclePostNotificationSettings,
 } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
+import { normalizeMessageList } from '@/lib/conversation/threadLineage';
 
 // const db = getFirestore();
 const getDb = () => getFirestore();
@@ -550,6 +552,56 @@ export function subscribeToMobileAppConfig(
 
 // ---- Channel Operations ----
 
+function buildPublicChannelInvitePreview(channel: Channel): PublicChannelInvitePreview | null {
+  if (channel.isDaily === true || !channel.inviteCode || channel.markedForDeletionAt != null) {
+    return null;
+  }
+  return {
+    channelId: channel.id,
+    inviteCode: channel.inviteCode.toUpperCase(),
+    name: channel.name,
+    description: channel.description,
+    subscriberCount: channel.subscribers.length,
+    ownerId: channel.ownerId,
+    markedForDeletionAt: channel.markedForDeletionAt,
+  };
+}
+
+async function setPublicChannelInvitePreview(channel: Channel): Promise<void> {
+  const preview = buildPublicChannelInvitePreview(channel);
+  if (!preview) {
+    return;
+  }
+  await setDoc(doc(getDb(), 'publicChannelInvites', preview.inviteCode), preview);
+}
+
+async function deletePublicChannelInvitePreview(inviteCode: string): Promise<void> {
+  const normalized = inviteCode.toUpperCase();
+  try {
+    await deleteDoc(doc(getDb(), 'publicChannelInvites', normalized));
+  } catch {
+    // ignore missing doc
+  }
+}
+
+export async function getPublicChannelInvitePreview(
+  inviteCode: string,
+): Promise<PublicChannelInvitePreview | null> {
+  const normalized = inviteCode.trim().toUpperCase();
+  if (normalized.length < 8) {
+    return null;
+  }
+  const snap = await getDoc(doc(getDb(), 'publicChannelInvites', normalized));
+  if (!snap.exists) {
+    return null;
+  }
+  const data = snap.data() as PublicChannelInvitePreview;
+  if (data.markedForDeletionAt != null) {
+    return null;
+  }
+  return data;
+}
+
 export async function getChannel(channelId: string): Promise<Channel | null> {
   const snap = await getDoc(doc(getDb(), 'channels', channelId));
   return snap.exists ? (snap.data() as Channel) : null;
@@ -635,6 +687,7 @@ export async function createCustomChannel(channelData: NewChannel): Promise<Chan
     });
   });
 
+  await setPublicChannelInvitePreview(channel);
   return channel;
 }
 
@@ -644,9 +697,15 @@ export async function updateCustomChannel(channel: Channel): Promise<void> {
   void isDaily;
   void createdAt;
   await updateDoc(doc(getDb(), 'channels', id), updateData);
+  await setPublicChannelInvitePreview(channel);
 }
 
 export async function deleteCustomChannel(channelId: string, ownerId: string): Promise<void> {
+  const channelSnap = await getDoc(doc(getDb(), 'channels', channelId));
+  const oldInviteCode = channelSnap.exists
+    ? (channelSnap.data() as Channel).inviteCode
+    : null;
+
   await runTransaction(getDb(), async (transaction) => {
     const secretRef = doc(getDb(), 'usersSecret', ownerId);
     const secretSnap = await transaction.get(secretRef);
@@ -660,16 +719,33 @@ export async function deleteCustomChannel(channelId: string, ownerId: string): P
       customChannelCount: Math.max(0, secretData.customChannelCount - 1),
     });
   });
+
+  if (oldInviteCode) {
+    await deletePublicChannelInvitePreview(oldInviteCode);
+  }
 }
 
 export async function refreshChannelInviteCode(channelId: string): Promise<string> {
   const newCode = generateId('nano').substring(0, 8).toUpperCase();
+  let oldInviteCode: string | null = null;
+  let updatedChannel: Channel | null = null;
+
   await runTransaction(getDb(), async (transaction) => {
     const channelRef = doc(getDb(), 'channels', channelId);
     const channelSnap = await transaction.get(channelRef);
     if (!channelSnap.exists) throw new Error('Channel not found');
+    const channel = channelSnap.data() as Channel;
+    oldInviteCode = channel.inviteCode;
     transaction.update(channelRef, { inviteCode: newCode });
+    updatedChannel = { ...channel, inviteCode: newCode };
   });
+
+  if (oldInviteCode) {
+    await deletePublicChannelInvitePreview(oldInviteCode);
+  }
+  if (updatedChannel) {
+    await setPublicChannelInvitePreview(updatedChannel);
+  }
   return newCode;
 }
 
@@ -701,8 +777,18 @@ export async function createJoinRequest(
     throw new Error('You cannot request to join your own Circle.');
   }
 
+  const channel = await getChannel(channelId);
+  if (!channel || channel.markedForDeletionAt != null) {
+    throw new Error('This Circle could not be found. The invite link may have expired or the Circle might no longer exist.');
+  }
+  if (!channel.inviteCode || channel.inviteCode.toUpperCase() !== inviteCode.trim().toUpperCase()) {
+    throw new Error('This invite code has expired or is invalid.');
+  }
+  if (channel.ownerId !== channelOwnerId) {
+    throw new Error('Invalid circle host for this invite.');
+  }
+
   const id = generateId('nano');
-  void inviteCode;
   const request: ChannelJoinRequest = {
     id,
     channelId,
@@ -1266,7 +1352,7 @@ export function subscribeToMessages(
     ),
     (snap) => {
       const messages = snap?.docs?.map((d) => d.data() as Message) ?? [];
-      callback(messages);
+      callback(normalizeMessageList(messages));
     },
     (_error) => {
       // Firestore subscription error — return empty to avoid crash
@@ -1546,6 +1632,62 @@ export function subscribeToMyPrivateNotesForPost(
   );
 }
 
+/** Max length for a private connection nickname. */
+export const CONNECTION_NICKNAME_MAX_LENGTH = 40;
+
+/**
+ * Subscribes to the current user's private connection nicknames.
+ * Stored at `connectionNicknames/{userId}/people/{targetUserId}`.
+ */
+export function subscribeToConnectionNicknames(
+  userId: string,
+  callback: (nicknames: ConnectionNickname[]) => void,
+): () => void {
+  return onSnapshot(
+    collection(getDb(), 'connectionNicknames', userId, 'people'),
+    (snap) => {
+      const nicknames = getSnapshotDocs(snap).map((d) => {
+        const data = d.data() as ConnectionNickname;
+        return { ...data, targetUserId: data.targetUserId ?? d.id };
+      });
+      callback(nicknames);
+    },
+    () => {
+      callback([]);
+    },
+  );
+}
+
+/** Sets or updates a private nickname for a connected user. */
+export async function setConnectionNickname(
+  userId: string,
+  targetUserId: string,
+  nickname: string,
+): Promise<void> {
+  const trimmed = nickname.trim().slice(0, CONNECTION_NICKNAME_MAX_LENGTH);
+  if (!trimmed) {
+    await clearConnectionNickname(userId, targetUserId);
+    return;
+  }
+
+  await setDoc(
+    doc(getDb(), 'connectionNicknames', userId, 'people', targetUserId),
+    {
+      targetUserId,
+      nickname: trimmed,
+      updatedAt: Date.now(),
+    },
+    { merge: true },
+  );
+}
+
+/** Removes a private nickname for a connected user. */
+export async function clearConnectionNickname(
+  userId: string,
+  targetUserId: string,
+): Promise<void> {
+  await deleteDoc(doc(getDb(), 'connectionNicknames', userId, 'people', targetUserId));
+}
 
 /**
  * Creates a task document in the user's tasks subcollection.

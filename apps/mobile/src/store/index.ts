@@ -8,6 +8,7 @@ import pendingInviteReducer from './slices/pendingInviteSlice';
 import conversationReducer from './slices/conversationSlice';
 import commentsReducer from './slices/commentsSlice';
 import connectionsReducer from './slices/connectionsSlice';
+import connectionNicknamesReducer from './slices/connectionNicknamesSlice';
 import tasksReducer from './slices/tasksSlice';
 import privateNotesReducer from './slices/privateNotesSlice';
 import uploadsReducer from './slices/uploadsSlice';
@@ -25,6 +26,7 @@ export const store = configureStore({
     conversation: conversationReducer,
     comments: commentsReducer,
     connections: connectionsReducer,
+    connectionNicknames: connectionNicknamesReducer,
     tasks: tasksReducer,
     privateNotes: privateNotesReducer,
     uploads: uploadsReducer,
