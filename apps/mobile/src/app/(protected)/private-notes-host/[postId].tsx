@@ -1,16 +1,19 @@
 import React, { useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useNavigation, type EventArg } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Avatar } from '@/components/ui/Avatar';
+import { PrivateNoteConversationsNotice } from '@/components/PrivateNoteConversationsNotice';
+import { PrivateNoteListCard } from '@/components/PrivateNoteListCard';
 import { useAppSelector } from '@/store/hooks';
 import { selectPostById } from '@/store/slices/postsSlice';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { useTheme } from '@/hooks/useTheme';
 import { usePrivateNotes } from '@/hooks/usePrivateNotes';
-import { getRelativeTime } from '@/lib/timeUtils';
+import { usePrivateNoteThreadsForPost } from '@/hooks/usePrivateNoteThreadsForPost';
+import { usePrivateNoteConversationsNotice } from '@/hooks/usePrivateNoteConversationsNotice';
+import { usePrivateNoteUnreadForPost } from '@/hooks/usePrivateNoteUnreadForPost';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { PRIVATE_NOTES_SEEN_KEY } from '@/models/constants';
 import { dismissNotificationsByData } from '@/services/notifications';
@@ -48,7 +51,6 @@ export default function PrivateNotesScreen() {
 	const currentUser = useAppSelector((state) => state.users.currentUser);
 	const usersMap = useAppSelector(selectAllUsersMapById);
 
-	// Only the host (post author) should be viewing this screen
 	const isHost = currentUser?.id === post?.authorId;
 
 	const { notes, loaded, subscriptionFailed } = usePrivateNotes({
@@ -56,9 +58,27 @@ export default function PrivateNotesScreen() {
 		hostId: isHost ? post?.authorId : null,
 	});
 
-	// Guard: redirect back if not the host, or notes are genuinely empty after loading.
-	// For host views, do not auto-exit on empty notes: first-note timing can briefly
-	// resolve as loaded+empty and cause an unintended bounce to feed.
+	const noteIds = React.useMemo(() => notes.map((note) => note.id), [notes]);
+	usePrivateNoteThreadsForPost({ postId, noteIds });
+
+	const { noteIdsWithUnreadReplies } = usePrivateNoteUnreadForPost({
+		postId,
+		notes,
+		currentUserId: currentUser?.id ?? '',
+		isHost: true,
+	});
+
+	const unreadReplyNoteIds = React.useMemo(() => new Set(noteIdsWithUnreadReplies), [noteIdsWithUnreadReplies]);
+	const { showNotice, dismissNotice } = usePrivateNoteConversationsNotice();
+
+	const openNoteThread = React.useCallback((noteId: string) => {
+		dismissNotice();
+		router.push({
+			pathname: '/(protected)/private-note-thread/[postId]/[noteId]',
+			params: { postId: postId ?? '', noteId },
+		});
+	}, [dismissNotice, postId, router]);
+
 	useEffect(() => {
 		if (!post || !currentUser) return;
 
@@ -67,8 +87,6 @@ export default function PrivateNotesScreen() {
 		}
 	}, [currentUser, goToPostDetails, isHost, post]);
 
-	// Mark notes as seen when the host opens the screen, so the unread indicator clears.
-	// Runs once per screen mount (postId/isHost are stable during screen lifetime).
 	useEffect(() => {
 		if (!postId || !isHost) return;
 		void AsyncStorage.setItem(PRIVATE_NOTES_SEEN_KEY(postId), String(Date.now()));
@@ -94,6 +112,7 @@ export default function PrivateNotesScreen() {
 					{ paddingBottom: insets.bottom + 24 },
 				]}
 			>
+				{showNotice ? <PrivateNoteConversationsNotice onDismiss={dismissNotice} /> : null}
 				{loaded && !subscriptionFailed && notes.length === 0 ? (
 					<View
 						style={[
@@ -112,42 +131,14 @@ export default function PrivateNotesScreen() {
 						: 'Someone';
 
 					return (
-						<Pressable
+						<PrivateNoteListCard
 							key={note.id}
-							onPress={() => {
-								router.push({
-									pathname: '/(protected)/private-note-thread/[postId]/[noteId]',
-									params: { postId: postId ?? '', noteId: note.id },
-								});
-							}}
-							style={({ pressed }) => [
-								styles.noteCard,
-								{
-									backgroundColor: theme.card,
-									borderColor: theme.border,
-									opacity: pressed ? 0.85 : 1,
-								},
-							]}
-						>
-							<Avatar
-								user={author}
-								size='sm'
-								showStatus={false}
-							/>
-							<View style={styles.noteContent}>
-								<View style={styles.noteHeader}>
-									<Text style={[styles.authorName, { color: theme.foreground }]}>
-										{authorName}
-									</Text>
-									<Text style={[styles.timestamp, { color: theme.mutedForeground }]}>
-										{getRelativeTime(note.timestamp)}
-									</Text>
-								</View>
-								<Text style={[styles.noteText, { color: theme.foreground }]}>
-									{note.text}
-								</Text>
-							</View>
-						</Pressable>
+							note={note}
+							author={author}
+							authorLabel={authorName}
+							hasUnreadReply={unreadReplyNoteIds.has(note.id)}
+							onPress={() => openNoteThread(note.id)}
+						/>
 					);
 				})}
 			</ScrollView>
@@ -163,34 +154,6 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 20,
 		paddingTop: 16,
 		gap: 12,
-	},
-	noteCard: {
-		flexDirection: 'row',
-		borderWidth: 1,
-		borderRadius: 12,
-		padding: 14,
-		gap: 12,
-	},
-	noteContent: {
-		flex: 1,
-		gap: 4,
-	},
-	noteHeader: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'space-between',
-		gap: 8,
-	},
-	authorName: {
-		fontSize: 14,
-		fontWeight: '600',
-	},
-	timestamp: {
-		fontSize: 12,
-	},
-	noteText: {
-		fontSize: 14,
-		lineHeight: 20,
 	},
 	emptyState: {
 		borderWidth: 1,

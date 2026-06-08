@@ -25,6 +25,8 @@ import { selectChannelsRevision } from '@/store/slices/channelsSlice';
 import { ensurePostLeaveSuggestionsLoaded, selectPostLeaveSuggestionsEntry } from '@/store/slices/postLeaveSuggestionsSlice';
 import { usePostComments } from '@/hooks/usePostComments';
 import { usePrivateNotes } from '@/hooks/usePrivateNotes';
+import { usePrivateNoteThreadsForPost } from '@/hooks/usePrivateNoteThreadsForPost';
+import { usePrivateNoteUnreadForPost } from '@/hooks/usePrivateNoteUnreadForPost';
 import { useSentPrivateNotes } from '@/hooks/useSentPrivateNotes';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
@@ -37,7 +39,6 @@ import { getUserDisplayName } from '@/lib/user/user.utils';
 import {
 	POST_TIERS,
 	POST_REACTIONS_SEEN_KEY,
-	PRIVATE_NOTES_SEEN_KEY,
 	CONVERSATION_LAST_SEEN_KEY,
 	JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY,
 	POST_DETAIL_UNREAD_LEAVE_WARNING_DISABLED_KEY,
@@ -80,6 +81,23 @@ export default function PostDetailScreen() {
 		hostId: isHost ? post?.authorId : null,
 	});
 	const { sentNotes } = useSentPrivateNotes({ postId: isHost ? null : id });
+	const relevantPrivateNotes = isHost ? privateNotes : sentNotes;
+	const relevantNoteIds = useMemo(() => {
+		return relevantPrivateNotes.map((note) => note.id);
+	}, [relevantPrivateNotes]);
+
+	usePrivateNoteThreadsForPost({ postId: id, noteIds: relevantNoteIds });
+
+	const {
+		hasUnreadNotes: hasUnreadPrivateNotes,
+		hasUnreadReplies: hasUnreadPrivateNoteReplies,
+		hasUnreadActivity: hasUnreadPrivateNoteActivity,
+	} = usePrivateNoteUnreadForPost({
+		postId: id,
+		notes: relevantPrivateNotes,
+		currentUserId,
+		isHost,
+	});
 
 	const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
 	const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
@@ -91,8 +109,6 @@ export default function PostDetailScreen() {
 	const [circleSuggestionsVisible, setCircleSuggestionsVisible] = useState(false);
 	const [requestingChannelId, setRequestingChannelId] = useState<string | null>(null);
 	const isRoutingAwayRef = useRef(false);
-	// Tracks whether the host has unseen private notes (persisted in AsyncStorage)
-	const [hasUnreadPrivateNotes, setHasUnreadPrivateNotes] = useState(false);
 	// Tracks whether there are new conversation messages the user hasn't seen
 	const [hasUnreadConversation, setHasUnreadConversation] = useState(false);
 	const [showUnreadLeaveModal, setShowUnreadLeaveModal] = useState(false);
@@ -104,7 +120,7 @@ export default function PostDetailScreen() {
 	const suggestionChannels = suggestionsEntry?.channels ?? [];
 
 	const unreadItems = [
-		hasUnreadPrivateNotes ? 'new private notes' : null,
+		hasUnreadPrivateNoteActivity ? 'new private note activity' : null,
 		hasUnreadConversation ? 'new messages' : null,
 	].filter((item): item is string => {
 		return item != null;
@@ -129,12 +145,6 @@ export default function PostDetailScreen() {
 		isRoutingAwayRef.current = true;
 		handleHeaderBack();
 	}, [handleHeaderBack]);
-
-	// Memoize the latest note timestamp to avoid AsyncStorage reads on every render
-	const latestNoteTimestamp = useMemo(
-		() => (privateNotes.length > 0 ? Math.max(...privateNotes.map((n) => n.timestamp)) : 0),
-		[privateNotes],
-	);
 
 	// Only count inbound messages for unread state; your own messages should never mark unread.
 	const latestIncomingMessageTimestamp = useMemo(
@@ -219,21 +229,6 @@ export default function PostDetailScreen() {
 				setSeenCircleSuggestionIds([]);
 			});
 	}, [currentUser?.id]);
-
-	useFocusEffect(
-		useCallback(() => {
-			if (!isHost || !id || latestNoteTimestamp === 0) {
-				setHasUnreadPrivateNotes(false);
-				return;
-			}
-			AsyncStorage.getItem(PRIVATE_NOTES_SEEN_KEY(id))
-				.then((val) => {
-					const lastSeen = val ? Number(val) : 0;
-					setHasUnreadPrivateNotes(latestNoteTimestamp > lastSeen);
-				})
-				.catch(() => setHasUnreadPrivateNotes(false));
-		}, [isHost, id, latestNoteTimestamp]),
-	);
 
 	// Re-check conversation unread dot on focus (clears after the user visits conversation screen)
 	useFocusEffect(
@@ -527,12 +522,35 @@ export default function PostDetailScreen() {
 	const messageCount = conversationMessages.filter((m) => Boolean(m.isSystem) === false).length || postComments.length;
 	const showHostPrivateNotesAction = isHost && privateNotes.length > 0;
 	const unreadHighlightBorderColor = '#D4A017';
-	const hostPrivateNotesBorderColor = isHost && hasUnreadPrivateNotes
+	const privateNoteHighlightActive = hasUnreadPrivateNoteActivity;
+	const hostPrivateNotesBorderColor = privateNoteHighlightActive
 		? unreadHighlightBorderColor
 		: theme.border;
-	const hostPrivateNotesTextColor = isHost && hasUnreadPrivateNotes
+	const hostPrivateNotesTextColor = privateNoteHighlightActive
 		? unreadHighlightBorderColor
 		: theme.mutedForeground;
+
+	const hostPrivateNotesLabel = (() => {
+		const base = `Private Notes (${privateNotes.length})`;
+		if (hasUnreadPrivateNoteReplies && !hasUnreadPrivateNotes) {
+			return `${base} · New reply`;
+		}
+		if (hasUnreadPrivateNotes && hasUnreadPrivateNoteReplies) {
+			return `${base} · New activity`;
+		}
+		if (hasUnreadPrivateNotes) {
+			return `${base} · New note`;
+		}
+		return base;
+	})();
+
+	const visitorSentNotesLabel = (() => {
+		const base = `Your ${sentNotes.length} note${sentNotes.length !== 1 ? 's' : ''}`;
+		if (hasUnreadPrivateNoteReplies) {
+			return `${base} · New reply`;
+		}
+		return base;
+	})();
 
 	const handleReaction = async (emoji: string) => {
 		// Prevent adding the same reaction twice
@@ -716,7 +734,15 @@ export default function PostDetailScreen() {
 				{/* Visitor: sent notes badge — navigates to sender notes screen */}
 				{!isHost && sentNotes.length > 0 && (
 					<Pressable
-						style={[styles.sentNotesBadge, { backgroundColor: theme.card, borderColor: theme.border }]}
+						style={[
+							styles.sentNotesBadge,
+							{
+								backgroundColor: theme.card,
+								borderColor: privateNoteHighlightActive
+									? unreadHighlightBorderColor
+									: theme.border,
+							},
+						]}
 						onPress={() =>
 							router.push({
 								pathname: '/(protected)/private-notes-sender/[postId]',
@@ -724,11 +750,33 @@ export default function PostDetailScreen() {
 							})
 						}
 					>
-						<Feather name='mail' size={16} color={theme.mutedForeground} />
-						<Text style={[styles.sentNotesBadgeText, { color: theme.mutedForeground }]}>
-							{`Your ${sentNotes.length} note${sentNotes.length !== 1 ? 's' : ''}`}
+						<View style={styles.secondaryActionIconWrap}>
+							<Feather
+								name='mail'
+								size={16}
+								color={privateNoteHighlightActive ? unreadHighlightBorderColor : theme.mutedForeground}
+							/>
+							{hasUnreadPrivateNoteActivity && (
+								<View style={[styles.unreadDot, { backgroundColor: '#EF4444' }]} />
+							)}
+						</View>
+						<Text
+							style={[
+								styles.sentNotesBadgeText,
+								{
+									color: privateNoteHighlightActive
+										? unreadHighlightBorderColor
+										: theme.mutedForeground,
+								},
+							]}
+						>
+							{visitorSentNotesLabel}
 						</Text>
-						<Feather name='chevron-right' size={14} color={theme.mutedForeground} />
+						<Feather
+							name='chevron-right'
+							size={14}
+							color={privateNoteHighlightActive ? unreadHighlightBorderColor : theme.mutedForeground}
+						/>
 					</Pressable>
 				)}
 			</ScrollView>
@@ -776,11 +824,17 @@ export default function PostDetailScreen() {
 							<View style={styles.secondaryActionContent}>
 								<View style={styles.secondaryActionIconWrap}>
 									<Feather name='mail' size={15} color={hostPrivateNotesTextColor} />
-									{hasUnreadPrivateNotes && <View style={[styles.unreadDot, { backgroundColor: '#EF4444' }]} />}
+									{hasUnreadPrivateNoteActivity && (
+										<View style={[styles.unreadDot, { backgroundColor: '#EF4444' }]} />
+									)}
 								</View>
-								<Text style={[styles.secondaryActionText, { color: hostPrivateNotesTextColor }]}>
-									{`Private Notes (${privateNotes.length})`}
+								<Text
+									style={[styles.secondaryActionText, { color: hostPrivateNotesTextColor }]}
+									numberOfLines={1}
+								>
+									{hostPrivateNotesLabel}
 								</Text>
+								<Feather name='chevron-right' size={14} color={hostPrivateNotesTextColor} />
 							</View>
 						</Pressable>
 					)}
