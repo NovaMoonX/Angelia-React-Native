@@ -1,10 +1,11 @@
 Beta update notes
 
-Last updated: 2026-05-17
-Current version: 1.0.8
+Last updated: 2026-06-08
+Current version: 1.0.9
 Next version:
 Related PR: TBD
 
 Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
 
-- A
+Current branch highlights:
+- Private notes now show up right away when you're viewing your post — no more reloading the app to see a note someone just sent you.

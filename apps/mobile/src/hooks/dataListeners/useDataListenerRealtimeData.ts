@@ -102,7 +102,8 @@ export function useDataListenerRealtimeData() {
   const notifSettingsUnsubRef = useRef<(() => void) | null>(null);
   const connectionChannelsUnsubRef = useRef<(() => void) | null>(null);
   const tasksUnsubRef = useRef<(() => void) | null>(null);
-  const authoredPostActivityUnsubsRef = useRef<Record<string, () => void>>({});
+  const authoredPostMessagesUnsubsRef = useRef<Record<string, () => void>>({});
+  const authoredPostNotesUnsubsRef = useRef<Record<string, () => void>>({});
   const pendingInviteProcessedRef = useRef(false);
   const pendingConnectionProcessedRef = useRef(false);
   const notifInitInFlightRef = useRef(false);
@@ -494,11 +495,19 @@ export function useDataListenerRealtimeData() {
   }, [dispatch, firebaseUser, isDemo]);
 
   useEffect(() => {
-    if (isDemo || !firebaseUser || !currentUser) {
-      Object.values(authoredPostActivityUnsubsRef.current).forEach((unsub) => {
+    const clearAuthoredPostSubscriptions = () => {
+      Object.values(authoredPostMessagesUnsubsRef.current).forEach((unsub) => {
         unsub();
       });
-      authoredPostActivityUnsubsRef.current = {};
+      Object.values(authoredPostNotesUnsubsRef.current).forEach((unsub) => {
+        unsub();
+      });
+      authoredPostMessagesUnsubsRef.current = {};
+      authoredPostNotesUnsubsRef.current = {};
+    };
+
+    if (isDemo || !firebaseUser || !currentUser) {
+      clearAuthoredPostSubscriptions();
       return;
     }
 
@@ -512,39 +521,46 @@ export function useDataListenerRealtimeData() {
       }),
     );
 
-    Object.entries(authoredPostActivityUnsubsRef.current).forEach(([postId, unsub]) => {
+    Object.entries(authoredPostMessagesUnsubsRef.current).forEach(([postId, unsub]) => {
       if (nextPostIds.has(postId)) {
         return;
       }
       unsub();
-      delete authoredPostActivityUnsubsRef.current[postId];
+      delete authoredPostMessagesUnsubsRef.current[postId];
+    });
+
+    Object.entries(authoredPostNotesUnsubsRef.current).forEach(([postId, unsub]) => {
+      if (nextPostIds.has(postId)) {
+        return;
+      }
+      unsub();
+      delete authoredPostNotesUnsubsRef.current[postId];
     });
 
     authoredPosts.forEach((post) => {
-      if (authoredPostActivityUnsubsRef.current[post.id]) {
+      if (!authoredPostMessagesUnsubsRef.current[post.id]) {
+        authoredPostMessagesUnsubsRef.current[post.id] = subscribeToMessages(post.id, (messages) => {
+          dispatch(setMessages({ postId: post.id, messages }));
+        });
+      }
+
+      if (authoredPostNotesUnsubsRef.current[post.id]) {
         return;
       }
 
-      const unsubMessages = subscribeToMessages(post.id, (messages) => {
-        dispatch(setMessages({ postId: post.id, messages }));
-      });
-
-      const unsubNotes = subscribeToPrivateNotesForPost(
+      authoredPostNotesUnsubsRef.current[post.id] = subscribeToPrivateNotesForPost(
         post.id,
         (notes) => {
           dispatch(setPrivateNotes({ postId: post.id, notes }));
         },
         () => {
-          dispatch(setPrivateNotes({ postId: post.id, notes: [] }));
+          // Drop the dead listener so the next posts/currentUser change can retry.
+          authoredPostNotesUnsubsRef.current[post.id]?.();
+          delete authoredPostNotesUnsubsRef.current[post.id];
         },
       );
-
-      authoredPostActivityUnsubsRef.current[post.id] = () => {
-        unsubMessages();
-        unsubNotes();
-      };
     });
-  }, [currentUser, dispatch, firebaseUser, isDemo, posts]);
+  }, [currentUser?.id, dispatch, firebaseUser, isDemo, posts]);
 
   useEffect(() => {
     if (isDemo) {

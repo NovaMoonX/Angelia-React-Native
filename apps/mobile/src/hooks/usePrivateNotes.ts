@@ -8,13 +8,12 @@ import type { PrivateNote } from '@/models/types';
  * Subscribes to private notes addressed to `hostId` for the given `postId`
  * and keeps the Redux `privateNotesSlice` up to date.
  *
- * **Note on global listeners:** When the current user IS the post author (Host),
- * the global listener in `useDataListenerRealtimeData` already subscribes to private
- * notes for all authored posts. This hook will skip its own subscription in that case
- * to avoid duplicate listeners. Data is still available in Redux and returned here.
- *
  * Should only be called when the current user IS the post author (Host).
  * In demo mode the Firestore subscription is skipped.
+ *
+ * The global listener in `useDataListenerRealtimeData` also subscribes for authored
+ * posts (for badges/activity when no post screen is open). This hook keeps its own
+ * subscription so notes update in real time while the host is viewing a post.
  *
  * @returns The current private notes array for that post, a `loaded` flag
  *          that is `true` once the first snapshot (or error) has resolved,
@@ -29,21 +28,12 @@ export function usePrivateNotes({
 }): { notes: PrivateNote[]; loaded: boolean; subscriptionFailed: boolean } {
   const dispatch = useAppDispatch();
   const isDemo = useAppSelector((state) => state.demo.isActive);
-  const currentUser = useAppSelector((state) => state.users.currentUser);
   const notes = useAppSelector((state) => selectPrivateNotesForPost(state, postId ?? ''));
   const [loaded, setLoaded] = useState(false);
   const [subscriptionFailed, setSubscriptionFailed] = useState(false);
 
-  // Check if the current user IS the post author (host).
-  // If so, the global listener already subscribes to private notes for this post.
-  const isCurrentUserHost = hostId && currentUser?.id === hostId;
-
   useEffect(() => {
-    // Skip subscription if:
-    // 1. No postId or hostId provided
-    // 2. Demo mode is active
-    // 3. Current user IS the host (global listener handles it)
-    if (!postId || !hostId || isDemo || isCurrentUserHost) {
+    if (!postId || !hostId || isDemo) {
       setLoaded(true);
       return;
     }
@@ -66,7 +56,7 @@ export function usePrivateNotes({
       setLoaded(false);
       setSubscriptionFailed(false);
     };
-  }, [postId, hostId, isDemo, isCurrentUserHost, dispatch, currentUser?.id]);
+  }, [postId, hostId, isDemo, dispatch]);
 
   return { notes, loaded, subscriptionFailed };
 }
