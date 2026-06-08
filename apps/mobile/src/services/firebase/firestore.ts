@@ -1516,6 +1516,47 @@ export function subscribeToPrivateNotesForPost(
 
 
 /**
+ * Writes a reply in a private note thread.
+ * Stored at `posts/{postId}/privateNotes/{noteId}/messages/{messageId}`.
+ */
+export async function addPrivateNoteThreadMessage(
+  postId: string,
+  noteId: string,
+  message: Message,
+): Promise<void> {
+  await setDoc(
+    doc(getDb(), 'posts', postId, 'privateNotes', noteId, 'messages', message.id),
+    message,
+  );
+}
+
+/**
+ * Subscribes to replies in a private note thread, ordered by timestamp ascending.
+ * Only the Host and the note author may call this — Firestore rules enforce it.
+ */
+export function subscribeToPrivateNoteThreadMessages(
+  postId: string,
+  noteId: string,
+  callback: (messages: Message[]) => void,
+  onError?: () => void,
+): () => void {
+  return onSnapshot(
+    query(
+      collection(getDb(), 'posts', postId, 'privateNotes', noteId, 'messages'),
+      orderBy('timestamp', 'asc'),
+    ),
+    (snap) => {
+      callback(getSnapshotDocs(snap).map((d) => {
+        return d.data() as Message;
+      }));
+    },
+    (_error) => {
+      onError?.();
+    },
+  );
+}
+
+/**
  * Subscribes to the private notes written by `authorId` under
  * `posts/{postId}/privateNotes`, filtered to only their own notes.
  * Results are sorted by timestamp ascending (client-side, no composite index needed).

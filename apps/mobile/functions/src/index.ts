@@ -24,7 +24,8 @@ type AppNotificationType =
 	| 'conversation_message'
 	| 'new_post'
 	| 'comment_reply'
-	| 'private_note';
+	| 'private_note'
+	| 'private_note_reply';
 
 type PostTier = 'everyday' | 'worth-knowing' | 'big-news';
 
@@ -135,6 +136,16 @@ interface PrivateNoteNotification extends BaseAppNotification {
 	authorLastName: string;
 }
 
+/** Mirrors PrivateNoteReplyNotification in src/models/types.ts — keep in sync. */
+interface PrivateNoteReplyNotification extends BaseAppNotification {
+	type: 'private_note_reply';
+	postId: string;
+	noteId: string;
+	senderFirstName: string;
+	senderLastName: string;
+	messagePreview: string;
+}
+
 type AppNotification =
 	| JoinChannelRequestNotification
 	| JoinChannelAcceptedNotification
@@ -145,7 +156,8 @@ type AppNotification =
 	| PostReactionNotification
 	| ConversationMessageNotification
 	| CommentReplyNotification
-	| PrivateNoteNotification;
+	| PrivateNoteNotification
+	| PrivateNoteReplyNotification;
 
 interface ConnectionRequest {
 	id: string;
@@ -359,6 +371,22 @@ function buildFcmPayload(notification: AppNotification): {
 		};
 	}
 
+	if (notification.type === 'private_note_reply') {
+		const n = notification as PrivateNoteReplyNotification;
+		return {
+			title: '💬 Private Note Reply',
+			body: `${n.senderFirstName}: ${n.messagePreview}`,
+			data: {
+				type: n.type,
+				postId: n.postId,
+				noteId: n.noteId,
+				senderFirstName: n.senderFirstName,
+				senderLastName: n.senderLastName,
+				messagePreview: n.messagePreview,
+			},
+		};
+	}
+
 	// connection_accepted
 	const n = notification as ConnectionAcceptedNotification;
 	return {
@@ -524,7 +552,7 @@ function getTokensFromSettings(settings: UserNotificationSettings | null): strin
 }
 
 function isPostActivityNotificationType(type: AppNotificationType): boolean {
-	return type === 'post_reaction' || type === 'private_note' || type === 'conversation_message' || type === 'comment_reply';
+	return type === 'post_reaction' || type === 'private_note' || type === 'private_note_reply' || type === 'conversation_message' || type === 'comment_reply';
 }
 
 function isPostActivityNotificationEnabled(
@@ -544,7 +572,7 @@ function isPostActivityNotificationEnabled(
 		return postActivity.reactionsEnabled;
 	}
 
-	if (notification.type === 'private_note') {
+	if (notification.type === 'private_note' || notification.type === 'private_note_reply') {
 		return postActivity.privateNotesEnabled;
 	}
 

@@ -184,6 +184,19 @@ export function useDataListenerNotifications() {
         return;
       }
 
+      if (type === 'private_note_reply') {
+        const postId = data?.postId;
+        const noteId = data?.noteId;
+        if (postId && noteId) {
+          void dismissNotificationsByData({ type: 'private_note_reply', postId, noteId });
+          router.push({
+            pathname: '/(protected)/private-note-thread/[postId]/[noteId]',
+            params: { postId, noteId },
+          });
+        }
+        return;
+      }
+
 
     },
   );

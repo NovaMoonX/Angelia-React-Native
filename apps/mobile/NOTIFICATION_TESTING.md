@@ -236,9 +236,37 @@ display name in the toast/push copy.
 }
 ```
 
-> **Note:** Tapping the push routes to `/(protected)/private-notes/[YOUR_POST_ID]`.
+> **Note:** Tapping the push routes to `/(protected)/private-notes-host/[YOUR_POST_ID]`.
 > The screen will redirect back if `YOUR_POST_ID` is not a real post you authored
 > or if there are no notes stored under it — expected in testing mode.
+
+---
+
+### Scenario F2 — Private Note Reply (someone replied in a private note thread)
+
+You should receive this when the Host or the note author sends a reply in an
+existing private note conversation. Tapping routes directly to that thread.
+
+Replace `YOUR_USER_ID`, `YOUR_POST_ID`, and `YOUR_NOTE_ID` with real values from
+a private note you can access (as Host or as the note author).
+
+```json
+{
+  "id": "test-notif-private-note-reply-1",
+  "type": "private_note_reply",
+  "actorId": "fake-sender-id",
+  "target": {
+    "type": "user",
+    "userId": "YOUR_USER_ID"
+  },
+  "createdAt": 1713484800000,
+  "postId": "YOUR_POST_ID",
+  "noteId": "YOUR_NOTE_ID",
+  "senderFirstName": "Jordan",
+  "senderLastName": "Test",
+  "messagePreview": "Thanks for sharing that — here's my reply!"
+}
+```
 
 ---
 

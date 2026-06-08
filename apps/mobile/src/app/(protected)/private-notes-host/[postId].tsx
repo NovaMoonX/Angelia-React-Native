@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useNavigation, type EventArg } from '@react-navigation/native';
@@ -112,13 +112,20 @@ export default function PrivateNotesScreen() {
 						: 'Someone';
 
 					return (
-						<View
+						<Pressable
 							key={note.id}
-							style={[
+							onPress={() => {
+								router.push({
+									pathname: '/(protected)/private-note-thread/[postId]/[noteId]',
+									params: { postId: postId ?? '', noteId: note.id },
+								});
+							}}
+							style={({ pressed }) => [
 								styles.noteCard,
 								{
 									backgroundColor: theme.card,
 									borderColor: theme.border,
+									opacity: pressed ? 0.85 : 1,
 								},
 							]}
 						>
@@ -140,7 +147,7 @@ export default function PrivateNotesScreen() {
 									{note.text}
 								</Text>
 							</View>
-						</View>
+						</Pressable>
 					);
 				})}
 			</ScrollView>

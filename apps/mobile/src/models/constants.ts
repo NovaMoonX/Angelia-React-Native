@@ -121,6 +121,10 @@ export const FEED_REACTION_HINT_USED_KEY = (userId: string) => `@angelia/feed_re
  */
 export const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_notes_seen_${postId}`;
 
+/** Records when the user last opened a specific private note thread. */
+export const PRIVATE_NOTE_THREAD_SEEN_KEY = (postId: string, noteId: string) =>
+  `@angelia/private_note_thread_seen_${postId}_${noteId}`;
+
 /** External Google Form used for collecting beta feedback quickly from testers. */
 export const BETA_FEEDBACK_FORM_URL = 'https://forms.gle/vMoCnBVheTsssTHa8';
 
