@@ -834,7 +834,6 @@ export default function PostDetailScreen() {
 								>
 									{hostPrivateNotesLabel}
 								</Text>
-								<Feather name='chevron-right' size={14} color={hostPrivateNotesTextColor} />
 							</View>
 						</Pressable>
 					)}
