@@ -17,7 +17,7 @@ import { useTheme } from '@/hooks/useTheme';
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BETA_UPDATE_TITLE = 'Small update' // 'Big upgrades are here 🎉';
+const BETA_UPDATE_TITLE = 'Notes that actually show up 💌';
 
 interface ChangeEntry {
   emoji: string;
@@ -30,9 +30,9 @@ interface ChangeEntry {
 // "Bug fixes & reliability" entry rather than called out individually.
 const BETA_UPDATE_CHANGES: ChangeEntry[] = [
   {
-    emoji: '🐛',
-    title: 'Bug fixes',
-    description: 'Some posts from certain users were not showing up in the feed. This is now fixed.',
+    emoji: '💌',
+    title: 'Private notes, live',
+    description: 'When someone sends you a private note, it shows up right away — no more reloading the app to see it.',
   },
 ];
 
