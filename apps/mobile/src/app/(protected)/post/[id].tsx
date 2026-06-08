@@ -530,20 +530,6 @@ export default function PostDetailScreen() {
 		? unreadHighlightBorderColor
 		: theme.mutedForeground;
 
-	const hostPrivateNotesLabel = (() => {
-		const base = `Private Notes (${privateNotes.length})`;
-		if (hasUnreadPrivateNoteReplies && !hasUnreadPrivateNotes) {
-			return `${base} · New reply`;
-		}
-		if (hasUnreadPrivateNotes && hasUnreadPrivateNoteReplies) {
-			return `${base} · New activity`;
-		}
-		if (hasUnreadPrivateNotes) {
-			return `${base} · New note`;
-		}
-		return base;
-	})();
-
 	const visitorSentNotesLabel = (() => {
 		const base = `Your ${sentNotes.length} note${sentNotes.length !== 1 ? 's' : ''}`;
 		if (hasUnreadPrivateNoteReplies) {
@@ -832,7 +818,7 @@ export default function PostDetailScreen() {
 									style={[styles.secondaryActionText, { color: hostPrivateNotesTextColor }]}
 									numberOfLines={1}
 								>
-									{hostPrivateNotesLabel}
+									{`Private Notes (${privateNotes.length})`}
 								</Text>
 							</View>
 						</Pressable>
