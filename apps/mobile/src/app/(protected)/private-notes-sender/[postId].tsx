@@ -80,9 +80,22 @@ export default function PrivateNotesSenderScreen() {
 				) : (
 					sentNotes.map((note) => {
 						return (
-							<View
+							<Pressable
 								key={note.id}
-								style={[styles.noteCard, { backgroundColor: theme.card, borderColor: theme.border }]}
+								onPress={() => {
+									router.push({
+										pathname: '/(protected)/private-note-thread/[postId]/[noteId]',
+										params: { postId: postId ?? '', noteId: note.id },
+									});
+								}}
+								style={({ pressed }) => [
+									styles.noteCard,
+									{
+										backgroundColor: theme.card,
+										borderColor: theme.border,
+										opacity: pressed ? 0.85 : 1,
+									},
+								]}
 							>
 								<Avatar user={currentUser} size='sm' showStatus={false} />
 								<View style={styles.noteContent}>
@@ -94,7 +107,7 @@ export default function PrivateNotesSenderScreen() {
 									</View>
 									<Text style={[styles.noteText, { color: theme.foreground }]}>{note.text}</Text>
 								</View>
-							</View>
+							</Pressable>
 						);
 					})
 				)}

@@ -333,6 +333,40 @@ service cloud.firestore {
 
         // Notes cannot be updated or deleted by clients.
         allow update, delete: if false;
+
+        // Thread replies between the Host and the note author.
+        match /messages/{messageId} {
+          function isPrivateNoteHost() {
+            return request.auth.uid == get(/databases/$(database)/documents/posts/$(postId)).data.authorId;
+          }
+          function isPrivateNoteAuthor() {
+            return request.auth.uid == get(/databases/$(database)/documents/posts/$(postId)/privateNotes/$(noteId)).data.authorId;
+          }
+          function isPrivateNoteParticipant() {
+            return isPrivateNoteHost() || isPrivateNoteAuthor();
+          }
+
+          allow read: if isSignedIn() && isPrivateNoteParticipant();
+
+          allow create: if isSignedIn()
+            && isPrivateNoteParticipant()
+            && request.auth.uid == request.resource.data.authorId
+            && request.resource.data.parentId == null;
+
+          allow update: if isSignedIn()
+            && request.auth.uid == resource.data.authorId
+            && request.resource.data.text is string
+            && request.resource.data.text.size() > 0
+            && request.resource.data.text != resource.data.text
+            && request.resource.data.id == resource.data.id
+            && request.resource.data.authorId == resource.data.authorId
+            && request.resource.data.timestamp == resource.data.timestamp
+            && request.resource.data.parentId == resource.data.parentId
+            && optionalFieldUnchanged('isSystem')
+            && request.resource.data.reactions == resource.data.reactions;
+
+          allow delete: if false;
+        }
       }
     }
 

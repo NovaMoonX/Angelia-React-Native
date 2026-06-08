@@ -190,6 +190,13 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 			void dismissNotificationsByData({ type: 'private_note', postId });
 			pushRoute('/(protected)/private-notes-host/[postId]', { postId });
 		}
+	} else if (type === 'private_note_reply') {
+		const postId = data?.postId;
+		const noteId = data?.noteId;
+		if (postId && noteId) {
+			void dismissNotificationsByData({ type: 'private_note_reply', postId, noteId });
+			pushRoute('/(protected)/private-note-thread/[postId]/[noteId]', { postId, noteId });
+		}
 	}
 });
 

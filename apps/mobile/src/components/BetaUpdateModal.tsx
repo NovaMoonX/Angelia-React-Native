@@ -34,6 +34,11 @@ const BETA_UPDATE_CHANGES: ChangeEntry[] = [
     title: 'Private notes, live',
     description: 'When someone sends you a private note, it shows up right away — no more reloading the app to see it.',
   },
+  {
+    emoji: '💬',
+    title: 'Note conversations',
+    description: 'Tap a private note to keep the conversation going with a full back-and-forth thread.',
+  },
 ];
 
 interface BetaUpdateModalProps {

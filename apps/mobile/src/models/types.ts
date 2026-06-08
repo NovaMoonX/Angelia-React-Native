@@ -275,7 +275,8 @@ export type AppNotificationType =
   | 'conversation_message' // Someone messaged on your post conversation
   | 'new_post'        // For post tier subscriptions
   | 'comment_reply'   // Someone replied directly to your conversation message
-  | 'private_note';   // A Circle member sent the post Host a private note
+  | 'private_note'    // A Circle member sent the post Host a private note
+  | 'private_note_reply'; // Host or note author replied in a private note thread
 
 /**
  * Describes where a notification should be delivered.
@@ -414,6 +415,16 @@ export interface PrivateNoteNotification extends BaseAppNotification {
   authorLastName: string;
 }
 
+/** Written when someone replies in a private note thread — targets the other participant. */
+export interface PrivateNoteReplyNotification extends BaseAppNotification {
+  type: 'private_note_reply';
+  postId: string;
+  noteId: string;
+  senderFirstName: string;
+  senderLastName: string;
+  messagePreview: string;
+}
+
 export type AppNotification =
   | JoinChannelRequestNotification
   | JoinChannelAcceptedNotification
@@ -424,7 +435,8 @@ export type AppNotification =
   | PostReactionNotification
   | ConversationMessageNotification
   | CommentReplyNotification
-  | PrivateNoteNotification;
+  | PrivateNoteNotification
+  | PrivateNoteReplyNotification;
 
 // ── Tasks ───────────────────────────────────────────────────────────────────
 

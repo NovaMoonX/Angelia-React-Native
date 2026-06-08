@@ -118,6 +118,10 @@ export default function ProtectedLayout() {
               options={{ headerShown: false }}
             />
             <Stack.Screen
+              name="private-note-thread/[postId]/[noteId]"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
               name="post-activity"
               options={{ headerShown: false }}
             />

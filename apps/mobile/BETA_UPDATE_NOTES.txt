@@ -9,3 +9,4 @@ Use this file as the source for the next beta update modal. Keep it short, warm,
 
 Current branch highlights:
 - Private notes now show up right away when you're viewing your post — no more reloading the app to see a note someone just sent you.
+- Tap any private note to open a back-and-forth conversation with the other person, just like post conversations.
