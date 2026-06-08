@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useNavigation, type EventArg } from '@react-navigation/native';
@@ -131,14 +131,14 @@ export default function PrivateNotesScreen() {
 						: 'Someone';
 
 					return (
-						<PrivateNoteListCard
-							key={note.id}
-							note={note}
-							author={author}
-							authorLabel={authorName}
-							hasUnreadReply={unreadReplyNoteIds.has(note.id)}
-							onPress={() => openNoteThread(note.id)}
-						/>
+					<PrivateNoteListCard
+						key={note.id}
+						note={note}
+						author={author}
+						authorLabel={authorName}
+						hasUnreadReply={unreadReplyNoteIds.has(note.id)}
+						onPress={() => openNoteThread(note.id)}
+					/>
 					);
 				})}
 			</ScrollView>

@@ -107,14 +107,14 @@ export default function PrivateNotesSenderScreen() {
 				) : (
 					sentNotes.map((note) => {
 						return (
-							<PrivateNoteListCard
-								key={note.id}
-								note={note}
-								author={currentUser}
-								authorLabel='You'
-								hasUnreadReply={unreadReplyNoteIds.has(note.id)}
-								onPress={() => openNoteThread(note.id)}
-							/>
+						<PrivateNoteListCard
+							key={note.id}
+							note={note}
+							author={currentUser}
+							authorLabel='You'
+							hasUnreadReply={unreadReplyNoteIds.has(note.id)}
+							onPress={() => openNoteThread(note.id)}
+						/>
 						);
 					})
 				)}
