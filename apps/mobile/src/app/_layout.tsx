@@ -22,6 +22,11 @@ import {
 	getFollowUpForWindDown,
 	dismissNotificationsByData,
 } from '@/services/notifications';
+import {
+	isNotificationResponseHandled,
+	markNotificationResponseHandled,
+} from '@/lib/notificationResponseDedup';
+import { pushRouteWhenNavigatorReady } from '@/lib/pushRouteWhenReady';
 
 /** Matches the key used in DataListenerWrapper to track whether the in-app daily notice has already been shown today. */
 const DAILY_PROMPT_SHOWN_DATE_KEY = '@angelia/daily_prompt_shown_date';
@@ -129,75 +134,121 @@ Notifications.setNotificationHandler({
 // Register a global response handler so that notification taps from
 // background / quit states navigate to the appropriate screen.
 Notifications.addNotificationResponseReceivedListener((response) => {
-	const notification = response.notification;
-	const data = extractNotificationData(notification);
-	const type = data?.type;
-	const identifier = notification.request.identifier;
+	void (async () => {
+		const notification = response.notification;
+		const data = extractNotificationData(notification);
+		const type = data?.type;
+		const identifier = notification.request.identifier;
 
-	if (identifier === NOTIFICATION_ID || identifier === WIND_DOWN_NOTIFICATION_ID) {
-		const promptIndex = parseInt((data?.promptIndex as string) ?? '0', 10);
-		const followUp = identifier === WIND_DOWN_NOTIFICATION_ID
-			? getFollowUpForWindDown(promptIndex)
-			: getFollowUpForPrompt(promptIndex);
-		pushRoute('/(protected)/post/new', { existingText: followUp });
-	} else if (type === 'join_channel_request') {
-		const joinRequestId = data?.joinRequestId;
-		if (joinRequestId) {
-			pushRoute('/(protected)/join-request/[id]', { id: joinRequestId });
-		} else {
-			pushRoute('/(protected)/notifications');
+		if (await isNotificationResponseHandled(response)) {
+			return;
 		}
-	} else if (type === 'join_channel_accepted') {
-		const channelName = data?.channelName ?? '';
-		pushRoute('/(protected)/channel-accepted', { channelName });
-	} else if (type === 'custom_circle_invite') {
-		const requestId = data?.requestId;
-		if (requestId) {
-			pushRoute('/(protected)/circle-invite/[id]', { id: requestId });
-		} else {
-			pushRoute('/(protected)/notifications');
+
+		const navigate = () => {
+			if (identifier === NOTIFICATION_ID || identifier === WIND_DOWN_NOTIFICATION_ID) {
+				const promptIndex = parseInt((data?.promptIndex as string) ?? '0', 10);
+				const followUp = identifier === WIND_DOWN_NOTIFICATION_ID
+					? getFollowUpForWindDown(promptIndex)
+					: getFollowUpForPrompt(promptIndex);
+				pushRoute('/(protected)/post/new', { existingText: followUp });
+				return;
+			}
+
+			if (type === 'join_channel_request') {
+				const joinRequestId = data?.joinRequestId;
+				if (joinRequestId) {
+					pushRoute('/(protected)/join-request/[id]', { id: joinRequestId });
+				} else {
+					pushRoute('/(protected)/notifications');
+				}
+				return;
+			}
+
+			if (type === 'join_channel_accepted') {
+				const channelName = data?.channelName ?? '';
+				pushRoute('/(protected)/channel-accepted', { channelName });
+				return;
+			}
+
+			if (type === 'custom_circle_invite') {
+				const requestId = data?.requestId;
+				if (requestId) {
+					pushRoute('/(protected)/circle-invite/[id]', { id: requestId });
+				} else {
+					pushRoute('/(protected)/notifications');
+				}
+				return;
+			}
+
+			if (type === 'connection_request') {
+				const requestId = data?.connectionRequestId;
+				if (requestId) {
+					pushRoute('/(protected)/connection-request/[id]', { id: requestId });
+				} else {
+					pushRoute('/(protected)/notifications');
+				}
+				return;
+			}
+
+			if (type === 'connection_accepted') {
+				pushRoute('/(protected)/my-people');
+				return;
+			}
+
+			if (type === 'new_post') {
+				const postId = data?.postId;
+				if (postId) {
+					void dismissNotificationsByData({ type: 'new_post', postId });
+					pushRoute('/(protected)/post/[id]', { id: postId });
+				}
+				return;
+			}
+
+			if (type === 'post_reaction') {
+				const postId = data?.postId;
+				if (postId) {
+					void dismissNotificationsByData({ type: 'post_reaction', postId });
+					pushRoute('/(protected)/post/[id]', { id: postId });
+				}
+				return;
+			}
+
+			if (type === 'conversation_message' || type === 'comment_reply') {
+				const postId = data?.postId;
+				if (postId) {
+					void dismissNotificationsByData({ type, postId });
+					pushRoute('/(protected)/conversation', { postId });
+				}
+				return;
+			}
+
+			if (type === 'private_note') {
+				const postId = data?.postId;
+				if (postId) {
+					void dismissNotificationsByData({ type: 'private_note', postId });
+					pushRoute('/(protected)/private-notes-host/[postId]', { postId });
+				}
+				return;
+			}
+
+			if (type === 'private_note_reply') {
+				const postId = data?.postId;
+				const noteId = data?.noteId;
+				if (postId && noteId) {
+					void dismissNotificationsByData({ type: 'private_note_reply', postId, noteId });
+					pushRoute('/(protected)/private-note-thread/[postId]/[noteId]', { postId, noteId });
+				}
+			}
+		};
+
+		const didNavigate = await pushRouteWhenNavigatorReady(
+			navigate,
+			() => isNotificationResponseHandled(response),
+		);
+		if (didNavigate) {
+			await markNotificationResponseHandled(response);
 		}
-	} else if (type === 'connection_request') {
-		const requestId = data?.connectionRequestId;
-		if (requestId) {
-			pushRoute('/(protected)/connection-request/[id]', { id: requestId });
-		} else {
-			pushRoute('/(protected)/notifications');
-		}
-	} else if (type === 'connection_accepted') {
-		pushRoute('/(protected)/my-people');
-	} else if (type === 'new_post') {
-		const postId = data?.postId;
-		if (postId) {
-			void dismissNotificationsByData({ type: 'new_post', postId });
-			pushRoute('/(protected)/post/[id]', { id: postId });
-		}
-	} else if (type === 'post_reaction') {
-		const postId = data?.postId;
-		if (postId) {
-			void dismissNotificationsByData({ type: 'post_reaction', postId });
-			pushRoute('/(protected)/post/[id]', { id: postId });
-		}
-	} else if (type === 'conversation_message' || type === 'comment_reply') {
-		const postId = data?.postId;
-		if (postId) {
-			void dismissNotificationsByData({ type, postId });
-			pushRoute('/(protected)/conversation', { postId });
-		}
-	} else if (type === 'private_note') {
-		const postId = data?.postId;
-		if (postId) {
-			void dismissNotificationsByData({ type: 'private_note', postId });
-			pushRoute('/(protected)/private-notes-host/[postId]', { postId });
-		}
-	} else if (type === 'private_note_reply') {
-		const postId = data?.postId;
-		const noteId = data?.noteId;
-		if (postId && noteId) {
-			void dismissNotificationsByData({ type: 'private_note_reply', postId, noteId });
-			pushRoute('/(protected)/private-note-thread/[postId]/[noteId]', { postId, noteId });
-		}
-	}
+	})();
 });
 
 function NavigationLayout() {

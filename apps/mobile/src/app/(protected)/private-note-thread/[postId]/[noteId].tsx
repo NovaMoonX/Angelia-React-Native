@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Pressable,
   StyleSheet,
@@ -13,8 +14,6 @@ import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useNavigation, type EventArg } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import { Avatar } from '@/components/ui/Avatar';
 import { ConversationMessage } from '@/components/conversation/ConversationMessage';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -179,31 +178,38 @@ export default function PrivateNoteThreadScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={KEYBOARD_BEHAVIOR}
-        keyboardVerticalOffset={insets.top + 56}
+        keyboardVerticalOffset={0}
       >
-        <FlashList
-          ref={listRef}
-          data={rows}
-          keyExtractor={(row) => row.message.id}
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingTop: 12,
-            paddingBottom: 12,
-          }}
-          renderItem={({ item }) => (
-            <ConversationMessage
-              message={item.message}
-              isThreaded={false}
-            />
-          )}
-        />
+        <View style={styles.listContainer}>
+          <FlashList
+            ref={listRef}
+            data={rows}
+            keyExtractor={(row) => row.message.id}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="none"
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingTop: 12,
+              paddingBottom: 8,
+            }}
+            renderItem={({ item }) => (
+              <ConversationMessage
+                message={item.message}
+                isThreaded={false}
+                onSinglePress={() => {
+                  Keyboard.dismiss();
+                }}
+              />
+            )}
+          />
+        </View>
 
         <View
           style={[
             styles.inputContainer,
             {
               borderTopColor: theme.border,
-              paddingBottom: insets.bottom + 12,
+              paddingBottom: Math.max(insets.bottom, 12),
               backgroundColor: theme.background,
             },
           ]}
@@ -249,6 +255,9 @@ export default function PrivateNoteThreadScreen() {
 
 const styles = StyleSheet.create({
   centered: {
+    flex: 1,
+  },
+  listContainer: {
     flex: 1,
   },
   inputContainer: {

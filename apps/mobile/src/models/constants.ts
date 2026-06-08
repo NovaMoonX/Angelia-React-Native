@@ -125,6 +125,17 @@ export const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_note
 export const PRIVATE_NOTE_THREAD_SEEN_KEY = (postId: string, noteId: string) =>
   `@angelia/private_note_thread_seen_${postId}_${noteId}`;
 
+/**
+ * Version for the one-time notice explaining that private notes support
+ * back-and-forth replies. Bump when copy changes.
+ */
+export const PRIVATE_NOTE_CONVERSATIONS_NOTICE_VERSION = '2026-06-private-note-conversations';
+
+export const PRIVATE_NOTE_CONVERSATIONS_NOTICE_SEEN_KEY = (version: string) =>
+  `@angelia/private_note_conversations_notice_seen_${version}`;
+
+export const PRIVATE_NOTE_CONVERSATIONS_NOTICE_ACCENT = '#D97706';
+
 /** External Google Form used for collecting beta feedback quickly from testers. */
 export const BETA_FEEDBACK_FORM_URL = 'https://forms.gle/vMoCnBVheTsssTHa8';
 
