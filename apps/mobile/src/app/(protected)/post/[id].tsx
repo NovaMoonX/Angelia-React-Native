@@ -20,6 +20,9 @@ import { AudioAttachmentPlayer } from '@/components/AudioAttachmentPlayer';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { selectMessages, setMessages } from '@/store/slices/conversationSlice';
+import { store } from '@/store';
+import { mergeMessagesWithPendingWrites } from '@/lib/mergePendingSnapshots';
+import { isPendingWriteLocked } from '@/lib/pendingWrites';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { selectChannelsRevision } from '@/store/slices/channelsSlice';
 import { ensurePostLeaveSuggestionsLoaded, selectPostLeaveSuggestionsEntry } from '@/store/slices/postLeaveSuggestionsSlice';
@@ -166,10 +169,29 @@ export default function PostDetailScreen() {
 
 	useEffect(() => {
 		if (!id || isDemo) return;
-		const unsub = subscribeToMessages(id, (msgs) => {
-			dispatch(setMessages({ postId: id, messages: msgs }));
+		let unsub: (() => void) | null = null;
+
+		unsub = subscribeToMessages(id, (msgs) => {
+			const state = store.getState();
+			const local = state.conversation.messagesByPost[id] ?? [];
+			dispatch(
+				setMessages({
+					postId: id,
+					messages: mergeMessagesWithPendingWrites(msgs, local),
+				}),
+			);
 		});
-		return unsub;
+
+		return () => {
+			const doUnsub = () => {
+				unsub?.();
+			};
+			if (isPendingWriteLocked(id)) {
+				setTimeout(doUnsub, 800);
+			} else {
+				doUnsub();
+			}
+		};
 	}, [id, dispatch, isDemo]);
 
 	// Reactions are only marked seen after visiting post detail (not from the post-activity card).

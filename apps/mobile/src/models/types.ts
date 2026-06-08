@@ -146,6 +146,17 @@ export interface Channel {
 
 export type NewChannel = Omit<Channel, 'id' | 'isDaily' | 'inviteCode' | 'createdAt' | 'markedForDeletionAt'>;
 
+/** Sanitized circle metadata for public invite links (readable without auth). */
+export interface PublicChannelInvitePreview {
+  channelId: string;
+  inviteCode: string;
+  name: string;
+  description: string;
+  subscriberCount: number;
+  ownerId: string;
+  markedForDeletionAt: number | null;
+}
+
 export interface MediaItem {
   type: 'image' | 'video' | 'audio';
   url: string;
@@ -222,6 +233,10 @@ export interface Message {
   text: string;
   timestamp: number;
   parentId: string | null;
+  /** Top-level thread anchor; null for root messages. */
+  rootId?: string | null;
+  /** Original top-level comment when replying at depth 2. */
+  grandparentId?: string | null;
   reactions: Record<string, string[]>;
   /** System messages (e.g. "joined with 🎉") have no real author interaction. */
   isSystem?: boolean;
