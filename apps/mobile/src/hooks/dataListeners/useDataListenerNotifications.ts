@@ -14,18 +14,12 @@ import {
   dismissNotificationsByData,
 } from '@/services/notifications';
 import type { AppNotificationType, Post } from '@/models/types';
+import { consumeNotificationResponse } from '@/lib/notificationResponseDedup';
 
 const DAILY_PROMPT_SHOWN_DATE_KEY = '@angelia/daily_prompt_shown_date';
 const STARTUP_TOAST_SUPPRESSION_MS = 5000;
 
-const handledNotificationKeys = new Set<string>();
 const handledForegroundToastKeys = new Set<string>();
-
-
-
-function getNotificationKey(response: Notifications.NotificationResponse): string {
-  return `${response.notification.request.identifier}_${response.notification.date}`;
-}
 
 function toStringRecord(value: unknown): Record<string, string> | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -111,7 +105,7 @@ export function useDataListenerNotifications() {
   const foregroundToastsEnabledAtRef = useRef(Number.MAX_SAFE_INTEGER);
 
   const routeFromNotificationPayloadRef = useRef(
-    (type: string | undefined, data: Record<string, string> | undefined, source: 'cold-start' | 'foreground-listener') => {
+    (type: string | undefined, data: Record<string, string> | undefined) => {
       if (type === 'join_channel_request') {
         const joinRequestId = data?.joinRequestId;
         if (joinRequestId) {
@@ -230,20 +224,21 @@ export function useDataListenerNotifications() {
     }
 
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const notification = response.notification;
-      if (notification.request.identifier !== NOTIFICATION_ID) {
-        return;
-      }
+      void (async () => {
+        const notification = response.notification;
+        if (notification.request.identifier !== NOTIFICATION_ID) {
+          return;
+        }
 
-      const key = getNotificationKey(response);
-      if (handledNotificationKeys.has(key)) {
-        return;
-      }
-      handledNotificationKeys.add(key);
+        const shouldRoute = await consumeNotificationResponse(response);
+        if (!shouldRoute) {
+          return;
+        }
 
-      const promptIndex = Number((notification.request.content.data?.promptIndex as string) ?? '0');
-      const followUp = getFollowUpForPrompt(promptIndex);
-      router.push({ pathname: '/(protected)/post/new', params: { notificationPrompt: followUp } });
+        const promptIndex = Number((notification.request.content.data?.promptIndex as string) ?? '0');
+        const followUp = getFollowUpForPrompt(promptIndex);
+        router.push({ pathname: '/(protected)/post/new', params: { notificationPrompt: followUp } });
+      })();
     });
 
     return () => {
@@ -257,16 +252,15 @@ export function useDataListenerNotifications() {
     }
 
     Notifications.getLastNotificationResponseAsync()
-      .then((response) => {
+      .then(async (response) => {
         if (!response) {
           return;
         }
 
-        const key = getNotificationKey(response);
-        if (handledNotificationKeys.has(key)) {
+        const shouldRoute = await consumeNotificationResponse(response);
+        if (!shouldRoute) {
           return;
         }
-        handledNotificationKeys.add(key);
 
         const notification = response.notification;
         const identifier = notification.request.identifier;
@@ -280,7 +274,7 @@ export function useDataListenerNotifications() {
           return;
         }
 
-        routeFromNotificationPayloadRef.current(type, data, 'cold-start');
+        routeFromNotificationPayloadRef.current(type, data);
       })
       .catch(() => {});
   }, [currentUser?.id, isDemo]);
