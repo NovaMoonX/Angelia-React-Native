@@ -931,13 +931,12 @@ export default function FeedScreen() {
 							<Feather name='clock' size={16} color='#B45309' />
 							<Text style={styles.expiringFilterText}>
 								{expiringUnreactedQuickFilter
-									? 'Showing expiring posts you have not reacted to'
-									: `${expiringUnreactedCount} expiring soon — tap to review`}
+									? 'Showing soon-to-expire posts you have not reacted to ⏳'
+									: `Post expiring soon — give them a look 👀`}
 							</Text>
 							<View style={styles.expiringFilterCount}>
 								<Text style={styles.expiringFilterCountText}>{expiringUnreactedCount}</Text>
 							</View>
-							<Feather name='chevron-right' size={16} color='#B45309' />
 						</Pressable>
 					</View>
 				) : null}
