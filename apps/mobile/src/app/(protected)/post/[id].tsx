@@ -167,8 +167,8 @@ export default function PostDetailScreen() {
 		return unsub;
 	}, [id, dispatch, isDemo, isHost]);
 
-	// Only reaction activity should clear from simply viewing this screen, and
-	// it should clear when the user leaves post detail (not immediately on open).
+	// Reactions are only marked seen after visiting post detail (not from the post-activity card).
+	// Clear reaction unread when the user leaves this screen (not immediately on open).
 	// Private notes and conversation unread state are owned by their detail screens.
 	useFocusEffect(
 		useCallback(() => {

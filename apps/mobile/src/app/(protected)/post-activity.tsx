@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, type ViewToken, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
@@ -26,7 +26,7 @@ export default function PostActivityScreen() {
   const { scope } = useLocalSearchParams<{ scope?: string }>();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { summaries, unreadDetailsByPostId, refreshSeenState, markPostsSeen } = useAuthorPostActivity();
+  const { summaries, unreadDetailsByPostId, refreshSeenState } = useAuthorPostActivity();
   const channels = useAppSelector(selectAllChannels);
   const uploadingPosts = useAppSelector(selectCurrentUserUploadingPosts);
   const uploadProgressMap = useAppSelector(selectCurrentUserUploadProgressMap);
@@ -35,27 +35,10 @@ export default function PostActivityScreen() {
   const [activityScope, setActivityScope] = useState<'all' | 'unread' | 'uploading'>(scope === 'unread' ? 'unread' : scope === 'uploading' ? 'uploading' : 'all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [refreshing, setRefreshing] = useState(false);
-  const markPostsSeenRef = useRef(markPostsSeen);
-  const pendingSeenPostIdsRef = useRef<Set<string>>(new Set());
-  const lastVisibleKeyRef = useRef('');
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 98 }).current;
-
-
 
   const handleBackPress = useCallback(() => {
     router.dismissTo('/(protected)/feed');
   }, [router]);
-
-  useEffect(() => {
-    markPostsSeenRef.current = markPostsSeen;
-  }, [markPostsSeen]);
-
-  const flushPendingSeen = useCallback(async () => {
-    const pendingPostIds = Array.from(pendingSeenPostIdsRef.current);
-    if (pendingPostIds.length === 0) return;
-    pendingSeenPostIdsRef.current.clear();
-    await markPostsSeenRef.current(pendingPostIds);
-  }, []);
 
   const filteredByCircle = useMemo(() => {
     if (selectedCircleId === 'all') return summaries;
@@ -67,10 +50,8 @@ export default function PostActivityScreen() {
   useFocusEffect(
     useCallback(() => {
       void refreshSeenState().catch(() => {});
-      return () => {
-        void flushPendingSeen().catch(() => {});
-      };
-    }, [flushPendingSeen, refreshSeenState, summaries.length, unreadDetailsByPostId]),
+      return undefined;
+    }, [refreshSeenState]),
   );
 
   const handleRefresh = useCallback(async () => {
@@ -154,33 +135,6 @@ export default function PostActivityScreen() {
 
     return sorted;
   }, [uploadingPosts, selectedCircleId, sortOrder]);
-
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const fullyVisiblePostIds = viewableItems
-      .map((token) => {
-        const item = token.item as (typeof filtered)[number] | Post | undefined;
-        if (token.isViewable !== true) return null;
-        if (item && 'post' in item && item.post?.id) {
-          return item.post.id;
-        }
-        return null;
-      })
-      .filter((id): id is string => {
-        return id != null;
-      });
-
-    if (fullyVisiblePostIds.length === 0) {
-      lastVisibleKeyRef.current = '';
-      return;
-    }
-
-    const nextKey = fullyVisiblePostIds.join('|');
-    if (nextKey === lastVisibleKeyRef.current) return;
-    lastVisibleKeyRef.current = nextKey;
-    fullyVisiblePostIds.forEach((postId) => {
-      pendingSeenPostIdsRef.current.add(postId);
-    });
-  }).current;
 
   const renderSummaryCard = useCallback(({ item }: { item: (typeof filtered)[number] }) => {
     const detail = unreadDetailsByPostId[item.post.id];
@@ -405,8 +359,6 @@ export default function PostActivityScreen() {
             return item.id;
           }}
           renderItem={renderUploadingCard}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
           ListHeaderComponent={listHeader}
           ListEmptyComponent={
             <Card style={styles.emptyCard}>
@@ -439,8 +391,6 @@ export default function PostActivityScreen() {
             return item.post.id;
           }}
           renderItem={renderSummaryCard}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
           ListHeaderComponent={listHeader}
           ListEmptyComponent={
             <Card style={styles.emptyCard}>
