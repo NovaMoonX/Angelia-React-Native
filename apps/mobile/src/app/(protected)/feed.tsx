@@ -936,8 +936,8 @@ export default function FeedScreen() {
 							<Feather name='bell' size={16} color={theme.primaryForeground} />
 							<Text style={[styles.postActivityBannerText, { color: theme.primaryForeground }]}>
 								{unreadPostIds.length === 1
-									? 'New activity on 1 of your posts — tap to review'
-									: `New activity on ${unreadPostIds.length} of your posts — tap to review`}
+									? 'New activity on 1 of your posts'
+									: `New activity on ${unreadPostIds.length} of your posts`}
 							</Text>
 							<Feather name='chevron-right' size={16} color={theme.primaryForeground} />
 						</Pressable>

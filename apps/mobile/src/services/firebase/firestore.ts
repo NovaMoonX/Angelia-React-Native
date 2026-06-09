@@ -1653,19 +1653,9 @@ export function subscribeToUserInbox(
         return d.data() as UserInboxItem;
       });
       const unreadItems = allItems.filter(isUserInboxItemUnread);
-      if (__DEV__) {
-        console.log('[userInbox] snapshot', {
-          userId,
-          total: allItems.length,
-          unread: unreadItems.length,
-          postActivity: unreadItems.filter((item) => item.surface === 'post_activity').length,
-          notifications: unreadItems.filter((item) => item.surface === 'notifications').length,
-        });
-      }
       callback(unreadItems);
     },
-    (error) => {
-      console.warn('[userInbox] subscription error', { userId, error });
+    (_error) => {
       callback([]);
     },
   );
