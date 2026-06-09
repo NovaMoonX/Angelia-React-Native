@@ -864,33 +864,9 @@ export default function FeedScreen() {
 					</Pressable>
 				</View>
 
-				{/* Priority + expiring quick filters */}
+				{/* Status quick filters */}
 				<View style={styles.priorityFilterRow}>
 					<View style={styles.priorityFilterPills}>
-						<Pressable
-							onPress={toggleExpiringUnreactedQuickFilter}
-							style={[
-								styles.priorityFilterPill,
-								{
-									backgroundColor: expiringUnreactedQuickFilter ? '#FEF3C7' : theme.muted,
-									borderColor: expiringUnreactedQuickFilter ? '#D97706' : theme.border,
-								},
-							]}
-						>
-							<Text style={styles.priorityFilterEmoji}>⏳</Text>
-							<Text
-								style={[
-									styles.priorityFilterPillText,
-									{
-										color: expiringUnreactedQuickFilter ? '#92400E' : theme.mutedForeground,
-									},
-								]}
-							>
-								{expiringUnreactedQuickFilter
-									? `Expiring · not reacted (${expiringUnreactedCount})`
-									: `Expiring · not reacted${expiringUnreactedCount > 0 ? ` (${expiringUnreactedCount})` : ''}`}
-							</Text>
-						</Pressable>
 						{POST_TIERS.map((opt) => {
 							const isActive = priorityFilter.includes(opt.value);
 							return (
@@ -932,6 +908,60 @@ export default function FeedScreen() {
 							);
 						})}
 					</View>
+				</View>
+
+				{/* Expiring quick filter — separate row, outline style */}
+				<View style={styles.expiringFilterRow}>
+					<Pressable
+						onPress={toggleExpiringUnreactedQuickFilter}
+						style={[
+							styles.expiringFilterButton,
+							expiringUnreactedQuickFilter ? styles.expiringFilterButtonActive : null,
+							{
+								backgroundColor: expiringUnreactedQuickFilter ? '#FFFBEB' : 'transparent',
+								borderColor: expiringUnreactedQuickFilter ? '#D97706' : theme.border,
+							},
+						]}
+					>
+						<Feather
+							name='clock'
+							size={14}
+							color={expiringUnreactedQuickFilter ? '#D97706' : theme.mutedForeground}
+						/>
+						<Text
+							style={[
+								styles.expiringFilterText,
+								{
+									color: expiringUnreactedQuickFilter ? '#92400E' : theme.mutedForeground,
+								},
+							]}
+						>
+							{expiringUnreactedQuickFilter
+								? 'Showing expiring posts you have not reacted to'
+								: 'Expiring soon · not reacted'}
+						</Text>
+						{expiringUnreactedCount > 0 ? (
+							<View
+								style={[
+									styles.expiringFilterCount,
+									{
+										backgroundColor: expiringUnreactedQuickFilter ? '#FEF3C7' : theme.muted,
+									},
+								]}
+							>
+								<Text
+									style={[
+										styles.expiringFilterCountText,
+										{
+											color: expiringUnreactedQuickFilter ? '#92400E' : theme.mutedForeground,
+										},
+									]}
+								>
+									{expiringUnreactedCount}
+								</Text>
+							</View>
+						) : null}
+					</Pressable>
 				</View>
 
 				{/* Task banner — lives inside the header so `headerHeight` includes it,
@@ -1259,6 +1289,40 @@ const styles = StyleSheet.create({
 	priorityFilterPillText: {
 		fontSize: 11,
 		fontWeight: '500',
+	},
+	expiringFilterRow: {
+		paddingHorizontal: 16,
+		paddingBottom: 10,
+	},
+	expiringFilterButton: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		borderWidth: 1,
+		borderRadius: 8,
+		borderStyle: 'dashed',
+		paddingHorizontal: 12,
+		paddingVertical: 8,
+		gap: 8,
+	},
+	expiringFilterButtonActive: {
+		borderStyle: 'solid',
+	},
+	expiringFilterText: {
+		flex: 1,
+		fontSize: 12,
+		fontWeight: '500',
+	},
+	expiringFilterCount: {
+		minWidth: 22,
+		height: 22,
+		borderRadius: 11,
+		alignItems: 'center',
+		justifyContent: 'center',
+		paddingHorizontal: 6,
+	},
+	expiringFilterCountText: {
+		fontSize: 11,
+		fontWeight: '600',
 	},
 	listContent: {
 		paddingHorizontal: 16,
