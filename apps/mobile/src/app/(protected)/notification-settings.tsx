@@ -12,7 +12,7 @@ import { NOTIFICATION_TIMEZONES } from '@/constants/notifications.constants';
 import { createDefaultCirclePostNotificationSettings } from '@/models/constants';
 import { Select } from '@/components/ui/Select';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { selectAllChannels } from '@/store/slices/channelsSlice';
+import { selectInvolvedNotificationChannels } from '@/store/crossSelectors/notificationCircleSelectors';
 import {
   NOTIFICATION_SETTINGS_NOTICE_SEEN_KEY,
   NOTIFICATION_SETTINGS_NOTICE_VERSION,
@@ -30,7 +30,7 @@ export default function NotificationSettingsScreen() {
   const currentUser = useAppSelector((state) => {
     return state.users.currentUser;
   });
-  const allChannels = useAppSelector(selectAllChannels);
+  const involvedChannels = useAppSelector(selectInvolvedNotificationChannels);
 
   const dailyEnabled = notificationSettings?.dailyPrompt?.enabled ?? true;
   const reactionsEnabled = notificationSettings?.postActivity?.reactionsEnabled ?? true;
@@ -38,10 +38,7 @@ export default function NotificationSettingsScreen() {
   const replyMessagesEnabled = notificationSettings?.postActivity?.replyMessagesEnabled ?? true;
   const notifTZ = notificationSettings?.timeZone ?? getDeviceTimeZone();
   const autoDetect = notificationSettings?.autoDetectTimeZone !== false;
-  const involvedCircles = allChannels.filter((channel) => {
-    if (!currentUser) return false;
-    return channel.ownerId !== currentUser.id && channel.subscribers.includes(currentUser.id);
-  });
+  const involvedCircles = involvedChannels;
 
   const circlesWithCustomSettingsCount = involvedCircles.reduce((count, channel) => {
     const settings = notificationSettings?.postByCircle?.[channel.id] ?? createDefaultCirclePostNotificationSettings();

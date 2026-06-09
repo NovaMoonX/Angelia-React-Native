@@ -16,3 +16,4 @@ Current branch highlights:
 - Notifications groups activity by post (replies, new posts, and more) so you can see what happened on each post at a glance.
 - Post creation tips stay dismissed once you close them — they won't pop back up when you start a new post.
 - Notifications for deleted posts and circles are cleaned up automatically.
+- Circle post notification settings now list every connected person's Daily Circle, with search and collapsed circle cards to keep things tidy.

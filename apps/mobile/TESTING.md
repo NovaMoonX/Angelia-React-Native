@@ -154,6 +154,33 @@ Use the iPhone when:
 
 ---
 
+## Feature 5: Circle Post Notification Settings
+
+**Devices:** Android (iPhone optional for layout parity).
+
+### Setup
+
+- [ ] Account A is connected to at least 2 other users (B and C)
+- [ ] B and C each have active Daily Circles
+- [ ] A is subscribed to at least one custom Circle from a connected user
+
+### Android
+
+- [ ] Open **Notification Settings** -> **Circle Post Notifications**
+- [ ] Confirm every connected person's **Daily Circle** appears (owner name shown, not the literal word "Daily")
+- [ ] Confirm joined custom Circles also appear under the correct owner group
+- [ ] Daily and custom Circle cards start **collapsed** with a one-line summary of enabled notification types
+- [ ] Tap a collapsed Circle card -> expands to show all toggles
+- [ ] Use the search bar with a person's first name -> only matching owner groups/circles remain
+- [ ] Clear search -> full list returns
+- [ ] Toggle a setting on one Circle -> persists after leaving and re-opening the screen
+
+### iPhone
+
+- [ ] Repeat search + expand/collapse checks once for layout sanity
+
+---
+
 ## Regression Checks
 
 - [ ] Feed loads and scrolls normally with status pills and expiring row visible

@@ -46,7 +46,7 @@ const BETA_UPDATE_CHANGES: ChangeEntry[] = [
   },
   {
     emoji: '🔔',
-    title: 'Activity grouped by post',
+    title: 'Other activity notifications',
     description: 'Notifications now groups replies and other activity under each post so you can catch up faster.',
   },
 ];
