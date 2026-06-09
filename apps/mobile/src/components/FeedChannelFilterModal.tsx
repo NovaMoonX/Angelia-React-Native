@@ -21,7 +21,8 @@ interface FeedChannelFilterModalProps {
   isOpen: boolean;
   onClose: () => void;
   value: ChannelFilterState;
-  onApply: (value: ChannelFilterState) => void;
+  expiringSoonOnly: boolean;
+  onApply: (value: ChannelFilterState, expiringSoonOnly: boolean) => void;
   channels: Channel[];
   currentUserId?: string;
 }
@@ -30,6 +31,7 @@ export function FeedChannelFilterModal({
   isOpen,
   onClose,
   value,
+  expiringSoonOnly,
   onApply,
   channels,
   currentUserId,
@@ -38,6 +40,7 @@ export function FeedChannelFilterModal({
   const usersById = useAppSelector(selectAllUsersMapById);
 
   const [localFilter, setLocalFilter] = useState<ChannelFilterState>(value);
+  const [localExpiringSoonOnly, setLocalExpiringSoonOnly] = useState(expiringSoonOnly);
   const [searchQuery, setSearchQuery] = useState('');
   const [dailySectionOpen, setDailySectionOpen] = useState(false);
   const [regularSectionOpen, setRegularSectionOpen] = useState(true);
@@ -46,6 +49,7 @@ export function FeedChannelFilterModal({
   useEffect(() => {
     if (isOpen) {
       setLocalFilter(value);
+      setLocalExpiringSoonOnly(expiringSoonOnly);
       setSearchQuery('');
       setDailySectionOpen(false);
       setRegularSectionOpen(true);
@@ -149,7 +153,7 @@ export function FeedChannelFilterModal({
   };
 
   const handleApply = () => {
-    onApply(localFilter);
+    onApply(localFilter, localExpiringSoonOnly);
     onClose();
   };
 
@@ -264,6 +268,37 @@ export function FeedChannelFilterModal({
         </Text>
       )}
 
+      <Separator style={{ marginVertical: 12 }} />
+      <Text style={[styles.sectionLabel, { color: theme.mutedForeground }]}>Post filters</Text>
+      <Pressable
+        style={styles.expiringToggleRow}
+        onPress={() => {
+          setLocalExpiringSoonOnly((prev) => {
+            return !prev;
+          });
+        }}
+      >
+        <View
+          style={[
+            styles.expiringCheckbox,
+            {
+              borderColor: localExpiringSoonOnly ? theme.primary : theme.border,
+              backgroundColor: localExpiringSoonOnly ? theme.primary : 'transparent',
+            },
+          ]}
+        >
+          {localExpiringSoonOnly ? (
+            <Feather name="check" size={12} color={theme.primaryForeground} />
+          ) : null}
+        </View>
+        <View style={styles.expiringToggleTextWrap}>
+          <Text style={[styles.expiringToggleTitle, { color: theme.foreground }]}>Expiring soon</Text>
+          <Text style={[styles.expiringToggleSub, { color: theme.mutedForeground }]}>
+            Show posts going away within the next few days
+          </Text>
+        </View>
+      </Pressable>
+
     </Modal>
   );
 }
@@ -313,5 +348,32 @@ const styles = StyleSheet.create({
   },
   applyButton: {
     width: '100%',
+  },
+  expiringToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 8,
+  },
+  expiringCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  expiringToggleTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  expiringToggleTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  expiringToggleSub: {
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

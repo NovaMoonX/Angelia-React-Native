@@ -35,6 +35,7 @@ import { FeedbackFormModal } from '@/components/FeedbackFormModal';
 import { FeedChannelFilterModal, type ChannelFilterState } from '@/components/FeedChannelFilterModal';
 import { EmojiPicker } from '@/components/EmojiPicker';
 import { NewPostsPill, type NewPostsPillRef } from '@/components/NewPostsPill';
+import { hasUserReactedToPost, isPostExpiringSoon } from '@/lib/post/post.utils';
 import { getSuggestedReactionEmojis } from '@/lib/reaction/reaction.utils';
 import { formatTimeRemaining } from '@/lib/timeUtils';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
@@ -148,6 +149,8 @@ export default function FeedScreen() {
 	const [channelFilter, setChannelFilter] = useState<ChannelFilterState>({ mode: 'all', specificIds: [] });
 	const [channelFilterOpen, setChannelFilterOpen] = useState(false);
 	const [priorityFilter, setPriorityFilter] = useState<PostTier[]>([]);
+	const [expiringSoonMenuFilter, setExpiringSoonMenuFilter] = useState(false);
+	const [expiringUnreactedQuickFilter, setExpiringUnreactedQuickFilter] = useState(false);
 	const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 	const [displayCount, setDisplayCount] = useState(INITIAL_PAGE);
 	const [fabExpanded, setFabExpanded] = useState(false);
@@ -270,39 +273,64 @@ export default function FeedScreen() {
 		[priorityFilter],
 	);
 
-	const filteredPosts = useMemo(() => {
-		let result = [...posts].filter((p) => {
-			return p.status === 'ready';
-		});
+	const channelById = useMemo(() => {
+		return new Map(channels.map((channel) => {
+			return [channel.id, channel] as const;
+		}));
+	}, [channels]);
 
-		if (currentUser) {
-			result = result.filter((p) => {
-				return p.authorId !== currentUser.id;
-			});
-		}
+	const isPostExpiringInFeed = useCallback((post: Post) => {
+		const channel = channelById.get(post.channelId);
+		if (!channel) return false;
+		return isPostExpiringSoon(post.timestamp, channel.isDaily === true);
+	}, [channelById]);
 
-
-		result = result.filter((p) => {
-			return allowedChannelIds.has(p.channelId);
-		});
-
-		// Apply feed-level priority filter
-		result = result.filter(matchesPriorityFilter);
-
-		result.sort((a, b) => (sortOrder === 'newest' ? b.timestamp - a.timestamp : a.timestamp - b.timestamp));
-
-		return result.slice(0, displayCount);
-	}, [posts, currentUser, allowedChannelIds, sortOrder, displayCount, priorityFilter, matchesPriorityFilter]);
-
-	const hasMore = useMemo(() => {
-		const total = posts.filter((p) => {
+	const scopedFeedPosts = useMemo(() => {
+		return posts.filter((p) => {
 			if (p.status !== 'ready') return false;
 			if (currentUser && p.authorId === currentUser.id) return false;
 			if (!allowedChannelIds.has(p.channelId)) return false;
-			return matchesPriorityFilter(p);
+			if (!matchesPriorityFilter(p)) return false;
+			if (expiringSoonMenuFilter && !isPostExpiringInFeed(p)) return false;
+			if (expiringUnreactedQuickFilter) {
+				if (!currentUser) return false;
+				if (!isPostExpiringInFeed(p)) return false;
+				if (hasUserReactedToPost(p, currentUser.id)) return false;
+			}
+			return true;
+		});
+	}, [
+		allowedChannelIds,
+		currentUser,
+		expiringSoonMenuFilter,
+		expiringUnreactedQuickFilter,
+		isPostExpiringInFeed,
+		matchesPriorityFilter,
+		posts,
+	]);
+
+	const expiringUnreactedCount = useMemo(() => {
+		if (!currentUser) return 0;
+		return posts.filter((p) => {
+			if (p.status !== 'ready') return false;
+			if (p.authorId === currentUser.id) return false;
+			if (!allowedChannelIds.has(p.channelId)) return false;
+			if (!matchesPriorityFilter(p)) return false;
+			if (!isPostExpiringInFeed(p)) return false;
+			return !hasUserReactedToPost(p, currentUser.id);
 		}).length;
-		return displayCount < total;
-	}, [posts, currentUser, allowedChannelIds, displayCount, priorityFilter, matchesPriorityFilter]);
+	}, [allowedChannelIds, currentUser, isPostExpiringInFeed, matchesPriorityFilter, posts]);
+
+	const filteredPosts = useMemo(() => {
+		const sorted = [...scopedFeedPosts].sort((a, b) => {
+			return sortOrder === 'newest' ? b.timestamp - a.timestamp : a.timestamp - b.timestamp;
+		});
+		return sorted.slice(0, displayCount);
+	}, [displayCount, scopedFeedPosts, sortOrder]);
+
+	const hasMore = useMemo(() => {
+		return displayCount < scopedFeedPosts.length;
+	}, [displayCount, scopedFeedPosts.length]);
 
 	const loadMore = useCallback(() => {
 		if (hasMore) {
@@ -411,17 +439,26 @@ export default function FeedScreen() {
 
 	const isChannelFiltered = channelFilter.mode === 'specific' && channelFilter.specificIds.length > 0;
 
-	const hasActiveFilters = isChannelFiltered || priorityFilter.length > 0;
+	const hasActiveFilters = isChannelFiltered || priorityFilter.length > 0 || expiringSoonMenuFilter || expiringUnreactedQuickFilter;
 	const uploadingCount = uploadingPosts.length;
 	const uploadPercentLabel = Math.round(uploadAggregateProgress * 100);
 
 	const clearFilters = useCallback(() => {
 		setChannelFilter({ mode: 'all', specificIds: [] });
 		setPriorityFilter([]);
+		setExpiringSoonMenuFilter(false);
+		setExpiringUnreactedQuickFilter(false);
 	}, []);
 
-	const handleApplyFilter = useCallback((filter: ChannelFilterState) => {
+	const handleApplyFilter = useCallback((filter: ChannelFilterState, expiringSoonOnly: boolean) => {
 		setChannelFilter(filter);
+		setExpiringSoonMenuFilter(expiringSoonOnly);
+	}, []);
+
+	const toggleExpiringUnreactedQuickFilter = useCallback(() => {
+		setExpiringUnreactedQuickFilter((prev) => {
+			return !prev;
+		});
 	}, []);
 
 	// When filters or sort order change: scroll to top, reset page, show filtering indicator
@@ -435,7 +472,7 @@ export default function FeedScreen() {
 		flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
 		const timer = setTimeout(() => setIsFiltering(false), FILTERING_INDICATOR_DURATION);
 		return () => clearTimeout(timer);
-	}, [channelFilter, priorityFilter, sortOrder]);
+	}, [channelFilter, priorityFilter, expiringSoonMenuFilter, expiringUnreactedQuickFilter, sortOrder]);
 
 	useEffect(() => {
 		if (!activeReactionPillPostId) return;
@@ -830,9 +867,33 @@ export default function FeedScreen() {
 					</Pressable>
 				</View>
 
-				{/* Priority filter */}
+				{/* Priority + expiring quick filters */}
 				<View style={styles.priorityFilterRow}>
 					<View style={styles.priorityFilterPills}>
+						<Pressable
+							onPress={toggleExpiringUnreactedQuickFilter}
+							style={[
+								styles.priorityFilterPill,
+								{
+									backgroundColor: expiringUnreactedQuickFilter ? '#FEF3C7' : theme.muted,
+									borderColor: expiringUnreactedQuickFilter ? '#D97706' : theme.border,
+								},
+							]}
+						>
+							<Text style={styles.priorityFilterEmoji}>⏳</Text>
+							<Text
+								style={[
+									styles.priorityFilterPillText,
+									{
+										color: expiringUnreactedQuickFilter ? '#92400E' : theme.mutedForeground,
+									},
+								]}
+							>
+								{expiringUnreactedQuickFilter
+									? `Expiring · not reacted (${expiringUnreactedCount})`
+									: `Expiring · not reacted${expiringUnreactedCount > 0 ? ` (${expiringUnreactedCount})` : ''}`}
+							</Text>
+						</Pressable>
 						{POST_TIERS.map((opt) => {
 							const isActive = priorityFilter.includes(opt.value);
 							return (
@@ -898,6 +959,7 @@ export default function FeedScreen() {
 				isOpen={channelFilterOpen}
 				onClose={() => setChannelFilterOpen(false)}
 				value={channelFilter}
+				expiringSoonOnly={expiringSoonMenuFilter}
 				onApply={handleApplyFilter}
 				channels={channels}
 				currentUserId={currentUser?.id}
