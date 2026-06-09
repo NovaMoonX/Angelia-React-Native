@@ -438,6 +438,149 @@ export type AppNotification =
   | PrivateNoteNotification
   | PrivateNoteReplyNotification;
 
+// ── User Inbox (persistent in-app activity / notifications) ─────────────────
+
+export type UserInboxSurface = 'post_activity' | 'notifications';
+
+interface BaseUserInboxItem {
+  id: string;
+  surface: UserInboxSurface;
+  actorId: string;
+  createdAt: number;
+  readAt: number | null;
+}
+
+export interface JoinChannelRequestInboxItem extends BaseUserInboxItem {
+  type: 'join_channel_request';
+  surface: 'notifications';
+  requesterId: string;
+  requesterFirstName: string;
+  requesterLastName: string;
+  channelId: string;
+  channelName: string;
+  joinRequestId: string;
+}
+
+export interface JoinChannelAcceptedInboxItem extends BaseUserInboxItem {
+  type: 'join_channel_accepted';
+  surface: 'notifications';
+  channelId: string;
+  channelName: string;
+  joinRequestId: string;
+}
+
+export interface CustomCircleInviteInboxItem extends BaseUserInboxItem {
+  type: 'custom_circle_invite';
+  surface: 'notifications';
+  requestId: string;
+  inviterId: string;
+  inviterFirstName: string;
+  inviterLastName: string;
+  channelId: string;
+  channelName: string;
+  inviteCode: string;
+}
+
+export interface ConnectionRequestInboxItem extends BaseUserInboxItem {
+  type: 'connection_request';
+  surface: 'notifications';
+  fromId: string;
+  fromFirstName: string;
+  fromLastName: string;
+  connectionRequestId: string;
+}
+
+export interface ConnectionAcceptedInboxItem extends BaseUserInboxItem {
+  type: 'connection_accepted';
+  surface: 'notifications';
+  toFirstName: string;
+  toLastName: string;
+  connectionRequestId: string;
+}
+
+export interface PostReactionInboxItem extends BaseUserInboxItem {
+  type: 'post_reaction';
+  surface: 'post_activity';
+  postId: string;
+  reactorFirstName: string;
+  reactorLastName: string;
+  emoji: string;
+}
+
+export interface ConversationMessageInboxItem extends BaseUserInboxItem {
+  type: 'conversation_message';
+  surface: 'post_activity';
+  postId: string;
+  senderFirstName: string;
+  senderLastName: string;
+  messagePreview: string;
+}
+
+export interface CommentReplyInboxItem extends BaseUserInboxItem {
+  type: 'comment_reply';
+  surface: 'notifications';
+  postId: string;
+  parentMessageId: string;
+  senderFirstName: string;
+  senderLastName: string;
+  messagePreview: string;
+}
+
+export interface NewPostInboxItem extends BaseUserInboxItem {
+  type: 'new_post';
+  surface: 'notifications';
+  postId: string;
+  channelId: string;
+  channelName: string;
+  isDaily: boolean;
+  tier: PostTier;
+  hasAttachments: boolean;
+  authorFirstName: string;
+  authorLastName: string;
+}
+
+export interface PrivateNoteInboxItem extends BaseUserInboxItem {
+  type: 'private_note';
+  surface: 'post_activity';
+  postId: string;
+  authorFirstName: string;
+  authorLastName: string;
+}
+
+export interface PrivateNoteReplyPostActivityInboxItem extends BaseUserInboxItem {
+  type: 'private_note_reply';
+  surface: 'post_activity';
+  postId: string;
+  noteId: string;
+  senderFirstName: string;
+  senderLastName: string;
+  messagePreview: string;
+}
+
+export interface PrivateNoteReplyNotificationsInboxItem extends BaseUserInboxItem {
+  type: 'private_note_reply';
+  surface: 'notifications';
+  postId: string;
+  noteId: string;
+  senderFirstName: string;
+  senderLastName: string;
+  messagePreview: string;
+}
+
+export type UserInboxItem =
+  | JoinChannelRequestInboxItem
+  | JoinChannelAcceptedInboxItem
+  | CustomCircleInviteInboxItem
+  | ConnectionRequestInboxItem
+  | ConnectionAcceptedInboxItem
+  | PostReactionInboxItem
+  | ConversationMessageInboxItem
+  | CommentReplyInboxItem
+  | NewPostInboxItem
+  | PrivateNoteInboxItem
+  | PrivateNoteReplyPostActivityInboxItem
+  | PrivateNoteReplyNotificationsInboxItem;
+
 // ── Tasks ───────────────────────────────────────────────────────────────────
 
 /**
