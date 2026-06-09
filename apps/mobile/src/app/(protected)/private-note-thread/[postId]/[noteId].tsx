@@ -97,22 +97,28 @@ export default function PrivateNoteThreadScreen() {
   }, [goBack, navigation]);
 
   const inboxItems = useAppSelector((state) => state.userInbox.items);
+  const inboxItemsRef = useRef(inboxItems);
+  useEffect(() => {
+    inboxItemsRef.current = inboxItems;
+  }, [inboxItems]);
 
   useFocusEffect(
     useCallback(() => {
       if (!postId || !noteId || !currentUser) {
         return undefined;
       }
+
       void markUserInboxReadForPost(
         currentUser.id,
-        inboxItems,
+        inboxItemsRef.current,
         postId,
         ['private_note_reply'],
         noteId,
       ).catch(() => {});
       void dismissNotificationsByData({ type: 'private_note_reply', postId, noteId }).catch(() => {});
+
       return undefined;
-    }, [currentUser, inboxItems, noteId, postId]),
+    }, [currentUser?.id, noteId, postId]),
   );
 
   const seedMessage: Message | null = useMemo(() => {

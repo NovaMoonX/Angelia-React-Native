@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useNavigation, type EventArg } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PrivateNoteConversationsNotice } from '@/components/PrivateNoteConversationsNotice';
@@ -92,14 +92,30 @@ export default function PrivateNotesScreen() {
 	}, [currentUser, goToPostDetails, isHost, post]);
 
 	const inboxItems = useAppSelector((state) => state.userInbox.items);
-
+	const inboxItemsRef = useRef(inboxItems);
 	useEffect(() => {
-		if (!postId || !isHost || !currentUser) return;
-		void markUserInboxReadForPost(currentUser.id, inboxItems, postId, ['private_note']).catch(() => {});
-		void dismissNotificationsByData({ type: 'private_note', postId }).catch(() => {
-			return null;
-		});
-	}, [currentUser, inboxItems, postId, isHost]);
+		inboxItemsRef.current = inboxItems;
+	}, [inboxItems]);
+
+	useFocusEffect(
+		useCallback(() => {
+			if (!postId || !isHost || !currentUser) {
+				return undefined;
+			}
+
+			void markUserInboxReadForPost(
+				currentUser.id,
+				inboxItemsRef.current,
+				postId,
+				['private_note'],
+			).catch(() => {});
+			void dismissNotificationsByData({ type: 'private_note', postId }).catch(() => {
+				return null;
+			});
+
+			return undefined;
+		}, [currentUser?.id, isHost, postId]),
+	);
 
 	if (!post || !currentUser || !isHost) {
 		return (

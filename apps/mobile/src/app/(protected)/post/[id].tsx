@@ -173,20 +173,24 @@ export default function PostDetailScreen() {
 	}, [id, dispatch, isDemo]);
 
 	// Reactions are only marked seen after visiting post detail (not from the post-activity card).
-	// Clear reaction unread when the user leaves this screen (not immediately on open).
+	// Mark on focus so activity clears even if the app is closed from this screen.
 	// Private notes and conversation unread state are owned by their detail screens.
 	useFocusEffect(
 		useCallback(() => {
-			if (!currentUser?.id || !id) return undefined;
+			if (!currentUser?.id || !id) {
+				return undefined;
+			}
 
-			// Viewing this post means post-targeted push cards are now stale.
+			void markUserInboxReadForPost(
+				currentUser.id,
+				inboxItemsRef.current,
+				id,
+				['post_reaction', 'new_post'],
+			).catch(() => {});
 			void dismissNotificationsByData({ type: 'new_post', postId: id }).catch(() => {});
 			void dismissNotificationsByData({ type: 'post_reaction', postId: id }).catch(() => {});
 
-			return () => {
-				void markUserInboxReadForPost(currentUser.id, inboxItemsRef.current, id, ['post_reaction']).catch(() => {});
-				void dismissNotificationsByData({ type: 'post_reaction', postId: id }).catch(() => {});
-			};
+			return undefined;
 		}, [currentUser?.id, id]),
 	);
 

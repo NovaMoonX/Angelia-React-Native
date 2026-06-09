@@ -90,12 +90,12 @@ Use the iPhone when:
 
 - [ ] Scroll the post card fully into view in Post Activity -> reaction unread badge **stays** on the card
 - [ ] Leave Post Activity without opening post detail -> badge still shows
-- [ ] Open post detail for that post, then leave -> reaction unread clears
+- [ ] Open post detail for that post -> reaction unread clears on arrival (no need to leave first)
 - [ ] From Feed, scrolling past the post does not clear reaction unread
 
 ### iPhone
 
-- [ ] Repeat one full pass: scroll past card -> badge remains -> open and leave post detail -> badge clears
+- [ ] Repeat one full pass: scroll past card -> badge remains -> open post detail -> badge clears on arrival
 
 ---
 
@@ -137,10 +137,10 @@ Use the iPhone when:
 - [ ] Confirm app opens **one** `userInbox` listener at startup (not per-post message/note listeners for authored posts)
 - [ ] When B reacts on A's post while A is on Feed, confirm primary-colored **New activity on your posts** banner appears above the feed list
 - [ ] Confirm Post Activity header icon shows a red dot while unread post-activity inbox items exist
-- [ ] B reacts to A's post -> A sees Post Activity unread; opening post detail and leaving clears it
-- [ ] B sends conversation message -> unread shows until A opens conversation
-- [ ] B sends private note -> unread shows until A opens private notes or thread
-- [ ] Tap an inbox Activity item -> destination opens first; item marks read only after navigation (stays visible briefly on Notifications)
+- [ ] B reacts to A's post -> A sees Post Activity unread; opening post detail clears it on arrival
+- [ ] B sends conversation message -> unread clears when A opens conversation
+- [ ] B sends private note -> unread clears when A opens private notes or thread
+- [ ] Tap an inbox Activity item -> destination opens; item marks read when that screen gains focus
 - [ ] From Notifications or a push tap, open conversation/post/private notes -> back returns to **Notifications** (not Feed or post detail)
 - [ ] B triggers `comment_reply` on another host's post -> item appears under **Notifications** Activity (grouped by post), not Post Activity
 - [ ] **Activity on your posts** section groups replies on your posts under a single "Your post" header with one snippet
@@ -156,7 +156,7 @@ Use the iPhone when:
 ### iPhone
 
 - [ ] Repeat one reaction, one conversation, and one Notifications Activity grouping check
-- [ ] Confirm mark-read on focus/blur matches Android for post detail, conversation, and private note thread
+- [ ] Confirm mark-read on **focus** (landing on screen) matches Android for post detail, conversation, private notes host, and private note thread
 
 ---
 

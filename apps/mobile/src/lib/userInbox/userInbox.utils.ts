@@ -258,34 +258,37 @@ export async function openUserInboxItem(
       pathname: '/(protected)/my-people',
       params: entryParams,
     });
+    scheduleInboxItemRead(userId, item.id);
     break;
   case 'join_channel_accepted':
     router.push({
       pathname: '/(protected)/channel-accepted',
       params: { channelName: item.channelName, ...entryParams },
     });
+    scheduleInboxItemRead(userId, item.id);
     break;
   case 'custom_circle_invite':
     router.push({
       pathname: '/(protected)/circle-invite/[id]',
       params: { id: item.requestId, ...entryParams },
     } as never);
+    scheduleInboxItemRead(userId, item.id);
     break;
   case 'connection_request':
     router.push({
       pathname: '/(protected)/connection-request/[id]',
       params: { id: item.connectionRequestId, ...entryParams },
     });
+    scheduleInboxItemRead(userId, item.id);
     break;
   case 'join_channel_request':
     router.push({
       pathname: '/(protected)/join-request/[id]',
       params: { id: item.joinRequestId, ...entryParams },
     });
+    scheduleInboxItemRead(userId, item.id);
     break;
   default:
-    return;
+    break;
   }
-
-  scheduleInboxItemRead(userId, item.id);
 }

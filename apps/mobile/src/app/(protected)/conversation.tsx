@@ -125,15 +125,28 @@ export default function ConversationScreen() {
   }, [postId, dispatch, isDemo]);
 
   const inboxItems = useAppSelector((state) => state.userInbox.items);
+  const inboxItemsRef = useRef(inboxItems);
+  useEffect(() => {
+    inboxItemsRef.current = inboxItems;
+  }, [inboxItems]);
 
   useFocusEffect(
     useCallback(() => {
-      if (!postId || isDemo || !currentUser) return;
-      void markUserInboxReadForPost(currentUser.id, inboxItems, postId, ['conversation_message']).catch(() => {});
-      void markUserInboxReadForPost(currentUser.id, inboxItems, postId, ['comment_reply']).catch(() => {});
+      if (!postId || isDemo || !currentUser) {
+        return undefined;
+      }
+
+      void markUserInboxReadForPost(
+        currentUser.id,
+        inboxItemsRef.current,
+        postId,
+        ['conversation_message', 'comment_reply'],
+      ).catch(() => {});
       void dismissNotificationsByData({ type: 'conversation_message', postId }).catch(() => {});
       void dismissNotificationsByData({ type: 'comment_reply', postId }).catch(() => {});
-    }, [currentUser, inboxItems, postId, isDemo]),
+
+      return undefined;
+    }, [currentUser?.id, postId, isDemo]),
   );
 
   usePostComments({ postId });
