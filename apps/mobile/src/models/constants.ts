@@ -238,3 +238,6 @@ export const FEED_SESSION_SCROLLED_KEY = '@angelia/feed_session_scrolled';
 
 /** AsyncStorage key storing the in-progress post compose draft for a user. */
 export const POST_CREATE_DRAFT_KEY = (userId: string) => `@angelia/post_create_draft_${userId}`;
+
+/** AsyncStorage key storing which post-create composer hints the user has dismissed. */
+export const POST_CREATE_HINTS_DISMISSED_KEY = (userId: string) => `@angelia/post_create_hints_dismissed_${userId}`;

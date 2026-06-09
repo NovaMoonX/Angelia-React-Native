@@ -32,7 +32,14 @@ import {
   selectCurrentUserCustomChannels,
 } from '@/store/crossSelectors/channelSelectors';
 import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
-import { MAX_FILES, POST_TIERS, POST_CREATE_DRAFT_KEY, AUDIO_TITLE_MAX_LENGTH, AUDIO_CAPTION_MAX_LENGTH } from '@/models/constants';
+import {
+  MAX_FILES,
+  POST_TIERS,
+  POST_CREATE_DRAFT_KEY,
+  POST_CREATE_HINTS_DISMISSED_KEY,
+  AUDIO_TITLE_MAX_LENGTH,
+  AUDIO_CAPTION_MAX_LENGTH,
+} from '@/models/constants';
 import { generateVideoThumbnail } from '@/utils/generateVideoThumbnail';
 import type { VideoThumbnail } from 'expo-video';
 import type { UserStatus, PostTier } from '@/models/types';
@@ -44,9 +51,12 @@ type PostCreateDraft = {
   selectedTier: PostTier;
   media: MediaFile[];
   pendingStatus: UserStatus | null;
-  showCaptionHint: boolean;
-  showReorderHint: boolean;
-  showVideoUploadNotice: boolean;
+};
+
+type PostCreateHintsDismissed = {
+  captionHint?: boolean;
+  reorderHint?: boolean;
+  videoUploadNotice?: boolean;
 };
 
 function normalizeIncomingMedia(files: MediaFile[]): MediaFile[] {
@@ -134,7 +144,9 @@ export default function PostCreateScreen() {
   const dailyChannelId = dailyChannel?.id ?? '';
 
   const draftStorageKey = !isEditMode && currentUser?.id ? POST_CREATE_DRAFT_KEY(currentUser.id) : null;
+  const hintsStorageKey = !isEditMode && currentUser?.id ? POST_CREATE_HINTS_DISMISSED_KEY(currentUser.id) : null;
   const didHydrateDraftRef = useRef(false);
+  const didHydrateHintsRef = useRef(false);
   const hasIncomingNavigationState =
     params.capturedMedia != null ||
     params.existingText != null ||
@@ -240,6 +252,35 @@ export default function PostCreateScreen() {
   const [showReorderHint, setShowReorderHint] = useState(true);
   const [showVideoUploadNotice, setShowVideoUploadNotice] = useState(true);
 
+  const persistHintDismissal = useCallback(async (key: keyof PostCreateHintsDismissed) => {
+    if (!hintsStorageKey) return;
+    try {
+      const raw = await AsyncStorage.getItem(hintsStorageKey);
+      const existing = raw ? (JSON.parse(raw) as PostCreateHintsDismissed) : {};
+      await AsyncStorage.setItem(
+        hintsStorageKey,
+        JSON.stringify({ ...existing, [key]: true }),
+      );
+    } catch {
+      // Best-effort persistence only.
+    }
+  }, [hintsStorageKey]);
+
+  const dismissCaptionHint = useCallback(() => {
+    setShowCaptionHint(false);
+    void persistHintDismissal('captionHint');
+  }, [persistHintDismissal]);
+
+  const dismissReorderHint = useCallback(() => {
+    setShowReorderHint(false);
+    void persistHintDismissal('reorderHint');
+  }, [persistHintDismissal]);
+
+  const dismissVideoUploadNotice = useCallback(() => {
+    setShowVideoUploadNotice(false);
+    void persistHintDismissal('videoUploadNotice');
+  }, [persistHintDismissal]);
+
   const updateMediaStripBounds = useCallback(() => {
     mediaStripRef.current?.measureInWindow((x, y, width, height) => {
       setMediaStripBounds({ x, y, width, height });
@@ -311,6 +352,27 @@ export default function PostCreateScreen() {
   ]);
 
   useEffect(() => {
+    if (didHydrateHintsRef.current) return;
+    if (!hintsStorageKey) {
+      didHydrateHintsRef.current = true;
+      return;
+    }
+
+    AsyncStorage.getItem(hintsStorageKey)
+      .then((raw) => {
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as PostCreateHintsDismissed;
+        if (parsed.captionHint) setShowCaptionHint(false);
+        if (parsed.reorderHint) setShowReorderHint(false);
+        if (parsed.videoUploadNotice) setShowVideoUploadNotice(false);
+      })
+      .catch(() => {})
+      .finally(() => {
+        didHydrateHintsRef.current = true;
+      });
+  }, [hintsStorageKey]);
+
+  useEffect(() => {
     if (didHydrateDraftRef.current) return;
 
     if (!draftStorageKey || hasIncomingNavigationState) {
@@ -327,9 +389,6 @@ export default function PostCreateScreen() {
         if (parsed.selectedTier != null) setSelectedTier(parsed.selectedTier);
         if (Array.isArray(parsed.media)) setMedia(parsed.media);
         if (parsed.pendingStatus !== undefined) setPendingStatus(parsed.pendingStatus);
-        if (parsed.showCaptionHint !== undefined) setShowCaptionHint(parsed.showCaptionHint);
-        if (parsed.showReorderHint !== undefined) setShowReorderHint(parsed.showReorderHint);
-        if (parsed.showVideoUploadNotice !== undefined) setShowVideoUploadNotice(parsed.showVideoUploadNotice);
       })
       .catch(() => {})
       .finally(() => {
@@ -346,9 +405,6 @@ export default function PostCreateScreen() {
       selectedTier,
       media,
       pendingStatus,
-      showCaptionHint,
-      showReorderHint,
-      showVideoUploadNotice,
     };
 
     void AsyncStorage.setItem(draftStorageKey, JSON.stringify(draft)).catch(() => {});
@@ -358,9 +414,6 @@ export default function PostCreateScreen() {
     pendingStatus,
     selectedChannel,
     selectedTier,
-    showCaptionHint,
-    showReorderHint,
-    showVideoUploadNotice,
     text,
   ]);
 
@@ -381,9 +434,6 @@ export default function PostCreateScreen() {
       setCaptionTargetIndex(null);
       setCaptionDraft('');
       setPreviewItem(null);
-      setShowCaptionHint(true);
-      setShowReorderHint(true);
-      setShowVideoUploadNotice(true);
       setSelectedChannel(editingPost.channelId ?? dailyChannelId ?? sortedUserChannels[0]?.id ?? '');
       return;
     }
@@ -398,9 +448,6 @@ export default function PostCreateScreen() {
     setCaptionTargetIndex(null);
     setCaptionDraft('');
     setPreviewItem(null);
-    setShowCaptionHint(true);
-    setShowReorderHint(true);
-    setShowVideoUploadNotice(true);
     setSelectedChannel(dailyChannelId || sortedUserChannels[0]?.id || '');
   }, [dailyChannelId, editingPost, initialMedia, isEditMode, sortedUserChannels]);
 
@@ -582,7 +629,7 @@ export default function PostCreateScreen() {
   };
 
   const openCaptionModal = (index: number) => {
-    setShowCaptionHint(false);
+    dismissCaptionHint();
     setCaptionTargetIndex(index);
     setCaptionDraft(media[index]?.caption ?? '');
     setTitleDraft(media[index]?.title ?? '');
@@ -852,7 +899,7 @@ export default function PostCreateScreen() {
             <Text style={[styles.featureHintText, { color: theme.mutedForeground }]}> 
               Add a caption: tap the <Text style={{ fontWeight: '700' }}>T</Text> on any media item.
             </Text>
-            <Pressable onPress={() => setShowCaptionHint(false)} hitSlop={8}>
+            <Pressable onPress={dismissCaptionHint} hitSlop={8}>
               <Feather name="x" size={14} color={theme.mutedForeground} />
             </Pressable>
           </View>
@@ -863,7 +910,7 @@ export default function PostCreateScreen() {
             <Text style={[styles.featureHintText, { color: theme.mutedForeground }]}> 
               Reorder media: long press any media item, then use arrows.
             </Text>
-            <Pressable onPress={() => setShowReorderHint(false)} hitSlop={8}>
+            <Pressable onPress={dismissReorderHint} hitSlop={8}>
               <Feather name="x" size={14} color={theme.mutedForeground} />
             </Pressable>
           </View>
@@ -900,7 +947,7 @@ export default function PostCreateScreen() {
                   setPreviewItem({ uri: getMediaPreviewUri(item), type: isVideo ? 'video' : isAudio ? 'audio' : 'image', caption: item.caption, title: item.title ?? null });
                 }}
                 onLongPress={() => {
-                  setShowReorderHint(false);
+                  dismissReorderHint();
                   setReorderIndex(index);
                 }}
                 delayLongPress={300}
@@ -991,7 +1038,7 @@ export default function PostCreateScreen() {
             <Text style={[styles.videoNoticeText, { color: theme.mutedForeground }]}> 
               Heads up: uploading videos from gallery is flaky right now. For now, videos should be recorded in-app using the camera.
             </Text>
-            <Pressable onPress={() => setShowVideoUploadNotice(false)} hitSlop={8}>
+            <Pressable onPress={dismissVideoUploadNotice} hitSlop={8}>
               <Feather name="x" size={14} color={theme.mutedForeground} />
             </Pressable>
           </View>
