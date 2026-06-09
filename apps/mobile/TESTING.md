@@ -1,7 +1,7 @@
 # Testing Guide — beta-v-1.0.7
 
-**Branch:** beta-v-1.0.7
-**Last updated:** May 16, 2026
+**Branch:** feature/activity-expiry-inbox
+**Last updated:** June 8, 2026
 
 ---
 
@@ -1029,3 +1029,77 @@ Run these after all feature tests to confirm nothing was broken.
 - Existing channels without `isPrivate` are treated as public (`null`/falsy behavior).
 - Daily circles remain effectively public behavior in this release (`isPrivate: false` at creation).
 - Firestore docs now persist `isPrivate`; ensure old test data is recreated if behavior seems inconsistent.
+- **Inbox migration:** existing AsyncStorage seen state does not backfill. Users may see a one-time badge reset after deploy until new activity arrives.
+- Deploy `firestore.rules` and `firestore.indexes.json` before testing inbox writes and queries.
+
+---
+
+## Feature: Reactions Seen Only on Post Detail
+
+**Devices:** Android primary. iPhone parity recommended.
+
+### Setup
+
+- [ ] Use Account A as post host with at least one active post
+- [ ] Use Account B to react to Account A's post while Account A is on Feed or Post Activity (not post detail)
+
+### Android
+
+- [ ] Scroll the post card fully into view in Post Activity -> confirm reaction unread badge **stays** on the card
+- [ ] Leave Post Activity without opening post detail -> confirm badge still shows
+- [ ] Open post detail for that post, then leave -> confirm reaction unread clears
+- [ ] Repeat from Feed: scrolling past an expiring/unread post card does not clear reaction unread
+
+### iPhone
+
+- [ ] Repeat one full pass: scroll past card -> badge remains -> open and leave post detail -> badge clears
+
+---
+
+## Feature: Expiring-Soon Filters
+
+**Devices:** Android primary. iPhone parity recommended.
+
+### Setup
+
+- [ ] Have at least one daily post within the 3-day warning window and one custom post within the 7-day window
+- [ ] Mix in posts outside the warning window and posts you have / have not reacted to
+
+### Android
+
+- [ ] Open Post Activity -> select **Expiring soon** scope -> only warning-window posts appear, soonest expiry first
+- [ ] On Feed, confirm quick-action pill label mentions expiring **and** not reacted; pill count matches unreacted expiring posts only
+- [ ] Open feed filter menu -> enable **Expiring soon** -> all expiring posts in scope appear, including ones you already reacted to
+- [ ] Disable expiring filter -> feed returns to normal scope
+
+### iPhone
+
+- [ ] Repeat Post Activity expiring filter and one feed pill vs menu filter check
+
+---
+
+## Feature: User Inbox and Post-Grouped Notifications
+
+**Devices:** Android + iPhone required (two accounts).
+
+### Setup
+
+- [ ] Deploy Cloud Functions, `firestore.rules`, and indexes for `userInbox` before testing
+- [ ] Account A = post host; Account B = member reacting, messaging, and replying on A's posts
+- [ ] Use a third scenario: B comments/replies on **someone else's** post where A is not host
+
+### Android
+
+- [ ] Confirm app opens **one** `userInbox` listener at startup (not per-post message/note listeners for authored posts)
+- [ ] B reacts to A's post -> A sees Post Activity unread; opening post detail and leaving clears it
+- [ ] B sends conversation message -> unread shows until A opens conversation
+- [ ] B sends private note -> unread shows until A opens private notes / thread
+- [ ] B triggers `comment_reply` on another host's post -> item appears under **Notifications** Activity (grouped by post), not Post Activity
+- [ ] Notifications Activity section groups multiple items under the same post header
+- [ ] Feed bell dot includes unread notification-surface inbox items (not only pending connection requests)
+- [ ] Push notifications still arrive when inbox items are written
+
+### iPhone
+
+- [ ] Repeat one reaction, one conversation, and one Notifications Activity grouping check
+- [ ] Confirm mark-read on focus/blur matches Android for post detail, conversation, and private note thread

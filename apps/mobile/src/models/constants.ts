@@ -95,14 +95,6 @@ export const ALL_POST_TIERS: PostTier[] = POST_TIERS.map((t) => t.value);
 export const FEED_LAST_SEEN_TIMESTAMP_KEY = '@angelia/feed_last_seen_timestamp';
 export const POST_UPLOAD_QUEUE_KEY = '@angelia/post_upload_queue_v1';
 
-/** AsyncStorage key storing the latest per-post activity snapshot the user has reviewed. */
-export const POST_ACTIVITY_SEEN_KEY = (userId: string) => `@angelia/post_activity_seen_${userId}`;
-
-/** AsyncStorage key storing when the user last reviewed reactions for a specific post. */
-export const POST_REACTIONS_SEEN_KEY = (userId: string, postId: string) => {
-  return `@angelia/post_reactions_seen_${userId}_${postId}`;
-};
-
 /** AsyncStorage key storing when the user last opened the app on this device. */
 export const APP_LAST_OPENED_AT_KEY = (userId: string) => `@angelia/app_last_opened_at_${userId}`;
 
@@ -114,16 +106,6 @@ export const FEED_REACTION_HINT_DISMISSED_KEY = (userId: string) => `@angelia/fe
 
 /** AsyncStorage key that records whether the user has reacted from feed via long-press at least once. */
 export const FEED_REACTION_HINT_USED_KEY = (userId: string) => `@angelia/feed_reaction_hint_used_${userId}`;
-
-/**
- * AsyncStorage key that records when a post host last opened the private notes screen for a post.
- * Used to drive the unread indicator on the host's private-notes badge.
- */
-export const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_notes_seen_${postId}`;
-
-/** Records when the user last opened a specific private note thread. */
-export const PRIVATE_NOTE_THREAD_SEEN_KEY = (postId: string, noteId: string) =>
-  `@angelia/private_note_thread_seen_${postId}_${noteId}`;
 
 /**
  * Version for the one-time notice explaining that private notes support
