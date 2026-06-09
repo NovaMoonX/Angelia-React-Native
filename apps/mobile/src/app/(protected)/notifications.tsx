@@ -10,8 +10,16 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
+import { selectUnreadNotificationsInboxGroupedByPost } from '@/store/crossSelectors/userInboxSelectors';
+import { getPostAuthorName } from '@/lib/post/post.utils';
+import {
+  getUserInboxItemLabel,
+  getUserInboxItemPreview,
+  openUserInboxItem,
+} from '@/lib/userInbox/userInbox.utils';
 import { respondToJoinRequest, respondToCircleInviteRequest } from '@/store/actions/inviteActions';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import type { UserInboxItem } from '@/models/types';
 import {
   NOTIFICATION_SETTINGS_NOTICE_ACCENT,
   NOTIFICATION_SETTINGS_NOTICE_BADGE_SEEN_KEY,
@@ -29,6 +37,9 @@ export default function NotificationsScreen() {
   const incomingCircleInvites = useAppSelector((state) => state.invites.incomingCircleInvites);
   const incomingConnRequests = useAppSelector((state) => state.connections.incomingRequests);
   const usersMap = useAppSelector(selectAllUsersMapById);
+  const currentUser = useAppSelector((state) => state.users.currentUser);
+  const posts = useAppSelector((state) => state.posts.items);
+  const { postGroups, nonPostItems } = useAppSelector(selectUnreadNotificationsInboxGroupedByPost);
 
   const pendingIncoming = incoming.filter((r) => r.status === 'pending');
   const pendingCircleInvites = incomingCircleInvites.filter((r) => r.status === 'pending');
@@ -83,6 +94,11 @@ export default function NotificationsScreen() {
       addToast({ type: 'error', title: 'Failed to respond' });
     }
   };
+
+  const handleOpenInboxItem = useCallback(async (item: UserInboxItem) => {
+    if (!currentUser) return;
+    await openUserInboxItem(currentUser.id, item);
+  }, [currentUser]);
 
   const handleRespondToCircleInvite = async (
     requestId: string,
@@ -150,15 +166,93 @@ export default function NotificationsScreen() {
           </Pressable>
         )}
 
-        {/* Empty state — only shown when both request types are empty */}
-        {pendingIncoming.length === 0 && pendingCircleInvites.length === 0 && pendingConnRequests.length === 0 ? (
+        {postGroups.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { color: theme.foreground }]}>
+              Activity on posts
+            </Text>
+            {postGroups.map((group) => {
+              const post = posts.find((entry) => {
+                return entry.id === group.postId;
+              });
+              const author = post ? usersMap[post.authorId] : undefined;
+              const postLabel = post
+                ? `${getPostAuthorName(author, currentUser)}'s post`
+                : 'Post activity';
+              return (
+                <Card key={group.postId} style={styles.requestCard}>
+                  <Text style={[styles.activityPostTitle, { color: theme.foreground }]}>
+                    {postLabel}
+                  </Text>
+                  {group.items.map((item) => {
+                    const preview = getUserInboxItemPreview(item);
+                    return (
+                      <Pressable
+                        key={item.id}
+                        onPress={() => {
+                          void handleOpenInboxItem(item);
+                        }}
+                        style={styles.activityItemRow}
+                      >
+                        <Text style={[styles.activityItemTitle, { color: theme.foreground }]}>
+                          {getUserInboxItemLabel(item)}
+                        </Text>
+                        {preview ? (
+                          <Text style={[styles.activityItemPreview, { color: theme.mutedForeground }]} numberOfLines={2}>
+                            {preview}
+                          </Text>
+                        ) : null}
+                      </Pressable>
+                    );
+                  })}
+                </Card>
+              );
+            })}
+          </>
+        )}
+
+        {nonPostItems.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { color: theme.foreground }]}>
+              Activity
+            </Text>
+            {nonPostItems.map((item) => {
+              const preview = getUserInboxItemPreview(item);
+              return (
+                <Card key={item.id} style={styles.requestCard}>
+                  <Pressable
+                    onPress={() => {
+                      void handleOpenInboxItem(item);
+                    }}
+                  >
+                    <Text style={[styles.activityItemTitle, { color: theme.foreground }]}>
+                      {getUserInboxItemLabel(item)}
+                    </Text>
+                    {preview ? (
+                      <Text style={[styles.activityItemPreview, { color: theme.mutedForeground }]} numberOfLines={2}>
+                        {preview}
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                </Card>
+              );
+            })}
+          </>
+        )}
+
+        {/* Empty state */}
+        {pendingIncoming.length === 0
+          && pendingCircleInvites.length === 0
+          && pendingConnRequests.length === 0
+          && postGroups.length === 0
+          && nonPostItems.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🫶</Text>
             <Text style={[styles.emptyText, { color: theme.mutedForeground, textAlign: 'center' }]}>
               You're all caught up!
             </Text>
             <Text style={[styles.emptySubtext, { color: theme.mutedForeground, textAlign: 'center' }]}>
-              Circle join requests, Circle invites, and connection requests will show up here.
+              Replies, new posts, and requests will show up here.
             </Text>
           </View>
         ) : (
@@ -405,6 +499,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontStyle: 'italic',
     marginBottom: 8,
+  },
+  activityPostTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  activityItemRow: {
+    paddingVertical: 8,
+    gap: 4,
+  },
+  activityItemTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  activityItemPreview: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   requestActions: {
     flexDirection: 'row',

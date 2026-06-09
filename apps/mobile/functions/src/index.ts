@@ -853,15 +853,10 @@ async function buildUserInboxItem(
 			senderLastName: notification.senderLastName,
 			messagePreview: notification.messagePreview,
 		};
-	default:
-		return {
-			...base,
-			type: 'connection_accepted',
-			surface: 'notifications',
-			toFirstName: '',
-			toLastName: '',
-			connectionRequestId: '',
-		};
+	default: {
+		const _exhaustive: never = notification;
+		throw new Error(`Unsupported notification type for inbox: ${(_exhaustive as AppNotification).type}`);
+	}
 	}
 }
 

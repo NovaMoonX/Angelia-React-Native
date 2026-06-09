@@ -567,6 +567,12 @@ export interface PrivateNoteReplyNotificationsInboxItem extends BaseUserInboxIte
   messagePreview: string;
 }
 
+export interface PostUnreadDetail {
+  hasNewReactions: boolean;
+  hasNewPrivateNotes: boolean;
+  hasNewMessages: boolean;
+}
+
 export type UserInboxItem =
   | JoinChannelRequestInboxItem
   | JoinChannelAcceptedInboxItem

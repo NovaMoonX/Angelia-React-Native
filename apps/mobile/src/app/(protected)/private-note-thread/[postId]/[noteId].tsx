@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -23,8 +22,8 @@ import { selectPrivateNoteById } from '@/store/slices/privateNotesSlice';
 import { useTheme } from '@/hooks/useTheme';
 import { usePrivateNoteThread } from '@/hooks/usePrivateNoteThread';
 import { sendPrivateNoteReply } from '@/store/actions/privateNoteThreadActions';
+import { markUserInboxReadForPost } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
-import { PRIVATE_NOTE_THREAD_SEEN_KEY } from '@/models/constants';
 import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import type { Message } from '@/models/types';
 
@@ -92,20 +91,23 @@ export default function PrivateNoteThreadScreen() {
     return unsubscribe;
   }, [goBack, navigation]);
 
+  const inboxItems = useAppSelector((state) => state.userInbox.items);
+
   useFocusEffect(
     useCallback(() => {
-      if (!postId || !noteId) {
+      if (!postId || !noteId || !currentUser) {
         return undefined;
       }
-      void Promise.all([
-        AsyncStorage.setItem(PRIVATE_NOTE_THREAD_SEEN_KEY(postId, noteId), String(Date.now())),
-        dismissNotificationsByData({ type: 'private_note_reply', postId, noteId }).catch(() => {}),
-      ]).catch(() => {});
-
-      return () => {
-        void AsyncStorage.setItem(PRIVATE_NOTE_THREAD_SEEN_KEY(postId, noteId), String(Date.now()));
-      };
-    }, [noteId, postId]),
+      void markUserInboxReadForPost(
+        currentUser.id,
+        inboxItems,
+        postId,
+        ['private_note_reply'],
+        noteId,
+      ).catch(() => {});
+      void dismissNotificationsByData({ type: 'private_note_reply', postId, noteId }).catch(() => {});
+      return undefined;
+    }, [currentUser, inboxItems, noteId, postId]),
   );
 
   const seedMessage: Message | null = useMemo(() => {

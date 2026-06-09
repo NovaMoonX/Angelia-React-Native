@@ -38,8 +38,6 @@ import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import { getUserDisplayName } from '@/lib/user/user.utils';
 import {
 	POST_TIERS,
-	POST_REACTIONS_SEEN_KEY,
-	CONVERSATION_LAST_SEEN_KEY,
 	JOIN_CUSTOM_CIRCLE_SUGGESTIONS_SEEN_KEY,
 	POST_DETAIL_UNREAD_LEAVE_WARNING_DISABLED_KEY,
 } from '@/models/constants';
@@ -47,7 +45,7 @@ import { EmojiPicker } from '@/components/EmojiPicker';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { updatePostReactions, removePostReactionEmojiForUser, deletePostAction } from '@/store/actions/postActions';
-import { subscribeToMessages } from '@/services/firebase/firestore';
+import { markUserInboxReadForPost, subscribeToMessages } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
 import { CircleJoinSuggestionsModal } from '@/components/CircleJoinSuggestionsModal';
 import { sendJoinRequest } from '@/store/actions/inviteActions';
@@ -110,7 +108,22 @@ export default function PostDetailScreen() {
 	const [requestingChannelId, setRequestingChannelId] = useState<string | null>(null);
 	const isRoutingAwayRef = useRef(false);
 	// Tracks whether there are new conversation messages the user hasn't seen
-	const [hasUnreadConversation, setHasUnreadConversation] = useState(false);
+	const inboxItems = useAppSelector((state) => state.userInbox.items);
+	const inboxItemsRef = useRef(inboxItems);
+	useEffect(() => {
+		inboxItemsRef.current = inboxItems;
+	}, [inboxItems]);
+
+	const hasUnreadConversation = useMemo(() => {
+		if (!id) return false;
+		return inboxItems.some((item) => {
+			return item.readAt === null
+				&& item.surface === 'post_activity'
+				&& item.type === 'conversation_message'
+				&& 'postId' in item
+				&& item.postId === id;
+		});
+	}, [id, inboxItems]);
 	const [showUnreadLeaveModal, setShowUnreadLeaveModal] = useState(false);
 	const [disableUnreadLeaveWarning, setDisableUnreadLeaveWarning] = useState(false);
 	const suggestionsEntry = useAppSelector((state) => {
@@ -146,26 +159,13 @@ export default function PostDetailScreen() {
 		handleHeaderBack();
 	}, [handleHeaderBack]);
 
-	// Only count inbound messages for unread state; your own messages should never mark unread.
-	const latestIncomingMessageTimestamp = useMemo(
-		() => {
-			const incoming = conversationMessages.filter((m) => {
-				return Boolean(m.isSystem) === false && m.authorId !== currentUserId;
-			});
-			return incoming.length > 0 ? Math.max(...incoming.map((m) => m.timestamp)) : 0;
-		},
-		[conversationMessages, currentUserId],
-	);
-
-	// For authored posts, DataListenerWrapper owns the global messages listener.
-	// Keep this local subscription only for non-host contexts.
 	useEffect(() => {
-		if (!id || isDemo || isHost) return;
+		if (!id || isDemo) return;
 		const unsub = subscribeToMessages(id, (msgs) => {
 			dispatch(setMessages({ postId: id, messages: msgs }));
 		});
 		return unsub;
-	}, [id, dispatch, isDemo, isHost]);
+	}, [id, dispatch, isDemo]);
 
 	// Reactions are only marked seen after visiting post detail (not from the post-activity card).
 	// Clear reaction unread when the user leaves this screen (not immediately on open).
@@ -179,9 +179,7 @@ export default function PostDetailScreen() {
 			void dismissNotificationsByData({ type: 'post_reaction', postId: id }).catch(() => {});
 
 			return () => {
-				const seenAt = String(Date.now());
-				void AsyncStorage.setItem(POST_REACTIONS_SEEN_KEY(currentUser.id, id), seenAt).catch(() => {});
-				// Dismiss reaction notifications for this specific post.
+				void markUserInboxReadForPost(currentUser.id, inboxItemsRef.current, id, ['post_reaction']).catch(() => {});
 				void dismissNotificationsByData({ type: 'post_reaction', postId: id }).catch(() => {});
 			};
 		}, [currentUser?.id, id]),
@@ -229,22 +227,6 @@ export default function PostDetailScreen() {
 				setSeenCircleSuggestionIds([]);
 			});
 	}, [currentUser?.id]);
-
-	// Re-check conversation unread dot on focus (clears after the user visits conversation screen)
-	useFocusEffect(
-		useCallback(() => {
-			if (!id || latestIncomingMessageTimestamp === 0) {
-				setHasUnreadConversation(false);
-				return;
-			}
-			AsyncStorage.getItem(CONVERSATION_LAST_SEEN_KEY(id))
-				.then((val) => {
-					const lastSeen = val ? Number(val) : 0;
-					setHasUnreadConversation(latestIncomingMessageTimestamp > lastSeen);
-				})
-				.catch(() => setHasUnreadConversation(false));
-		}, [id, latestIncomingMessageTimestamp]),
-	);
 
 	const handleCarouselIndexChange = (index: number) => {
 		setActiveCarouselIndex(index);

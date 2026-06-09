@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { Card } from '@/components/ui/Card';
@@ -26,7 +26,7 @@ export default function PostActivityScreen() {
   const { scope } = useLocalSearchParams<{ scope?: string }>();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { summaries, unreadDetailsByPostId, refreshSeenState } = useAuthorPostActivity();
+  const { summaries, unreadDetailsByPostId } = useAuthorPostActivity();
   const channels = useAppSelector(selectAllChannels);
   const uploadingPosts = useAppSelector(selectCurrentUserUploadingPosts);
   const uploadProgressMap = useAppSelector(selectCurrentUserUploadProgressMap);
@@ -49,18 +49,10 @@ export default function PostActivityScreen() {
     });
   }, [selectedCircleId, summaries]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void refreshSeenState().catch(() => {});
-      return undefined;
-    }, [refreshSeenState]),
-  );
-
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refreshSeenState().catch(() => {});
     setRefreshing(false);
-  }, [refreshSeenState]);
+  }, []);
 
   const circles = useMemo(() => {
     if (!currentUser) return [];

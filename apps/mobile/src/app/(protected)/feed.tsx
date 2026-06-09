@@ -86,7 +86,7 @@ export default function FeedScreen() {
 	const uploadingPosts = useAppSelector(selectCurrentUserUploadingPosts);
 	const uploadAggregateProgress = useAppSelector(selectCurrentUserUploadAggregateProgress);
 	const pendingTasks = useAppSelector((state) => state.tasks.items);
-	const { hasUnread: hasUnreadPostActivity, refreshSeenState } = useAuthorPostActivity();
+	const { hasUnread: hasUnreadPostActivity } = useAuthorPostActivity();
 
 	useFocusEffect(
 		useCallback(() => {
@@ -96,9 +96,7 @@ export default function FeedScreen() {
 
 			let timeoutId: ReturnType<typeof setTimeout> | null = null;
 			let idleCallbackId: number | null = null;
-			const runRefresh = () => {
-				void refreshSeenState();
-			};
+			const runRefresh = () => {};
 			if (typeof globalThis.requestIdleCallback === 'function') {
 				idleCallbackId = globalThis.requestIdleCallback(() => {
 					runRefresh();
@@ -135,7 +133,7 @@ export default function FeedScreen() {
 					clearTimeout(timeoutId);
 				}
 			};
-		}, [posts.length, postsLoaded, refreshSeenState]),
+		}, [posts.length, postsLoaded]),
 	);
 
 	// Auto-complete tasks when their conditions are already met on load.
@@ -342,9 +340,8 @@ export default function FeedScreen() {
 		setIsRefreshing(true);
 		flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
 		setDisplayCount(INITIAL_PAGE);
-		await refreshSeenState().catch(() => {});
 		setIsRefreshing(false);
-	}, [refreshSeenState]);
+	}, []);
 
 	const openFeedReactionPill = useCallback((postId: string) => {
 		setActiveReactionPeelPostId((prev) => {

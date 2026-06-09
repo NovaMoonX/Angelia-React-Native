@@ -10,12 +10,6 @@ import type { Post } from '@/models/types';
 export interface AuthorPostActivitySummary {
   post: Post;
   circleLabel: string;
-  reactionCount: number;
-  privateNoteCount: number;
-  messageCount: number;
-  latestNoteTimestamp: number;
-  latestMessageTimestamp: number;
-  lastActivityTimestamp: number;
 }
 
 /**
@@ -31,11 +25,18 @@ export const selectHasAnyPendingActivity = createSelector(
     (state: RootState) => state.invites.incoming,
     (state: RootState) => state.invites.incomingCircleInvites,
     (state: RootState) => state.connections.incomingRequests,
+    (state: RootState) => state.userInbox.items,
   ],
-  (incomingInvites, incomingCircleInvites, incomingConnRequests) =>
-    incomingInvites.some((r) => r.status === 'pending') ||
-    incomingCircleInvites.some((r) => r.status === 'pending') ||
-    incomingConnRequests.some((r) => r.status === 'pending'),
+  (incomingInvites, incomingCircleInvites, incomingConnRequests, inboxItems) => {
+    const hasPendingRequests =
+      incomingInvites.some((r) => { return r.status === 'pending'; })
+      || incomingCircleInvites.some((r) => { return r.status === 'pending'; })
+      || incomingConnRequests.some((r) => { return r.status === 'pending'; });
+    const hasUnreadInboxNotifications = inboxItems.some((item) => {
+      return item.readAt === null && item.surface === 'notifications';
+    });
+    return hasPendingRequests || hasUnreadInboxNotifications;
+  },
 );
 
 /**
@@ -102,8 +103,6 @@ export const selectAuthorPostActivitySummaries = createSelector(
     (state: RootState) => state.posts.items,
     (state: RootState) => state.channels.items,
     (state: RootState) => state.channels.connectionChannels,
-    (state: RootState) => state.privateNotes.notesByPost,
-    (state: RootState) => state.conversation.messagesByPost,
   ],
   (
     currentUser,
@@ -111,8 +110,6 @@ export const selectAuthorPostActivitySummaries = createSelector(
     posts,
     channels,
     connectionChannels,
-    notesByPost,
-    messagesByPost,
   ): AuthorPostActivitySummary[] => {
     if (!currentUser) return [];
 
@@ -142,36 +139,12 @@ export const selectAuthorPostActivitySummaries = createSelector(
             : channel.name
           : 'Circle';
 
-        const notes = notesByPost[post.id] ?? [];
-        const messages = (messagesByPost[post.id] ?? []).filter((message) => {
-          return message.isSystem !== true;
-        });
-
-        const latestNoteTimestamp = notes.reduce((latest, note) => {
-          return note.timestamp > latest ? note.timestamp : latest;
-        }, 0);
-        const latestMessageTimestamp = messages.reduce((latest, message) => {
-          return message.timestamp > latest ? message.timestamp : latest;
-        }, 0);
-        const reactionCount = post.reactions.length;
-        const privateNoteCount = notes.length;
-        const messageCount = messages.length;
-
         return {
           post,
           circleLabel,
-          reactionCount,
-          privateNoteCount,
-          messageCount,
-          latestNoteTimestamp,
-          latestMessageTimestamp,
-          lastActivityTimestamp: Math.max(post.timestamp, latestNoteTimestamp, latestMessageTimestamp),
         };
       })
       .sort((a, b) => {
-        if (b.lastActivityTimestamp !== a.lastActivityTimestamp) {
-          return b.lastActivityTimestamp - a.lastActivityTimestamp;
-        }
         return b.post.timestamp - a.post.timestamp;
       });
   },

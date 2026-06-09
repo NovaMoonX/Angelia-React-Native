@@ -26,7 +26,7 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { selectMessages, setMessages } from '@/store/slices/conversationSlice';
 import { joinConversation } from '@/store/actions/postActions';
-import { subscribeToMessages } from '@/services/firebase/firestore';
+import { markUserInboxReadForPost, subscribeToMessages } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
 
 import { useTheme } from '@/hooks/useTheme';
@@ -39,7 +39,6 @@ import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import {
   POST_TIERS,
   CONVERSATION_EDIT_HINT_SEEN_KEY,
-  CONVERSATION_LAST_SEEN_KEY,
   CONVERSATION_REPLY_HINT_SEEN_KEY,
 } from '@/models/constants';
 import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
@@ -112,30 +111,24 @@ export default function ConversationScreen() {
   const canAccessConversation = hasReacted || isHost;
   const isInConversation = post?.conversationEnrollees.includes(currentUser?.id ?? '') ?? false;
 
-  // Skip subscription for hosted posts — global listener in useDataListenerRealtimeData
-  // already handles message subscriptions for posts where the current user is the author.
   useEffect(() => {
-    if (!postId || isDemo || isHost) return;
+    if (!postId || isDemo) return;
     const unsub = subscribeToMessages(postId, (msgs) => {
       dispatch(setMessages({ postId, messages: msgs }));
     });
     return unsub;
-  }, [postId, dispatch, isDemo, isHost]);
+  }, [postId, dispatch, isDemo]);
 
-  // Record when the user last opened this conversation to drive the unread indicator
+  const inboxItems = useAppSelector((state) => state.userInbox.items);
+
   useFocusEffect(
     useCallback(() => {
-      if (!postId || isDemo) return;
-      void Promise.all([
-        AsyncStorage.setItem(CONVERSATION_LAST_SEEN_KEY(postId), String(Date.now())),
-        dismissNotificationsByData({ type: 'conversation_message', postId }).catch(() => {}),
-        dismissNotificationsByData({ type: 'comment_reply', postId }).catch(() => {}),
-      ]).catch(() => {});
-
-      return () => {
-        void AsyncStorage.setItem(CONVERSATION_LAST_SEEN_KEY(postId), String(Date.now()));
-      };
-    }, [postId, isDemo]),
+      if (!postId || isDemo || !currentUser) return;
+      void markUserInboxReadForPost(currentUser.id, inboxItems, postId, ['conversation_message']).catch(() => {});
+      void markUserInboxReadForPost(currentUser.id, inboxItems, postId, ['comment_reply']).catch(() => {});
+      void dismissNotificationsByData({ type: 'conversation_message', postId }).catch(() => {});
+      void dismissNotificationsByData({ type: 'comment_reply', postId }).catch(() => {});
+    }, [currentUser, inboxItems, postId, isDemo]),
   );
 
   usePostComments({ postId });

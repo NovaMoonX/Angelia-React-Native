@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useNavigation, type EventArg } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,7 +14,7 @@ import { usePrivateNoteThreadsForPost } from '@/hooks/usePrivateNoteThreadsForPo
 import { usePrivateNoteConversationsNotice } from '@/hooks/usePrivateNoteConversationsNotice';
 import { usePrivateNoteUnreadForPost } from '@/hooks/usePrivateNoteUnreadForPost';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { PRIVATE_NOTES_SEEN_KEY } from '@/models/constants';
+import { markUserInboxReadForPost } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
 
 export default function PrivateNotesScreen() {
@@ -87,14 +86,15 @@ export default function PrivateNotesScreen() {
 		}
 	}, [currentUser, goToPostDetails, isHost, post]);
 
+	const inboxItems = useAppSelector((state) => state.userInbox.items);
+
 	useEffect(() => {
-		if (!postId || !isHost) return;
-		void AsyncStorage.setItem(PRIVATE_NOTES_SEEN_KEY(postId), String(Date.now()));
+		if (!postId || !isHost || !currentUser) return;
+		void markUserInboxReadForPost(currentUser.id, inboxItems, postId, ['private_note']).catch(() => {});
 		void dismissNotificationsByData({ type: 'private_note', postId }).catch(() => {
 			return null;
 		});
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [postId, isHost]);
+	}, [currentUser, inboxItems, postId, isHost]);
 
 	if (!post || !currentUser || !isHost) {
 		return (
