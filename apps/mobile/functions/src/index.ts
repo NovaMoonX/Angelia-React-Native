@@ -1256,9 +1256,61 @@ export const onDisconnectRequest = onDocumentCreated('disconnectRequests/{reques
  * @param bucket The Firebase Storage bucket instance
  * @returns true if deletion succeeded, false otherwise
  */
+async function deleteUserInboxItemsForPost(postId: string): Promise<void> {
+	const snap = await db.collectionGroup('items').where('postId', '==', postId).get();
+	if (snap.empty) {
+		return;
+	}
+
+	const batch = db.batch();
+	for (const itemDoc of snap.docs) {
+		batch.delete(itemDoc.ref);
+	}
+	await batch.commit();
+}
+
+async function deleteUserInboxItemsForChannel(channelId: string): Promise<void> {
+	const snap = await db.collectionGroup('items').where('channelId', '==', channelId).get();
+	if (snap.empty) {
+		return;
+	}
+
+	const batch = db.batch();
+	for (const itemDoc of snap.docs) {
+		batch.delete(itemDoc.ref);
+	}
+	await batch.commit();
+}
+
+/**
+ * Triggered when a post document is updated. When the author marks a post for
+ * deletion, remove all userInbox items tied to that post immediately rather than
+ * waiting for the nightly hard-delete job.
+ */
+export const onPostMarkedForDeletion = onDocumentUpdated('posts/{postId}', async (event) => {
+	const before = event.data?.before.data() as { markedForDeletionAt?: number | null } | undefined;
+	const after = event.data?.after.data() as { markedForDeletionAt?: number | null } | undefined;
+
+	if (!before || !after) return;
+
+	const wasMarked = before.markedForDeletionAt != null;
+	const isMarked = after.markedForDeletionAt != null;
+	if (wasMarked || !isMarked) return;
+
+	const postId = event.params.postId;
+	try {
+		await deleteUserInboxItemsForPost(postId);
+		console.log(`onPostMarkedForDeletion: removed inbox items for post ${postId}`);
+	} catch (err) {
+		console.error(`onPostMarkedForDeletion: failed to remove inbox items for post ${postId}:`, err);
+	}
+});
+
 async function deletePostWithMedia(postRef: admin.firestore.DocumentReference, bucket: any): Promise<boolean> {
 	const postId = postRef.id;
 	try {
+		await deleteUserInboxItemsForPost(postId);
+
 		// Delete Firebase Storage media files (best-effort).
 		try {
 			await bucket.deleteFiles({ prefix: `posts/${postId}/` });
@@ -1339,7 +1391,10 @@ export const deleteMarkedChannels = onSchedule('every 24 hours', async () => {
 				await batch.commit();
 			}
 
-			// ── Step 4: Delete the channel document itself ────────────────────────────
+			// ── Step 4: Remove inbox items tied to this channel ─────────────────────
+			await deleteUserInboxItemsForChannel(channelId);
+
+			// ── Step 5: Delete the channel document itself ────────────────────────────
 			await channelDoc.ref.delete();
 
 			console.log(

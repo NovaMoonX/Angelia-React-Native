@@ -14,3 +14,5 @@ Current branch highlights:
 - New reactions on your posts stay unread until you open post detail — scrolling past cards in Post Activity no longer clears them.
 - Feed and Post Activity now have expiring-soon filters so you can spot posts about to expire; on Feed, a separate row below status filters highlights ones you haven't reacted to yet.
 - Notifications groups activity by post (replies, new posts, and more) so you can see what happened on each post at a glance.
+- Post creation tips stay dismissed once you close them — they won't pop back up when you start a new post.
+- Notifications for deleted posts and circles are cleaned up automatically.

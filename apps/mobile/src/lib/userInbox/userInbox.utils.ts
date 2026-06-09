@@ -1,9 +1,63 @@
 import { InteractionManager } from 'react-native';
 import { router } from 'expo-router';
-import type { UserInboxItem } from '@/models/types';
+import type { Channel, Post, UserInboxItem } from '@/models/types';
 import { withNotificationsEntry } from '@/lib/navigation/entryNavigation.utils';
 import { markUserInboxItemRead } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
+
+const itemHasPostId = (item: UserInboxItem): item is UserInboxItem & { postId: string } => {
+  return 'postId' in item && typeof item.postId === 'string';
+};
+
+const itemHasChannelId = (item: UserInboxItem): item is UserInboxItem & { channelId: string } => {
+  return 'channelId' in item && typeof item.channelId === 'string';
+};
+
+const isChannelActive = (channel: Channel | undefined): boolean => {
+  return channel != null && channel.markedForDeletionAt === null;
+};
+
+const isPostActive = (post: Post | undefined, channelsById: Map<string, Channel>): boolean => {
+  if (post == null || post.markedForDeletionAt !== null || post.status !== 'ready') {
+    return false;
+  }
+  return isChannelActive(channelsById.get(post.channelId));
+};
+
+export function isUserInboxItemValid(
+  item: UserInboxItem,
+  postsById: Map<string, Post>,
+  channelsById: Map<string, Channel>,
+): boolean {
+  if (itemHasPostId(item)) {
+    return isPostActive(postsById.get(item.postId), channelsById);
+  }
+  if (itemHasChannelId(item)) {
+    return isChannelActive(channelsById.get(item.channelId));
+  }
+  return true;
+}
+
+export function partitionUserInboxItems(
+  items: UserInboxItem[],
+  posts: Post[],
+  channels: Channel[],
+): { validItems: UserInboxItem[]; staleItemIds: string[] } {
+  const postsById = new Map(posts.map((post) => [post.id, post] as const));
+  const channelsById = new Map(channels.map((channel) => [channel.id, channel] as const));
+  const validItems: UserInboxItem[] = [];
+  const staleItemIds: string[] = [];
+
+  items.forEach((item) => {
+    if (isUserInboxItemValid(item, postsById, channelsById)) {
+      validItems.push(item);
+      return;
+    }
+    staleItemIds.push(item.id);
+  });
+
+  return { validItems, staleItemIds };
+}
 
 function scheduleInboxItemRead(userId: string, itemId: string): void {
   InteractionManager.runAfterInteractions(() => {

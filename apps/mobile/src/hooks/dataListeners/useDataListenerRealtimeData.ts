@@ -52,7 +52,9 @@ import {
   subscribeToTasks,
   subscribeToUserInbox,
   subscribeToMobileAppConfig,
+  markUserInboxItemsRead,
 } from '@/services/firebase/firestore';
+import { partitionUserInboxItems } from '@/lib/userInbox/userInbox.utils';
 import { requestNotificationPermission } from '@/services/notifications';
 import type {
   Channel,
@@ -501,14 +503,18 @@ export function useDataListenerRealtimeData() {
 
     userInboxUnsubRef.current?.();
     userInboxUnsubRef.current = subscribeToUserInbox(currentUser.id, (items) => {
-      dispatch(setUserInboxItems(items));
+      const { validItems, staleItemIds } = partitionUserInboxItems(items, posts, channels);
+      if (staleItemIds.length > 0) {
+        void markUserInboxItemsRead(currentUser.id, staleItemIds).catch(() => {});
+      }
+      dispatch(setUserInboxItems(validItems));
     });
 
     return () => {
       userInboxUnsubRef.current?.();
       userInboxUnsubRef.current = null;
     };
-  }, [currentUser?.id, dispatch, firebaseUser, isDemo]);
+  }, [channels, currentUser?.id, dispatch, firebaseUser, isDemo, posts]);
 
   useEffect(() => {
     if (isDemo) {
