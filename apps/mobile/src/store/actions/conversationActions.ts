@@ -8,18 +8,8 @@ import {
 } from '@/services/firebase/firestore';
 import { addMessageOptimistic, updateMessageTextOptimistic } from '@/store/slices/conversationSlice';
 import { generateId } from '@/utils/generateId';
+import { buildTextPreview } from '@/lib/message/messagePreview.utils';
 import { isDemoActive } from './globalActions';
-
-function buildMessagePreview(text: string): string {
-  const normalized = text.replace(/\s+/g, ' ').trim();
-  if (!normalized) {
-    return 'New message';
-  }
-  if (normalized.length <= 120) {
-    return normalized;
-  }
-  return `${normalized.slice(0, 117)}...`;
-}
 
 /**
  * Send a chat message to a post's conversation.
@@ -104,7 +94,7 @@ export const sendMessage = createAsyncThunk(
       }
       await firestoreAddMessage(postId, message);
 
-      const messagePreview = buildMessagePreview(message.text);
+      const messagePreview = buildTextPreview(message.text, 'New message') ?? 'New message';
 
       if (replyTargetUserId && parentMessage) {
         const replyNotification: CommentReplyNotification = {

@@ -143,7 +143,13 @@ Use the iPhone when:
 - [ ] Tap an inbox Activity item -> destination opens first; item marks read only after navigation (stays visible briefly on Notifications)
 - [ ] From Notifications or a push tap, open conversation/post/private notes -> back returns to **Notifications** (not Feed or post detail)
 - [ ] B triggers `comment_reply` on another host's post -> item appears under **Notifications** Activity (grouped by post), not Post Activity
-- [ ] Notifications Activity section groups multiple items under the same post header
+- [ ] **Activity on your posts** section groups replies on your posts under a single "Your post" header with one snippet
+- [ ] **Activity** section shows new posts and other items as flat cards (no duplicate author name or post snippet)
+- [ ] Names use first name + last initial (e.g. "Alex T.") — not full name repeated in badges
+- [ ] Daily Circle badge says "Daily Circle", not the owner's name again
+- [ ] New-post cards show tier badge, circle label, and post snippet once
+- [ ] Reply items show message preview under the action line
+- [ ] Each section header has **Mark all seen** on the same row; confirm only clears that section
 - [ ] Feed bell dot includes unread notification-surface inbox items (not only pending connection requests)
 - [ ] Push notifications still arrive when inbox items are written
 

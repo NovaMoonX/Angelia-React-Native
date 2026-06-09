@@ -96,6 +96,7 @@ interface NewPostNotification extends BaseAppNotification {
 	hasAttachments: boolean;
 	authorFirstName: string;
 	authorLastName: string;
+	postTextPreview: string | null;
 }
 
 type UnifiedPostNotificationInput = NewPostNotification;
@@ -178,7 +179,7 @@ type UserInboxItem = BaseUserInboxItem & (
 	| { type: 'post_reaction'; postId: string; reactorFirstName: string; reactorLastName: string; emoji: string }
 	| { type: 'conversation_message'; postId: string; senderFirstName: string; senderLastName: string; messagePreview: string }
 	| { type: 'comment_reply'; postId: string; parentMessageId: string; senderFirstName: string; senderLastName: string; messagePreview: string }
-	| { type: 'new_post'; postId: string; channelId: string; channelName: string; isDaily: boolean; tier: PostTier; hasAttachments: boolean; authorFirstName: string; authorLastName: string }
+	| { type: 'new_post'; postId: string; channelId: string; channelName: string; isDaily: boolean; tier: PostTier; hasAttachments: boolean; authorFirstName: string; authorLastName: string; postTextPreview: string | null }
 	| { type: 'private_note'; postId: string; authorFirstName: string; authorLastName: string }
 	| { type: 'private_note_reply'; postId: string; noteId: string; senderFirstName: string; senderLastName: string; messagePreview: string }
 );
@@ -454,6 +455,7 @@ function buildUnifiedPostPayload(n: UnifiedPostNotificationInput): {
 			hasAttachments: String(n.hasAttachments),
 			authorFirstName: n.authorFirstName,
 			authorLastName: n.authorLastName,
+			postTextPreview: n.postTextPreview ?? '',
 		},
 	};
 }
@@ -832,6 +834,7 @@ async function buildUserInboxItem(
 			hasAttachments: notification.hasAttachments,
 			authorFirstName: notification.authorFirstName,
 			authorLastName: notification.authorLastName,
+			postTextPreview: notification.postTextPreview ?? null,
 		};
 	case 'private_note':
 		return {

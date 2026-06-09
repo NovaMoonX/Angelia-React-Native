@@ -119,3 +119,69 @@ export const selectUnreadNotificationsInboxGroupedByPost = createSelector(
     return { postGroups, nonPostItems };
   },
 );
+
+export interface NotificationsInboxSections {
+  yourPostGroups: InboxPostGroup[];
+  otherActivityItems: UserInboxItem[];
+}
+
+export const selectUnreadNotificationsInboxSections = createSelector(
+  [
+    selectUnreadNotificationsInboxItems,
+    (state: RootState) => state.posts.items,
+    (state: RootState) => state.users.currentUser?.id ?? null,
+  ],
+  (items, posts, currentUserId): NotificationsInboxSections => {
+    const postsById = new Map(posts.map((post) => {
+      return [post.id, post] as const;
+    }));
+    const yourPostGroupsMap = new Map<string, UserInboxItem[]>();
+    const otherActivityItems: UserInboxItem[] = [];
+
+    items.forEach((item) => {
+      if (!itemHasPostId(item)) {
+        otherActivityItems.push(item);
+        return;
+      }
+
+      if (item.type === 'new_post') {
+        otherActivityItems.push(item);
+        return;
+      }
+
+      const post = postsById.get(item.postId);
+      const isYourPost = post != null
+        && currentUserId != null
+        && post.authorId === currentUserId;
+
+      if (isYourPost) {
+        const existing = yourPostGroupsMap.get(item.postId) ?? [];
+        yourPostGroupsMap.set(item.postId, [...existing, item]);
+        return;
+      }
+
+      otherActivityItems.push(item);
+    });
+
+    const yourPostGroups = Array.from(yourPostGroupsMap.entries())
+      .map(([postId, groupItems]) => {
+        return {
+          postId,
+          items: [...groupItems].sort((a, b) => {
+            return b.createdAt - a.createdAt;
+          }),
+        };
+      })
+      .sort((a, b) => {
+        const aLatest = a.items[0]?.createdAt ?? 0;
+        const bLatest = b.items[0]?.createdAt ?? 0;
+        return bLatest - aLatest;
+      });
+
+    otherActivityItems.sort((a, b) => {
+      return b.createdAt - a.createdAt;
+    });
+
+    return { yourPostGroups, otherActivityItems };
+  },
+);

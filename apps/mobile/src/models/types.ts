@@ -402,6 +402,8 @@ export interface NewPostNotification extends BaseAppNotification {
   hasAttachments: boolean;
   authorFirstName: string;
   authorLastName: string;
+  /** Truncated post text used for inbox and push preview. */
+  postTextPreview: string | null;
 }
 
 /** Written when a Circle member sends the post Host a private note — targets the host. */
@@ -537,6 +539,7 @@ export interface NewPostInboxItem extends BaseUserInboxItem {
   hasAttachments: boolean;
   authorFirstName: string;
   authorLastName: string;
+  postTextPreview: string | null;
 }
 
 export interface PrivateNoteInboxItem extends BaseUserInboxItem {

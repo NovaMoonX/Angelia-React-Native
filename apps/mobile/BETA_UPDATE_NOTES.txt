@@ -17,3 +17,5 @@ Current branch highlights:
 - Post creation tips stay dismissed once you close them — they won't pop back up when you start a new post.
 - Notifications for deleted posts and circles are cleaned up automatically.
 - Circle post notification settings now list every connected person's Daily Circle, with search and collapsed circle cards to keep things tidy.
+- Notifications inbox items now show more at-a-glance context — post snippets, priority tier badges, and circle labels — so you know what happened before you tap.
+- Notifications splits inbox into **Activity on your posts** and **Activity**, with less duplicate info on each card and a per-section **Mark all seen** button.
