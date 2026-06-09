@@ -100,6 +100,32 @@ export default function NotificationsScreen() {
     await openUserInboxItem(currentUser.id, item);
   }, [currentUser]);
 
+  const renderInboxActivityItem = (item: UserInboxItem) => {
+    const actor = usersMap[item.actorId];
+    const preview = getUserInboxItemPreview(item);
+
+    return (
+      <Pressable
+        onPress={() => {
+          void handleOpenInboxItem(item);
+        }}
+        style={styles.activityItemRow}
+      >
+        <Avatar user={actor} size="sm" showStatus={false} />
+        <View style={styles.activityItemContent}>
+          <Text style={[styles.activityItemTitle, { color: theme.foreground }]}>
+            {getUserInboxItemLabel(item)}
+          </Text>
+          {preview ? (
+            <Text style={[styles.activityItemPreview, { color: theme.mutedForeground }]} numberOfLines={2}>
+              {preview}
+            </Text>
+          ) : null}
+        </View>
+      </Pressable>
+    );
+  };
+
   const handleRespondToCircleInvite = async (
     requestId: string,
     accept: boolean,
@@ -185,24 +211,10 @@ export default function NotificationsScreen() {
                     {postLabel}
                   </Text>
                   {group.items.map((item) => {
-                    const preview = getUserInboxItemPreview(item);
                     return (
-                      <Pressable
-                        key={item.id}
-                        onPress={() => {
-                          void handleOpenInboxItem(item);
-                        }}
-                        style={styles.activityItemRow}
-                      >
-                        <Text style={[styles.activityItemTitle, { color: theme.foreground }]}>
-                          {getUserInboxItemLabel(item)}
-                        </Text>
-                        {preview ? (
-                          <Text style={[styles.activityItemPreview, { color: theme.mutedForeground }]} numberOfLines={2}>
-                            {preview}
-                          </Text>
-                        ) : null}
-                      </Pressable>
+                      <React.Fragment key={item.id}>
+                        {renderInboxActivityItem(item)}
+                      </React.Fragment>
                     );
                   })}
                 </Card>
@@ -217,23 +229,9 @@ export default function NotificationsScreen() {
               Activity
             </Text>
             {nonPostItems.map((item) => {
-              const preview = getUserInboxItemPreview(item);
               return (
                 <Card key={item.id} style={styles.requestCard}>
-                  <Pressable
-                    onPress={() => {
-                      void handleOpenInboxItem(item);
-                    }}
-                  >
-                    <Text style={[styles.activityItemTitle, { color: theme.foreground }]}>
-                      {getUserInboxItemLabel(item)}
-                    </Text>
-                    {preview ? (
-                      <Text style={[styles.activityItemPreview, { color: theme.mutedForeground }]} numberOfLines={2}>
-                        {preview}
-                      </Text>
-                    ) : null}
-                  </Pressable>
+                  {renderInboxActivityItem(item)}
                 </Card>
               );
             })}
@@ -506,7 +504,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   activityItemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     paddingVertical: 8,
+    gap: 8,
+  },
+  activityItemContent: {
+    flex: 1,
     gap: 4,
   },
   activityItemTitle: {
