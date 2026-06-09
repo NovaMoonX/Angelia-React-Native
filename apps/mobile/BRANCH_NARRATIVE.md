@@ -315,7 +315,9 @@ Post Activity adds an **Expiring soon** scope filter with soonest-first sort. Fe
 - File: [src/app/(protected)/post-activity.tsx](src/app/(protected)/post-activity.tsx)
 	Expiring scope filter and sort.
 - File: [src/app/(protected)/feed.tsx](src/app/(protected)/feed.tsx)
-	Quick-action pill and filter integration.
+	Expiring quick filter on its own row (dashed outline) below status pills; filter menu integration.
+- File: [docs/2026/06/08/ACTIVITY_EXPIRY_INBOX.md](../../docs/2026/06/08/ACTIVITY_EXPIRY_INBOX.md)
+	Durable feature reference for inbox, expiry, and reaction-seen behavior.
 - File: [src/components/FeedChannelFilterModal.tsx](src/components/FeedChannelFilterModal.tsx)
 	`expiringSoonOnly` toggle on apply.
 

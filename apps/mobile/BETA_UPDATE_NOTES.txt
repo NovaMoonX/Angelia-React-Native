@@ -12,5 +12,5 @@ Current branch highlights:
 - Tap any private note to open a back-and-forth conversation with the other person, just like post conversations.
 - Post details now highlights when someone replied to a private note, with a chevron showing notes are tappable.
 - New reactions on your posts stay unread until you open post detail — scrolling past cards in Post Activity no longer clears them.
-- Feed and Post Activity now have expiring-soon filters so you can spot posts about to expire; the feed quick-action highlights ones you haven't reacted to yet.
+- Feed and Post Activity now have expiring-soon filters so you can spot posts about to expire; on Feed, a separate row below status filters highlights ones you haven't reacted to yet.
 - Notifications groups activity by post (replies, new posts, and more) so you can see what happened on each post at a glance.

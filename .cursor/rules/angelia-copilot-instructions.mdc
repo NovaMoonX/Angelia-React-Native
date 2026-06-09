@@ -234,6 +234,33 @@ All implementation and investigation writeups belong in the repo's central `/doc
 - `/docs/2026/06/04/INVESTIGATION_DIAGRAMS_daily_circle_post_missing.md`
 
 This keeps implementation notes, root-cause reports, and quick references centralized and organized by date.
+
+### Feature implementation docs (`/docs/YYYY/MM/DD/`)
+
+When a feature branch adds or changes user-facing behavior, data models, or Cloud Function flows, **also add a dated feature doc** under `/docs/YYYY/MM/DD/` (same date folder convention as investigations). This is the durable reference for maintainers — separate from the branch-scoped `BRANCH_NARRATIVE.md` and `TESTING.md` in `apps/mobile/`.
+
+**Create or update a feature doc when you ship:**
+- A new Firestore collection or subcollection shape
+- A new notification / inbox type or surface-routing rule
+- A new screen workflow or filter that affects how users find content
+- Any cross-cutting refactor (listeners, selectors, mark-read rules)
+
+**Suggested filename:** `FEATURE_NAME.md` in SCREAMING_SNAKE or descriptive kebab, e.g.:
+- `/docs/2026/06/08/PRIVATE_NOTE_CONVERSATIONS.md`
+- `/docs/2026/06/08/ACTIVITY_EXPIRY_INBOX.md`
+
+**Include:** overview table, data model, access rules / surface routing, client file map, deploy steps, manual test steps, and links to `BRANCH_NARRATIVE.md` / `TESTING.md`.
+
+**⚠️ CRITICAL:** Before marking a user-facing branch task complete, verify the `/docs` feature doc exists (or is updated) alongside `BETA_UPDATE_NOTES.txt`, `BRANCH_NARRATIVE.md`, and `TESTING.md`.
+
+### App-specific docs (`apps/mobile/docs/`)
+
+`apps/mobile/docs/` holds mobile-app references that are not tied to a single feature date:
+- `release-process.md` — production release checklist
+- `ota-modals.md` — Firestore-driven feed modals
+
+Update these when release workflow or modal behavior changes.
+
 ### OTA / server-side feed modals (`apps/mobile/docs/ota-modals.md`)
 
 `apps/mobile/docs/ota-modals.md` is the reference for all three Firestore-driven feed modals (app version update, broadcast message, feedback form). **Update it whenever:**

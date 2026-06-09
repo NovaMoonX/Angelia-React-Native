@@ -1068,7 +1068,8 @@ Run these after all feature tests to confirm nothing was broken.
 ### Android
 
 - [ ] Open Post Activity -> select **Expiring soon** scope -> only warning-window posts appear, soonest expiry first
-- [ ] On Feed, confirm quick-action pill label mentions expiring **and** not reacted; pill count matches unreacted expiring posts only
+- [ ] On Feed, confirm expiring filter sits on its **own row below** the status pills (dashed outline, clock icon)
+- [ ] Tap expiring row -> label changes to "Showing expiring posts you have not reacted to"; count badge matches unreacted expiring posts only
 - [ ] Open feed filter menu -> enable **Expiring soon** -> all expiring posts in scope appear, including ones you already reacted to
 - [ ] Disable expiring filter -> feed returns to normal scope
 

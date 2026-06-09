@@ -42,7 +42,7 @@ const BETA_UPDATE_CHANGES: ChangeEntry[] = [
   {
     emoji: '⏳',
     title: 'Expiring-soon filters',
-    description: 'Spot posts about to expire from Feed and Post Activity; the feed pill highlights ones you have not reacted to yet.',
+    description: 'Spot posts about to expire from Feed and Post Activity; Feed has a dedicated row below status filters for ones you have not reacted to yet.',
   },
   {
     emoji: '🔔',

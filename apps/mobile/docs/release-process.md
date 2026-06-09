@@ -12,6 +12,10 @@ Do these steps **before** triggering any build. This is mandatory — see the co
 
 Edit [`BETA_UPDATE_NOTES.txt`](../BETA_UPDATE_NOTES.txt) with a concise, friendly summary of everything that changed in this release. Write like you're texting a friend — warmly and clearly.
 
+### 1a-ii. Archive feature docs in `/docs`
+
+For each major feature in the release, ensure a dated feature doc exists under `/docs/YYYY/MM/DD/` (e.g. `ACTIVITY_EXPIRY_INBOX.md`). These are the long-lived maintainer references — separate from branch-scoped `BRANCH_NARRATIVE.md` and `TESTING.md`. See `.github/copilot-instructions.md` → *Feature implementation docs*.
+
 ### 1b. Create or update the version release notes file
 
 Create or update `versions/<version>.txt` using the same semantic version as `app.config.js` and `APP_VERSION`. Keep it plain text and list the release updates, improvements, and bug fixes as simple bullets, e.g.:
