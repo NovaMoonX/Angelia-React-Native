@@ -42,13 +42,13 @@ const BETA_UPDATE_CHANGES: ChangeEntry[] = [
   {
     emoji: '⏳',
     title: 'Expiring-soon filters',
-    description: 'Spot posts about to expire from Feed and Post Activity; Feed has a dedicated row below status filters for ones you have not reacted to yet.',
+    description: 'Spot posts about to expire from Feed and Post Activity; Feed has a dedicated row for ones you have not reacted to yet.',
   },
   {
     emoji: '🔔',
-    title: 'Other activity notifications',
-    description: 'Notifications now groups replies and other activity under each post so you can catch up faster.',
-  },
+    title: 'Smarter Notifications inbox',
+    description: 'Activity on your posts and other activity are split into clear sections with snippets, tier badges, and mark-all-seen per section.',
+  }
 ];
 
 interface BetaUpdateModalProps {

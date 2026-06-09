@@ -35,12 +35,21 @@ userInbox/{userId}/items/{itemId}
 
 ### Mark-read triggers
 
+All post screens mark inbox items **on focus** (when the user lands), not on blur — so activity clears even if the app is closed from that screen.
+
 | Screen | Inbox types marked read |
 |---|---|
-| Post detail (blur) | `post_reaction` for that post |
-| Conversation (focus) | `conversation_message` for that post |
+| Post detail (focus) | `post_reaction`, `new_post` for that post |
+| Conversation (focus) | `conversation_message`, `comment_reply` for that post |
 | Private notes host (focus) | `private_note` for that post |
 | Private note thread (focus) | `private_note_reply` for that note |
+
+### Notifications inbox UI (1.0.9)
+
+- **Activity on your posts** — replies grouped under a single "Your post" header with one snippet
+- **Activity** — new posts and other items as flat cards (no duplicate author/snippet)
+- Per-section **Mark all seen** on the section header row (confirmed)
+- Names use first name + last initial; Daily Circle chips say "Daily Circle" (not owner name again)
 
 ## Expiring-soon logic
 
@@ -82,7 +91,7 @@ npm run deploy:indexes
 | Listener | `hooks/dataListeners/useDataListenerRealtimeData.ts` | Single inbox subscription |
 | Firestore | `services/firebase/firestore.ts` | Subscribe + mark-read helpers |
 | Provider | `providers/AuthorPostActivityProvider.tsx` | Thin wrapper over inbox selectors |
-| Notifications | `app/(protected)/notifications.tsx` | Activity section grouped by post |
+| Notifications | `app/(protected)/notifications.tsx` | Your-post vs other-activity sections, rich previews, per-section mark-all-seen |
 | Feed | `app/(protected)/feed.tsx` | Expiring quick filter + menu toggle |
 | Post Activity | `app/(protected)/post-activity.tsx` | Expiring scope filter |
 
