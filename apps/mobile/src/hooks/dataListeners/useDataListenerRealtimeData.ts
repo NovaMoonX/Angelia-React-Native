@@ -501,6 +501,12 @@ export function useDataListenerRealtimeData() {
 
     userInboxUnsubRef.current?.();
     userInboxUnsubRef.current = subscribeToUserInbox(currentUser.id, (items) => {
+      if (__DEV__) {
+        console.log('[userInbox] dispatch', {
+          userId: currentUser.id,
+          unreadCount: items.length,
+        });
+      }
       dispatch(setUserInboxItems(items));
     });
 

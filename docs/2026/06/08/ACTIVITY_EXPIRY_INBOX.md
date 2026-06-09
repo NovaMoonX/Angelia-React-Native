@@ -31,7 +31,7 @@ userInbox/{userId}/items/{itemId}
 | `private_note_reply` | `post_activity` if recipient is post host; else `notifications` | |
 | `comment_reply`, `new_post`, requests/invites | `notifications` | |
 
-**Unread** = items where `readAt === null`. A single `subscribeToUserInbox` listener at startup replaces global per-authored-post message/note listeners.
+**Unread** = items where `readAt == null` (client filters after snapshot; treats missing `readAt` as unread). A single `subscribeToUserInbox` listener at startup replaces global per-authored-post message/note listeners. Cloud Function writes use full `set()` (not merge) so `readAt: null` is stored reliably on re-notifications.
 
 ### Mark-read triggers
 

@@ -187,7 +187,7 @@ export default function PostActivityScreen() {
         />
         {shouldShowNewActivityLabel ? (
           <Text style={[styles.newActivityText, { color: theme.primary }]}>
-            {`New ${newActivityTypes.join(' + ')} since your last app open`}
+            {`New ${newActivityTypes.join(' + ')} — tap post to review`}
           </Text>
         ) : null}
       </View>

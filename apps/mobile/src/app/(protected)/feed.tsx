@@ -86,7 +86,7 @@ export default function FeedScreen() {
 	const uploadingPosts = useAppSelector(selectCurrentUserUploadingPosts);
 	const uploadAggregateProgress = useAppSelector(selectCurrentUserUploadAggregateProgress);
 	const pendingTasks = useAppSelector((state) => state.tasks.items);
-	const { hasUnread: hasUnreadPostActivity } = useAuthorPostActivity();
+	const { hasUnread: hasUnreadPostActivity, unreadPostIds } = useAuthorPostActivity();
 
 	useFocusEffect(
 		useCallback(() => {
@@ -221,15 +221,20 @@ export default function FeedScreen() {
 	const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 98 }).current;
 
 	const channelFilterLabel = useMemo(() => {
-		if (channelFilter.mode === 'all') return 'All Circles';
+		const expiringPrefix = expiringSoonMenuFilter ? '⏳ ' : '';
+		if (channelFilter.mode === 'all') {
+			return expiringSoonMenuFilter ? '⏳ Expiring soon' : 'All Circles';
+		}
 		const count = channelFilter.specificIds.length;
-		if (count === 0) return 'All Circles';
+		if (count === 0) {
+			return expiringSoonMenuFilter ? '⏳ Expiring soon' : 'All Circles';
+		}
 		if (count === 1) {
 			const ch = channels.find((c) => c.id === channelFilter.specificIds[0]);
-			return ch?.name ?? '1 Circle';
+			return `${expiringPrefix}${ch?.name ?? '1 Circle'}`;
 		}
-		return `${count} Circles`;
-	}, [channelFilter, channels]);
+		return `${expiringPrefix}${count} Circles`;
+	}, [channelFilter, channels, expiringSoonMenuFilter]);
 
 	// Feed always excludes the current user's circles. "All" means all circles from other people.
 	const allowedChannelIds = useMemo((): Set<string> => {
@@ -435,6 +440,7 @@ export default function FeedScreen() {
 	]);
 
 	const isChannelFiltered = channelFilter.mode === 'specific' && channelFilter.specificIds.length > 0;
+	const isFilterTriggerActive = isChannelFiltered || expiringSoonMenuFilter;
 
 	const hasActiveFilters = isChannelFiltered || priorityFilter.length > 0 || expiringSoonMenuFilter || expiringUnreactedQuickFilter;
 	const uploadingCount = uploadingPosts.length;
@@ -849,18 +855,18 @@ export default function FeedScreen() {
 						style={[
 							styles.channelFilterButton,
 							{
-								borderColor: isChannelFiltered ? theme.primary : theme.border,
-								backgroundColor: theme.background,
+								borderColor: isFilterTriggerActive ? theme.primary : theme.border,
+								backgroundColor: isFilterTriggerActive ? `${theme.primary}12` : theme.background,
 							},
 						]}
 					>
 						<Text
-							style={[styles.channelFilterText, { color: isChannelFiltered ? theme.primary : theme.foreground }]}
+							style={[styles.channelFilterText, { color: isFilterTriggerActive ? theme.primary : theme.foreground }]}
 							numberOfLines={1}
 						>
 							{channelFilterLabel}
 						</Text>
-						<Feather name='sliders' size={15} color={isChannelFiltered ? theme.primary : theme.mutedForeground} />
+						<Feather name='sliders' size={15} color={isFilterTriggerActive ? theme.primary : theme.mutedForeground} />
 					</Pressable>
 					<Pressable
 						onPress={() => setSortOrder((prev) => (prev === 'newest' ? 'oldest' : 'newest'))}
@@ -915,6 +921,28 @@ export default function FeedScreen() {
 						})}
 					</View>
 				</View>
+
+				{hasUnreadPostActivity ? (
+					<View style={styles.postActivityBannerRow}>
+						<Pressable
+							onPress={() => {
+								router.push({
+									pathname: '/(protected)/post-activity',
+									params: { scope: 'unread' },
+								});
+							}}
+							style={[styles.postActivityBanner, { backgroundColor: theme.primary }]}
+						>
+							<Feather name='bell' size={16} color={theme.primaryForeground} />
+							<Text style={[styles.postActivityBannerText, { color: theme.primaryForeground }]}>
+								{unreadPostIds.length === 1
+									? 'New activity on 1 of your posts — tap to review'
+									: `New activity on ${unreadPostIds.length} of your posts — tap to review`}
+							</Text>
+							<Feather name='chevron-right' size={16} color={theme.primaryForeground} />
+						</Pressable>
+					</View>
+				) : null}
 
 				{expiringUnreactedCount > 0 ? (
 					<View style={styles.expiringFilterRow}>
@@ -1266,6 +1294,23 @@ const styles = StyleSheet.create({
 	priorityFilterPillText: {
 		fontSize: 11,
 		fontWeight: '500',
+	},
+	postActivityBannerRow: {
+		paddingHorizontal: 16,
+		paddingBottom: 10,
+	},
+	postActivityBanner: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		borderRadius: 10,
+		paddingHorizontal: 14,
+		paddingVertical: 10,
+		gap: 8,
+	},
+	postActivityBannerText: {
+		flex: 1,
+		fontSize: 13,
+		fontWeight: '600',
 	},
 	expiringFilterRow: {
 		paddingHorizontal: 16,

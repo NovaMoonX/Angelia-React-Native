@@ -865,12 +865,13 @@ async function writeUserInboxItem(
 	targetUserId: string,
 ): Promise<void> {
 	const item = await buildUserInboxItem(notification, targetUserId);
+	// Full document write so readAt: null is stored reliably (merge would drop null fields).
 	await db
 		.collection('userInbox')
 		.doc(targetUserId)
 		.collection('items')
 		.doc(item.id)
-		.set(item, { merge: true });
+		.set(item);
 }
 
 /**
@@ -892,7 +893,13 @@ export const sendAppNotification = onDocumentCreated('notifications/{notificatio
 	if (notification.target.type === 'user') {
 		// ── Single-user target ─────────────────────────────────────────────
 		const targetUserId = notification.target.userId;
-		await writeUserInboxItem(notification, targetUserId).catch(() => {});
+		await writeUserInboxItem(notification, targetUserId).catch((error) => {
+			console.error('[userInbox] write failed (single user)', {
+				targetUserId,
+				type: notification.type,
+				error,
+			});
+		});
 		const targetSettings = await getNotificationSettingsForUser(targetUserId);
 
 		if (!isPostActivityNotificationEnabled(notification, targetSettings)) {
@@ -948,7 +955,13 @@ export const sendAppNotification = onDocumentCreated('notifications/{notificatio
 
 		await Promise.all(
 			recipientIds.map(async (recipientId) => {
-				await writeUserInboxItem(notification, recipientId).catch(() => {});
+				await writeUserInboxItem(notification, recipientId).catch((error) => {
+					console.error('[userInbox] write failed (channel fan-out)', {
+						recipientId,
+						type: notification.type,
+						error,
+					});
+				});
 			}),
 		);
 

@@ -1634,6 +1634,10 @@ export function subscribeToTasks(
 
 // ── User Inbox Operations ───────────────────────────────────────────────────
 
+const isUserInboxItemUnread = (item: UserInboxItem): boolean => {
+  return item.readAt == null;
+};
+
 export function subscribeToUserInbox(
   userId: string,
   callback: (items: UserInboxItem[]) => void,
@@ -1641,15 +1645,27 @@ export function subscribeToUserInbox(
   return onSnapshot(
     query(
       collection(getDb(), 'userInbox', userId, 'items'),
-      where('readAt', '==', null),
       orderBy('createdAt', 'desc'),
+      limit(100),
     ),
     (snap) => {
-      callback(getSnapshotDocs(snap).map((d) => {
+      const allItems = getSnapshotDocs(snap).map((d) => {
         return d.data() as UserInboxItem;
-      }));
+      });
+      const unreadItems = allItems.filter(isUserInboxItemUnread);
+      if (__DEV__) {
+        console.log('[userInbox] snapshot', {
+          userId,
+          total: allItems.length,
+          unread: unreadItems.length,
+          postActivity: unreadItems.filter((item) => item.surface === 'post_activity').length,
+          notifications: unreadItems.filter((item) => item.surface === 'notifications').length,
+        });
+      }
+      callback(unreadItems);
     },
-    (_error) => {
+    (error) => {
+      console.warn('[userInbox] subscription error', { userId, error });
       callback([]);
     },
   );

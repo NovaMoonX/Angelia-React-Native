@@ -114,7 +114,7 @@ Use the iPhone when:
 - [ ] On Feed, confirm expiring banner appears **only when** there are unreacted expiring posts (hidden when count is 0)
 - [ ] When visible, confirm amber banner sits on its own row below status pills with count badge and chevron
 - [ ] Tap expiring banner -> label changes to "Showing expiring posts you have not reacted to"; count badge matches unreacted expiring posts only
-- [ ] Open feed filter menu -> enable **Expiring soon** -> all expiring posts in scope appear, including ones you already reacted to
+- [ ] Open feed filter menu -> enable **Expiring soon** -> filter trigger shows **⏳** prefix and highlighted border; all expiring posts in scope appear, including ones you already reacted to
 - [ ] Disable expiring filter -> feed returns to normal scope
 
 ### iPhone
@@ -135,6 +135,8 @@ Use the iPhone when:
 ### Android
 
 - [ ] Confirm app opens **one** `userInbox` listener at startup (not per-post message/note listeners for authored posts)
+- [ ] When B reacts on A's post while A is on Feed, confirm primary-colored **New activity on your posts** banner appears above the feed list
+- [ ] Confirm Post Activity header icon shows a red dot while unread post-activity inbox items exist
 - [ ] B reacts to A's post -> A sees Post Activity unread; opening post detail and leaving clears it
 - [ ] B sends conversation message -> unread shows until A opens conversation
 - [ ] B sends private note -> unread shows until A opens private notes or thread
