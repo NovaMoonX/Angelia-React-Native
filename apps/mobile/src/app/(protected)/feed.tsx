@@ -458,6 +458,12 @@ export default function FeedScreen() {
 		});
 	}, []);
 
+	useEffect(() => {
+		if (expiringUnreactedCount === 0 && expiringUnreactedQuickFilter) {
+			setExpiringUnreactedQuickFilter(false);
+		}
+	}, [expiringUnreactedCount, expiringUnreactedQuickFilter]);
+
 	// When filters or sort order change: scroll to top, reset page, show filtering indicator
 	useEffect(() => {
 		if (!didRunFilterEffectRef.current) {
@@ -910,59 +916,31 @@ export default function FeedScreen() {
 					</View>
 				</View>
 
-				{/* Expiring quick filter — separate row, outline style */}
-				<View style={styles.expiringFilterRow}>
-					<Pressable
-						onPress={toggleExpiringUnreactedQuickFilter}
-						style={[
-							styles.expiringFilterButton,
-							expiringUnreactedQuickFilter ? styles.expiringFilterButtonActive : null,
-							{
-								backgroundColor: expiringUnreactedQuickFilter ? '#FFFBEB' : 'transparent',
-								borderColor: expiringUnreactedQuickFilter ? '#D97706' : theme.border,
-							},
-						]}
-					>
-						<Feather
-							name='clock'
-							size={14}
-							color={expiringUnreactedQuickFilter ? '#D97706' : theme.mutedForeground}
-						/>
-						<Text
+				{expiringUnreactedCount > 0 ? (
+					<View style={styles.expiringFilterRow}>
+						<Pressable
+							onPress={toggleExpiringUnreactedQuickFilter}
 							style={[
-								styles.expiringFilterText,
+								styles.expiringFilterButton,
 								{
-									color: expiringUnreactedQuickFilter ? '#92400E' : theme.mutedForeground,
+									backgroundColor: expiringUnreactedQuickFilter ? '#FDE68A' : '#FEF3C7',
+									borderColor: '#F59E0B',
 								},
 							]}
 						>
-							{expiringUnreactedQuickFilter
-								? 'Showing expiring posts you have not reacted to'
-								: 'Expiring soon · not reacted'}
-						</Text>
-						{expiringUnreactedCount > 0 ? (
-							<View
-								style={[
-									styles.expiringFilterCount,
-									{
-										backgroundColor: expiringUnreactedQuickFilter ? '#FEF3C7' : theme.muted,
-									},
-								]}
-							>
-								<Text
-									style={[
-										styles.expiringFilterCountText,
-										{
-											color: expiringUnreactedQuickFilter ? '#92400E' : theme.mutedForeground,
-										},
-									]}
-								>
-									{expiringUnreactedCount}
-								</Text>
+							<Feather name='clock' size={16} color='#B45309' />
+							<Text style={styles.expiringFilterText}>
+								{expiringUnreactedQuickFilter
+									? 'Showing expiring posts you have not reacted to'
+									: `${expiringUnreactedCount} expiring soon — tap to review`}
+							</Text>
+							<View style={styles.expiringFilterCount}>
+								<Text style={styles.expiringFilterCountText}>{expiringUnreactedCount}</Text>
 							</View>
-						) : null}
-					</Pressable>
-				</View>
+							<Feather name='chevron-right' size={16} color='#B45309' />
+						</Pressable>
+					</View>
+				) : null}
 
 				{/* Task banner — lives inside the header so `headerHeight` includes it,
             preventing overlap with both the skeleton list and the filtering dots.
@@ -1297,32 +1275,31 @@ const styles = StyleSheet.create({
 	expiringFilterButton: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		borderWidth: 1,
-		borderRadius: 8,
-		borderStyle: 'dashed',
-		paddingHorizontal: 12,
-		paddingVertical: 8,
+		borderWidth: 1.5,
+		borderRadius: 10,
+		paddingHorizontal: 14,
+		paddingVertical: 10,
 		gap: 8,
-	},
-	expiringFilterButtonActive: {
-		borderStyle: 'solid',
 	},
 	expiringFilterText: {
 		flex: 1,
-		fontSize: 12,
-		fontWeight: '500',
+		fontSize: 13,
+		fontWeight: '600',
+		color: '#78350F',
 	},
 	expiringFilterCount: {
-		minWidth: 22,
-		height: 22,
-		borderRadius: 11,
+		minWidth: 24,
+		height: 24,
+		borderRadius: 12,
 		alignItems: 'center',
 		justifyContent: 'center',
-		paddingHorizontal: 6,
+		paddingHorizontal: 7,
+		backgroundColor: '#D97706',
 	},
 	expiringFilterCountText: {
-		fontSize: 11,
-		fontWeight: '600',
+		fontSize: 12,
+		fontWeight: '700',
+		color: '#FFFBEB',
 	},
 	listContent: {
 		paddingHorizontal: 16,
