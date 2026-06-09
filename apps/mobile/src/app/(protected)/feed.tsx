@@ -34,7 +34,7 @@ import { AppMessageModal } from '@/components/AppMessageModal';
 import { FeedbackFormModal } from '@/components/FeedbackFormModal';
 import { FeedChannelFilterModal, type ChannelFilterState } from '@/components/FeedChannelFilterModal';
 import { EmojiPicker } from '@/components/EmojiPicker';
-import { NewPostsPill, type NewPostsPillRef } from '@/components/NewPostsPill';
+import { NewPostsPill } from '@/components/NewPostsPill';
 import { hasUserReactedToPost, isPostExpiringSoon } from '@/lib/post/post.utils';
 import { getSuggestedReactionEmojis } from '@/lib/reaction/reaction.utils';
 import { formatTimeRemaining } from '@/lib/timeUtils';
@@ -90,10 +90,6 @@ export default function FeedScreen() {
 
 	useFocusEffect(
 		useCallback(() => {
-			// If we're already at/near the top of the feed when focusing, notify
-			// the pill so it dismisses any new posts that are already visible.
-			newPostsPillRef.current?.notifyScrollY(prevScrollY.current);
-
 			let timeoutId: ReturnType<typeof setTimeout> | null = null;
 			let idleCallbackId: number | null = null;
 			const runRefresh = () => {};
@@ -203,19 +199,21 @@ export default function FeedScreen() {
 	const headerVisible = useRef(true);
 	const headerAnimation = useRef<Animated.CompositeAnimation | null>(null);
 	const [scrolledPast, setScrolledPast] = useState(false);
-	const [firstFullyVisiblePostId, setFirstFullyVisiblePostId] = useState<string | null>(null);
+	const [visiblePostIds, setVisiblePostIds] = useState<string[]>([]);
 
-	// Ref to the new-posts pill so onScroll can notify it of the current Y position.
-	const newPostsPillRef = useRef<NewPostsPillRef>(null);
 	const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-		const firstVisibleToken = viewableItems.find((token) => {
-			return token.index === 0 && token.isViewable;
-		});
-		const firstVisibleTokenItem = firstVisibleToken?.item as { id?: string } | undefined;
-		const firstVisibleId = typeof firstVisibleTokenItem?.id === 'string' ? firstVisibleTokenItem.id : null;
-		setFirstFullyVisiblePostId((prev) => {
-			if (prev === firstVisibleId) return prev;
-			return firstVisibleId;
+		const ids = viewableItems
+			.filter((token) => {
+				return token.isViewable && token.item != null;
+			})
+			.map((token) => {
+				return (token.item as Post).id;
+			});
+		setVisiblePostIds((prev) => {
+			if (prev.length === ids.length && prev.every((id, index) => id === ids[index])) {
+				return prev;
+			}
+			return ids;
 		});
 	}).current;
 	const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 98 }).current;
@@ -330,6 +328,10 @@ export default function FeedScreen() {
 		});
 		return sorted.slice(0, displayCount);
 	}, [displayCount, scopedFeedPosts, sortOrder]);
+
+	const orderedPostIds = useMemo(() => {
+		return filteredPosts.map((post) => post.id);
+	}, [filteredPosts]);
 
 	const hasMore = useMemo(() => {
 		return displayCount < scopedFeedPosts.length;
@@ -527,6 +529,14 @@ export default function FeedScreen() {
 		flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
 	};
 
+	const scrollToFeedIndex = useCallback((index: number) => {
+		flatListRef.current?.scrollToIndex({
+			index,
+			animated: true,
+			viewPosition: 0,
+		});
+	}, []);
+
 	const animateHeader = useCallback(
 		(toValue: number, duration: number) => {
 			headerAnimation.current?.stop();
@@ -547,7 +557,6 @@ export default function FeedScreen() {
 			if (!didPrimeScrollRef.current) {
 				didPrimeScrollRef.current = true;
 				prevScrollY.current = currentY;
-				newPostsPillRef.current?.notifyScrollY(currentY);
 				setScrolledPast(currentY > 100);
 				return;
 			}
@@ -571,10 +580,6 @@ export default function FeedScreen() {
 					animateHeader(0, 200);
 				}
 			}
-
-			// Notify the new-posts pill of the current scroll position so it can
-			// auto-dismiss when the user scrolls back to the top.
-			newPostsPillRef.current?.notifyScrollY(currentY);
 
 			setScrolledPast(currentY > 100);
 			prevScrollY.current = currentY;
@@ -777,11 +782,10 @@ export default function FeedScreen() {
 
 			{/* New-posts pill — always rendered; the component decides its own visibility */}
 			<NewPostsPill
-				ref={newPostsPillRef}
 				topOffset={headerHeight + 10}
-				onRequestScrollToTop={scrollToTop}
-				firstPostId={filteredPosts[0]?.id ?? null}
-				firstFullyVisiblePostId={firstFullyVisiblePostId}
+				orderedPostIds={orderedPostIds}
+				visiblePostIds={visiblePostIds}
+				onRequestScrollToIndex={scrollToFeedIndex}
 			/>
 
 			{/* Animated header — absolute so it slides up without affecting FlashList layout */}
