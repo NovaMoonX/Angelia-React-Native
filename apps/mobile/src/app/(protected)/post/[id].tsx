@@ -142,6 +142,7 @@ export default function PostDetailScreen() {
 	const unreadItemsCopy = unreadItems.join(' and ');
 	const shouldWarnBeforeLeaving = isHost && !disableUnreadLeaveWarning && hasUnreadAuthorActivity;
 	const shouldReturnToPostActivity = from === 'post-activity';
+	const shouldReturnToNotifications = from === 'notifications';
 
 	// Used by the header back button — does NOT set isRoutingAwayRef so beforeRemove can intercept.
 	const handleHeaderBack = useCallback(() => {
@@ -149,8 +150,12 @@ export default function PostDetailScreen() {
 			router.back();
 			return;
 		}
+		if (shouldReturnToNotifications) {
+			router.dismissTo('/(protected)/notifications');
+			return;
+		}
 		router.dismissTo('/(protected)/feed');
-	}, [router, shouldReturnToPostActivity]);
+	}, [router, shouldReturnToNotifications, shouldReturnToPostActivity]);
 
 	// Called after the user has finished interacting with a blocking modal (suggestions, unread warning).
 	// Sets the ref so beforeRemove lets it through without intercepting again.

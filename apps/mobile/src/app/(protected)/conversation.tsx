@@ -41,6 +41,7 @@ import {
   CONVERSATION_EDIT_HINT_SEEN_KEY,
   CONVERSATION_REPLY_HINT_SEEN_KEY,
 } from '@/models/constants';
+import { isFromNotifications } from '@/lib/navigation/entryNavigation.utils';
 import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import type { Message } from '@/models/types';
 import { editMessage, sendMessage } from '@/store/actions/conversationActions';
@@ -54,7 +55,7 @@ type ThreadedConversationRow = {
 };
 
 export default function ConversationScreen() {
-  const { postId } = useLocalSearchParams<{ postId: string }>();
+  const { postId, from } = useLocalSearchParams<{ postId: string; from?: string }>();
   const dispatch = useAppDispatch();
   const router = useRouter();
   const navigation = useNavigation();
@@ -86,8 +87,12 @@ export default function ConversationScreen() {
       return;
     }
     isRoutingToPostRef.current = true;
+    if (isFromNotifications(from)) {
+      router.dismissTo('/(protected)/notifications');
+      return;
+    }
     router.dismissTo({ pathname: '/(protected)/post/[id]', params: { id: postId } });
-  }, [postId, router]);
+  }, [from, postId, router]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (event: EventArg<'beforeRemove', true, { action: { type: string } }>) => {

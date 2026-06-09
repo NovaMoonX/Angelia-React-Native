@@ -26,6 +26,7 @@ import {
 	isNotificationResponseHandled,
 	markNotificationResponseHandled,
 } from '@/lib/notificationResponseDedup';
+import { withNotificationsEntry } from '@/lib/navigation/entryNavigation.utils';
 import { pushRouteWhenNavigatorReady } from '@/lib/pushRouteWhenReady';
 
 /** Matches the key used in DataListenerWrapper to track whether the in-app daily notice has already been shown today. */
@@ -157,7 +158,7 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 			if (type === 'join_channel_request') {
 				const joinRequestId = data?.joinRequestId;
 				if (joinRequestId) {
-					pushRoute('/(protected)/join-request/[id]', { id: joinRequestId });
+					pushRoute('/(protected)/join-request/[id]', withNotificationsEntry({ id: joinRequestId }));
 				} else {
 					pushRoute('/(protected)/notifications');
 				}
@@ -166,14 +167,14 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 
 			if (type === 'join_channel_accepted') {
 				const channelName = data?.channelName ?? '';
-				pushRoute('/(protected)/channel-accepted', { channelName });
+				pushRoute('/(protected)/channel-accepted', withNotificationsEntry({ channelName }));
 				return;
 			}
 
 			if (type === 'custom_circle_invite') {
 				const requestId = data?.requestId;
 				if (requestId) {
-					pushRoute('/(protected)/circle-invite/[id]', { id: requestId });
+					pushRoute('/(protected)/circle-invite/[id]', withNotificationsEntry({ id: requestId }));
 				} else {
 					pushRoute('/(protected)/notifications');
 				}
@@ -183,7 +184,7 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 			if (type === 'connection_request') {
 				const requestId = data?.connectionRequestId;
 				if (requestId) {
-					pushRoute('/(protected)/connection-request/[id]', { id: requestId });
+					pushRoute('/(protected)/connection-request/[id]', withNotificationsEntry({ id: requestId }));
 				} else {
 					pushRoute('/(protected)/notifications');
 				}
@@ -191,7 +192,7 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 			}
 
 			if (type === 'connection_accepted') {
-				pushRoute('/(protected)/my-people');
+				pushRoute('/(protected)/my-people', withNotificationsEntry());
 				return;
 			}
 
@@ -199,7 +200,7 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 				const postId = data?.postId;
 				if (postId) {
 					void dismissNotificationsByData({ type: 'new_post', postId });
-					pushRoute('/(protected)/post/[id]', { id: postId });
+					pushRoute('/(protected)/post/[id]', withNotificationsEntry({ id: postId }));
 				}
 				return;
 			}
@@ -208,7 +209,7 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 				const postId = data?.postId;
 				if (postId) {
 					void dismissNotificationsByData({ type: 'post_reaction', postId });
-					pushRoute('/(protected)/post/[id]', { id: postId });
+					pushRoute('/(protected)/post/[id]', withNotificationsEntry({ id: postId }));
 				}
 				return;
 			}
@@ -217,7 +218,7 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 				const postId = data?.postId;
 				if (postId) {
 					void dismissNotificationsByData({ type, postId });
-					pushRoute('/(protected)/conversation', { postId });
+					pushRoute('/(protected)/conversation', withNotificationsEntry({ postId }));
 				}
 				return;
 			}
@@ -226,7 +227,7 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 				const postId = data?.postId;
 				if (postId) {
 					void dismissNotificationsByData({ type: 'private_note', postId });
-					pushRoute('/(protected)/private-notes-host/[postId]', { postId });
+					pushRoute('/(protected)/private-notes-host/[postId]', withNotificationsEntry({ postId }));
 				}
 				return;
 			}
@@ -236,7 +237,10 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 				const noteId = data?.noteId;
 				if (postId && noteId) {
 					void dismissNotificationsByData({ type: 'private_note_reply', postId, noteId });
-					pushRoute('/(protected)/private-note-thread/[postId]/[noteId]', { postId, noteId });
+					pushRoute(
+						'/(protected)/private-note-thread/[postId]/[noteId]',
+						withNotificationsEntry({ postId, noteId }),
+					);
 				}
 			}
 		};

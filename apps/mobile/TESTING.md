@@ -140,6 +140,8 @@ Use the iPhone when:
 - [ ] B reacts to A's post -> A sees Post Activity unread; opening post detail and leaving clears it
 - [ ] B sends conversation message -> unread shows until A opens conversation
 - [ ] B sends private note -> unread shows until A opens private notes or thread
+- [ ] Tap an inbox Activity item -> destination opens first; item marks read only after navigation (stays visible briefly on Notifications)
+- [ ] From Notifications or a push tap, open conversation/post/private notes -> back returns to **Notifications** (not Feed or post detail)
 - [ ] B triggers `comment_reply` on another host's post -> item appears under **Notifications** Activity (grouped by post), not Post Activity
 - [ ] Notifications Activity section groups multiple items under the same post header
 - [ ] Feed bell dot includes unread notification-surface inbox items (not only pending connection requests)

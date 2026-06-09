@@ -9,12 +9,13 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
+import { navigateBackFromEntry } from '@/lib/navigation/entryNavigation.utils';
 import { respondToConnectionRequest } from '@/store/actions/connectionsActions';
 
 type ActionResult = 'accepted' | 'declined';
 
 export default function ConnectionRequestScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { addToast } = useToast();
@@ -142,7 +143,7 @@ export default function ConnectionRequestScreen() {
         ]}
       >
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => navigateBackFromEntry(from)}
           hitSlop={8}
           style={[styles.backButton, { paddingTop: 8 }]}
         >

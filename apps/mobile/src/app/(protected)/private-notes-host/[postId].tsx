@@ -14,11 +14,12 @@ import { usePrivateNoteThreadsForPost } from '@/hooks/usePrivateNoteThreadsForPo
 import { usePrivateNoteConversationsNotice } from '@/hooks/usePrivateNoteConversationsNotice';
 import { usePrivateNoteUnreadForPost } from '@/hooks/usePrivateNoteUnreadForPost';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { isFromNotifications } from '@/lib/navigation/entryNavigation.utils';
 import { markUserInboxReadForPost } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
 
 export default function PrivateNotesScreen() {
-	const { postId } = useLocalSearchParams<{ postId: string }>();
+	const { postId, from } = useLocalSearchParams<{ postId: string; from?: string }>();
 	const { theme } = useTheme();
 	const insets = useSafeAreaInsets();
 	const router = useRouter();
@@ -31,8 +32,12 @@ export default function PrivateNotesScreen() {
 			return;
 		}
 		isRoutingToPostRef.current = true;
+		if (isFromNotifications(from)) {
+			router.dismissTo('/(protected)/notifications');
+			return;
+		}
 		router.dismissTo({ pathname: '/(protected)/post/[id]', params: { id: postId } });
-	}, [postId, router]);
+	}, [from, postId, router]);
 
 	useEffect(() => {
 		const unsubscribe = navigation.addListener('beforeRemove', (event: EventArg<'beforeRemove', true, { action: { type: string } }>) => {

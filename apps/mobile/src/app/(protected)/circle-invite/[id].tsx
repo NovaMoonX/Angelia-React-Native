@@ -11,11 +11,12 @@ import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { respondToCircleInviteRequest } from '@/store/actions/inviteActions';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
+import { navigateBackFromEntry } from '@/lib/navigation/entryNavigation.utils';
 import { getCircleInviteRequest } from '@/services/firebase/firestore';
 import type { CircleInviteRequest } from '@/models/types';
 
 export default function CircleInviteScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { addToast } = useToast();
@@ -61,7 +62,7 @@ export default function CircleInviteScreen() {
   if (result) {
     return (
       <>
-        <ScreenHeader title="Circle Invite" />
+        <ScreenHeader title="Circle Invite" onBack={() => navigateBackFromEntry(from)} />
         <View
           style={[
             styles.centeredContainer,
@@ -93,7 +94,7 @@ export default function CircleInviteScreen() {
   if (!request || request.status !== 'pending') {
     return (
       <>
-        <ScreenHeader title="Circle Invite" />
+        <ScreenHeader title="Circle Invite" onBack={() => navigateBackFromEntry(from)} />
         <View
           style={[
             styles.centeredContainer,
@@ -117,7 +118,7 @@ export default function CircleInviteScreen() {
 
   return (
     <>
-      <ScreenHeader title="Circle Invite" />
+      <ScreenHeader title="Circle Invite" onBack={() => navigateBackFromEntry(from)} />
       <ScrollView
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}

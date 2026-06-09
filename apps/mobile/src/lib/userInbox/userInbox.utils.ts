@@ -1,7 +1,15 @@
+import { InteractionManager } from 'react-native';
 import { router } from 'expo-router';
 import type { UserInboxItem } from '@/models/types';
+import { withNotificationsEntry } from '@/lib/navigation/entryNavigation.utils';
 import { markUserInboxItemRead } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
+
+function scheduleInboxItemRead(userId: string, itemId: string): void {
+  InteractionManager.runAfterInteractions(() => {
+    void markUserInboxItemRead(userId, itemId).catch(() => {});
+  });
+}
 
 export function getUserInboxItemLabel(item: UserInboxItem): string {
   switch (item.type) {
@@ -39,40 +47,63 @@ export async function openUserInboxItem(
   userId: string,
   item: UserInboxItem,
 ): Promise<void> {
-  await markUserInboxItemRead(userId, item.id).catch(() => {});
+  const entryParams = withNotificationsEntry({ inboxItemId: item.id });
 
   switch (item.type) {
   case 'comment_reply':
     void dismissNotificationsByData({ type: 'comment_reply', postId: item.postId }).catch(() => {});
-    router.push({ pathname: '/(protected)/conversation', params: { postId: item.postId } });
-    return;
+    router.push({
+      pathname: '/(protected)/conversation',
+      params: { postId: item.postId, ...entryParams },
+    });
+    break;
   case 'new_post':
     void dismissNotificationsByData({ type: 'new_post', postId: item.postId }).catch(() => {});
-    router.push({ pathname: '/(protected)/post/[id]', params: { id: item.postId } });
-    return;
+    router.push({
+      pathname: '/(protected)/post/[id]',
+      params: { id: item.postId, ...entryParams },
+    });
+    break;
   case 'private_note_reply':
     void dismissNotificationsByData({ type: 'private_note_reply', postId: item.postId, noteId: item.noteId }).catch(() => {});
     router.push({
       pathname: '/(protected)/private-note-thread/[postId]/[noteId]',
-      params: { postId: item.postId, noteId: item.noteId },
+      params: { postId: item.postId, noteId: item.noteId, ...entryParams },
     });
-    return;
+    break;
   case 'connection_accepted':
-    router.push('/(protected)/my-people');
-    return;
+    router.push({
+      pathname: '/(protected)/my-people',
+      params: entryParams,
+    });
+    break;
   case 'join_channel_accepted':
-    router.push({ pathname: '/(protected)/channel-accepted', params: { channelName: item.channelName } });
-    return;
+    router.push({
+      pathname: '/(protected)/channel-accepted',
+      params: { channelName: item.channelName, ...entryParams },
+    });
+    break;
   case 'custom_circle_invite':
-    router.push({ pathname: '/(protected)/circle-invite/[id]', params: { id: item.requestId } } as never);
-    return;
+    router.push({
+      pathname: '/(protected)/circle-invite/[id]',
+      params: { id: item.requestId, ...entryParams },
+    } as never);
+    break;
   case 'connection_request':
-    router.push({ pathname: '/(protected)/connection-request/[id]', params: { id: item.connectionRequestId } });
-    return;
+    router.push({
+      pathname: '/(protected)/connection-request/[id]',
+      params: { id: item.connectionRequestId, ...entryParams },
+    });
+    break;
   case 'join_channel_request':
-    router.push({ pathname: '/(protected)/join-request/[id]', params: { id: item.joinRequestId } });
-    return;
+    router.push({
+      pathname: '/(protected)/join-request/[id]',
+      params: { id: item.joinRequestId, ...entryParams },
+    });
+    break;
   default:
     return;
   }
+
+  scheduleInboxItemRead(userId, item.id);
 }

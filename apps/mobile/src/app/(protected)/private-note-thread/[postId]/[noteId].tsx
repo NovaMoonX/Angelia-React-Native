@@ -24,6 +24,7 @@ import { usePrivateNoteThread } from '@/hooks/usePrivateNoteThread';
 import { sendPrivateNoteReply } from '@/store/actions/privateNoteThreadActions';
 import { markUserInboxReadForPost } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
+import { isFromNotifications } from '@/lib/navigation/entryNavigation.utils';
 import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import type { Message } from '@/models/types';
 
@@ -33,7 +34,7 @@ type ThreadRow = {
 };
 
 export default function PrivateNoteThreadScreen() {
-  const { postId, noteId } = useLocalSearchParams<{ postId: string; noteId: string }>();
+  const { postId, noteId, from } = useLocalSearchParams<{ postId: string; noteId: string; from?: string }>();
   const dispatch = useAppDispatch();
   const router = useRouter();
   const navigation = useNavigation();
@@ -63,6 +64,10 @@ export default function PrivateNoteThreadScreen() {
       return;
     }
     isRoutingAwayRef.current = true;
+    if (isFromNotifications(from)) {
+      router.dismissTo('/(protected)/notifications');
+      return;
+    }
     if (isHost) {
       router.dismissTo({
         pathname: '/(protected)/private-notes-host/[postId]',
@@ -74,7 +79,7 @@ export default function PrivateNoteThreadScreen() {
       pathname: '/(protected)/private-notes-sender/[postId]',
       params: { postId },
     });
-  }, [isHost, postId, router]);
+  }, [from, isHost, postId, router]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener(
