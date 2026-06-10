@@ -1,7 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useNavigation, type EventArg } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PrivateNoteConversationsNotice } from '@/components/PrivateNoteConversationsNotice';
@@ -15,11 +14,12 @@ import { usePrivateNoteThreadsForPost } from '@/hooks/usePrivateNoteThreadsForPo
 import { usePrivateNoteConversationsNotice } from '@/hooks/usePrivateNoteConversationsNotice';
 import { usePrivateNoteUnreadForPost } from '@/hooks/usePrivateNoteUnreadForPost';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { PRIVATE_NOTES_SEEN_KEY } from '@/models/constants';
+import { isFromNotifications } from '@/lib/navigation/entryNavigation.utils';
+import { markUserInboxReadForPost } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
 
 export default function PrivateNotesScreen() {
-	const { postId } = useLocalSearchParams<{ postId: string }>();
+	const { postId, from } = useLocalSearchParams<{ postId: string; from?: string }>();
 	const { theme } = useTheme();
 	const insets = useSafeAreaInsets();
 	const router = useRouter();
@@ -32,8 +32,12 @@ export default function PrivateNotesScreen() {
 			return;
 		}
 		isRoutingToPostRef.current = true;
+		if (isFromNotifications(from)) {
+			router.dismissTo('/(protected)/notifications');
+			return;
+		}
 		router.dismissTo({ pathname: '/(protected)/post/[id]', params: { id: postId } });
-	}, [postId, router]);
+	}, [from, postId, router]);
 
 	useEffect(() => {
 		const unsubscribe = navigation.addListener('beforeRemove', (event: EventArg<'beforeRemove', true, { action: { type: string } }>) => {
@@ -87,14 +91,31 @@ export default function PrivateNotesScreen() {
 		}
 	}, [currentUser, goToPostDetails, isHost, post]);
 
+	const inboxItems = useAppSelector((state) => state.userInbox.items);
+	const inboxItemsRef = useRef(inboxItems);
 	useEffect(() => {
-		if (!postId || !isHost) return;
-		void AsyncStorage.setItem(PRIVATE_NOTES_SEEN_KEY(postId), String(Date.now()));
-		void dismissNotificationsByData({ type: 'private_note', postId }).catch(() => {
-			return null;
-		});
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [postId, isHost]);
+		inboxItemsRef.current = inboxItems;
+	}, [inboxItems]);
+
+	useFocusEffect(
+		useCallback(() => {
+			if (!postId || !isHost || !currentUser) {
+				return undefined;
+			}
+
+			void markUserInboxReadForPost(
+				currentUser.id,
+				inboxItemsRef.current,
+				postId,
+				['private_note'],
+			).catch(() => {});
+			void dismissNotificationsByData({ type: 'private_note', postId }).catch(() => {
+				return null;
+			});
+
+			return undefined;
+		}, [currentUser?.id, isHost, postId]),
+	);
 
 	if (!post || !currentUser || !isHost) {
 		return (

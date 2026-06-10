@@ -13,6 +13,7 @@ import privateNotesReducer from './slices/privateNotesSlice';
 import uploadsReducer from './slices/uploadsSlice';
 import appConfigReducer from './slices/appConfigSlice';
 import postLeaveSuggestionsReducer from './slices/postLeaveSuggestionsSlice';
+import userInboxReducer from './slices/userInboxSlice';
 
 export const store = configureStore({
   reducer: {
@@ -30,6 +31,7 @@ export const store = configureStore({
     uploads: uploadsReducer,
     appConfig: appConfigReducer,
     postLeaveSuggestions: postLeaveSuggestionsReducer,
+    userInbox: userInboxReducer,
   },
   middleware: (getDefaultMiddleware) => {
     return getDefaultMiddleware({

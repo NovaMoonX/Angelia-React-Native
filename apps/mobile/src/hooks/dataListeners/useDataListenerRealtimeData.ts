@@ -15,8 +15,7 @@ import {
   setUsers,
   setCurrentUserNotificationSettings,
 } from '@/store/slices/usersSlice';
-import { setMessages } from '@/store/slices/conversationSlice';
-import { setPrivateNotes } from '@/store/slices/privateNotesSlice';
+import { setUserInboxItems } from '@/store/slices/userInboxSlice';
 import {
   setIncomingRequests,
   setOutgoingRequests,
@@ -51,10 +50,11 @@ import {
   subscribeToOutgoingConnectionRequests,
   subscribeToConnectionChannels,
   subscribeToTasks,
-  subscribeToMessages,
-  subscribeToPrivateNotesForPost,
+  subscribeToUserInbox,
   subscribeToMobileAppConfig,
+  markUserInboxItemsRead,
 } from '@/services/firebase/firestore';
+import { partitionUserInboxItems } from '@/lib/userInbox/userInbox.utils';
 import { requestNotificationPermission } from '@/services/notifications';
 import type {
   Channel,
@@ -102,8 +102,7 @@ export function useDataListenerRealtimeData() {
   const notifSettingsUnsubRef = useRef<(() => void) | null>(null);
   const connectionChannelsUnsubRef = useRef<(() => void) | null>(null);
   const tasksUnsubRef = useRef<(() => void) | null>(null);
-  const authoredPostMessagesUnsubsRef = useRef<Record<string, () => void>>({});
-  const authoredPostNotesUnsubsRef = useRef<Record<string, () => void>>({});
+  const userInboxUnsubRef = useRef<(() => void) | null>(null);
   const pendingInviteProcessedRef = useRef(false);
   const pendingConnectionProcessedRef = useRef(false);
   const notifInitInFlightRef = useRef(false);
@@ -495,72 +494,27 @@ export function useDataListenerRealtimeData() {
   }, [dispatch, firebaseUser, isDemo]);
 
   useEffect(() => {
-    const clearAuthoredPostSubscriptions = () => {
-      Object.values(authoredPostMessagesUnsubsRef.current).forEach((unsub) => {
-        unsub();
-      });
-      Object.values(authoredPostNotesUnsubsRef.current).forEach((unsub) => {
-        unsub();
-      });
-      authoredPostMessagesUnsubsRef.current = {};
-      authoredPostNotesUnsubsRef.current = {};
-    };
-
     if (isDemo || !firebaseUser || !currentUser) {
-      clearAuthoredPostSubscriptions();
+      userInboxUnsubRef.current?.();
+      userInboxUnsubRef.current = null;
+      dispatch(setUserInboxItems([]));
       return;
     }
 
-    const authoredPosts = posts.filter((post) => {
-      return post.authorId === currentUser.id;
+    userInboxUnsubRef.current?.();
+    userInboxUnsubRef.current = subscribeToUserInbox(currentUser.id, (items) => {
+      const { validItems, staleItemIds } = partitionUserInboxItems(items, posts, channels);
+      if (staleItemIds.length > 0) {
+        void markUserInboxItemsRead(currentUser.id, staleItemIds).catch(() => {});
+      }
+      dispatch(setUserInboxItems(validItems));
     });
 
-    const nextPostIds = new Set(
-      authoredPosts.map((post) => {
-        return post.id;
-      }),
-    );
-
-    Object.entries(authoredPostMessagesUnsubsRef.current).forEach(([postId, unsub]) => {
-      if (nextPostIds.has(postId)) {
-        return;
-      }
-      unsub();
-      delete authoredPostMessagesUnsubsRef.current[postId];
-    });
-
-    Object.entries(authoredPostNotesUnsubsRef.current).forEach(([postId, unsub]) => {
-      if (nextPostIds.has(postId)) {
-        return;
-      }
-      unsub();
-      delete authoredPostNotesUnsubsRef.current[postId];
-    });
-
-    authoredPosts.forEach((post) => {
-      if (!authoredPostMessagesUnsubsRef.current[post.id]) {
-        authoredPostMessagesUnsubsRef.current[post.id] = subscribeToMessages(post.id, (messages) => {
-          dispatch(setMessages({ postId: post.id, messages }));
-        });
-      }
-
-      if (authoredPostNotesUnsubsRef.current[post.id]) {
-        return;
-      }
-
-      authoredPostNotesUnsubsRef.current[post.id] = subscribeToPrivateNotesForPost(
-        post.id,
-        (notes) => {
-          dispatch(setPrivateNotes({ postId: post.id, notes }));
-        },
-        () => {
-          // Drop the dead listener so the next posts/currentUser change can retry.
-          authoredPostNotesUnsubsRef.current[post.id]?.();
-          delete authoredPostNotesUnsubsRef.current[post.id];
-        },
-      );
-    });
-  }, [currentUser?.id, dispatch, firebaseUser, isDemo, posts]);
+    return () => {
+      userInboxUnsubRef.current?.();
+      userInboxUnsubRef.current = null;
+    };
+  }, [channels, currentUser?.id, dispatch, firebaseUser, isDemo, posts]);
 
   useEffect(() => {
     if (isDemo) {

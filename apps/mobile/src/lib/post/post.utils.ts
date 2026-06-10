@@ -1,4 +1,4 @@
-import type { User } from '@/models/types';
+import type { Post, User } from '@/models/types';
 import {
   CUSTOM_POST_EXPIRY_WARNING_DAYS,
   CUSTOM_POST_RETENTION_DAYS,
@@ -31,6 +31,16 @@ export function getPostExpiryInfo(
   }
 
   return null;
+}
+
+export function isPostExpiringSoon(timestamp: number, isDaily: boolean): boolean {
+  return getPostExpiryInfo(timestamp, isDaily) != null;
+}
+
+export function hasUserReactedToPost(post: Post, userId: string): boolean {
+  return post.reactions.some((reaction) => {
+    return reaction.userId === userId;
+  });
 }
 
 export function getPostAuthorName(

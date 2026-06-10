@@ -1,3 +1,10 @@
+---
+description: Angelia project conventions — mirrors .github/copilot-instructions.md
+alwaysApply: true
+---
+
+> Canonical source: `.github/copilot-instructions.md` — when updating conventions, edit both files.
+
 # Copilot Instructions
 
 ## App tone

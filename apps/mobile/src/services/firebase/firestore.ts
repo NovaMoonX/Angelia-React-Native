@@ -16,7 +16,7 @@ import {
   arrayRemove,
 } from '@react-native-firebase/firestore';
 import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
-import type { User, UserPublic, UserPrivate, UserSecret, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, CircleInviteRequest, UpdateUserProfileData, UserStatus, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, Connection, ConnectionRequest, FeedbackSubmission, AppTask, Comment, PrivateNote, Reaction } from '@/models/types';
+import type { User, UserPublic, UserPrivate, UserSecret, Channel, Post, NewUser, NewChannel, ChannelJoinRequest, CircleInviteRequest, UpdateUserProfileData, UserStatus, FcmTokenEntry, NotificationSettings, NotificationSettingsUpdate, Message, AppNotification, AppNotificationType, Connection, ConnectionRequest, FeedbackSubmission, AppTask, Comment, PrivateNote, Reaction, UserInboxItem } from '@/models/types';
 import {
   DAILY_CHANNEL_SUFFIX,
   DEFAULT_WIND_DOWN_PROMPT,
@@ -1630,4 +1630,73 @@ export function subscribeToTasks(
       callback([]);
     },
   );
+}
+
+// ── User Inbox Operations ───────────────────────────────────────────────────
+
+const isUserInboxItemUnread = (item: UserInboxItem): boolean => {
+  return item.readAt == null;
+};
+
+export function subscribeToUserInbox(
+  userId: string,
+  callback: (items: UserInboxItem[]) => void,
+): () => void {
+  return onSnapshot(
+    query(
+      collection(getDb(), 'userInbox', userId, 'items'),
+      orderBy('createdAt', 'desc'),
+      limit(100),
+    ),
+    (snap) => {
+      const allItems = getSnapshotDocs(snap).map((d) => {
+        return d.data() as UserInboxItem;
+      });
+      const unreadItems = allItems.filter(isUserInboxItemUnread);
+      callback(unreadItems);
+    },
+    (_error) => {
+      callback([]);
+    },
+  );
+}
+
+export async function markUserInboxItemRead(userId: string, itemId: string): Promise<void> {
+  await updateDoc(doc(getDb(), 'userInbox', userId, 'items', itemId), {
+    readAt: Date.now(),
+  });
+}
+
+export async function markUserInboxItemsRead(userId: string, itemIds: string[]): Promise<void> {
+  if (itemIds.length === 0) return;
+  const readAt = Date.now();
+  await Promise.all(
+    itemIds.map((itemId) => {
+      return updateDoc(doc(getDb(), 'userInbox', userId, 'items', itemId), { readAt });
+    }),
+  );
+}
+
+export async function markUserInboxReadForPost(
+  userId: string,
+  items: UserInboxItem[],
+  postId: string,
+  types: AppNotificationType[],
+  noteId: string | null = null,
+): Promise<void> {
+  const itemIds = items
+    .filter((item) => {
+      if (item.readAt !== null) return false;
+      if (!('postId' in item) || item.postId !== postId) return false;
+      if (!types.includes(item.type)) return false;
+      if (noteId != null && item.type === 'private_note_reply' && item.noteId !== noteId) {
+        return false;
+      }
+      return true;
+    })
+    .map((item) => {
+      return item.id;
+    });
+
+  await markUserInboxItemsRead(userId, itemIds);
 }

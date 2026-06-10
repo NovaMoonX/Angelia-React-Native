@@ -1,13 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, type ViewToken, View } from 'react-native';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { Card } from '@/components/ui/Card';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuthorPostActivity } from '../../hooks/useAuthorPostActivity';
-
+import { getPostExpiryInfo } from '@/lib/post/post.utils';
 import { PostCard } from '@/components/PostCard';
 import { useAppSelector } from '@/store/hooks';
 import { selectAllChannels } from '@/store/slices/channelsSlice';
@@ -26,36 +26,21 @@ export default function PostActivityScreen() {
   const { scope } = useLocalSearchParams<{ scope?: string }>();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { summaries, unreadDetailsByPostId, refreshSeenState, markPostsSeen } = useAuthorPostActivity();
+  const { summaries, unreadDetailsByPostId } = useAuthorPostActivity();
   const channels = useAppSelector(selectAllChannels);
   const uploadingPosts = useAppSelector(selectCurrentUserUploadingPosts);
   const uploadProgressMap = useAppSelector(selectCurrentUserUploadProgressMap);
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const [selectedCircleId, setSelectedCircleId] = useState<string>('all');
-  const [activityScope, setActivityScope] = useState<'all' | 'unread' | 'uploading'>(scope === 'unread' ? 'unread' : scope === 'uploading' ? 'uploading' : 'all');
+  const [activityScope, setActivityScope] = useState<'all' | 'unread' | 'uploading' | 'expiring'>(
+    scope === 'unread' ? 'unread' : scope === 'uploading' ? 'uploading' : 'all',
+  );
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [refreshing, setRefreshing] = useState(false);
-  const markPostsSeenRef = useRef(markPostsSeen);
-  const pendingSeenPostIdsRef = useRef<Set<string>>(new Set());
-  const lastVisibleKeyRef = useRef('');
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 98 }).current;
-
-
 
   const handleBackPress = useCallback(() => {
     router.dismissTo('/(protected)/feed');
   }, [router]);
-
-  useEffect(() => {
-    markPostsSeenRef.current = markPostsSeen;
-  }, [markPostsSeen]);
-
-  const flushPendingSeen = useCallback(async () => {
-    const pendingPostIds = Array.from(pendingSeenPostIdsRef.current);
-    if (pendingPostIds.length === 0) return;
-    pendingSeenPostIdsRef.current.clear();
-    await markPostsSeenRef.current(pendingPostIds);
-  }, []);
 
   const filteredByCircle = useMemo(() => {
     if (selectedCircleId === 'all') return summaries;
@@ -64,20 +49,10 @@ export default function PostActivityScreen() {
     });
   }, [selectedCircleId, summaries]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void refreshSeenState().catch(() => {});
-      return () => {
-        void flushPendingSeen().catch(() => {});
-      };
-    }, [flushPendingSeen, refreshSeenState, summaries.length, unreadDetailsByPostId]),
-  );
-
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refreshSeenState().catch(() => {});
     setRefreshing(false);
-  }, [refreshSeenState]);
+  }, []);
 
   const circles = useMemo(() => {
     if (!currentUser) return [];
@@ -112,29 +87,63 @@ export default function PostActivityScreen() {
     return new Set(Object.keys(unreadDetailsByPostId));
   }, [unreadDetailsByPostId]);
 
+  const channelById = useMemo(() => {
+    return new Map(channels.map((channel) => {
+      return [channel.id, channel] as const;
+    }));
+  }, [channels]);
+
+  const expiringCount = useMemo(() => {
+    return filteredByCircle.filter((summary) => {
+      const channel = channelById.get(summary.post.channelId);
+      if (!channel) return false;
+      return getPostExpiryInfo(summary.post.timestamp, channel.isDaily === true) != null;
+    }).length;
+  }, [channelById, filteredByCircle]);
+
   const filtered = useMemo(() => {
     let result = filteredByCircle;
-    
+
     if (activityScope === 'unread') {
       result = result.filter((summary) => {
         return unreadPostIdSet.has(summary.post.id);
       });
     }
 
-    // Sort based on sortOrder
+    if (activityScope === 'expiring') {
+      result = result.filter((summary) => {
+        const channel = channelById.get(summary.post.channelId);
+        if (!channel) return false;
+        return getPostExpiryInfo(summary.post.timestamp, channel.isDaily === true) != null;
+      });
+    }
+
     const sorted = [...result].sort((a, b) => {
+      if (activityScope === 'expiring') {
+        const channelA = channelById.get(a.post.channelId);
+        const channelB = channelById.get(b.post.channelId);
+        const daysLeftA = channelA
+          ? getPostExpiryInfo(a.post.timestamp, channelA.isDaily === true)?.daysLeft ?? 999
+          : 999;
+        const daysLeftB = channelB
+          ? getPostExpiryInfo(b.post.timestamp, channelB.isDaily === true)?.daysLeft ?? 999
+          : 999;
+        if (daysLeftA !== daysLeftB) {
+          return daysLeftA - daysLeftB;
+        }
+      }
+
       const aTimestamp = a.post.timestamp;
       const bTimestamp = b.post.timestamp;
-      
+
       if (sortOrder === 'newest') {
         return bTimestamp - aTimestamp;
-      } else {
-        return aTimestamp - bTimestamp;
       }
+      return aTimestamp - bTimestamp;
     });
 
     return sorted;
-  }, [activityScope, filteredByCircle, unreadPostIdSet, sortOrder]);
+  }, [activityScope, channelById, filteredByCircle, unreadPostIdSet, sortOrder]);
 
   const filteredUploadingPosts = useMemo(() => {
     let result = uploadingPosts;
@@ -154,33 +163,6 @@ export default function PostActivityScreen() {
 
     return sorted;
   }, [uploadingPosts, selectedCircleId, sortOrder]);
-
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const fullyVisiblePostIds = viewableItems
-      .map((token) => {
-        const item = token.item as (typeof filtered)[number] | Post | undefined;
-        if (token.isViewable !== true) return null;
-        if (item && 'post' in item && item.post?.id) {
-          return item.post.id;
-        }
-        return null;
-      })
-      .filter((id): id is string => {
-        return id != null;
-      });
-
-    if (fullyVisiblePostIds.length === 0) {
-      lastVisibleKeyRef.current = '';
-      return;
-    }
-
-    const nextKey = fullyVisiblePostIds.join('|');
-    if (nextKey === lastVisibleKeyRef.current) return;
-    lastVisibleKeyRef.current = nextKey;
-    fullyVisiblePostIds.forEach((postId) => {
-      pendingSeenPostIdsRef.current.add(postId);
-    });
-  }).current;
 
   const renderSummaryCard = useCallback(({ item }: { item: (typeof filtered)[number] }) => {
     const detail = unreadDetailsByPostId[item.post.id];
@@ -205,7 +187,7 @@ export default function PostActivityScreen() {
         />
         {shouldShowNewActivityLabel ? (
           <Text style={[styles.newActivityText, { color: theme.primary }]}>
-            {`New ${newActivityTypes.join(' + ')} since your last app open`}
+            {`New ${newActivityTypes.join(' + ')} — tap to look`}
           </Text>
         ) : null}
       </View>
@@ -347,6 +329,28 @@ export default function PostActivityScreen() {
             Uploading ({uploadingPosts.length})
           </Text>
         </Pressable>
+
+        <Pressable
+          onPress={() => {
+            setActivityScope('expiring');
+          }}
+          style={[
+            styles.filterChip,
+            {
+              borderColor: activityScope === 'expiring' ? theme.primary : theme.border,
+              backgroundColor: activityScope === 'expiring' ? `${theme.primary}18` : theme.card,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.filterChipText,
+              { color: activityScope === 'expiring' ? theme.primary : theme.foreground },
+            ]}
+          >
+            {`Expiring soon (${expiringCount})`}
+          </Text>
+        </Pressable>
       </View>
 
       <Text style={[styles.filterLabel, { color: theme.mutedForeground }]}>Sort by</Text>
@@ -405,8 +409,6 @@ export default function PostActivityScreen() {
             return item.id;
           }}
           renderItem={renderUploadingCard}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
           ListHeaderComponent={listHeader}
           ListEmptyComponent={
             <Card style={styles.emptyCard}>
@@ -439,8 +441,6 @@ export default function PostActivityScreen() {
             return item.post.id;
           }}
           renderItem={renderSummaryCard}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
           ListHeaderComponent={listHeader}
           ListEmptyComponent={
             <Card style={styles.emptyCard}>
@@ -449,7 +449,9 @@ export default function PostActivityScreen() {
               <Text style={[styles.emptyBody, { color: theme.mutedForeground }]}> 
                 {activityScope === 'unread'
                   ? 'You are all caught up in this Circle.'
-                  : 'Your activity shows up here once you share in this Circle.'}
+                  : activityScope === 'expiring'
+                    ? 'No posts expiring soon in this Circle.'
+                    : 'Your activity shows up here once you share in this Circle.'}
               </Text>
             </Card>
           }

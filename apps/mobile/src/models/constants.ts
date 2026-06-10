@@ -12,7 +12,7 @@ export const CUSTOM_CHANNEL_LIMIT = 3;
  * Source-of-truth app version for runtime version-gating checks.
  * Keep this in sync with expo.version in app.config.js.
  */
-export const APP_VERSION = '1.0.8';
+export const APP_VERSION = '1.0.9';
 
 /** How long posts are retained before deletion. Must stay in sync with Cloud Functions. */
 export const DAILY_POST_RETENTION_DAYS = 14;   // Posts in a Daily Circle expire after 14 days.
@@ -95,14 +95,6 @@ export const ALL_POST_TIERS: PostTier[] = POST_TIERS.map((t) => t.value);
 export const FEED_LAST_SEEN_TIMESTAMP_KEY = '@angelia/feed_last_seen_timestamp';
 export const POST_UPLOAD_QUEUE_KEY = '@angelia/post_upload_queue_v1';
 
-/** AsyncStorage key storing the latest per-post activity snapshot the user has reviewed. */
-export const POST_ACTIVITY_SEEN_KEY = (userId: string) => `@angelia/post_activity_seen_${userId}`;
-
-/** AsyncStorage key storing when the user last reviewed reactions for a specific post. */
-export const POST_REACTIONS_SEEN_KEY = (userId: string, postId: string) => {
-  return `@angelia/post_reactions_seen_${userId}_${postId}`;
-};
-
 /** AsyncStorage key storing when the user last opened the app on this device. */
 export const APP_LAST_OPENED_AT_KEY = (userId: string) => `@angelia/app_last_opened_at_${userId}`;
 
@@ -114,16 +106,6 @@ export const FEED_REACTION_HINT_DISMISSED_KEY = (userId: string) => `@angelia/fe
 
 /** AsyncStorage key that records whether the user has reacted from feed via long-press at least once. */
 export const FEED_REACTION_HINT_USED_KEY = (userId: string) => `@angelia/feed_reaction_hint_used_${userId}`;
-
-/**
- * AsyncStorage key that records when a post host last opened the private notes screen for a post.
- * Used to drive the unread indicator on the host's private-notes badge.
- */
-export const PRIVATE_NOTES_SEEN_KEY = (postId: string) => `@angelia/private_notes_seen_${postId}`;
-
-/** Records when the user last opened a specific private note thread. */
-export const PRIVATE_NOTE_THREAD_SEEN_KEY = (postId: string, noteId: string) =>
-  `@angelia/private_note_thread_seen_${postId}_${noteId}`;
 
 /**
  * Version for the one-time notice explaining that private notes support
@@ -184,7 +166,7 @@ export const POST_DETAIL_UNREAD_LEAVE_WARNING_DISABLED_KEY = (userId: string) =>
  * AsyncStorage key that records which beta update version the user has already dismissed.
  * When BETA_UPDATE_VERSION in BetaUpdateModal is bumped, the modal will show again automatically.
  */
-export const BETA_UPDATE_VERSION = '2026-06-08-beta-v1.0.9';
+export const BETA_UPDATE_VERSION = '2026-06-09-beta-v1.0.9';
 
 /**
  * Version for the one-time private-circles notice shown on the My Circles tab.
@@ -256,3 +238,6 @@ export const FEED_SESSION_SCROLLED_KEY = '@angelia/feed_session_scrolled';
 
 /** AsyncStorage key storing the in-progress post compose draft for a user. */
 export const POST_CREATE_DRAFT_KEY = (userId: string) => `@angelia/post_create_draft_${userId}`;
+
+/** AsyncStorage key storing which post-create composer hints the user has dismissed. */
+export const POST_CREATE_HINTS_DISMISSED_KEY = (userId: string) => `@angelia/post_create_hints_dismissed_${userId}`;

@@ -11,18 +11,8 @@ import {
   selectPrivateNoteById,
 } from '@/store/slices/privateNotesSlice';
 import { generateId } from '@/utils/generateId';
+import { buildTextPreview } from '@/lib/message/messagePreview.utils';
 import { isDemoActive } from './globalActions';
-
-function buildMessagePreview(text: string): string {
-  const normalized = text.replace(/\s+/g, ' ').trim();
-  if (!normalized) {
-    return 'New reply';
-  }
-  if (normalized.length <= 120) {
-    return normalized;
-  }
-  return `${normalized.slice(0, 117)}...`;
-}
 
 export const sendPrivateNoteReply = createAsyncThunk(
   'privateNotes/sendPrivateNoteReply',
@@ -79,7 +69,7 @@ export const sendPrivateNoteReply = createAsyncThunk(
           noteId,
           senderFirstName: currentUser.firstName,
           senderLastName: currentUser.lastName,
-          messagePreview: buildMessagePreview(message.text),
+          messagePreview: buildTextPreview(message.text, 'New reply') ?? 'New reply',
         };
         createAppNotification(notification).catch(() => {});
       }

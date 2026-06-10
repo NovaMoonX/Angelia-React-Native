@@ -96,6 +96,7 @@ interface NewPostNotification extends BaseAppNotification {
 	hasAttachments: boolean;
 	authorFirstName: string;
 	authorLastName: string;
+	postTextPreview: string | null;
 }
 
 type UnifiedPostNotificationInput = NewPostNotification;
@@ -158,6 +159,30 @@ type AppNotification =
 	| CommentReplyNotification
 	| PrivateNoteNotification
 	| PrivateNoteReplyNotification;
+
+type UserInboxSurface = 'post_activity' | 'notifications';
+
+interface BaseUserInboxItem {
+	id: string;
+	surface: UserInboxSurface;
+	actorId: string;
+	createdAt: number;
+	readAt: number | null;
+}
+
+type UserInboxItem = BaseUserInboxItem & (
+	| { type: 'join_channel_request'; requesterId: string; requesterFirstName: string; requesterLastName: string; channelId: string; channelName: string; joinRequestId: string }
+	| { type: 'join_channel_accepted'; channelId: string; channelName: string; joinRequestId: string }
+	| { type: 'custom_circle_invite'; requestId: string; inviterId: string; inviterFirstName: string; inviterLastName: string; channelId: string; channelName: string; inviteCode: string }
+	| { type: 'connection_request'; fromId: string; fromFirstName: string; fromLastName: string; connectionRequestId: string }
+	| { type: 'connection_accepted'; toFirstName: string; toLastName: string; connectionRequestId: string }
+	| { type: 'post_reaction'; postId: string; reactorFirstName: string; reactorLastName: string; emoji: string }
+	| { type: 'conversation_message'; postId: string; senderFirstName: string; senderLastName: string; messagePreview: string }
+	| { type: 'comment_reply'; postId: string; parentMessageId: string; senderFirstName: string; senderLastName: string; messagePreview: string }
+	| { type: 'new_post'; postId: string; channelId: string; channelName: string; isDaily: boolean; tier: PostTier; hasAttachments: boolean; authorFirstName: string; authorLastName: string; postTextPreview: string | null }
+	| { type: 'private_note'; postId: string; authorFirstName: string; authorLastName: string }
+	| { type: 'private_note_reply'; postId: string; noteId: string; senderFirstName: string; senderLastName: string; messagePreview: string }
+);
 
 interface ConnectionRequest {
 	id: string;
@@ -430,6 +455,7 @@ function buildUnifiedPostPayload(n: UnifiedPostNotificationInput): {
 			hasAttachments: String(n.hasAttachments),
 			authorFirstName: n.authorFirstName,
 			authorLastName: n.authorLastName,
+			postTextPreview: n.postTextPreview ?? '',
 		},
 	};
 }
@@ -659,6 +685,198 @@ async function reserveReactionCooldownSlot(
 	return shouldSend;
 }
 
+function getDefaultInboxSurface(notification: AppNotification): UserInboxSurface {
+	if (
+		notification.type === 'post_reaction'
+		|| notification.type === 'private_note'
+		|| notification.type === 'conversation_message'
+	) {
+		return 'post_activity';
+	}
+	return 'notifications';
+}
+
+async function resolvePrivateNoteReplySurface(
+	notification: PrivateNoteReplyNotification,
+	targetUserId: string,
+): Promise<UserInboxSurface> {
+	const postSnap = await db.collection('posts').doc(notification.postId).get();
+	if (!postSnap.exists) {
+		return 'notifications';
+	}
+	const post = postSnap.data() as { authorId?: string };
+	if (post.authorId === targetUserId) {
+		return 'post_activity';
+	}
+	return 'notifications';
+}
+
+function getInboxItemId(notification: AppNotification): string {
+	if (notification.type === 'post_reaction') {
+		return `${notification.postId}_post_reaction`;
+	}
+	return notification.id;
+}
+
+async function buildUserInboxItem(
+	notification: AppNotification,
+	targetUserId: string,
+): Promise<UserInboxItem> {
+	const createdAt = Date.now();
+	let surface = getDefaultInboxSurface(notification);
+	if (notification.type === 'private_note_reply') {
+		surface = await resolvePrivateNoteReplySurface(notification, targetUserId);
+	}
+
+	const base: BaseUserInboxItem = {
+		id: getInboxItemId(notification),
+		surface,
+		actorId: notification.actorId,
+		createdAt,
+		readAt: null,
+	};
+
+	switch (notification.type) {
+	case 'join_channel_request':
+		return {
+			...base,
+			type: 'join_channel_request',
+			surface: 'notifications',
+			requesterId: notification.requesterId,
+			requesterFirstName: notification.requesterFirstName,
+			requesterLastName: notification.requesterLastName,
+			channelId: notification.channelId,
+			channelName: notification.channelName,
+			joinRequestId: notification.joinRequestId,
+		};
+	case 'join_channel_accepted':
+		return {
+			...base,
+			type: 'join_channel_accepted',
+			surface: 'notifications',
+			channelId: notification.channelId,
+			channelName: notification.channelName,
+			joinRequestId: notification.joinRequestId,
+		};
+	case 'custom_circle_invite':
+		return {
+			...base,
+			type: 'custom_circle_invite',
+			surface: 'notifications',
+			requestId: notification.requestId,
+			inviterId: notification.inviterId,
+			inviterFirstName: notification.inviterFirstName,
+			inviterLastName: notification.inviterLastName,
+			channelId: notification.channelId,
+			channelName: notification.channelName,
+			inviteCode: notification.inviteCode,
+		};
+	case 'connection_request':
+		return {
+			...base,
+			type: 'connection_request',
+			surface: 'notifications',
+			fromId: notification.fromId,
+			fromFirstName: notification.fromFirstName,
+			fromLastName: notification.fromLastName,
+			connectionRequestId: notification.connectionRequestId,
+		};
+	case 'connection_accepted':
+		return {
+			...base,
+			type: 'connection_accepted',
+			surface: 'notifications',
+			toFirstName: notification.toFirstName,
+			toLastName: notification.toLastName,
+			connectionRequestId: notification.connectionRequestId,
+		};
+	case 'post_reaction':
+		return {
+			...base,
+			type: 'post_reaction',
+			surface: 'post_activity',
+			postId: notification.postId,
+			reactorFirstName: notification.reactorFirstName,
+			reactorLastName: notification.reactorLastName,
+			emoji: notification.emoji,
+		};
+	case 'conversation_message':
+		return {
+			...base,
+			type: 'conversation_message',
+			surface: 'post_activity',
+			postId: notification.postId,
+			senderFirstName: notification.senderFirstName,
+			senderLastName: notification.senderLastName,
+			messagePreview: notification.messagePreview,
+		};
+	case 'comment_reply':
+		return {
+			...base,
+			type: 'comment_reply',
+			surface: 'notifications',
+			postId: notification.postId,
+			parentMessageId: notification.parentMessageId,
+			senderFirstName: notification.senderFirstName,
+			senderLastName: notification.senderLastName,
+			messagePreview: notification.messagePreview,
+		};
+	case 'new_post':
+		return {
+			...base,
+			type: 'new_post',
+			surface: 'notifications',
+			postId: notification.postId,
+			channelId: notification.channelId,
+			channelName: notification.channelName,
+			isDaily: notification.isDaily,
+			tier: notification.tier,
+			hasAttachments: notification.hasAttachments,
+			authorFirstName: notification.authorFirstName,
+			authorLastName: notification.authorLastName,
+			postTextPreview: notification.postTextPreview ?? null,
+		};
+	case 'private_note':
+		return {
+			...base,
+			type: 'private_note',
+			surface: 'post_activity',
+			postId: notification.postId,
+			authorFirstName: notification.authorFirstName,
+			authorLastName: notification.authorLastName,
+		};
+	case 'private_note_reply':
+		return {
+			...base,
+			type: 'private_note_reply',
+			surface,
+			postId: notification.postId,
+			noteId: notification.noteId,
+			senderFirstName: notification.senderFirstName,
+			senderLastName: notification.senderLastName,
+			messagePreview: notification.messagePreview,
+		};
+	default: {
+		const _exhaustive: never = notification;
+		throw new Error(`Unsupported notification type for inbox: ${(_exhaustive as AppNotification).type}`);
+	}
+	}
+}
+
+async function writeUserInboxItem(
+	notification: AppNotification,
+	targetUserId: string,
+): Promise<void> {
+	const item = await buildUserInboxItem(notification, targetUserId);
+	// Full document write so readAt: null is stored reliably (merge would drop null fields).
+	await db
+		.collection('userInbox')
+		.doc(targetUserId)
+		.collection('items')
+		.doc(item.id)
+		.set(item);
+}
+
 /**
  * Triggered when a new document is created in the `notifications` collection.
  * Fetches the target user's (or channel's subscribers') FCM tokens, sends the
@@ -678,6 +896,7 @@ export const sendAppNotification = onDocumentCreated('notifications/{notificatio
 	if (notification.target.type === 'user') {
 		// ── Single-user target ─────────────────────────────────────────────
 		const targetUserId = notification.target.userId;
+		await writeUserInboxItem(notification, targetUserId).catch(() => {});
 		const targetSettings = await getNotificationSettingsForUser(targetUserId);
 
 		if (!isPostActivityNotificationEnabled(notification, targetSettings)) {
@@ -730,6 +949,12 @@ export const sendAppNotification = onDocumentCreated('notifications/{notificatio
 		const enabledRecipients = recipientSettings.filter(({ settings }) => {
 				return isCirclePostNotificationEnabled(notification, settings);
 			});
+
+		await Promise.all(
+			recipientIds.map(async (recipientId) => {
+				await writeUserInboxItem(notification, recipientId).catch(() => {});
+			}),
+		);
 
 		const allTokens = enabledRecipients.flatMap(({ settings }) => {
 				return getTokensFromSettings(settings);
@@ -1034,9 +1259,61 @@ export const onDisconnectRequest = onDocumentCreated('disconnectRequests/{reques
  * @param bucket The Firebase Storage bucket instance
  * @returns true if deletion succeeded, false otherwise
  */
+async function deleteUserInboxItemsForPost(postId: string): Promise<void> {
+	const snap = await db.collectionGroup('items').where('postId', '==', postId).get();
+	if (snap.empty) {
+		return;
+	}
+
+	const batch = db.batch();
+	for (const itemDoc of snap.docs) {
+		batch.delete(itemDoc.ref);
+	}
+	await batch.commit();
+}
+
+async function deleteUserInboxItemsForChannel(channelId: string): Promise<void> {
+	const snap = await db.collectionGroup('items').where('channelId', '==', channelId).get();
+	if (snap.empty) {
+		return;
+	}
+
+	const batch = db.batch();
+	for (const itemDoc of snap.docs) {
+		batch.delete(itemDoc.ref);
+	}
+	await batch.commit();
+}
+
+/**
+ * Triggered when a post document is updated. When the author marks a post for
+ * deletion, remove all userInbox items tied to that post immediately rather than
+ * waiting for the nightly hard-delete job.
+ */
+export const onPostMarkedForDeletion = onDocumentUpdated('posts/{postId}', async (event) => {
+	const before = event.data?.before.data() as { markedForDeletionAt?: number | null } | undefined;
+	const after = event.data?.after.data() as { markedForDeletionAt?: number | null } | undefined;
+
+	if (!before || !after) return;
+
+	const wasMarked = before.markedForDeletionAt != null;
+	const isMarked = after.markedForDeletionAt != null;
+	if (wasMarked || !isMarked) return;
+
+	const postId = event.params.postId;
+	try {
+		await deleteUserInboxItemsForPost(postId);
+		console.log(`onPostMarkedForDeletion: removed inbox items for post ${postId}`);
+	} catch (err) {
+		console.error(`onPostMarkedForDeletion: failed to remove inbox items for post ${postId}:`, err);
+	}
+});
+
 async function deletePostWithMedia(postRef: admin.firestore.DocumentReference, bucket: any): Promise<boolean> {
 	const postId = postRef.id;
 	try {
+		await deleteUserInboxItemsForPost(postId);
+
 		// Delete Firebase Storage media files (best-effort).
 		try {
 			await bucket.deleteFiles({ prefix: `posts/${postId}/` });
@@ -1117,7 +1394,10 @@ export const deleteMarkedChannels = onSchedule('every 24 hours', async () => {
 				await batch.commit();
 			}
 
-			// ── Step 4: Delete the channel document itself ────────────────────────────
+			// ── Step 4: Remove inbox items tied to this channel ─────────────────────
+			await deleteUserInboxItemsForChannel(channelId);
+
+			// ── Step 5: Delete the channel document itself ────────────────────────────
 			await channelDoc.ref.delete();
 
 			console.log(

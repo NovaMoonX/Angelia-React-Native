@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/ui/Avatar';
@@ -14,6 +14,7 @@ import { useActionModal } from '@/hooks/useActionModal';
 import { selectMyPeopleData } from '@/store/crossSelectors/myPeopleSelectors';
 import { disconnectUser } from '@/store/actions/connectionsActions';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { navigateBackFromEntry } from '@/lib/navigation/entryNavigation.utils';
 import type { User } from '@/models/types';
 
 interface PersonRowProps {
@@ -56,6 +57,7 @@ function PersonRow({ user, tag, onPress }: PersonRowProps) {
 }
 
 export default function MyPeopleScreen() {
+  const { from } = useLocalSearchParams<{ from?: string }>();
   const router = useRouter();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
@@ -85,6 +87,7 @@ export default function MyPeopleScreen() {
     <View style={{ flex: 1 }}>
       <ScreenHeader
         title="My People"
+        onBack={() => navigateBackFromEntry(from)}
         rightAction={
           <Pressable
             onPress={() => router.push('/(protected)/share-connection')}

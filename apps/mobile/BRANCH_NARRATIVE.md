@@ -278,3 +278,76 @@ Edit mode now hides Reset entirely, so the top bar stays focused on Cancel and S
 **For reviewers:** the main themes to inspect are settings persistence, thread rendering order, draft hydration/cleanup, and the exact moments unread state is cleared.
 
 ---
+
+## Feature: Reactions Seen Only on Post Detail
+
+### The Problem
+
+Scrolling past a post card in Post Activity marked new reactions as reviewed even when the host never opened post detail. That made the unread badge disappear too early.
+
+### The Solution
+
+Reaction unread now clears only when the host opens post detail and leaves the screen. Post Activity card visibility no longer writes seen state.
+
+### Technical Detail
+
+- File: [src/app/(protected)/post-activity.tsx](src/app/(protected)/post-activity.tsx)
+	Removed viewability-based `markPostsSeen` and blur flush.
+- File: [src/app/(protected)/post/[id].tsx](src/app/(protected)/post/[id].tsx)
+	Marks reaction inbox items read on blur when leaving post detail.
+
+---
+
+## Feature: Expiring-Soon Filters
+
+### The Problem
+
+Posts nearing expiry (daily 3-day / custom 7-day warning window) were hard to spot in a busy feed or Post Activity list.
+
+### The Solution
+
+Post Activity adds an **Expiring soon** scope filter with soonest-first sort. Feed adds a quick-action pill for unreacted expiring posts and a filter-menu toggle for all expiring posts in scope.
+
+### Technical Detail
+
+- File: [src/lib/post/post.utils.ts](src/lib/post/post.utils.ts)
+	`isPostExpiringSoon()` and `hasUserReactedToPost()` helpers.
+- File: [src/app/(protected)/post-activity.tsx](src/app/(protected)/post-activity.tsx)
+	Expiring scope filter and sort.
+- File: [src/app/(protected)/feed.tsx](src/app/(protected)/feed.tsx)
+	Expiring quick filter on its own row (dashed outline) below status pills; filter menu integration.
+- File: [docs/2026/06/08/ACTIVITY_EXPIRY_INBOX.md](../../docs/2026/06/08/ACTIVITY_EXPIRY_INBOX.md)
+	Durable feature reference for inbox, expiry, and reaction-seen behavior.
+- File: [src/components/FeedChannelFilterModal.tsx](src/components/FeedChannelFilterModal.tsx)
+	`expiringSoonOnly` toggle on apply.
+
+---
+
+## Feature: User Inbox and Post-Grouped Notifications
+
+### The Problem
+
+Unread for reactions, messages, and private notes was computed client-side with per-post Firestore listeners and AsyncStorage seen keys. That was expensive at scale and hard to keep consistent across screens.
+
+### The Solution
+
+A `userInbox` collection drives unread state from a single listener. Cloud Functions write inbox items when notifications fire. Post Activity and Notifications read from Redux selectors; mark-read happens when the user visits the right screen (post detail, conversation, private notes). Notifications adds an **Activity** section that groups inbox items by post.
+
+### Technical Detail
+
+- File: [functions/src/index.ts](functions/src/index.ts)
+	`writeUserInboxItem` on notification send; surface routing and reaction dedupe.
+- File: [firestore.rules](firestore.rules)
+	Rules for `userInbox/{userId}/items/{itemId}`.
+- File: [src/store/slices/userInboxSlice.ts](src/store/slices/userInboxSlice.ts)
+	Inbox Redux slice.
+- File: [src/store/crossSelectors/userInboxSelectors.ts](src/store/crossSelectors/userInboxSelectors.ts)
+	Grouped unread selectors for Post Activity and Notifications.
+- File: [src/hooks/dataListeners/useDataListenerRealtimeData.ts](src/hooks/dataListeners/useDataListenerRealtimeData.ts)
+	Single `subscribeToUserInbox`; removed global per-authored-post message/note listeners.
+- File: [src/app/(protected)/notifications.tsx](src/app/(protected)/notifications.tsx)
+	Activity section with post-grouped inbox rows.
+- File: [src/providers/AuthorPostActivityProvider.tsx](src/providers/AuthorPostActivityProvider.tsx)
+	Thin wrapper over inbox selectors (no AsyncStorage).
+
+---

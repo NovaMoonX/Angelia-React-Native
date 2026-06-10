@@ -26,7 +26,7 @@ import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { selectMessages, setMessages } from '@/store/slices/conversationSlice';
 import { joinConversation } from '@/store/actions/postActions';
-import { subscribeToMessages } from '@/services/firebase/firestore';
+import { markUserInboxReadForPost, subscribeToMessages } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
 
 import { useTheme } from '@/hooks/useTheme';
@@ -39,9 +39,9 @@ import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import {
   POST_TIERS,
   CONVERSATION_EDIT_HINT_SEEN_KEY,
-  CONVERSATION_LAST_SEEN_KEY,
   CONVERSATION_REPLY_HINT_SEEN_KEY,
 } from '@/models/constants';
+import { isFromNotifications } from '@/lib/navigation/entryNavigation.utils';
 import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import type { Message } from '@/models/types';
 import { editMessage, sendMessage } from '@/store/actions/conversationActions';
@@ -55,7 +55,7 @@ type ThreadedConversationRow = {
 };
 
 export default function ConversationScreen() {
-  const { postId } = useLocalSearchParams<{ postId: string }>();
+  const { postId, from } = useLocalSearchParams<{ postId: string; from?: string }>();
   const dispatch = useAppDispatch();
   const router = useRouter();
   const navigation = useNavigation();
@@ -87,8 +87,12 @@ export default function ConversationScreen() {
       return;
     }
     isRoutingToPostRef.current = true;
+    if (isFromNotifications(from)) {
+      router.dismissTo('/(protected)/notifications');
+      return;
+    }
     router.dismissTo({ pathname: '/(protected)/post/[id]', params: { id: postId } });
-  }, [postId, router]);
+  }, [from, postId, router]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (event: EventArg<'beforeRemove', true, { action: { type: string } }>) => {
@@ -112,30 +116,37 @@ export default function ConversationScreen() {
   const canAccessConversation = hasReacted || isHost;
   const isInConversation = post?.conversationEnrollees.includes(currentUser?.id ?? '') ?? false;
 
-  // Skip subscription for hosted posts — global listener in useDataListenerRealtimeData
-  // already handles message subscriptions for posts where the current user is the author.
   useEffect(() => {
-    if (!postId || isDemo || isHost) return;
+    if (!postId || isDemo) return;
     const unsub = subscribeToMessages(postId, (msgs) => {
       dispatch(setMessages({ postId, messages: msgs }));
     });
     return unsub;
-  }, [postId, dispatch, isDemo, isHost]);
+  }, [postId, dispatch, isDemo]);
 
-  // Record when the user last opened this conversation to drive the unread indicator
+  const inboxItems = useAppSelector((state) => state.userInbox.items);
+  const inboxItemsRef = useRef(inboxItems);
+  useEffect(() => {
+    inboxItemsRef.current = inboxItems;
+  }, [inboxItems]);
+
   useFocusEffect(
     useCallback(() => {
-      if (!postId || isDemo) return;
-      void Promise.all([
-        AsyncStorage.setItem(CONVERSATION_LAST_SEEN_KEY(postId), String(Date.now())),
-        dismissNotificationsByData({ type: 'conversation_message', postId }).catch(() => {}),
-        dismissNotificationsByData({ type: 'comment_reply', postId }).catch(() => {}),
-      ]).catch(() => {});
+      if (!postId || isDemo || !currentUser) {
+        return undefined;
+      }
 
-      return () => {
-        void AsyncStorage.setItem(CONVERSATION_LAST_SEEN_KEY(postId), String(Date.now()));
-      };
-    }, [postId, isDemo]),
+      void markUserInboxReadForPost(
+        currentUser.id,
+        inboxItemsRef.current,
+        postId,
+        ['conversation_message', 'comment_reply'],
+      ).catch(() => {});
+      void dismissNotificationsByData({ type: 'conversation_message', postId }).catch(() => {});
+      void dismissNotificationsByData({ type: 'comment_reply', postId }).catch(() => {});
+
+      return undefined;
+    }, [currentUser?.id, postId, isDemo]),
   );
 
   usePostComments({ postId });

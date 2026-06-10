@@ -11,9 +11,7 @@ import type { PrivateNote } from '@/models/types';
  * Should only be called when the current user IS the post author (Host).
  * In demo mode the Firestore subscription is skipped.
  *
- * The global listener in `useDataListenerRealtimeData` also subscribes for authored
- * posts (for badges/activity when no post screen is open). This hook keeps its own
- * subscription so notes update in real time while the host is viewing a post.
+ * Lazy subscription while the host is viewing private notes for a post.
  *
  * @returns The current private notes array for that post, a `loaded` flag
  *          that is `true` once the first snapshot (or error) has resolved,

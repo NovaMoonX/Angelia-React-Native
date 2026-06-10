@@ -1,15 +1,21 @@
-import React, { useCallback, useMemo } from 'react';
-import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Feather } from '@expo/vector-icons';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { Input } from '@/components/ui/Input';
 import { createDefaultCirclePostNotificationSettings } from '@/models/constants';
-import type { Channel, CirclePostNotificationSettings } from '@/models/types';
+import type { CirclePostNotificationSettings } from '@/models/types';
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
-import { getUserDisplayName } from '@/lib/user/user.utils';
+import {
+  filterGroupedNotificationCircles,
+  groupNotificationChannelsByOwner,
+  type GroupedNotificationCircle,
+} from '@/lib/notification/notificationCircle.utils';
 import { saveNotificationSettings } from '@/store/actions/notificationActions';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { selectAllChannels } from '@/store/slices/channelsSlice';
+import { selectInvolvedNotificationChannels } from '@/store/crossSelectors/notificationCircleSelectors';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 
 interface CircleRowOption {
@@ -46,14 +52,22 @@ const CIRCLE_ROW_OPTIONS: CircleRowOption[] = [
   },
 ];
 
-interface GroupedCircleSettings {
-  ownerId: string;
-  ownerLabel: string;
-  circles: Array<{
-    channel: Channel;
-    displayName: string;
-    subtitle: string;
-  }>;
+function getCircleNotificationSummary(settings: CirclePostNotificationSettings): string {
+  const enabledLabels = CIRCLE_ROW_OPTIONS
+    .filter((option) => {
+      return settings[option.key];
+    })
+    .map((option) => {
+      return option.title;
+    });
+
+  if (enabledLabels.length === CIRCLE_ROW_OPTIONS.length) {
+    return 'All notification types on';
+  }
+  if (enabledLabels.length === 0) {
+    return 'Notifications off';
+  }
+  return enabledLabels.join(' · ');
 }
 
 export default function PostNotificationSettingsScreen() {
@@ -65,11 +79,14 @@ export default function PostNotificationSettingsScreen() {
   const currentUser = useAppSelector((state) => {
     return state.users.currentUser;
   });
-  const allChannels = useAppSelector(selectAllChannels);
+  const involvedChannels = useAppSelector(selectInvolvedNotificationChannels);
   const usersById = useAppSelector(selectAllUsersMapById);
   const notificationSettings = useAppSelector((state) => {
     return state.users.currentUserNotificationSettings;
   });
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [collapsedCircleIds, setCollapsedCircleIds] = useState<Set<string>>(new Set());
 
   const getCircleSettings = useCallback(
     (channelId: string): CirclePostNotificationSettings => {
@@ -81,53 +98,44 @@ export default function PostNotificationSettingsScreen() {
     [notificationSettings?.postByCircle],
   );
 
-  const groupedCircles = useMemo((): GroupedCircleSettings[] => {
-    if (!currentUser) return [];
-
-    const involved = allChannels.filter((channel) => {
-      return channel.ownerId !== currentUser.id && channel.subscribers.includes(currentUser.id);
-    });
-
-    const grouped = new Map<string, GroupedCircleSettings>();
-
-    for (const channel of involved) {
-      const owner = usersById[channel.ownerId];
-      const ownerLabel = getUserDisplayName(owner, currentUser.id, channel.ownerId, 'first-last-initial');
-      const existing = grouped.get(channel.ownerId) ?? {
-        ownerId: channel.ownerId,
-        ownerLabel,
-        circles: [],
-      };
-
-      const displayName = channel.isDaily === true
-        ? getUserDisplayName(owner, currentUser.id, channel.ownerId, 'first-last-initial')
-        : channel.name;
-
-      existing.circles.push({
-        channel,
-        displayName,
-        subtitle: channel.isDaily === true ? 'Daily Circle' : 'Custom Circle',
-      });
-
-      grouped.set(channel.ownerId, existing);
+  const groupedCircles = useMemo(() => {
+    if (!currentUser) {
+      return [];
     }
+    return groupNotificationChannelsByOwner(involvedChannels, usersById, currentUser.id);
+  }, [currentUser, involvedChannels, usersById]);
 
-    return Array.from(grouped.values())
-      .map((group) => {
-        const nextCircles = [...group.circles].sort((a, b) => {
-          if (a.channel.isDaily === true && b.channel.isDaily !== true) return -1;
-          if (a.channel.isDaily !== true && b.channel.isDaily === true) return 1;
-          return a.displayName.localeCompare(b.displayName);
+  const filteredGroups = useMemo(() => {
+    return filterGroupedNotificationCircles(groupedCircles, searchQuery);
+  }, [groupedCircles, searchQuery]);
+
+  useEffect(() => {
+    setCollapsedCircleIds((prev) => {
+      const next = new Set(prev);
+      groupedCircles.forEach((group) => {
+        group.circles.forEach((entry) => {
+          next.add(entry.channel.id);
         });
-        return {
-          ...group,
-          circles: nextCircles,
-        };
-      })
-      .sort((a, b) => {
-        return a.ownerLabel.localeCompare(b.ownerLabel);
       });
-  }, [allChannels, currentUser, usersById]);
+      return next;
+    });
+  }, [groupedCircles]);
+
+  const toggleCircleExpanded = useCallback((channelId: string) => {
+    setCollapsedCircleIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(channelId)) {
+        next.delete(channelId);
+      } else {
+        next.add(channelId);
+      }
+      return next;
+    });
+  }, []);
+
+  const isCircleExpanded = useCallback((channelId: string) => {
+    return !collapsedCircleIds.has(channelId);
+  }, [collapsedCircleIds]);
 
   const handleToggleAll = useCallback(
     async (channelId: string) => {
@@ -152,7 +160,7 @@ export default function PostNotificationSettingsScreen() {
   );
 
   const handleToggleGroupAll = useCallback(
-    async (group: GroupedCircleSettings) => {
+    async (group: GroupedNotificationCircle) => {
       const isGroupAllOn = group.circles.every((entry) => {
         const s = getCircleSettings(entry.channel.id);
         return s.bigNewsEnabled && s.worthKnowingEnabled && s.everydayEnabled && s.withAttachmentsEnabled;
@@ -203,19 +211,37 @@ export default function PostNotificationSettingsScreen() {
       <ScrollView
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 24 }]}
+        keyboardShouldPersistTaps='handled'
       >
         <View style={styles.hero}>
           <Text style={styles.heroEmoji}>🔔</Text>
-          <Text style={[styles.heroSubtitle, { color: theme.mutedForeground }]}> 
+          <Text style={[styles.heroSubtitle, { color: theme.mutedForeground }]}>
             Choose which posts should ping you in each Circle. Big News is on by default.
           </Text>
         </View>
 
-        {groupedCircles.map((group) => {
+        {groupedCircles.length > 0 && (
+          <View style={styles.searchWrap}>
+            <Feather name='search' size={16} color={theme.mutedForeground} style={styles.searchIcon} />
+            <Input
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder='Search by person or Circle name'
+              style={[styles.searchInput, { backgroundColor: theme.card, borderColor: theme.border, color: theme.foreground }]}
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={() => setSearchQuery('')} hitSlop={8} style={styles.searchClear}>
+                <Feather name='x' size={16} color={theme.mutedForeground} />
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        {filteredGroups.map((group) => {
           return (
             <View key={group.ownerId} style={styles.groupWrap}>
               <View style={styles.ownerHeaderRow}>
-                <Text style={[styles.ownerTitle, { color: theme.mutedForeground }]}> 
+                <Text style={[styles.ownerTitle, { color: theme.mutedForeground }]}>
                   {`${group.ownerLabel}'s Circles`}
                 </Text>
                 {notificationSettings ? (
@@ -233,6 +259,9 @@ export default function PostNotificationSettingsScreen() {
 
               {group.circles.map((entry) => {
                 const circleSettings = getCircleSettings(entry.channel.id);
+                const expanded = isCircleExpanded(entry.channel.id);
+                const summary = getCircleNotificationSummary(circleSettings);
+
                 return (
                   <View
                     key={entry.channel.id}
@@ -241,26 +270,45 @@ export default function PostNotificationSettingsScreen() {
                       { backgroundColor: theme.card, borderColor: theme.border },
                     ]}
                   >
-                    <View style={styles.circleHeader}>
-                      <Text style={[styles.circleTitle, { color: theme.foreground }]}> 
-                        {entry.displayName}
-                      </Text>
-                      <Text style={[styles.circleSubtitle, { color: theme.mutedForeground }]}> 
-                        {entry.subtitle}
-                      </Text>
-                    </View>
+                    <Pressable
+                      onPress={() => {
+                        toggleCircleExpanded(entry.channel.id);
+                      }}
+                      style={styles.circleHeaderPressable}
+                    >
+                      <View style={styles.circleHeader}>
+                        <View style={styles.circleHeaderText}>
+                          <Text style={[styles.circleTitle, { color: theme.foreground }]}>
+                            {entry.displayName}
+                          </Text>
+                          <Text style={[styles.circleSubtitle, { color: theme.mutedForeground }]}>
+                            {entry.subtitle}
+                          </Text>
+                          {!expanded && (
+                            <Text style={[styles.circleSummary, { color: theme.mutedForeground }]}>
+                              {summary}
+                            </Text>
+                          )}
+                        </View>
+                        <Feather
+                          name={expanded ? 'chevron-up' : 'chevron-down'}
+                          size={18}
+                          color={theme.mutedForeground}
+                        />
+                      </View>
+                    </Pressable>
 
-                    {CIRCLE_ROW_OPTIONS.map((option, index) => {
+                    {expanded && CIRCLE_ROW_OPTIONS.map((option) => {
                       return (
                         <View key={option.key}>
                           <View style={styles.row}>
                             <View style={styles.rowLeft}>
                               <Text style={styles.rowEmoji}>{option.emoji}</Text>
                               <View style={styles.rowTextWrap}>
-                                <Text style={[styles.rowLabel, { color: theme.foreground }]}> 
+                                <Text style={[styles.rowLabel, { color: theme.foreground }]}>
                                   {option.title}
                                 </Text>
-                                <Text style={[styles.rowSub, { color: theme.mutedForeground }]}> 
+                                <Text style={[styles.rowSub, { color: theme.mutedForeground }]}>
                                   {option.description}
                                 </Text>
                               </View>
@@ -284,31 +332,32 @@ export default function PostNotificationSettingsScreen() {
                       );
                     })}
 
-                    {/* Enable All toggle at bottom of card */}
-                    <View style={styles.row}>
-                      <View style={styles.rowLeft}>
-                        <Text style={styles.rowEmoji}>🔔</Text>
-                        <View style={styles.rowTextWrap}>
-                          <Text style={[styles.rowLabel, { color: theme.foreground }]}>Enable All</Text>
-                          <Text style={[styles.rowSub, { color: theme.mutedForeground }]}>Turn on all notifications for this Circle</Text>
+                    {expanded && (
+                      <View style={styles.row}>
+                        <View style={styles.rowLeft}>
+                          <Text style={styles.rowEmoji}>🔔</Text>
+                          <View style={styles.rowTextWrap}>
+                            <Text style={[styles.rowLabel, { color: theme.foreground }]}>Enable All</Text>
+                            <Text style={[styles.rowSub, { color: theme.mutedForeground }]}>Turn on all notifications for this Circle</Text>
+                          </View>
                         </View>
+                        {notificationSettings ? (
+                          <Switch
+                            value={
+                              circleSettings.bigNewsEnabled &&
+                              circleSettings.worthKnowingEnabled &&
+                              circleSettings.everydayEnabled &&
+                              circleSettings.withAttachmentsEnabled
+                            }
+                            onValueChange={() => { void handleToggleAll(entry.channel.id); }}
+                            trackColor={{ false: theme.muted, true: theme.primary }}
+                            thumbColor='#FFFFFF'
+                          />
+                        ) : (
+                          <Text style={[styles.loadingText, { color: theme.mutedForeground }]}>Loading...</Text>
+                        )}
                       </View>
-                      {notificationSettings ? (
-                        <Switch
-                          value={
-                            circleSettings.bigNewsEnabled &&
-                            circleSettings.worthKnowingEnabled &&
-                            circleSettings.everydayEnabled &&
-                            circleSettings.withAttachmentsEnabled
-                          }
-                          onValueChange={() => { void handleToggleAll(entry.channel.id); }}
-                          trackColor={{ false: theme.muted, true: theme.primary }}
-                          thumbColor='#FFFFFF'
-                        />
-                      ) : (
-                        <Text style={[styles.loadingText, { color: theme.mutedForeground }]}>Loading...</Text>
-                      )}
-                    </View>
+                    )}
                   </View>
                 );
               })}
@@ -320,8 +369,18 @@ export default function PostNotificationSettingsScreen() {
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🌱</Text>
             <Text style={[styles.emptyTitle, { color: theme.foreground }]}>No Circles Yet</Text>
-            <Text style={[styles.emptySub, { color: theme.mutedForeground }]}> 
+            <Text style={[styles.emptySub, { color: theme.mutedForeground }]}>
               Once you join circles, you can fine-tune post notifications here.
+            </Text>
+          </View>
+        )}
+
+        {groupedCircles.length > 0 && filteredGroups.length === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>🔍</Text>
+            <Text style={[styles.emptyTitle, { color: theme.foreground }]}>No matches</Text>
+            <Text style={[styles.emptySub, { color: theme.mutedForeground }]}>
+              Try searching by a person&apos;s name or a Circle name.
             </Text>
           </View>
         )}
@@ -350,6 +409,31 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 320,
   },
+  searchWrap: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 4,
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  searchIcon: {
+    position: 'absolute',
+    left: 14,
+    zIndex: 1,
+  },
+  searchInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 11,
+    paddingLeft: 38,
+    paddingRight: 38,
+    fontSize: 15,
+  },
+  searchClear: {
+    position: 'absolute',
+    right: 12,
+    zIndex: 1,
+  },
   groupWrap: {
     marginTop: 18,
     gap: 10,
@@ -373,10 +457,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     overflow: 'hidden',
   },
+  circleHeaderPressable: {
+    width: '100%',
+  },
   circleHeader: {
     paddingHorizontal: 16,
     paddingTop: 14,
-    paddingBottom: 10,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  circleHeaderText: {
+    flex: 1,
   },
   circleTitle: {
     fontSize: 16,
@@ -385,6 +479,11 @@ const styles = StyleSheet.create({
   circleSubtitle: {
     fontSize: 12,
     marginTop: 2,
+  },
+  circleSummary: {
+    fontSize: 12,
+    marginTop: 6,
+    lineHeight: 17,
   },
   row: {
     flexDirection: 'row',

@@ -50,6 +50,7 @@ import {
   removeCommentOptimistic,
 } from '@/store/slices/commentsSlice';
 import { POST_UPLOAD_QUEUE_KEY } from '@/models/constants';
+import { buildTextPreview } from '@/lib/message/messagePreview.utils';
 import { isDemoActive } from './globalActions';
 
 // ── Post notification helper ───────────────────────────────────────────────
@@ -87,6 +88,7 @@ async function sendPostNotification(
       hasAttachments,
       authorFirstName,
       authorLastName,
+      postTextPreview: buildTextPreview(post.text, hasAttachments ? 'Includes a photo or video' : null),
     };
     await createAppNotification(notification);
   } catch {

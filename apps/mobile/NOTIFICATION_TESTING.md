@@ -199,7 +199,8 @@ By default for each Circle, only `bigNewsEnabled` is on.
   "tier": "worth-knowing",
   "hasAttachments": true,
   "authorFirstName": "Alex",
-  "authorLastName": "Test"
+  "authorLastName": "Test",
+  "postTextPreview": "Just finished the book — thoughts inside!"
 }
 ```
 

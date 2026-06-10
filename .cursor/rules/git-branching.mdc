@@ -1,0 +1,16 @@
+---
+description: Never work on main — always use a short descriptive feature branch
+alwaysApply: true
+---
+
+# Git branching
+
+- **Never** edit files, run implementation commands, or commit on `main` / `master`
+- **Always** create a new branch before starting work: `git checkout -b feature/short-descriptive-name`
+- Branch names: kebab-case, short (2–4 words), prefixed `feature/`, `fix/`, or `chore/`
+- If already on `main` when a task begins, create the branch as the **first** action — before any code changes
+- Commits and PRs target the feature branch, not `main`
+
+Examples:
+- `feature/activity-expiry-inbox` ✅
+- `fix/reaction-seen-badge` ✅

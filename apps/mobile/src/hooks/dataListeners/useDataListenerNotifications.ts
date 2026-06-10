@@ -14,6 +14,7 @@ import {
   dismissNotificationsByData,
 } from '@/services/notifications';
 import type { AppNotificationType, Post } from '@/models/types';
+import { withNotificationsEntry } from '@/lib/navigation/entryNavigation.utils';
 import { consumeNotificationResponse } from '@/lib/notificationResponseDedup';
 
 const DAILY_PROMPT_SHOWN_DATE_KEY = '@angelia/daily_prompt_shown_date';
@@ -109,7 +110,10 @@ export function useDataListenerNotifications() {
       if (type === 'join_channel_request') {
         const joinRequestId = data?.joinRequestId;
         if (joinRequestId) {
-          router.push({ pathname: '/(protected)/join-request/[id]', params: { id: joinRequestId } });
+          router.push({
+            pathname: '/(protected)/join-request/[id]',
+            params: withNotificationsEntry({ id: joinRequestId }),
+          });
         } else {
           router.push('/(protected)/notifications');
         }
@@ -118,14 +122,20 @@ export function useDataListenerNotifications() {
 
       if (type === 'join_channel_accepted') {
         const channelName = data?.channelName ?? '';
-        router.push({ pathname: '/(protected)/channel-accepted', params: { channelName } });
+        router.push({
+          pathname: '/(protected)/channel-accepted',
+          params: withNotificationsEntry({ channelName }),
+        });
         return;
       }
 
       if (type === 'custom_circle_invite') {
         const requestId = data?.requestId;
         if (requestId) {
-          router.push({ pathname: '/(protected)/circle-invite/[id]', params: { id: requestId } } as never);
+          router.push({
+            pathname: '/(protected)/circle-invite/[id]',
+            params: withNotificationsEntry({ id: requestId }),
+          } as never);
         } else {
           router.push('/(protected)/notifications');
         }
@@ -135,7 +145,10 @@ export function useDataListenerNotifications() {
       if (type === 'connection_request') {
         const requestId = data?.connectionRequestId;
         if (requestId) {
-          router.push({ pathname: '/(protected)/connection-request/[id]', params: { id: requestId } });
+          router.push({
+            pathname: '/(protected)/connection-request/[id]',
+            params: withNotificationsEntry({ id: requestId }),
+          });
         } else {
           router.push('/(protected)/notifications');
         }
@@ -143,7 +156,7 @@ export function useDataListenerNotifications() {
       }
 
       if (type === 'connection_accepted') {
-        router.push('/(protected)/my-people');
+        router.push({ pathname: '/(protected)/my-people', params: withNotificationsEntry() });
         return;
       }
 
@@ -155,7 +168,10 @@ export function useDataListenerNotifications() {
           } else {
             void dismissNotificationsByData({ type: 'new_post', postId });
           }
-          router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } });
+          router.push({
+            pathname: '/(protected)/post/[id]',
+            params: withNotificationsEntry({ id: postId }),
+          });
         }
         return;
       }
@@ -164,7 +180,10 @@ export function useDataListenerNotifications() {
         const postId = data?.postId;
         if (postId) {
           void dismissNotificationsByData({ type, postId });
-          router.push({ pathname: '/(protected)/conversation', params: { postId } });
+          router.push({
+            pathname: '/(protected)/conversation',
+            params: withNotificationsEntry({ postId }),
+          });
         }
         return;
       }
@@ -173,7 +192,10 @@ export function useDataListenerNotifications() {
         const postId = data?.postId;
         if (postId) {
           void dismissNotificationsByData({ type: 'private_note', postId });
-          router.push({ pathname: '/(protected)/private-notes-host/[postId]', params: { postId } });
+          router.push({
+            pathname: '/(protected)/private-notes-host/[postId]',
+            params: withNotificationsEntry({ postId }),
+          });
         }
         return;
       }
@@ -185,7 +207,7 @@ export function useDataListenerNotifications() {
           void dismissNotificationsByData({ type: 'private_note_reply', postId, noteId });
           router.push({
             pathname: '/(protected)/private-note-thread/[postId]/[noteId]',
-            params: { postId, noteId },
+            params: withNotificationsEntry({ postId, noteId }),
           });
         }
         return;
@@ -358,7 +380,10 @@ export function useDataListenerNotifications() {
           description: `Tap to review their request for ${channelName}`,
           onPress: joinRequestId
             ? () => {
-                router.push({ pathname: '/(protected)/join-request/[id]', params: { id: joinRequestId } });
+                router.push({
+                  pathname: '/(protected)/join-request/[id]',
+                  params: withNotificationsEntry({ id: joinRequestId }),
+                });
               }
             : undefined,
         });
@@ -372,7 +397,10 @@ export function useDataListenerNotifications() {
           title: "🎉 You're in!",
           description: `Tap to check out ${channelName}`,
           onPress: () => {
-            router.push({ pathname: '/(protected)/channel-accepted', params: { channelName } });
+            router.push({
+              pathname: '/(protected)/channel-accepted',
+              params: withNotificationsEntry({ channelName }),
+            });
           },
         });
         return;
@@ -394,7 +422,10 @@ export function useDataListenerNotifications() {
           description: inviteCode ? 'Tap to review the invite' : 'Open notifications to view details',
           onPress: requestId
             ? () => {
-                router.push({ pathname: '/(protected)/circle-invite/[id]', params: { id: requestId } } as never);
+                router.push({
+                  pathname: '/(protected)/circle-invite/[id]',
+                  params: withNotificationsEntry({ id: requestId }),
+                } as never);
               }
             : () => {
                 router.push('/(protected)/notifications');
@@ -417,7 +448,10 @@ export function useDataListenerNotifications() {
           description: 'Tap to review their connection request',
           onPress: requestId
             ? () => {
-                router.push({ pathname: '/(protected)/connection-request/[id]', params: { id: requestId } });
+                router.push({
+                  pathname: '/(protected)/connection-request/[id]',
+                  params: withNotificationsEntry({ id: requestId }),
+                });
               }
             : () => {
                 router.push('/(protected)/notifications');
@@ -433,7 +467,7 @@ export function useDataListenerNotifications() {
           title: `🎉 You're connected with ${firstName}!`,
           description: 'Tap to see your people',
           onPress: () => {
-            router.push('/(protected)/my-people');
+            router.push({ pathname: '/(protected)/my-people', params: withNotificationsEntry() });
           },
         });
         return;
@@ -470,7 +504,10 @@ export function useDataListenerNotifications() {
           description: `Tap to see their new post${attachmentText} in ${circleDescription}`,
           onPress: postId
             ? () => {
-                router.push({ pathname: '/(protected)/post/[id]', params: { id: postId } });
+                router.push({
+                  pathname: '/(protected)/post/[id]',
+                  params: withNotificationsEntry({ id: postId }),
+                });
               }
             : undefined,
         });
@@ -518,7 +555,10 @@ export function useDataListenerNotifications() {
         title: `🤝 ${firstName} wants to connect!`,
         description: 'Tap to review their connection request',
         onPress: () => {
-          router.push({ pathname: '/(protected)/connection-request/[id]', params: { id: request.id } });
+          router.push({
+            pathname: '/(protected)/connection-request/[id]',
+            params: withNotificationsEntry({ id: request.id }),
+          });
         },
       });
     });
@@ -564,7 +604,10 @@ export function useDataListenerNotifications() {
         title: `📬 ${firstName} wants to join!`,
         description: `Tap to review their request for ${channelName}`,
         onPress: () => {
-          router.push({ pathname: '/(protected)/join-request/[id]', params: { id: request.id } });
+          router.push({
+            pathname: '/(protected)/join-request/[id]',
+            params: withNotificationsEntry({ id: request.id }),
+          });
         },
       });
     });
@@ -610,7 +653,10 @@ export function useDataListenerNotifications() {
         title: `✨ ${firstName} invited you to join ${channelName}`,
         description: 'Tap to review the invite',
         onPress: () => {
-          router.push({ pathname: '/(protected)/circle-invite/[id]', params: { id: invite.id } } as never);
+          router.push({
+            pathname: '/(protected)/circle-invite/[id]',
+            params: withNotificationsEntry({ id: invite.id }),
+          } as never);
         },
       });
     });

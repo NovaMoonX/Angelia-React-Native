@@ -1,0 +1,10 @@
+Branch: feature/activity-expiry-inbox
+Release: 1.0.9
+
+- Private note conversations — tap a note to keep the thread going
+- Reactions stay unread until you open post detail (not when scrolling Post Activity)
+- Expiring-soon filters on Feed and Post Activity
+- Smarter Notifications inbox — activity on your posts vs other activity, post snippets, per-section mark all seen
+- Circle post notification settings list every connected person's Daily Circle with search
+- Post creation tips stay dismissed; inbox cleanup for deleted posts and circles
+- Activity marks as seen when you land on the right screen (post detail, conversation, private notes)

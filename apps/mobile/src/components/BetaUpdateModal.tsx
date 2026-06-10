@@ -34,6 +34,21 @@ const BETA_UPDATE_CHANGES: ChangeEntry[] = [
     title: 'Private note conversations',
     description: 'Tap a private note to keep the conversation going with a full back-and-forth thread.',
   },
+  {
+    emoji: '👀',
+    title: 'Reactions stay unread until you visit',
+    description: 'Scrolling past a post in Post Activity no longer clears new reactions — open post detail to mark them reviewed.',
+  },
+  {
+    emoji: '⏳',
+    title: 'Expiring-soon filters',
+    description: 'Spot posts about to expire from Feed and Post Activity; Feed has a dedicated row for ones you have not reacted to yet.',
+  },
+  {
+    emoji: '🔔',
+    title: 'Smarter Notifications inbox',
+    description: 'Activity on your posts and other activity are split into clear sections with snippets, tier badges, and mark-all-seen per section.',
+  }
 ];
 
 interface BetaUpdateModalProps {

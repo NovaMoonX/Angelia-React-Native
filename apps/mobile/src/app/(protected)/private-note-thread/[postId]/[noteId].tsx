@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -23,8 +22,9 @@ import { selectPrivateNoteById } from '@/store/slices/privateNotesSlice';
 import { useTheme } from '@/hooks/useTheme';
 import { usePrivateNoteThread } from '@/hooks/usePrivateNoteThread';
 import { sendPrivateNoteReply } from '@/store/actions/privateNoteThreadActions';
+import { markUserInboxReadForPost } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
-import { PRIVATE_NOTE_THREAD_SEEN_KEY } from '@/models/constants';
+import { isFromNotifications } from '@/lib/navigation/entryNavigation.utils';
 import { KEYBOARD_BEHAVIOR } from '@/constants/layout';
 import type { Message } from '@/models/types';
 
@@ -34,7 +34,7 @@ type ThreadRow = {
 };
 
 export default function PrivateNoteThreadScreen() {
-  const { postId, noteId } = useLocalSearchParams<{ postId: string; noteId: string }>();
+  const { postId, noteId, from } = useLocalSearchParams<{ postId: string; noteId: string; from?: string }>();
   const dispatch = useAppDispatch();
   const router = useRouter();
   const navigation = useNavigation();
@@ -64,6 +64,10 @@ export default function PrivateNoteThreadScreen() {
       return;
     }
     isRoutingAwayRef.current = true;
+    if (isFromNotifications(from)) {
+      router.dismissTo('/(protected)/notifications');
+      return;
+    }
     if (isHost) {
       router.dismissTo({
         pathname: '/(protected)/private-notes-host/[postId]',
@@ -75,7 +79,7 @@ export default function PrivateNoteThreadScreen() {
       pathname: '/(protected)/private-notes-sender/[postId]',
       params: { postId },
     });
-  }, [isHost, postId, router]);
+  }, [from, isHost, postId, router]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener(
@@ -92,20 +96,29 @@ export default function PrivateNoteThreadScreen() {
     return unsubscribe;
   }, [goBack, navigation]);
 
+  const inboxItems = useAppSelector((state) => state.userInbox.items);
+  const inboxItemsRef = useRef(inboxItems);
+  useEffect(() => {
+    inboxItemsRef.current = inboxItems;
+  }, [inboxItems]);
+
   useFocusEffect(
     useCallback(() => {
-      if (!postId || !noteId) {
+      if (!postId || !noteId || !currentUser) {
         return undefined;
       }
-      void Promise.all([
-        AsyncStorage.setItem(PRIVATE_NOTE_THREAD_SEEN_KEY(postId, noteId), String(Date.now())),
-        dismissNotificationsByData({ type: 'private_note_reply', postId, noteId }).catch(() => {}),
-      ]).catch(() => {});
 
-      return () => {
-        void AsyncStorage.setItem(PRIVATE_NOTE_THREAD_SEEN_KEY(postId, noteId), String(Date.now()));
-      };
-    }, [noteId, postId]),
+      void markUserInboxReadForPost(
+        currentUser.id,
+        inboxItemsRef.current,
+        postId,
+        ['private_note_reply'],
+        noteId,
+      ).catch(() => {});
+      void dismissNotificationsByData({ type: 'private_note_reply', postId, noteId }).catch(() => {});
+
+      return undefined;
+    }, [currentUser?.id, noteId, postId]),
   );
 
   const seedMessage: Message | null = useMemo(() => {

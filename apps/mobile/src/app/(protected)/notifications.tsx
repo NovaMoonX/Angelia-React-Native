@@ -1,17 +1,31 @@
 import React, { useCallback, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
+import { useActionModal } from '@/hooks/useActionModal';
 import { useToast } from '@/hooks/useToast';
 import { useTheme } from '@/hooks/useTheme';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
+import { selectUnreadNotificationsInboxSections } from '@/store/crossSelectors/userInboxSelectors';
+import { markUserInboxItemsRead } from '@/services/firebase/firestore';
+import { getPostPreviewText } from '@/lib/message/messagePreview.utils';
+import {
+  getUserInboxItemLabel,
+  getUserInboxItemMeta,
+  getUserInboxItemPreview,
+  openUserInboxItem,
+  type UserInboxItemDisplayContext,
+  type UserInboxItemRenderOptions,
+} from '@/lib/userInbox/userInbox.utils';
 import { respondToJoinRequest, respondToCircleInviteRequest } from '@/store/actions/inviteActions';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import type { UserInboxItem } from '@/models/types';
 import {
   NOTIFICATION_SETTINGS_NOTICE_ACCENT,
   NOTIFICATION_SETTINGS_NOTICE_BADGE_SEEN_KEY,
@@ -23,12 +37,17 @@ export default function NotificationsScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { addToast } = useToast();
+  const { confirm } = useActionModal();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const channels = useAppSelector((state) => state.channels.items);
   const incoming = useAppSelector((state) => state.invites.incoming);
   const incomingCircleInvites = useAppSelector((state) => state.invites.incomingCircleInvites);
   const incomingConnRequests = useAppSelector((state) => state.connections.incomingRequests);
   const usersMap = useAppSelector(selectAllUsersMapById);
+  const currentUser = useAppSelector((state) => state.users.currentUser);
+  const posts = useAppSelector((state) => state.posts.items);
+  const { yourPostGroups, otherActivityItems } = useAppSelector(selectUnreadNotificationsInboxSections);
 
   const pendingIncoming = incoming.filter((r) => r.status === 'pending');
   const pendingCircleInvites = incomingCircleInvites.filter((r) => r.status === 'pending');
@@ -84,6 +103,163 @@ export default function NotificationsScreen() {
     }
   };
 
+  const handleOpenInboxItem = useCallback(async (item: UserInboxItem) => {
+    if (!currentUser) return;
+    await openUserInboxItem(currentUser.id, item);
+  }, [currentUser]);
+
+  const handleMarkSectionSeen = useCallback(async (
+    items: UserInboxItem[],
+    sectionLabel: string,
+  ) => {
+    if (!currentUser || items.length === 0) {
+      return;
+    }
+
+    const ok = await confirm({
+      title: `Mark ${sectionLabel} as seen?`,
+      message: `This clears ${items.length} unread ${items.length === 1 ? 'item' : 'items'} in ${sectionLabel}. Nothing is deleted — just marked as seen.`,
+      confirmText: 'Mark all seen',
+    });
+    if (!ok) {
+      return;
+    }
+
+    try {
+      await markUserInboxItemsRead(
+        currentUser.id,
+        items.map((item) => {
+          return item.id;
+        }),
+      );
+      addToast({ type: 'success', title: 'Marked as seen!' });
+    } catch {
+      addToast({ type: 'error', title: 'Could not mark items as seen' });
+    }
+  }, [addToast, confirm, currentUser]);
+
+  const yourPostSectionItems = yourPostGroups.flatMap((group) => {
+    return group.items;
+  });
+
+  const buildInboxDisplayContext = (
+    item: UserInboxItem,
+    postId?: string,
+  ): UserInboxItemDisplayContext => {
+    const resolvedPostId = postId ?? ('postId' in item ? item.postId : undefined);
+    const post = resolvedPostId
+      ? posts.find((entry) => {
+        return entry.id === resolvedPostId;
+      })
+      : undefined;
+    const channelId = item.type === 'new_post'
+      ? item.channelId
+      : post?.channelId;
+    const channel = channelId
+      ? channels.find((entry) => {
+        return entry.id === channelId;
+      })
+      : undefined;
+
+    return {
+      post,
+      channel,
+      usersById: usersMap,
+      currentUserId: currentUser?.id,
+    };
+  };
+
+  const renderInboxActivityItem = (
+    item: UserInboxItem,
+    postId?: string,
+    renderOptions?: UserInboxItemRenderOptions,
+  ) => {
+    const actor = usersMap[item.actorId];
+    const displayContext = buildInboxDisplayContext(item, postId);
+    const preview = getUserInboxItemPreview(item, displayContext, renderOptions);
+    const meta = getUserInboxItemMeta(item, displayContext);
+
+    return (
+      <Pressable
+        onPress={() => {
+          void handleOpenInboxItem(item);
+        }}
+        style={styles.activityItemRow}
+      >
+        <Avatar user={actor} size="sm" showStatus={false} />
+        <View style={styles.activityItemContent}>
+          <Text style={[styles.activityItemTitle, { color: theme.foreground }]}>
+            {getUserInboxItemLabel(item)}
+          </Text>
+          {meta.length > 0 ? (
+            <View style={styles.activityMetaRow}>
+              {meta.map((chip) => {
+                const hasTierColors = chip.badgeBg != null && chip.badgeText != null;
+                const chipBackground = hasTierColors ? chip.badgeBg : theme.secondary;
+                const chipBorder = hasTierColors ? chip.badgeBg : theme.border;
+                const chipTextColor = hasTierColors ? chip.badgeText : theme.mutedForeground;
+                return (
+                  <View
+                    key={`${item.id}-${chip.label}`}
+                    style={[
+                      styles.activityMetaChip,
+                      {
+                        backgroundColor: chipBackground ?? theme.secondary,
+                        borderColor: chipBorder ?? theme.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.activityMetaChipText,
+                        { color: chipTextColor ?? theme.mutedForeground },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {chip.emoji} {chip.label}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
+          {preview ? (
+            <Text style={[styles.activityItemPreview, { color: theme.mutedForeground }]} numberOfLines={2}>
+              {preview}
+            </Text>
+          ) : null}
+        </View>
+      </Pressable>
+    );
+  };
+
+  const renderSectionHeader = (
+    title: string,
+    items: UserInboxItem[],
+    sectionLabel: string,
+  ) => {
+    if (items.length === 0) {
+      return null;
+    }
+
+    return (
+      <View style={styles.sectionHeaderRow}>
+        <Text style={[styles.sectionTitle, { color: theme.foreground, flex: 1 }]} numberOfLines={2}>
+          {title}
+        </Text>
+        <Button
+          variant="outline"
+          size="sm"
+          onPress={() => {
+            void handleMarkSectionSeen(items, sectionLabel);
+          }}
+        >
+          Mark all seen
+        </Button>
+      </View>
+    );
+  };
+
   const handleRespondToCircleInvite = async (
     requestId: string,
     accept: boolean,
@@ -119,7 +295,7 @@ export default function NotificationsScreen() {
         style={{ flex: 1, backgroundColor: theme.background }}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: 12 }
+          { paddingTop: 12, paddingBottom: insets.bottom + 24 },
         ]}
       >
         {/* Release notice area: one-time callout for new notification controls */}
@@ -150,15 +326,71 @@ export default function NotificationsScreen() {
           </Pressable>
         )}
 
-        {/* Empty state — only shown when both request types are empty */}
-        {pendingIncoming.length === 0 && pendingCircleInvites.length === 0 && pendingConnRequests.length === 0 ? (
+        {yourPostGroups.length > 0 ? (
+          <>
+            {renderSectionHeader(
+              'Activity on your posts',
+              yourPostSectionItems,
+              'Activity on your posts',
+            )}
+            {yourPostGroups.map((group) => {
+              const post = posts.find((entry) => {
+                return entry.id === group.postId;
+              });
+              const postPreview = getPostPreviewText(post);
+              return (
+                <Card key={group.postId} style={styles.requestCard}>
+                  <Text style={[styles.activityPostTitle, { color: theme.foreground }]}>
+                    Your post
+                  </Text>
+                  {postPreview ? (
+                    <Text
+                      style={[styles.activityPostPreview, { color: theme.mutedForeground }]}
+                      numberOfLines={2}
+                    >
+                      {postPreview}
+                    </Text>
+                  ) : null}
+                  {group.items.map((item) => {
+                    return (
+                      <React.Fragment key={item.id}>
+                        {renderInboxActivityItem(item, group.postId, { groupedUnderYourPost: true })}
+                      </React.Fragment>
+                    );
+                  })}
+                </Card>
+              );
+            })}
+          </>
+        ) : null}
+
+        {otherActivityItems.length > 0 ? (
+          <>
+            {renderSectionHeader('Activity', otherActivityItems, 'Activity')}
+            {otherActivityItems.map((item) => {
+              const postId = 'postId' in item ? item.postId : undefined;
+              return (
+                <Card key={item.id} style={styles.requestCard}>
+                  {renderInboxActivityItem(item, postId)}
+                </Card>
+              );
+            })}
+          </>
+        ) : null}
+
+        {/* Empty state */}
+        {pendingIncoming.length === 0
+          && pendingCircleInvites.length === 0
+          && pendingConnRequests.length === 0
+          && yourPostGroups.length === 0
+          && otherActivityItems.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🫶</Text>
             <Text style={[styles.emptyText, { color: theme.mutedForeground, textAlign: 'center' }]}>
               You're all caught up!
             </Text>
             <Text style={[styles.emptySubtext, { color: theme.mutedForeground, textAlign: 'center' }]}>
-              Circle join requests, Circle invites, and connection requests will show up here.
+              Replies, new posts, and requests will show up here.
             </Text>
           </View>
         ) : (
@@ -327,7 +559,6 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
     gap: 16,
   },
   settingsRow: {
@@ -365,6 +596,12 @@ const styles = StyleSheet.create({
   settingsRowChevron: {
     marginLeft: 12,
     flexShrink: 0,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   emptyState: {
     alignItems: 'center',
@@ -405,6 +642,50 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontStyle: 'italic',
     marginBottom: 8,
+  },
+  activityPostTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  activityPostPreview: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  activityMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  activityMetaChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    maxWidth: '100%',
+  },
+  activityMetaChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  activityItemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 8,
+    gap: 8,
+  },
+  activityItemContent: {
+    flex: 1,
+    gap: 4,
+  },
+  activityItemTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  activityItemPreview: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   requestActions: {
     flexDirection: 'row',
