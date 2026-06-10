@@ -8,12 +8,10 @@ import {
 } from '@/services/firebase/firestore';
 import {
   addMessageOptimistic,
-  removeMessagesOptimistic,
   updateMessageTextOptimistic,
 } from '@/store/slices/conversationSlice';
 import { generateId } from '@/utils/generateId';
 import { buildTextPreview } from '@/lib/message/messagePreview.utils';
-import { acquirePendingWrite, releasePendingWrite } from '@/lib/pendingWrites';
 import { resolveMessageLineage } from '@/lib/conversation/threadLineage';
 import { isDemoActive } from './globalActions';
 
@@ -88,17 +86,13 @@ export const sendMessage = createAsyncThunk(
         }
       : null;
 
-    const optimisticMessageIds = [message.id];
     if (joinMessage) {
-      optimisticMessageIds.unshift(joinMessage.id);
       dispatch(addMessageOptimistic({ postId, message: joinMessage }));
     }
 
     dispatch(addMessageOptimistic({ postId, message }));
-    acquirePendingWrite(postId, 'message');
 
     if (isDemoActive(getState)) {
-      releasePendingWrite(postId, 'message');
       return message;
     }
 
@@ -141,11 +135,8 @@ export const sendMessage = createAsyncThunk(
         createAppNotification(messageNotification).catch(() => {});
       }
 
-      releasePendingWrite(postId, 'message');
       return message;
     } catch (err) {
-      dispatch(removeMessagesOptimistic({ postId, messageIds: optimisticMessageIds }));
-      releasePendingWrite(postId, 'message');
       return rejectWithValue(
         err instanceof Error ? err.message : 'Failed to send message',
       );
@@ -177,20 +168,15 @@ export const sendJoinMessage = createAsyncThunk(
     };
 
     dispatch(addMessageOptimistic({ postId, message }));
-    acquirePendingWrite(postId, 'message');
 
     if (isDemoActive(getState)) {
-      releasePendingWrite(postId, 'message');
       return message;
     }
 
     try {
       await firestoreAddMessage(postId, message);
-      releasePendingWrite(postId, 'message');
       return message;
     } catch (err) {
-      dispatch(removeMessagesOptimistic({ postId, messageIds: [message.id] }));
-      releasePendingWrite(postId, 'message');
       return rejectWithValue(
         err instanceof Error ? err.message : 'Failed to send join message',
       );

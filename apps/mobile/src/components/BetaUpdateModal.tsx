@@ -35,11 +35,6 @@ const BETA_UPDATE_CHANGES: ChangeEntry[] = [
     description: 'Open an invite before sign-in to preview the circle, host, and member count — invalid links show a clear warning instead of breaking.',
   },
   {
-    emoji: '💬',
-    title: 'Smoother conversation joins',
-    description: 'Reacting and joining a conversation in quick succession no longer wipes your reaction or flashes the text input away.',
-  },
-  {
     emoji: '🧵',
     title: 'Deeper reply threads',
     description: 'Replying to a reply stays linked to the original message with a clearer quote of the root comment.',

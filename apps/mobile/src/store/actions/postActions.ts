@@ -49,7 +49,6 @@ import {
   addCommentOptimistic,
   removeCommentOptimistic,
 } from '@/store/slices/commentsSlice';
-import { acquirePendingWrite, releasePendingWrite } from '@/lib/pendingWrites';
 import { POST_UPLOAD_QUEUE_KEY } from '@/models/constants';
 import { buildTextPreview } from '@/lib/message/messagePreview.utils';
 import { isDemoActive } from './globalActions';
@@ -490,20 +489,15 @@ export const joinConversation = createAsyncThunk(
   ) => {
     // Optimistically add user to conversation enrollees
     dispatch(addConversationEnrollee({ postId, userId }));
-    acquirePendingWrite(postId, 'conversationJoin');
 
     if (isDemoActive(getState)) {
-      releasePendingWrite(postId, 'conversationJoin');
       return { postId, userId };
     }
     try {
       await firestoreJoinConversation(postId, userId);
-      releasePendingWrite(postId, 'conversationJoin');
       return { postId, userId };
     } catch (err) {
-      // Revert optimistic update on failure
       dispatch(removeConversationEnrollee({ postId, userId }));
-      releasePendingWrite(postId, 'conversationJoin');
       return rejectWithValue(err instanceof Error ? err.message : err);
     }
   },
@@ -536,11 +530,9 @@ export const updatePostReactions = createAsyncThunk(
     }
 
     pendingReactionKeys.add(reactionKey);
-    acquirePendingWrite(postId, 'reaction');
     dispatch(updateReactionsOptimistic({ postId, newReaction }));
     if (isDemoActive(getState)) {
       pendingReactionKeys.delete(reactionKey);
-      releasePendingWrite(postId, 'reaction');
       return { postId, newReaction };
     }
 
@@ -568,7 +560,6 @@ export const updatePostReactions = createAsyncThunk(
       return rejectWithValue(err instanceof Error ? err.message : err);
     } finally {
       pendingReactionKeys.delete(reactionKey);
-      releasePendingWrite(postId, 'reaction');
     }
   },
 );
@@ -580,18 +571,14 @@ export const removeAllPostReactionsForUser = createAsyncThunk(
     { getState, dispatch, rejectWithValue },
   ) => {
     dispatch(removeReactionsByUserOptimistic({ postId, userId }));
-    acquirePendingWrite(postId, 'reaction');
     if (isDemoActive(getState)) {
-      releasePendingWrite(postId, 'reaction');
       return { postId, userId };
     }
     try {
       await removeReactionsFromPostByUser(postId, userId);
-      releasePendingWrite(postId, 'reaction');
       return { postId, userId };
     } catch (err) {
       dispatch(revertReactionsOptimistic({ postId }));
-      releasePendingWrite(postId, 'reaction');
       return rejectWithValue(err instanceof Error ? err.message : err);
     }
   },
@@ -604,18 +591,14 @@ export const removePostReactionEmojiForUser = createAsyncThunk(
     { getState, dispatch, rejectWithValue },
   ) => {
     dispatch(removeReactionByUserAndEmojiOptimistic({ postId, userId, emoji }));
-    acquirePendingWrite(postId, 'reaction');
     if (isDemoActive(getState)) {
-      releasePendingWrite(postId, 'reaction');
       return { postId, userId, emoji };
     }
     try {
       await removeReactionFromPostByUserAndEmoji(postId, userId, emoji);
-      releasePendingWrite(postId, 'reaction');
       return { postId, userId, emoji };
     } catch (err) {
       dispatch(revertReactionsOptimistic({ postId }));
-      releasePendingWrite(postId, 'reaction');
       return rejectWithValue(err instanceof Error ? err.message : err);
     }
   },

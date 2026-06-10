@@ -3,6 +3,5 @@ Release: 1.0.10
 
 - Circle join links — public invite preview before sign-in, graceful error modal, reliable deep links
 - Join request validation — expired or invalid invite codes rejected server-side
-- Conversation reliability — reactions and join state no longer lost when opening conversation quickly
 - Thread replies — depth-2 replies stay linked to the root message with clearer quote context
 - join-channel and QR flows route to the unified public invite screen

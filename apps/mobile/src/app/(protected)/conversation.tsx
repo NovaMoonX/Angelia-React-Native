@@ -25,12 +25,9 @@ import { ConversationEmptyState } from '@/components/conversation/ConversationEm
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
 import { selectMessages, setMessages } from '@/store/slices/conversationSlice';
-import { store } from '@/store';
 import { joinConversation } from '@/store/actions/postActions';
 import { markUserInboxReadForPost, subscribeToMessages } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
-import { mergeMessagesWithPendingWrites } from '@/lib/mergePendingSnapshots';
-import { isPendingWriteLocked } from '@/lib/pendingWrites';
 import {
   normalizeMessageList,
   quoteText,
@@ -133,27 +130,10 @@ export default function ConversationScreen() {
 
   useEffect(() => {
     if (!postId || isDemo) return;
-    let unsub: (() => void) | null = null;
-    unsub = subscribeToMessages(postId, (msgs) => {
-      const state = store.getState();
-      const local = state.conversation.messagesByPost[postId] ?? [];
-      dispatch(
-        setMessages({
-          postId,
-          messages: mergeMessagesWithPendingWrites(normalizeMessageList(msgs), local),
-        }),
-      );
+    const unsub = subscribeToMessages(postId, (msgs) => {
+      dispatch(setMessages({ postId, messages: normalizeMessageList(msgs) }));
     });
-    return () => {
-      const doUnsub = () => {
-        unsub?.();
-      };
-      if (isPendingWriteLocked(postId, 'message')) {
-        setTimeout(doUnsub, 800);
-      } else {
-        doUnsub();
-      }
-    };
+    return unsub;
   }, [postId, dispatch, isDemo]);
 
   useFocusEffect(

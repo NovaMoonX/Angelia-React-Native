@@ -29,8 +29,6 @@ import {
   setOutgoingConnectionRequests,
 } from '@/store/slices/connectionsSlice';
 import { processPendingInvite } from '@/store/actions/inviteActions';
-import { store } from '@/store';
-import { mergePostsWithPendingWrites } from '@/lib/mergePendingSnapshots';
 import { processPendingConnection } from '@/store/actions/connectionsActions';
 import {
   initNotifications,
@@ -221,13 +219,7 @@ export function useDataListenerRealtimeData() {
     let connectionPosts: Post[] = [];
 
     const dispatchMergedPosts = () => {
-      const state = store.getState();
-      const merged = mergePostsWithPendingWrites(
-        [...ownPosts, ...connectionPosts],
-        state.posts.items,
-        state.posts.previousReactions,
-      );
-      dispatch(setPosts(merged));
+      dispatch(setPosts([...ownPosts, ...connectionPosts]));
     };
 
     const unsubOwnPosts =

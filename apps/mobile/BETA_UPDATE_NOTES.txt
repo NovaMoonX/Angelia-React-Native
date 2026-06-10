@@ -10,6 +10,5 @@ Use this file as the source for the next beta update modal. Keep it short, warm,
 Current branch highlights (1.0.10):
 - Circle join links work reliably — open an invite before sign-in and see the circle name, host, and member count; invalid links show a clear warning instead of breaking.
 - Join requests now validate invite codes on the server, so expired links cannot slip through.
-- Reacting and joining a conversation in quick succession no longer wipes your reaction or flashes the text input away.
 - Replying to a reply (depth 2) stays connected to the original thread with a clearer quote of the root message.
 - QR codes and shared invite links route to the same public invite screen for a consistent experience.
