@@ -131,7 +131,7 @@ export default function ConversationScreen() {
   useEffect(() => {
     if (!postId || isDemo) return;
     const unsub = subscribeToMessages(postId, (msgs) => {
-      dispatch(setMessages({ postId, messages: normalizeMessageList(msgs) }));
+      dispatch(setMessages({ postId, messages: msgs }));
     });
     return unsub;
   }, [postId, dispatch, isDemo]);
