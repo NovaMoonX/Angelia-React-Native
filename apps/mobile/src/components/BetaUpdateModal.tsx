@@ -30,25 +30,25 @@ interface ChangeEntry {
 // "Bug fixes & reliability" entry rather than called out individually.
 const BETA_UPDATE_CHANGES: ChangeEntry[] = [
   {
+    emoji: '🔗',
+    title: 'Circle join links that actually work',
+    description: 'Open an invite before sign-in to preview the circle, host, and member count — invalid links show a clear warning instead of breaking.',
+  },
+  {
     emoji: '💬',
-    title: 'Private note conversations',
-    description: 'Tap a private note to keep the conversation going with a full back-and-forth thread.',
+    title: 'Smoother conversation joins',
+    description: 'Reacting and joining a conversation in quick succession no longer wipes your reaction or flashes the text input away.',
   },
   {
-    emoji: '👀',
-    title: 'Reactions stay unread until you visit',
-    description: 'Scrolling past a post in Post Activity no longer clears new reactions — open post detail to mark them reviewed.',
+    emoji: '🧵',
+    title: 'Deeper reply threads',
+    description: 'Replying to a reply stays linked to the original message with a clearer quote of the root comment.',
   },
   {
-    emoji: '⏳',
-    title: 'Expiring-soon filters',
-    description: 'Spot posts about to expire from Feed and Post Activity; Feed has a dedicated row for ones you have not reacted to yet.',
+    emoji: '✅',
+    title: 'Safer join requests',
+    description: 'Expired or invalid invite codes are rejected server-side so stale links cannot create requests.',
   },
-  {
-    emoji: '🔔',
-    title: 'Smarter Notifications inbox',
-    description: 'Activity on your posts and other activity are split into clear sections with snippets, tier badges, and mark-all-seen per section.',
-  }
 ];
 
 interface BetaUpdateModalProps {
