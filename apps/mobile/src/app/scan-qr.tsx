@@ -37,8 +37,11 @@ export default function ScanQRScreen() {
           scannedRef.current = true;
           setScanned(true);
           router.replace({
-            pathname: '/join-channel',
-            params: { code: inviteMatch.inviteCode, autoLookup: '1' },
+            pathname: '/circle-invite-link',
+            params: {
+              channelId: inviteMatch.channelId,
+              inviteCode: inviteMatch.inviteCode,
+            },
           });
           return;
         }

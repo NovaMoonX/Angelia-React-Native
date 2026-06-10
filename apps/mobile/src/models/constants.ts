@@ -12,7 +12,7 @@ export const CUSTOM_CHANNEL_LIMIT = 3;
  * Source-of-truth app version for runtime version-gating checks.
  * Keep this in sync with expo.version in app.config.js.
  */
-export const APP_VERSION = '1.0.9';
+export const APP_VERSION = '1.0.10';
 
 /** How long posts are retained before deletion. Must stay in sync with Cloud Functions. */
 export const DAILY_POST_RETENTION_DAYS = 14;   // Posts in a Daily Circle expire after 14 days.
@@ -166,7 +166,7 @@ export const POST_DETAIL_UNREAD_LEAVE_WARNING_DISABLED_KEY = (userId: string) =>
  * AsyncStorage key that records which beta update version the user has already dismissed.
  * When BETA_UPDATE_VERSION in BetaUpdateModal is bumped, the modal will show again automatically.
  */
-export const BETA_UPDATE_VERSION = '2026-06-09-beta-v1.0.9';
+export const BETA_UPDATE_VERSION = '2026-06-10-beta-v1.0.10';
 
 /**
  * Version for the one-time private-circles notice shown on the My Circles tab.

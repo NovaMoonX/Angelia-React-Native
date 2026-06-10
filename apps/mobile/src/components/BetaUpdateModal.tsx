@@ -31,24 +31,24 @@ interface ChangeEntry {
 const BETA_UPDATE_CHANGES: ChangeEntry[] = [
   {
     emoji: '💬',
-    title: 'Private note conversations',
-    description: 'Tap a private note to keep the conversation going with a full back-and-forth thread.',
+    title: 'One message menu for everything',
+    description: 'Long-press a message or tap ⋯ to reply, react, edit, or delete without hunting for separate gestures.',
+  },
+  {
+    emoji: '😍',
+    title: 'Reactions on replies',
+    description: 'You can now react directly to conversation replies and private-note thread replies with instant feedback.',
   },
   {
     emoji: '👀',
-    title: 'Reactions stay unread until you visit',
-    description: 'Scrolling past a post in Post Activity no longer clears new reactions — open post detail to mark them reviewed.',
+    title: 'See who reacted',
+    description: 'Reaction chips now show the people behind each emoji, so thread energy is easier to read at a glance.',
   },
   {
-    emoji: '⏳',
-    title: 'Expiring-soon filters',
-    description: 'Spot posts about to expire from Feed and Post Activity; Feed has a dedicated row for ones you have not reacted to yet.',
+    emoji: '🧑‍🚀',
+    title: 'Tap avatars for profiles',
+    description: 'Tapping another participant avatar in message threads now opens their profile modal.',
   },
-  {
-    emoji: '🔔',
-    title: 'Smarter Notifications inbox',
-    description: 'Activity on your posts and other activity are split into clear sections with snippets, tier badges, and mark-all-seen per section.',
-  }
 ];
 
 interface BetaUpdateModalProps {

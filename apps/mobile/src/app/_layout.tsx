@@ -284,7 +284,9 @@ function NavigationLayout() {
 				<Stack.Screen name='complete-profile' options={{ headerShown: false }} />
 				<Stack.Screen name='verify-email' options={{ headerShown: false }} />
 				<Stack.Screen name='join-channel' options={{ headerShown: false }} />
-			<Stack.Screen name='connect-request' options={{ headerShown: false }} />
+				<Stack.Screen name='circle-invite-link' options={{ headerShown: false }} />
+				<Stack.Screen name='invite/[channelId]/[inviteCode]' options={{ headerShown: false }} />
+				<Stack.Screen name='connect-request' options={{ headerShown: false }} />
 				<Stack.Screen name='scan-qr' options={{ headerShown: false, animation: 'slide_from_bottom' }} />
 				<Stack.Screen name='(protected)' options={{ headerShown: false }} />
 				<Stack.Screen name='+not-found' options={{ title: 'Not Found' }} />

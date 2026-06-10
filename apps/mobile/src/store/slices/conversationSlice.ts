@@ -48,6 +48,36 @@ const conversationSlice = createSlice({
       if (!target) return;
       target.text = text;
     },
+    updateMessageReactionsOptimistic(
+      state,
+      action: PayloadAction<{
+        postId: string;
+        messageId: string;
+        reactions: Record<string, string[]>;
+      }>,
+    ) {
+      const { postId, messageId, reactions } = action.payload;
+      const messages = state.messagesByPost[postId];
+      if (!messages) {
+        return;
+      }
+      const target = messages.find((message) => message.id === messageId);
+      if (!target) {
+        return;
+      }
+      target.reactions = reactions;
+    },
+    removeMessageOptimistic(
+      state,
+      action: PayloadAction<{ postId: string; messageId: string }>,
+    ) {
+      const { postId, messageId } = action.payload;
+      const messages = state.messagesByPost[postId];
+      if (!messages) {
+        return;
+      }
+      state.messagesByPost[postId] = messages.filter((message) => message.id !== messageId);
+    },
     clearConversation(state, action: PayloadAction<string>) {
       delete state.messagesByPost[action.payload];
     },
@@ -63,8 +93,15 @@ const conversationSlice = createSlice({
   },
 });
 
-export const { setMessages, addMessageOptimistic, updateMessageTextOptimistic, clearConversation, loadDemoMessages } =
-  conversationSlice.actions;
+export const {
+  setMessages,
+  addMessageOptimistic,
+  updateMessageTextOptimistic,
+  updateMessageReactionsOptimistic,
+  removeMessageOptimistic,
+  clearConversation,
+  loadDemoMessages,
+} = conversationSlice.actions;
 
 // Selectors
 const EMPTY_MESSAGES: Message[] = [];

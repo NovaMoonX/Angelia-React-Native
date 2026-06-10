@@ -1,0 +1,10 @@
+Branch: feature/message-reactions-actions
+Release: 1.0.10
+
+- Circle join links — public invite preview before sign-in, graceful error modal, reliable deep links
+- Join request validation — expired or invalid invite codes rejected server-side
+- Thread replies — depth-2 replies stay linked to the root message with clearer quote context
+- join-channel and QR flows route to the unified public invite screen
+- Message actions menu — long-press or tap ⋯ to reply, react, edit, or delete in one place
+- Message reactions — inline reactions on conversation and private-note thread messages with optimistic updates
+- Profile quick-open — tapping another participant avatar in message threads opens their profile modal

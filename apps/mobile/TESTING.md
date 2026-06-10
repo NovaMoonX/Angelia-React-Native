@@ -1,7 +1,7 @@
-# Testing Guide — feature/activity-expiry-inbox
+# Testing Guide — feature/message-reactions-actions
 
-**Branch:** feature/activity-expiry-inbox  
-**Last updated:** June 8, 2026
+**Branch:** feature/message-reactions-actions  
+**Last updated:** June 10, 2026
 
 ---
 
@@ -194,6 +194,37 @@ Use the iPhone when:
 - [ ] Post Activity -> Post Detail -> back returns to Post Activity
 - [ ] Private Notes host and sender screens open from Post Detail without errors
 - [ ] Pending connection / circle request UI on Notifications still works alongside Activity section
+
+---
+
+## Feature 6: Message Reactions, Actions, and Message Deletes
+
+**Devices:** Android primary. iPhone parity recommended.
+
+### Setup
+
+- [ ] Use two connected accounts in the same circle with at least one post conversation and one private note thread
+- [ ] Ensure both users can send conversation replies and private note replies
+
+### Android
+
+- [ ] In Conversation, long-press a non-system message -> action sheet opens with Reply/React/Edit/Delete options as appropriate
+- [ ] Tap the ⋯ button on a message -> same action sheet opens
+- [ ] Choose **React with emoji** and pick an emoji -> chip appears immediately on that message
+- [ ] Tap an existing reaction chip -> your reaction toggles on/off and stays synced after snapshot refresh
+- [ ] Confirm reaction chip labels include reacting users (for example: You + another member)
+- [ ] As message author, choose **Edit** from action sheet -> composer switches to edit mode and save updates the same message
+- [ ] As message author, choose **Delete** -> destructive confirmation appears, confirming removes the message
+- [ ] As non-author, verify Edit/Delete actions are not shown for someone else's message
+- [ ] Tap another participant avatar in Conversation -> profile modal opens
+- [ ] In Private Note Thread, repeat React/Edit/Delete flow on non-seed thread replies
+- [ ] Confirm seed private note message does not expose edit/delete/reaction actions
+- [ ] Tap another participant avatar in Private Note Thread -> profile modal opens
+
+### iPhone
+
+- [ ] Repeat one full Conversation flow (react, edit, delete)
+- [ ] Repeat one Private Note Thread flow (react, edit, delete) and avatar modal open
 
 ---
 
