@@ -3,12 +3,12 @@ Beta update notes
 Last updated: 2026-06-10
 Current version: 1.0.10
 Next version:
-Related PR: fix/section-1-core-bug-fixes
+Related PR: feature/message-reactions-actions
 
 Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
 
 Current branch highlights (1.0.10):
-- Circle join links work reliably — open an invite before sign-in and see the circle name, host, and member count; invalid links show a clear warning instead of breaking.
-- Join requests now validate invite codes on the server, so expired links cannot slip through.
-- Replying to a reply (depth 2) stays connected to the original thread with a clearer quote of the root message.
-- QR codes and shared invite links route to the same public invite screen for a consistent experience.
+- Long-press or tap the new message menu to reply, react, edit, or delete in one place.
+- Conversation replies and private note thread replies now support inline emoji reactions.
+- Reaction chips now show who reacted, so you can quickly see the people behind each emoji.
+- Tapping another person's avatar in conversation or private note threads opens their profile modal.

@@ -14,14 +14,23 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useNavigation, type EventArg } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ConversationMessage } from '@/components/conversation/ConversationMessage';
+import { MessageActionSheet } from '@/components/conversation/MessageActionSheet';
+import { EmojiPicker } from '@/components/EmojiPicker';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { UserProfileModal } from '@/components/UserProfileModal';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { selectPostById } from '@/store/slices/postsSlice';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { selectPrivateNoteById } from '@/store/slices/privateNotesSlice';
 import { useTheme } from '@/hooks/useTheme';
 import { usePrivateNoteThread } from '@/hooks/usePrivateNoteThread';
-import { sendPrivateNoteReply } from '@/store/actions/privateNoteThreadActions';
+import { useMessageActions } from '@/hooks/useMessageActions';
+import { useActionModal } from '@/hooks/useActionModal';
+import { useToast } from '@/hooks/useToast';
+import {
+  editPrivateNoteThreadMessage,
+  sendPrivateNoteReply,
+} from '@/store/actions/privateNoteThreadActions';
 import { markUserInboxReadForPost } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
 import { isFromNotifications } from '@/lib/navigation/entryNavigation.utils';
@@ -39,8 +48,11 @@ export default function PrivateNoteThreadScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const { theme } = useTheme();
+  const { confirm } = useActionModal();
+  const { addToast } = useToast();
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlashListRef<ThreadRow>>(null);
+  const inputRef = useRef<TextInput>(null);
   const isRoutingAwayRef = useRef(false);
 
   const post = useAppSelector((state) => selectPostById(state, postId ?? ''));
@@ -50,7 +62,9 @@ export default function PrivateNoteThreadScreen() {
   const { messages: threadMessages, loaded } = usePrivateNoteThread({ postId, noteId });
 
   const [messageText, setMessageText] = useState('');
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
 
   const isHost = currentUser?.id === post?.authorId;
   const isParticipant =
@@ -140,6 +154,8 @@ export default function PrivateNoteThreadScreen() {
     return combined.map((message, rowIndex) => ({ message, rowIndex }));
   }, [seedMessage, threadMessages]);
 
+  const profileUser = profileUserId ? usersMap[profileUserId] ?? null : null;
+
   const otherParticipant = useMemo(() => {
     if (!note || !currentUser) {
       return null;
@@ -147,6 +163,38 @@ export default function PrivateNoteThreadScreen() {
     const otherUserId = currentUser.id === note.hostId ? note.authorId : note.hostId;
     return usersMap[otherUserId] ?? null;
   }, [currentUser, note, usersMap]);
+
+  const handleStartEdit = useCallback(async (message: Message) => {
+    if (!currentUser || message.authorId !== currentUser.id) {
+      return;
+    }
+
+    const pendingDraft = messageText.trim();
+    if (pendingDraft && (!editingMessage || editingMessage.id !== message.id)) {
+      const ok = await confirm({
+        title: 'Edit this message instead?',
+        message: 'This will clear your current draft so you can edit the older message.',
+        destructive: true,
+      });
+      if (!ok) {
+        return;
+      }
+    }
+
+    setEditingMessage(message);
+    setMessageText(message.text);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  }, [confirm, currentUser, editingMessage, messageText]);
+
+  const messageActions = useMessageActions({
+    context: { kind: 'privateNote', postId: postId ?? '', noteId: noteId ?? '' },
+    currentUserId: currentUser?.id,
+    onEdit: (message) => {
+      void handleStartEdit(message);
+    },
+  });
 
   const handleSend = useCallback(async () => {
     const trimmed = messageText.trim();
@@ -156,17 +204,40 @@ export default function PrivateNoteThreadScreen() {
 
     setIsSending(true);
     try {
+      if (editingMessage) {
+        await dispatch(
+          editPrivateNoteThreadMessage({
+            postId,
+            noteId,
+            messageId: editingMessage.id,
+            text: trimmed,
+          }),
+        ).unwrap();
+        setEditingMessage(null);
+        setMessageText('');
+        addToast({ type: 'success', title: 'Message updated' });
+        return;
+      }
+
       await dispatch(sendPrivateNoteReply({ postId, noteId, text: trimmed })).unwrap();
       setMessageText('');
       requestAnimationFrame(() => {
         listRef.current?.scrollToEnd({ animated: true });
       });
-    } catch {
-      return;
+    } catch (err) {
+      addToast({
+        type: 'error',
+        title: err instanceof Error ? err.message : 'Failed to send message',
+      });
     } finally {
       setIsSending(false);
     }
-  }, [dispatch, isSending, messageText, noteId, postId]);
+  }, [addToast, dispatch, editingMessage, isSending, messageText, noteId, postId]);
+
+  const handleCancelEditing = useCallback(() => {
+    setEditingMessage(null);
+    setMessageText('');
+  }, []);
 
   useEffect(() => {
     if (!loaded || rows.length === 0) {
@@ -209,9 +280,16 @@ export default function PrivateNoteThreadScreen() {
               <ConversationMessage
                 message={item.message}
                 isThreaded={false}
+                currentUserId={currentUser.id}
                 onSinglePress={() => {
                   Keyboard.dismiss();
                 }}
+                onOpenActions={() => messageActions.openActions(item.message)}
+                onAvatarPress={() => setProfileUserId(item.message.authorId)}
+                onToggleReaction={(emoji) => {
+                  void messageActions.toggleReaction(item.message, emoji);
+                }}
+                onOpenReactionPicker={() => messageActions.openReactionPicker(item.message)}
               />
             )}
           />
@@ -227,11 +305,28 @@ export default function PrivateNoteThreadScreen() {
             },
           ]}
         >
+          {editingMessage && (
+            <View style={styles.editBanner}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.editBannerLabel, { color: theme.mutedForeground }]}>
+                  Editing your message
+                </Text>
+                <Text style={[styles.editBannerPreview, { color: theme.mutedForeground }]} numberOfLines={1}>
+                  “{editingMessage.text.length > 60 ? `${editingMessage.text.slice(0, 60)}…` : editingMessage.text}”
+                </Text>
+              </View>
+              <Pressable onPress={handleCancelEditing}>
+                <Feather name="x" size={16} color={theme.mutedForeground} />
+              </Pressable>
+            </View>
+          )}
+
           <View style={styles.inputRow}>
             <TextInput
+              ref={inputRef}
               value={messageText}
               onChangeText={setMessageText}
-              placeholder="Keep the conversation going…"
+              placeholder={editingMessage ? 'Polish your message…' : 'Keep the conversation going…'}
               placeholderTextColor={theme.mutedForeground}
               multiline
               blurOnSubmit={false}
@@ -257,11 +352,43 @@ export default function PrivateNoteThreadScreen() {
                 },
               ]}
             >
-              <Feather name="send" size={18} color="#FFFFFF" />
+              <Feather name={editingMessage ? 'check' : 'send'} size={18} color="#FFFFFF" />
             </Pressable>
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      <MessageActionSheet
+        visible={messageActions.actionMessage != null}
+        message={messageActions.actionMessage}
+        currentUserId={currentUser.id}
+        options={messageActions.actionOptions}
+        onClose={messageActions.closeActions}
+        onSelectAction={messageActions.handleSelectAction}
+        onSelectReaction={(emoji) => {
+          if (messageActions.actionMessage) {
+            void messageActions.toggleReaction(messageActions.actionMessage, emoji);
+          }
+        }}
+        onOpenReactionPicker={() => {
+          if (messageActions.actionMessage) {
+            messageActions.openReactionPicker(messageActions.actionMessage);
+          }
+        }}
+      />
+
+      <EmojiPicker
+        visible={messageActions.emojiPickerMessage != null}
+        variant="compact"
+        onSelect={(emoji) => messageActions.handleSelectReaction(emoji)}
+        onClose={messageActions.closeReactionPicker}
+      />
+
+      <UserProfileModal
+        visible={profileUser != null}
+        user={profileUser}
+        onClose={() => setProfileUserId(null)}
+      />
     </View>
   );
 }
@@ -277,6 +404,20 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 16,
     paddingTop: 12,
+  },
+  editBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  editBannerLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  editBannerPreview: {
+    fontSize: 12,
+    marginTop: 2,
   },
   inputRow: {
     flexDirection: 'row',

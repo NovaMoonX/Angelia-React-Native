@@ -30,19 +30,24 @@ interface ChangeEntry {
 // "Bug fixes & reliability" entry rather than called out individually.
 const BETA_UPDATE_CHANGES: ChangeEntry[] = [
   {
-    emoji: '🔗',
-    title: 'Circle join links that actually work',
-    description: 'Open an invite before sign-in to preview the circle, host, and member count — invalid links show a clear warning instead of breaking.',
+    emoji: '💬',
+    title: 'One message menu for everything',
+    description: 'Long-press a message or tap ⋯ to reply, react, edit, or delete without hunting for separate gestures.',
   },
   {
-    emoji: '🧵',
-    title: 'Deeper reply threads',
-    description: 'Replying to a reply stays linked to the original message with a clearer quote of the root comment.',
+    emoji: '😍',
+    title: 'Reactions on replies',
+    description: 'You can now react directly to conversation replies and private-note thread replies with instant feedback.',
   },
   {
-    emoji: '✅',
-    title: 'Safer join requests',
-    description: 'Expired or invalid invite codes are rejected server-side so stale links cannot create requests.',
+    emoji: '👀',
+    title: 'See who reacted',
+    description: 'Reaction chips now show the people behind each emoji, so thread energy is easier to read at a glance.',
+  },
+  {
+    emoji: '🧑‍🚀',
+    title: 'Tap avatars for profiles',
+    description: 'Tapping another participant avatar in message threads now opens their profile modal.',
   },
 ];
 
