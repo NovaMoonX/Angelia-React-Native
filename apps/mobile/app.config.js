@@ -26,7 +26,7 @@ export default {
 		owner: 'novamoon',
 		name: 'Angelia',
 		slug: 'angelia',
-		version: '1.0.9',
+		version: '1.0.10',
 		orientation: 'portrait',
 		icon: './assets/images/icon.png',
 		scheme: 'angelia',

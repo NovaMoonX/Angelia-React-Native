@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin';
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { FieldValue } from 'firebase-admin/firestore';
 
@@ -257,6 +258,17 @@ interface Channel {
 	name: string;
 	description: string;
 	inviteCode: string | null;
+	markedForDeletionAt: number | null;
+}
+
+/** Mirrors PublicChannelInvitePreview in src/models/types.ts — keep in sync. */
+interface PublicChannelInvitePreview {
+	channelId: string;
+	inviteCode: string;
+	name: string;
+	description: string;
+	subscriberCount: number;
+	ownerId: string;
 	markedForDeletionAt: number | null;
 }
 
@@ -1498,3 +1510,127 @@ export const deleteExpiredPosts = onSchedule('every 24 hours', async () => {
 		console.log(`deleteExpiredPosts: cleaned up ${deleteCount} expired post(s)`);
 	}
 });
+
+// ── One-time backfill: publicChannelInvites for existing custom circles ────
+
+/**
+ * Mirrors buildPublicChannelInvitePreview in src/services/firebase/firestore.ts.
+ * Admin SDK writes bypass client security rules.
+ */
+function buildPublicChannelInvitePreview(channel: Channel): PublicChannelInvitePreview | null {
+	if (channel.isDaily === true || !channel.inviteCode || channel.markedForDeletionAt != null) {
+		return null;
+	}
+	return {
+		channelId: channel.id,
+		inviteCode: channel.inviteCode.toUpperCase(),
+		name: channel.name,
+		description: channel.description,
+		subscriberCount: channel.subscribers.length,
+		ownerId: channel.ownerId,
+		markedForDeletionAt: channel.markedForDeletionAt,
+	};
+}
+
+const BACKFILL_BATCH_SIZE = 500;
+
+/**
+ * One-time HTTPS function to populate `publicChannelInvites/{inviteCode}` for
+ * every active custom circle that already has an invite code.
+ *
+ * Invoke once after deploying Section 1 join-link preview support, then leave
+ * deployed (harmless to re-run — overwrites with the same shape) or delete.
+ *
+ * Dry run:  POST ...?dryRun=true
+ * Write:    POST (no query params)
+ *
+ * Requires an IAM-authenticated caller (`invoker: private`). Example:
+ *   gcloud auth print-identity-token | xargs -I{} curl -X POST \
+ *     -H "Authorization: Bearer {}" \
+ *     "https://us-central1-<project>.cloudfunctions.net/backfillPublicChannelInvitePreviews"
+ */
+export const backfillPublicChannelInvitePreviews = onRequest(
+	{
+		invoker: 'private',
+		timeoutSeconds: 540,
+		memory: '512MiB',
+	},
+	async (req, res) => {
+		if (req.method !== 'POST') {
+			res.status(405).json({ error: 'Method Not Allowed — use POST' });
+			return;
+		}
+
+		const dryRun = req.query.dryRun === 'true';
+
+		try {
+			const channelsSnap = await db.collection('channels').get();
+			const previews: PublicChannelInvitePreview[] = [];
+			let skippedDaily = 0;
+			let skippedMarked = 0;
+			let skippedNoCode = 0;
+
+			for (const channelDoc of channelsSnap.docs) {
+				const data = channelDoc.data() as Omit<Channel, 'id'>;
+				const channel: Channel = { ...data, id: channelDoc.id };
+
+				if (channel.isDaily === true) {
+					skippedDaily++;
+					continue;
+				}
+				if (channel.markedForDeletionAt != null) {
+					skippedMarked++;
+					continue;
+				}
+				if (!channel.inviteCode) {
+					skippedNoCode++;
+					continue;
+				}
+
+				const preview = buildPublicChannelInvitePreview(channel);
+				if (preview) {
+					previews.push(preview);
+				}
+			}
+
+			if (dryRun) {
+				res.status(200).json({
+					dryRun: true,
+					totalChannels: channelsSnap.size,
+					previewCount: previews.length,
+					skippedDaily,
+					skippedMarked,
+					skippedNoCode,
+				});
+				return;
+			}
+
+			let written = 0;
+			for (let i = 0; i < previews.length; i += BACKFILL_BATCH_SIZE) {
+				const batch = db.batch();
+				for (const preview of previews.slice(i, i + BACKFILL_BATCH_SIZE)) {
+					batch.set(db.collection('publicChannelInvites').doc(preview.inviteCode), preview);
+				}
+				await batch.commit();
+				written += previews.slice(i, i + BACKFILL_BATCH_SIZE).length;
+			}
+
+			console.log(
+				`backfillPublicChannelInvitePreviews: wrote ${written} preview(s) ` +
+					`(skipped daily=${skippedDaily}, marked=${skippedMarked}, noCode=${skippedNoCode})`,
+			);
+
+			res.status(200).json({
+				dryRun: false,
+				totalChannels: channelsSnap.size,
+				written,
+				skippedDaily,
+				skippedMarked,
+				skippedNoCode,
+			});
+		} catch (err) {
+			console.error('backfillPublicChannelInvitePreviews: failed', err);
+			res.status(500).json({ error: 'Backfill failed — see function logs' });
+		}
+	},
+);
