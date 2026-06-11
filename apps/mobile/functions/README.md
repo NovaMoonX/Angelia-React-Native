@@ -18,6 +18,48 @@ When a new document is created in the `notifications` collection, this function:
 
 Only `target.type === 'user'` is handled today. `channel_tier` and `thread` targets are reserved for future functions.
 
+### `backfillPublicChannelInvitePreviews` (one-time)
+
+**Trigger:** HTTPS `POST` (private — IAM-authenticated callers only)
+
+Populates `publicChannelInvites/{inviteCode}` for every **active custom circle** that already has an invite code. Mirrors the client-side `buildPublicChannelInvitePreview` shape in `src/services/firebase/firestore.ts`.
+
+Run once after deploying Section 1 circle join-link preview support. Safe to re-run (idempotent overwrite).
+
+**Deploy:**
+
+```bash
+npm run deploy:functions
+# or from functions/:
+npm run deploy
+```
+
+**Dry run** (counts only, no writes):
+
+```bash
+PROJECT_ID=angelia-020726
+TOKEN=$(gcloud auth print-identity-token)
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  "https://us-central1-${PROJECT_ID}.cloudfunctions.net/backfillPublicChannelInvitePreviews?dryRun=true"
+```
+
+**Execute backfill:**
+
+```bash
+PROJECT_ID=angelia-020726
+TOKEN=$(gcloud auth print-identity-token)
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  "https://us-central1-${PROJECT_ID}.cloudfunctions.net/backfillPublicChannelInvitePreviews"
+```
+
+After a successful run, you may delete the function from Firebase if you no longer need it:
+
+```bash
+firebase functions:delete backfillPublicChannelInvitePreviews --region=us-central1
+```
+
 ---
 
 ## Scripts
