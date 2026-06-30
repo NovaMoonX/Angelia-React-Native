@@ -6,9 +6,13 @@ import {
   updateMessageText as firestoreUpdateMessageText,
   createAppNotification,
 } from '@/services/firebase/firestore';
-import { addMessageOptimistic, updateMessageTextOptimistic } from '@/store/slices/conversationSlice';
+import {
+  addMessageOptimistic,
+  updateMessageTextOptimistic,
+} from '@/store/slices/conversationSlice';
 import { generateId } from '@/utils/generateId';
 import { buildTextPreview } from '@/lib/message/messagePreview.utils';
+import { resolveMessageLineage } from '@/lib/conversation/threadLineage';
 import { isDemoActive } from './globalActions';
 
 /**
@@ -58,12 +62,16 @@ export const sendMessage = createAsyncThunk(
     const joinEmoji = latestReactionEmoji ?? '✨';
     const now = Date.now();
 
+    const messageId = generateId('nano');
+    const lineage = resolveMessageLineage(parentId, new Map(existingMessages.map((item) => [item.id, item])));
     const message: Message = {
-      id: generateId('nano'),
+      id: messageId,
       authorId: user.id,
       text: text.trim(),
       timestamp: now,
       parentId,
+      rootId: lineage.rootId,
+      grandparentId: lineage.grandparentId,
       reactions: {},
     };
     const joinMessage: Message | null = shouldSendJoinMessage

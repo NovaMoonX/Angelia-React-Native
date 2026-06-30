@@ -1,20 +1,14 @@
 Beta update notes
 
-Last updated: 2026-06-08
-Current version: 1.0.9
+Last updated: 2026-06-10
+Current version: 1.0.10
 Next version:
-Related PR: feature/activity-expiry-inbox
+Related PR: fix/section-1-core-bug-fixes
 
 Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
 
-Current branch highlights (1.0.9):
-- Private notes now show up right away when you're viewing your post — no more reloading the app to see a note someone just sent you.
-- Tap any private note to open a back-and-forth conversation with the other person, just like post conversations.
-- Post details now highlights when someone replied to a private note, with a chevron showing notes are tappable.
-- New reactions on your posts stay unread until you open post detail — scrolling past cards in Post Activity no longer clears them.
-- Feed and Post Activity now have expiring-soon filters so you can spot posts about to expire; on Feed, a separate row below status filters highlights ones you haven't reacted to yet.
-- Notifications splits inbox into Activity on your posts and Activity, with post snippets and per-section Mark all seen.
-- Post creation tips stay dismissed once you close them — they won't pop back up when you start a new post.
-- Notifications for deleted posts and circles are cleaned up automatically.
-- Circle post notification settings now list every connected person's Daily Circle, with search and collapsed circle cards.
-- Inbox activity marks as seen when you land on the right screen (post detail, conversation, or private notes).
+Current branch highlights (1.0.10):
+- Circle join links work reliably — open an invite before sign-in and see the circle name, host, and member count; invalid links show a clear warning instead of breaking.
+- Join requests now validate invite codes on the server, so expired links cannot slip through.
+- Replying to a reply (depth 2) stays connected to the original thread with a clearer quote of the root message.
+- QR codes and shared invite links route to the same public invite screen for a consistent experience.

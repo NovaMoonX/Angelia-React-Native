@@ -28,6 +28,11 @@ import { selectMessages, setMessages } from '@/store/slices/conversationSlice';
 import { joinConversation } from '@/store/actions/postActions';
 import { markUserInboxReadForPost, subscribeToMessages } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
+import {
+  normalizeMessageList,
+  quoteText,
+  resolveThreadParentKey,
+} from '@/lib/conversation/threadLineage';
 
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
@@ -80,6 +85,7 @@ export default function ConversationScreen() {
   const [showEditHint, setShowEditHint] = useState(false);
   const [replyDepthWarning, setReplyDepthWarning] = useState<string | null>(null);
   const isRoutingToPostRef = useRef(false);
+  const normalizedMessages = useMemo(() => normalizeMessageList(messages), [messages]);
 
   const goToPostDetails = useCallback(() => {
     if (!postId) {
@@ -116,6 +122,12 @@ export default function ConversationScreen() {
   const canAccessConversation = hasReacted || isHost;
   const isInConversation = post?.conversationEnrollees.includes(currentUser?.id ?? '') ?? false;
 
+  const inboxItems = useAppSelector((state) => state.userInbox.items);
+  const inboxItemsRef = useRef(inboxItems);
+  useEffect(() => {
+    inboxItemsRef.current = inboxItems;
+  }, [inboxItems]);
+
   useEffect(() => {
     if (!postId || isDemo) return;
     const unsub = subscribeToMessages(postId, (msgs) => {
@@ -123,12 +135,6 @@ export default function ConversationScreen() {
     });
     return unsub;
   }, [postId, dispatch, isDemo]);
-
-  const inboxItems = useAppSelector((state) => state.userInbox.items);
-  const inboxItemsRef = useRef(inboxItems);
-  useEffect(() => {
-    inboxItemsRef.current = inboxItems;
-  }, [inboxItems]);
 
   useFocusEffect(
     useCallback(() => {
@@ -166,7 +172,7 @@ export default function ConversationScreen() {
 
   const messageDepthById = useMemo(() => {
     const byId = new Map<string, Message>();
-    messages.forEach((message) => {
+    normalizedMessages.forEach((message) => {
       byId.set(message.id, message);
     });
 
@@ -193,27 +199,27 @@ export default function ConversationScreen() {
     };
 
     const result: Record<string, number> = {};
-    messages.forEach((message) => {
+    normalizedMessages.forEach((message) => {
       result[message.id] = resolveDepth(message);
     });
     return result;
-  }, [messages]);
+  }, [normalizedMessages]);
 
   const messageIdsWithReplies = useMemo(() => {
     const ids = new Set<string>();
-    messages.forEach((message) => {
+    normalizedMessages.forEach((message) => {
       if (message.parentId != null) {
         ids.add(message.parentId);
       }
     });
     return ids;
-  }, [messages]);
+  }, [normalizedMessages]);
 
   // Build threaded display to 2 levels: root -> reply -> reply-to-reply.
   const threadedMessages = useMemo(() => {
     const childrenByParent = new Map<string | null, Message[]>();
 
-    messages.forEach((message) => {
+    normalizedMessages.forEach((message) => {
       const key = message.parentId ?? null;
       const siblings = childrenByParent.get(key) ?? [];
       siblings.push(message);
@@ -267,7 +273,7 @@ export default function ConversationScreen() {
         continuationDepths,
       };
     });
-  }, [messages]);
+  }, [normalizedMessages]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -404,7 +410,9 @@ export default function ConversationScreen() {
   const renderMessage = useCallback(
     ({ item }: { item: ThreadedConversationRow }) => {
       const parentMsg = item.message.parentId
-        ? messages.find((m) => { return m.id === item.message.parentId; })
+        ? normalizedMessages.find((m) => {
+            return m.id === (item.depth >= 2 ? resolveThreadParentKey(item.message) : item.message.parentId);
+          })
         : null;
       const depth = messageDepthById[item.message.id] ?? 0;
       const canEditMessage =
@@ -416,7 +424,7 @@ export default function ConversationScreen() {
           hasReplies={messageIdsWithReplies.has(item.message.id)}
           continuationDepths={item.continuationDepths}
           depth={depth}
-          parentText={parentMsg?.text ?? null}
+          parentText={parentMsg?.text ? quoteText(parentMsg.text, depth >= 2 ? 48 : 60) : null}
           onSinglePress={() => {
             Keyboard.dismiss();
           }}
@@ -425,7 +433,7 @@ export default function ConversationScreen() {
         />
       );
     },
-    [currentUser?.id, handleReply, handleStartEdit, messages, messageDepthById, messageIdsWithReplies],
+    [currentUser?.id, handleReply, handleStartEdit, messageDepthById, messageIdsWithReplies, normalizedMessages],
   );
 
   const keyExtractor = useCallback((item: ThreadedConversationRow) => item.message.id, []);
