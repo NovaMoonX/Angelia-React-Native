@@ -351,3 +351,30 @@ A `userInbox` collection drives unread state from a single listener. Cloud Funct
 	Thin wrapper over inbox selectors (no AsyncStorage).
 
 ---
+
+## Feature: Circle Join Links (1.0.10 — `fix/section-1-core-bug-fixes`)
+
+### The Problem
+
+Circle invite links and QR codes could break or show nothing useful when opened before sign-in. Visitors had no way to preview the circle they were joining, and stale invite codes could still slip through join requests.
+
+### The Solution
+
+All invite entry points (web link, deep link, QR scan, manual code) route to one public **`circle-invite-link`** screen. Unauthenticated visitors see circle name, description, host, and member count; sign-in/sign-up remembers the invite via `pendingInvite`. Invalid or expired links show a shared **`CircleInviteErrorModal`** instead of a blank screen. Join requests now validate the invite code against the live channel document server-side.
+
+### Technical Detail
+
+- File: [src/app/circle-invite-link.tsx](src/app/circle-invite-link.tsx)
+	Public landing screen; loads `publicChannelInvites/{inviteCode}`; handles auth, pending invite, and join request.
+- File: [src/services/firebase/firestore.ts](src/services/firebase/firestore.ts)
+	`buildPublicChannelInvitePreview`, sync on create/update/delete/refresh, `getPublicChannelInvitePreview`, invite-code validation in `createJoinRequest`.
+- File: [firestore.rules](firestore.rules)
+	Public read on `publicChannelInvites`; host-only writes.
+- File: [src/app/scan-qr.tsx](src/app/scan-qr.tsx), [src/app/invite/[channelId]/[inviteCode].tsx](src/app/invite/[channelId]/[inviteCode].tsx)
+	Route QR and deep links to the unified screen.
+- File: [functions/src/index.ts](functions/src/index.ts)
+	`backfillPublicChannelInvitePreviews` — one-time HTTPS backfill for existing custom circles.
+- File: [docs/2026/06/11/CIRCLE_JOIN_LINKS.md](../../docs/2026/06/11/CIRCLE_JOIN_LINKS.md)
+	Durable feature reference, deploy steps, and backfill runbook.
+
+---

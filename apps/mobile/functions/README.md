@@ -26,6 +26,8 @@ Populates `publicChannelInvites/{inviteCode}` for every **active custom circle**
 
 Run once after deploying Section 1 circle join-link preview support. Safe to re-run (idempotent overwrite).
 
+Full feature reference: [docs/2026/06/11/CIRCLE_JOIN_LINKS.md](../../docs/2026/06/11/CIRCLE_JOIN_LINKS.md)
+
 **Deploy:**
 
 ```bash

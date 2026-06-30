@@ -1,7 +1,7 @@
-# Testing Guide — feature/activity-expiry-inbox
+# Testing Guide — fix/section-1-core-bug-fixes
 
-**Branch:** feature/activity-expiry-inbox  
-**Last updated:** June 8, 2026
+**Branch:** fix/section-1-core-bug-fixes  
+**Last updated:** June 11, 2026
 
 ---
 
@@ -13,6 +13,7 @@
 - [ ] Android rebuild path: `npm run prebuild:android` then `npm run prod:android`
 - [ ] If you are testing on iPhone too, use a fresh iOS native build before starting that pass
 - [ ] Deploy Cloud Functions, `firestore.rules`, and `firestore.indexes.json` before testing inbox writes and queries
+- [ ] Deploy functions including `backfillPublicChannelInvitePreviews`, then run the one-time backfill (or dry run) so **pre-existing** custom circles have `publicChannelInvites` docs — see `apps/mobile/functions/README.md`
 - [ ] Launch the app and confirm there is no red screen, Metro error, or broken startup route
 
 ---
@@ -26,6 +27,21 @@ Use the iPhone when:
 - [ ] You need two logged-in devices at once
 - [ ] You are validating keyboard, picker, safe-area, or haptic differences
 - [ ] You want parity confirmation before closing out the branch
+
+---
+
+## This branch — 1.0.10 scope
+
+**New in `fix/section-1-core-bug-fixes`** (test these before merge):
+
+| # | Feature | Section |
+|---|---|---|
+| 1 | Circle join links, public invite preview, QR/code routing, server-side invite validation | [Feature 6](#feature-6-circle-join-links--public-invite-preview) |
+| 2 | Conversation depth-2 replies (root lineage + quote context) | [Feature 7](#feature-7-conversation-depth-2-thread-replies) |
+
+Features 1–5 below are inherited regression coverage from prior branches (inbox, expiring filters, private notes, etc.).
+
+**Durable reference:** [docs/2026/06/11/CIRCLE_JOIN_LINKS.md](../../docs/2026/06/11/CIRCLE_JOIN_LINKS.md)
 
 ---
 
@@ -160,7 +176,7 @@ Use the iPhone when:
 
 ---
 
-## Feature 5: Circle Post Notification Settings
+## Feature 5b: Circle Post Notification Settings
 
 **Devices:** Android (iPhone optional for layout parity).
 
@@ -187,8 +203,94 @@ Use the iPhone when:
 
 ---
 
+## Feature 6: Circle Join Links & Public Invite Preview
+
+**Devices:** Android primary; iPhone for deep-link / universal-link parity.
+
+**Reference:** [docs/2026/06/11/CIRCLE_JOIN_LINKS.md](../../docs/2026/06/11/CIRCLE_JOIN_LINKS.md)
+
+### Setup
+
+- [ ] Account A = host of an active **custom** Circle with a known invite link and QR code
+- [ ] Account B = user who is **not** a member of A's circle
+- [ ] At least one custom circle that existed **before** this branch (or run the backfill function) so legacy preview docs can be verified
+- [ ] `firestore.rules` and Cloud Functions deployed; backfill executed once if testing legacy circles
+
+### Android — pre-auth invite link
+
+- [ ] Sign out (or use a fresh install / secondary device)
+- [ ] Open A's share link (`https://…/invite/{channelId}/{inviteCode}`) → lands on public invite screen
+- [ ] Confirm circle **name**, **description**, **host name/avatar**, and **member count** appear
+- [ ] Tap **Sign Up** → complete onboarding → confirm join request is sent (or pending-invite flow completes)
+- [ ] Sign out again; open link with a **wrong** final character in the code → **Circle not found** modal (not a crash)
+
+### Android — signed-in flows
+
+- [ ] As B (not a member), open A's invite link → optional intro + **Request to Join** → success toast → lands on Feed
+- [ ] Open the same link again → status shows pending request (no duplicate send)
+- [ ] As A (host), open own invite link → "You're the Host" message (no join button)
+- [ ] As an existing member, open link → "already a member" message
+
+### Android — server-side invite validation
+
+- [ ] As B, note a valid invite code, then manually tamper with the code in a join request path (e.g. edit URL before opening, or use join-channel with one character changed) → join does **not** succeed; user sees expired/invalid code error (not a silent success)
+- [ ] As A, accept B's join request from Notifications → B becomes a circle member
+
+### Android — backfill function (legacy circles)
+
+- [ ] Pick a custom circle that existed **before** 1.0.10 and has **not** been edited since deploy
+- [ ] Before backfill: open its invite link while logged out → **Circle not found** modal (or missing preview)
+- [ ] Run `backfillPublicChannelInvitePreviews?dryRun=true` → response shows `previewCount` ≥ 1
+- [ ] Run backfill (no `dryRun`) → same link now shows circle name, host, and member count
+- [ ] Confirm Firestore has `publicChannelInvites/{INVITE_CODE}` with expected fields (`channelId`, `name`, `description`, `subscriberCount`, `ownerId`)
+
+### Android — QR and manual code
+
+- [ ] From A's account, open circle QR → scan as B → same public invite screen as the web link
+- [ ] Subscribed tab → **Join a Circle** → enter valid 8-char code → confirm card matches link preview → send request
+- [ ] Enter invalid code → error modal or inline error
+
+### Android — expired invite code
+
+- [ ] As A, regenerate the circle invite code
+- [ ] As B, open the **old** link → Circle not found modal
+- [ ] Open the **new** link → preview loads; join request succeeds
+
+### iPhone
+
+- [ ] Repeat one pre-auth link open and one QR scan if universal links differ on iOS
+
+---
+
+## Feature 7: Conversation Depth-2 Thread Replies
+
+**Devices:** Android + iPhone required (two accounts on a post with conversation enabled).
+
+### Setup
+
+- [ ] Account A and Account B are members of the same circle with an active post
+- [ ] At least three messages in a chain: top-level message (M1) → reply to M1 (M2) → reply to M2 (M3, depth 2)
+
+### Android
+
+- [ ] Open conversation on the post
+- [ ] Post M1 (top-level) → B replies with M2 (depth 1) → B or A replies to M2 with M3 (depth 2)
+- [ ] Confirm M3 renders **under** M2 in the thread tree (not flattened to the bottom as a sibling of M1)
+- [ ] Confirm M3's quoted context shows text from the **root** message (M1), not only the immediate parent (M2)
+- [ ] Confirm thread connector lines stay visually connected between M1 → M2 → M3
+- [ ] Long-press M2 → reply → confirm depth-2 reply is allowed
+- [ ] Attempt reply on a depth-2 message (M3) → confirm app blocks or warns at max depth (no depth-3 nesting)
+- [ ] Pull to refresh or leave and re-open conversation → M3 still nests correctly with correct quote
+
+### iPhone
+
+- [ ] Repeat one depth-2 reply chain and confirm quote + nesting match Android
+
+---
+
 ## Regression Checks
 
+- [ ] Circle invite link from Notifications (host accepts/declines join request) still works end-to-end
 - [ ] Feed loads and scrolls normally with status pills and expiring row visible
 - [ ] Post Detail opens and closes normally; host can open Conversation and Private Notes
 - [ ] Post Activity -> Post Detail -> back returns to Post Activity
@@ -199,6 +301,7 @@ Use the iPhone when:
 
 ## Known Limitations / Notes
 
+- **Legacy circle previews:** custom circles created before 1.0.10 need the one-time `backfillPublicChannelInvitePreviews` Cloud Function (or a host edit/code refresh) before invite links show preview data. See `docs/2026/06/11/CIRCLE_JOIN_LINKS.md`.
 - **Inbox migration:** existing AsyncStorage seen state does not backfill. Users may see a one-time badge reset after deploy until new activity arrives.
 - Deploy `firestore.rules`, `firestore.indexes.json`, and Cloud Functions before testing inbox or private-note reply writes.
 - Private note threads are flat lists (no nested reply threading like post conversations).
