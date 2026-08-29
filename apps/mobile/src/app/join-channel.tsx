@@ -16,21 +16,16 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { CodeInput, type CodeInputHandle } from '@/components/ui/CodeInput';
 import { Textarea } from '@/components/ui/Textarea';
-import { CircleInviteErrorModal } from '@/components/invite/CircleInviteErrorModal';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
-import {
-  getPublicChannelInvitePreview,
-  getPublicUserProfile,
-} from '@/services/firebase/firestore';
+import { getChannelByInviteCode } from '@/services/firebase/firestore';
 import { setPendingInviteChannel, clearPendingInvite } from '@/store/slices/pendingInviteSlice';
 import { sendJoinRequest } from '@/store/actions/inviteActions';
 import { makeSelectMostRecentOutgoingRequestForChannel } from '@/store/crossSelectors/inviteSelectors';
 import { getColorPair } from '@/lib/channel/channel.utils';
-import { channelFromPublicInvitePreview } from '@/lib/channel/channelInvite.utils';
-import type { PublicChannelInvitePreview, User } from '@/models/types';
+import type { Channel } from '@/models/types';
 import { KEYBOARD_VERTICAL_OFFSET, KEYBOARD_BEHAVIOR } from '@/constants/layout';
 
 type Step = 'enter-code' | 'confirm-channel';
@@ -51,23 +46,20 @@ export default function JoinChannelScreen() {
 
   const [step, setStep] = useState<Step>('enter-code');
   const [code, setCode] = useState(params.code?.toUpperCase() || '');
-  const [preview, setPreview] = useState<PublicChannelInvitePreview | null>(null);
-  const [hostUser, setHostUser] = useState<User | null>(null);
+  const [channel, setChannel] = useState<Channel | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState('');
-  const [showErrorModal, setShowErrorModal] = useState(false);
   const [message, setMessage] = useState('');
   const [joinLoading, setJoinLoading] = useState(false);
   const codeInputRef = useRef<CodeInputHandle>(null);
 
   const isAuthenticated = !!firebaseUser || isDemo;
   const viewerUserId = currentUser?.id ?? firebaseUser?.uid ?? null;
-  const channel = preview ? channelFromPublicInvitePreview(preview) : null;
 
   // Memoize the selector instance so it re-creates only when the channel changes
   const selectMostRecentRequest = useMemo(
-    () => makeSelectMostRecentOutgoingRequestForChannel(preview?.channelId ?? ''),
-    [preview?.channelId],
+    () => makeSelectMostRecentOutgoingRequestForChannel(channel?.id ?? ''),
+    [channel?.id],
   );
   const mostRecentRequest = useAppSelector(selectMostRecentRequest);
 
@@ -80,20 +72,16 @@ export default function JoinChannelScreen() {
     setLookupError('');
     setLookupLoading(true);
     try {
-      const found = await getPublicChannelInvitePreview(trimmed);
+      const found = await getChannelByInviteCode(trimmed);
       if (!found) {
-        setLookupError('No circle found with this code. Double-check and try again.');
-        setShowErrorModal(true);
+        setLookupError('No circle found with this code. Double-check and try again!');
         setLookupLoading(false);
         return;
       }
-      setPreview(found);
-      const host = await getPublicUserProfile(found.ownerId);
-      setHostUser(host);
+      setChannel(found);
       setStep('confirm-channel');
     } catch {
       setLookupError('Something went wrong. Please try again.');
-      setShowErrorModal(true);
     } finally {
       setLookupLoading(false);
     }
@@ -106,30 +94,23 @@ export default function JoinChannelScreen() {
     if (params.autoLookup !== '1' || initialCode.length !== 8) return;
 
     setLookupLoading(true);
-    getPublicChannelInvitePreview(initialCode)
+    getChannelByInviteCode(initialCode)
       .then((found) => {
         if (!found) {
-          setLookupError('No circle found with this code. Double-check and try again.');
-          setShowErrorModal(true);
+          setLookupError('No circle found with this code. Double-check and try again!');
           return;
         }
-        setPreview(found);
-        return getPublicUserProfile(found.ownerId).then((host) => {
-          setHostUser(host);
-          setStep('confirm-channel');
-        });
+        setChannel(found);
+        setStep('confirm-channel');
       })
-      .catch(() => {
-        setLookupError('Something went wrong. Please try again.');
-        setShowErrorModal(true);
-      })
+      .catch(() => setLookupError('Something went wrong. Please try again.'))
       .finally(() => setLookupLoading(false));
     // params values captured at mount; this effect is intentionally mount-only
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleJoinRequest = useCallback(async () => {
-    if (!channel || !preview) return;
+    if (!channel) return;
 
     // If user is not authenticated, store pending invite and redirect to auth
     if (!isAuthenticated) {
@@ -151,9 +132,9 @@ export default function JoinChannelScreen() {
     try {
       await dispatch(
         sendJoinRequest({
-          channelId: preview.channelId,
-          inviteCode: preview.inviteCode,
-          channelOwnerId: preview.ownerId,
+          channelId: channel.id,
+          inviteCode: channel.inviteCode || '',
+          channelOwnerId: channel.ownerId,
           message: message.trim(),
         }),
       ).unwrap();
@@ -168,13 +149,12 @@ export default function JoinChannelScreen() {
     } finally {
       setJoinLoading(false);
     }
-  }, [channel, isAuthenticated, currentUser, dispatch, message, addToast, router, preview]);
+  }, [channel, isAuthenticated, currentUser, dispatch, message, addToast, router]);
 
   const handleBack = useCallback(() => {
     if (step === 'confirm-channel') {
       setStep('enter-code');
-      setPreview(null);
-      setHostUser(null);
+      setChannel(null);
       return;
     }
     if (fromOnboarding) return; // no back when arriving from sign-up flow
@@ -182,7 +162,7 @@ export default function JoinChannelScreen() {
   }, [step, router, fromOnboarding]);
 
   const isSubscribed = viewerUserId ? channel?.subscribers.includes(viewerUserId) || false : false;
-  const isOwnCircle = preview?.ownerId === viewerUserId;
+  const isOwnCircle = channel?.ownerId === viewerUserId;
   // Ignore a stale 'accepted' request — if the user was previously accepted but is no
   // longer subscribed (e.g. removed from the circle), allow them to request to join again.
   const existingRequest =
@@ -333,17 +313,9 @@ export default function JoinChannelScreen() {
                     {channel.description}
                   </Text>
                 ) : null}
-                {hostUser ? (
-                  <View style={styles.hostRow}>
-                    <Avatar user={hostUser} size="sm" showStatus={false} />
-                    <Text style={[styles.hostText, { color: theme.mutedForeground }]}>
-                      Hosted by {hostUser.firstName} {hostUser.lastName}
-                    </Text>
-                  </View>
-                ) : null}
                 <Text style={[styles.meta, { color: theme.mutedForeground }]}>
-                  {preview?.subscriberCount ?? 0} member
-                  {(preview?.subscriberCount ?? 0) !== 1 ? 's' : ''}
+                  {channel.subscribers.length} subscriber
+                  {channel.subscribers.length !== 1 ? 's' : ''}
                 </Text>
               </View>
             </Card>
@@ -427,8 +399,7 @@ export default function JoinChannelScreen() {
               variant="tertiary"
               onPress={() => {
                 setStep('enter-code');
-                setPreview(null);
-                setHostUser(null);
+                setChannel(null);
               }}
               style={{ marginTop: 8 }}
             >
@@ -447,17 +418,6 @@ export default function JoinChannelScreen() {
           </View>
         )}
       </ScrollView>
-      <CircleInviteErrorModal
-        isOpen={showErrorModal}
-        onClose={() => setShowErrorModal(false)}
-        onGoToFeed={() => {
-          if (isAuthenticated) {
-            router.replace('/(protected)/feed');
-          } else {
-            router.replace('/auth');
-          }
-        }}
-      />
     </KeyboardAvoidingView>
   );
 }
@@ -559,14 +519,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   meta: {
-    fontSize: 13,
-  },
-  hostRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  hostText: {
     fontSize: 13,
   },
   statusSection: {

@@ -50,13 +50,7 @@ function ScanQrTab() {
         const inviteMatch = parseInviteLink(value);
         if (inviteMatch) {
           scannedRef.current = true;
-          router.push({
-            pathname: '/circle-invite-link',
-            params: {
-              channelId: inviteMatch.channelId,
-              inviteCode: inviteMatch.inviteCode,
-            },
-          });
+          router.push({ pathname: '/join-channel', params: { code: inviteMatch.inviteCode, autoLookup: '1' } });
           return;
         }
 

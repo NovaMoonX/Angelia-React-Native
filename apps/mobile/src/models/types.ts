@@ -146,17 +146,6 @@ export interface Channel {
 
 export type NewChannel = Omit<Channel, 'id' | 'isDaily' | 'inviteCode' | 'createdAt' | 'markedForDeletionAt'>;
 
-/** Sanitized circle metadata for public invite links (readable without auth). */
-export interface PublicChannelInvitePreview {
-  channelId: string;
-  inviteCode: string;
-  name: string;
-  description: string;
-  subscriberCount: number;
-  ownerId: string;
-  markedForDeletionAt: number | null;
-}
-
 export interface MediaItem {
   type: 'image' | 'video' | 'audio';
   url: string;
