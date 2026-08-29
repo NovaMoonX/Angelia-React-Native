@@ -100,6 +100,41 @@ const privateNotesSlice = createSlice({
         return m.id !== action.payload.messageId;
       });
     },
+    updatePrivateNoteThreadMessageTextOptimistic(
+      state,
+      action: PayloadAction<{ postId: string; noteId: string; messageId: string; text: string }>,
+    ) {
+      const key = getPrivateNoteThreadKey(action.payload.postId, action.payload.noteId);
+      const messages = state.threadMessagesByKey[key];
+      if (!messages) {
+        return;
+      }
+      const target = messages.find((message) => message.id === action.payload.messageId);
+      if (!target) {
+        return;
+      }
+      target.text = action.payload.text;
+    },
+    updatePrivateNoteThreadMessageReactionsOptimistic(
+      state,
+      action: PayloadAction<{
+        postId: string;
+        noteId: string;
+        messageId: string;
+        reactions: Record<string, string[]>;
+      }>,
+    ) {
+      const key = getPrivateNoteThreadKey(action.payload.postId, action.payload.noteId);
+      const messages = state.threadMessagesByKey[key];
+      if (!messages) {
+        return;
+      }
+      const target = messages.find((message) => message.id === action.payload.messageId);
+      if (!target) {
+        return;
+      }
+      target.reactions = action.payload.reactions;
+    },
   },
   extraReducers: (builder) => {
     builder.addCase(resetAllState, () => initialState);
@@ -117,6 +152,8 @@ export const {
   setPrivateNoteThreadMessages,
   addPrivateNoteThreadMessageOptimistic,
   removePrivateNoteThreadMessageOptimistic,
+  updatePrivateNoteThreadMessageTextOptimistic,
+  updatePrivateNoteThreadMessageReactionsOptimistic,
 } = privateNotesSlice.actions;
 
 // Selectors

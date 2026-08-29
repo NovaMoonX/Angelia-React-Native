@@ -1,0 +1,7 @@
+Branch: feature/message-reactions-actions
+Release: 1.0.10
+
+- Thread replies — depth-2 replies stay linked to the root message with clearer quote context
+- Message actions menu — long-press or tap ⋯ to reply, react, edit, or delete in one place
+- Message reactions — inline reactions on conversation and private-note thread messages with optimistic updates
+- Profile quick-open — tapping another participant avatar in message threads opens their profile modal

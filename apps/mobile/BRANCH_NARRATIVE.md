@@ -351,3 +351,38 @@ A `userInbox` collection drives unread state from a single listener. Cloud Funct
 	Thin wrapper over inbox selectors (no AsyncStorage).
 
 ---
+
+## Feature: Message Actions + Message Reactions (v1.0.10)
+
+### The Problem
+
+Conversation message interactions were split across hidden gestures, and private note replies had no matching action model. Users could not react to individual replies, and message deletion support was missing.
+
+### The Solution
+
+Both Conversation and Private Note Thread screens now use one unified message action entry (long-press or ⋯ button). That action sheet supports reply/react/edit/delete based on context. Message-level emoji reactions now work inline with optimistic updates, and reaction chips show who reacted.
+
+### Technical Detail
+
+- File: [src/hooks/useMessageActions.ts](src/hooks/useMessageActions.ts)  
+	Shared action orchestration for conversation and private-note message flows.
+- File: [src/components/conversation/MessageActionSheet.tsx](src/components/conversation/MessageActionSheet.tsx)  
+	Unified action surface for Reply/React/Edit/Delete.
+- File: [src/components/conversation/MessageReactionRow.tsx](src/components/conversation/MessageReactionRow.tsx)  
+	Inline reaction chips showing counts and participant names.
+- File: [src/components/conversation/ConversationMessage.tsx](src/components/conversation/ConversationMessage.tsx)  
+	Adds ⋯ action button, avatar profile-open tap handling, and inline reactions.
+- File: [src/store/actions/conversationActions.ts](src/store/actions/conversationActions.ts)  
+	Adds optimistic message reaction toggles and delete thunk for conversation messages.
+- File: [src/store/actions/privateNoteThreadActions.ts](src/store/actions/privateNoteThreadActions.ts)  
+	Adds optimistic edit/reaction/delete thunks for private-note thread replies.
+- File: [src/store/slices/conversationSlice.ts](src/store/slices/conversationSlice.ts)  
+	Adds optimistic reducers for message reactions and deletes.
+- File: [src/store/slices/privateNotesSlice.ts](src/store/slices/privateNotesSlice.ts)  
+	Adds optimistic reducers for private-note thread edit/reaction updates.
+- File: [src/services/firebase/firestore.ts](src/services/firebase/firestore.ts)  
+	Adds message reaction toggle + delete operations for both conversation and private-note thread paths.
+- File: [firestore.rules](firestore.rules)  
+	Allows participant reaction updates and author-only (non-system) message deletes for both message subcollections.
+
+---

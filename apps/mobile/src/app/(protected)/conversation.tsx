@@ -21,24 +21,33 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ConversationMessage } from '@/components/conversation/ConversationMessage';
 import { ConversationEmptyState } from '@/components/conversation/ConversationEmptyState';
+import { MessageActionSheet } from '@/components/conversation/MessageActionSheet';
+import { EmojiPicker } from '@/components/EmojiPicker';
 
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { selectPostById, selectPostAuthor, selectPostChannel } from '@/store/slices/postsSlice';
+import { selectAllUsersMapById } from '@/store/slices/usersSlice';
+import { UserProfileModal } from '@/components/UserProfileModal';
 import { selectMessages, setMessages } from '@/store/slices/conversationSlice';
 import { joinConversation } from '@/store/actions/postActions';
 import { markUserInboxReadForPost, subscribeToMessages } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
+import {
+  normalizeMessageList,
+  quoteText,
+  resolveThreadParentKey,
+} from '@/lib/conversation/threadLineage';
 
 import { useTheme } from '@/hooks/useTheme';
 import { useToast } from '@/hooks/useToast';
 import { useActionModal } from '@/hooks/useActionModal';
 import { usePostComments } from '@/hooks/usePostComments';
+import { useMessageActions } from '@/hooks/useMessageActions';
 import { getTierTheme } from '@/lib/conversation/tierTheme';
 import { getColorPair } from '@/lib/channel/channel.utils';
 import { getPostAuthorName, getPostExpiryInfo } from '@/lib/post/post.utils';
 import {
   POST_TIERS,
-  CONVERSATION_EDIT_HINT_SEEN_KEY,
   CONVERSATION_REPLY_HINT_SEEN_KEY,
 } from '@/models/constants';
 import { isFromNotifications } from '@/lib/navigation/entryNavigation.utils';
@@ -71,15 +80,18 @@ export default function ConversationScreen() {
   const author = useAppSelector((state) => selectPostAuthor(state, post?.authorId ?? ''));
   const channel = useAppSelector((state) => selectPostChannel(state, post?.channelId ?? ''));
   const currentUser = useAppSelector((state) => state.users.currentUser);
+  const usersMap = useAppSelector(selectAllUsersMapById);
   const messages = useAppSelector((state) => selectMessages(state, postId ?? ''));
 
   const [messageText, setMessageText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
-  const [showReplyHint, setShowReplyHint] = useState(false);
-  const [showEditHint, setShowEditHint] = useState(false);
+  const [showMessageActionsHint, setShowMessageActionsHint] = useState(false);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [replyDepthWarning, setReplyDepthWarning] = useState<string | null>(null);
+  const profileUser = profileUserId ? usersMap[profileUserId] ?? null : null;
   const isRoutingToPostRef = useRef(false);
+  const normalizedMessages = useMemo(() => normalizeMessageList(messages), [messages]);
 
   const goToPostDetails = useCallback(() => {
     if (!postId) {
@@ -116,6 +128,12 @@ export default function ConversationScreen() {
   const canAccessConversation = hasReacted || isHost;
   const isInConversation = post?.conversationEnrollees.includes(currentUser?.id ?? '') ?? false;
 
+  const inboxItems = useAppSelector((state) => state.userInbox.items);
+  const inboxItemsRef = useRef(inboxItems);
+  useEffect(() => {
+    inboxItemsRef.current = inboxItems;
+  }, [inboxItems]);
+
   useEffect(() => {
     if (!postId || isDemo) return;
     const unsub = subscribeToMessages(postId, (msgs) => {
@@ -123,12 +141,6 @@ export default function ConversationScreen() {
     });
     return unsub;
   }, [postId, dispatch, isDemo]);
-
-  const inboxItems = useAppSelector((state) => state.userInbox.items);
-  const inboxItemsRef = useRef(inboxItems);
-  useEffect(() => {
-    inboxItemsRef.current = inboxItems;
-  }, [inboxItems]);
 
   useFocusEffect(
     useCallback(() => {
@@ -151,22 +163,15 @@ export default function ConversationScreen() {
 
   usePostComments({ postId });
 
-  // Load reply hint seen flag — only show the hint if user hasn't dismissed/used it before
   useEffect(() => {
     void AsyncStorage.getItem(CONVERSATION_REPLY_HINT_SEEN_KEY).then((val) => {
-      if (!val) setShowReplyHint(true);
-    });
-  }, []);
-
-  useEffect(() => {
-    void AsyncStorage.getItem(CONVERSATION_EDIT_HINT_SEEN_KEY).then((val) => {
-      if (!val) setShowEditHint(true);
+      if (!val) setShowMessageActionsHint(true);
     });
   }, []);
 
   const messageDepthById = useMemo(() => {
     const byId = new Map<string, Message>();
-    messages.forEach((message) => {
+    normalizedMessages.forEach((message) => {
       byId.set(message.id, message);
     });
 
@@ -193,27 +198,27 @@ export default function ConversationScreen() {
     };
 
     const result: Record<string, number> = {};
-    messages.forEach((message) => {
+    normalizedMessages.forEach((message) => {
       result[message.id] = resolveDepth(message);
     });
     return result;
-  }, [messages]);
+  }, [normalizedMessages]);
 
   const messageIdsWithReplies = useMemo(() => {
     const ids = new Set<string>();
-    messages.forEach((message) => {
+    normalizedMessages.forEach((message) => {
       if (message.parentId != null) {
         ids.add(message.parentId);
       }
     });
     return ids;
-  }, [messages]);
+  }, [normalizedMessages]);
 
   // Build threaded display to 2 levels: root -> reply -> reply-to-reply.
   const threadedMessages = useMemo(() => {
     const childrenByParent = new Map<string | null, Message[]>();
 
-    messages.forEach((message) => {
+    normalizedMessages.forEach((message) => {
       const key = message.parentId ?? null;
       const siblings = childrenByParent.get(key) ?? [];
       siblings.push(message);
@@ -267,7 +272,7 @@ export default function ConversationScreen() {
         continuationDepths,
       };
     });
-  }, [messages]);
+  }, [normalizedMessages]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -333,6 +338,11 @@ export default function ConversationScreen() {
     }
   }, [postId, currentUser, dispatch, addToast]);
 
+  const dismissMessageActionsHint = useCallback(() => {
+    setShowMessageActionsHint(false);
+    void AsyncStorage.setItem(CONVERSATION_REPLY_HINT_SEEN_KEY, 'true');
+  }, []);
+
   const handleReply = useCallback((message: Message) => {
     const messageDepth = messageDepthById[message.id] ?? 0;
     if (messageDepth >= 2) {
@@ -345,22 +355,7 @@ export default function ConversationScreen() {
     setReplyDepthWarning(null);
     setReplyingTo(message);
     setEditingMessage(null);
-    // Dismiss the hint the first time the user actually uses reply
-    if (showReplyHint) {
-      setShowReplyHint(false);
-      void AsyncStorage.setItem(CONVERSATION_REPLY_HINT_SEEN_KEY, 'true');
-    }
-  }, [messageDepthById, showReplyHint]);
-
-  const handleDismissReplyHint = useCallback(() => {
-    setShowReplyHint(false);
-    void AsyncStorage.setItem(CONVERSATION_REPLY_HINT_SEEN_KEY, 'true');
-  }, []);
-
-  const handleDismissEditHint = useCallback(() => {
-    setShowEditHint(false);
-    void AsyncStorage.setItem(CONVERSATION_EDIT_HINT_SEEN_KEY, 'true');
-  }, []);
+  }, [messageDepthById]);
 
   const handleCancelEditing = useCallback(() => {
     setEditingMessage(null);
@@ -393,22 +388,31 @@ export default function ConversationScreen() {
       inputRef.current?.focus();
     });
 
-    if (showEditHint) {
-      setShowEditHint(false);
-      void AsyncStorage.setItem(CONVERSATION_EDIT_HINT_SEEN_KEY, 'true');
-    }
-
     void Haptics.selectionAsync().catch(() => {});
-  }, [confirm, currentUser, editingMessage, messageText, showEditHint]);
+  }, [confirm, currentUser, editingMessage, messageText]);
+
+  const messageActions = useMessageActions({
+    context: { kind: 'conversation', postId: postId ?? '', canReply: true },
+    currentUserId: currentUser?.id,
+    onReply: (message) => {
+      dismissMessageActionsHint();
+      handleReply(message);
+    },
+    onEdit: (message) => {
+      dismissMessageActionsHint();
+      void handleStartEdit(message);
+    },
+    canReplyToMessage: (message) => (messageDepthById[message.id] ?? 0) < 2,
+  });
 
   const renderMessage = useCallback(
     ({ item }: { item: ThreadedConversationRow }) => {
       const parentMsg = item.message.parentId
-        ? messages.find((m) => { return m.id === item.message.parentId; })
+        ? normalizedMessages.find((m) => {
+            return m.id === (item.depth >= 2 ? resolveThreadParentKey(item.message) : item.message.parentId);
+          })
         : null;
       const depth = messageDepthById[item.message.id] ?? 0;
-      const canEditMessage =
-        item.message.authorId === currentUser?.id && item.message.isSystem !== true;
       return (
         <ConversationMessage
           message={item.message}
@@ -416,16 +420,21 @@ export default function ConversationScreen() {
           hasReplies={messageIdsWithReplies.has(item.message.id)}
           continuationDepths={item.continuationDepths}
           depth={depth}
-          parentText={parentMsg?.text ?? null}
+          parentText={parentMsg?.text ? quoteText(parentMsg.text, depth >= 2 ? 48 : 60) : null}
+          currentUserId={currentUser?.id ?? null}
           onSinglePress={() => {
             Keyboard.dismiss();
           }}
-          onLongPress={() => handleReply(item.message)}
-          onDoublePress={canEditMessage ? () => { void handleStartEdit(item.message); } : undefined}
+          onOpenActions={() => messageActions.openActions(item.message)}
+          onAvatarPress={() => setProfileUserId(item.message.authorId)}
+          onToggleReaction={(emoji) => {
+            void messageActions.toggleReaction(item.message, emoji);
+          }}
+          onOpenReactionPicker={() => messageActions.openReactionPicker(item.message)}
         />
       );
     },
-    [currentUser?.id, handleReply, handleStartEdit, messages, messageDepthById, messageIdsWithReplies],
+    [currentUser?.id, messageActions, messageIdsWithReplies, normalizedMessages],
   );
 
   const keyExtractor = useCallback((item: ThreadedConversationRow) => item.message.id, []);
@@ -564,28 +573,13 @@ export default function ConversationScreen() {
               },
             ]}
           >
-            {/* Reply hint — shown once until used or dismissed */}
-            {showReplyHint && threadedMessages.length > 0 && !replyingTo && !editingMessage && (
+            {showMessageActionsHint && threadedMessages.length > 0 && !replyingTo && !editingMessage && (
               <View style={[styles.replyHint, { backgroundColor: theme.muted, borderColor: theme.border }]}>
-                <Feather name="corner-up-left" size={13} color={theme.mutedForeground} />
+                <Feather name="more-horizontal" size={13} color={theme.mutedForeground} />
                 <Text style={[styles.replyHintText, { color: theme.mutedForeground }]}>
-                  Hold any message to reply to it
+                  Hold a message or tap ⋯ to reply, react, edit, or delete
                 </Text>
-                <Pressable onPress={handleDismissReplyHint} hitSlop={8}>
-                  <Feather name="x" size={13} color={theme.mutedForeground} />
-                </Pressable>
-              </View>
-            )}
-
-            {showEditHint && threadedMessages.some((row) => {
-              return row.message.authorId === currentUser.id && row.message.isSystem !== true;
-            }) && !replyingTo && !editingMessage && (
-              <View style={[styles.replyHint, { backgroundColor: theme.muted, borderColor: theme.border }]}> 
-                <Feather name="edit-2" size={13} color={theme.mutedForeground} />
-                <Text style={[styles.replyHintText, { color: theme.mutedForeground }]}> 
-                  Double tap your own message to edit it
-                </Text>
-                <Pressable onPress={handleDismissEditHint} hitSlop={8}>
+                <Pressable onPress={dismissMessageActionsHint} hitSlop={8}>
                   <Feather name="x" size={13} color={theme.mutedForeground} />
                 </Pressable>
               </View>
@@ -664,6 +658,38 @@ export default function ConversationScreen() {
           </View>
         )}
       </KeyboardAvoidingView>
+
+      <MessageActionSheet
+        visible={messageActions.actionMessage != null}
+        message={messageActions.actionMessage}
+        currentUserId={currentUser?.id ?? null}
+        options={messageActions.actionOptions}
+        onClose={messageActions.closeActions}
+        onSelectAction={messageActions.handleSelectAction}
+        onSelectReaction={(emoji) => {
+          if (messageActions.actionMessage) {
+            void messageActions.toggleReaction(messageActions.actionMessage, emoji);
+          }
+        }}
+        onOpenReactionPicker={() => {
+          if (messageActions.actionMessage) {
+            messageActions.openReactionPicker(messageActions.actionMessage);
+          }
+        }}
+      />
+
+      <EmojiPicker
+        visible={messageActions.emojiPickerMessage != null}
+        variant="compact"
+        onSelect={(emoji) => messageActions.handleSelectReaction(emoji)}
+        onClose={messageActions.closeReactionPicker}
+      />
+
+      <UserProfileModal
+        visible={profileUser != null}
+        user={profileUser}
+        onClose={() => setProfileUserId(null)}
+      />
     </View>
   );
 }

@@ -6,6 +6,7 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  deleteDoc,
   runTransaction,
   onSnapshot,
   query,
@@ -24,6 +25,7 @@ import {
   createDefaultCirclePostNotificationSettings,
 } from '@/models/constants';
 import { generateId } from '@/utils/generateId';
+import { normalizeMessageList } from '@/lib/conversation/threadLineage';
 
 // const db = getFirestore();
 const getDb = () => getFirestore();
@@ -1255,6 +1257,43 @@ export async function updateMessageText(
   });
 }
 
+export async function toggleMessageReaction(
+  postId: string,
+  messageId: string,
+  userId: string,
+  emoji: string,
+): Promise<void> {
+  await runTransaction(getDb(), async (transaction) => {
+    const messageRef = doc(getDb(), 'posts', postId, 'messages', messageId);
+    const messageSnap = await transaction.get(messageRef);
+    if (!messageSnap.exists) {
+      return;
+    }
+
+    const message = messageSnap.data() as Message;
+    const reactions = { ...(message.reactions ?? {}) };
+    const users = [...(reactions[emoji] ?? [])];
+    const existingIndex = users.indexOf(userId);
+
+    if (existingIndex >= 0) {
+      users.splice(existingIndex, 1);
+      if (users.length === 0) {
+        delete reactions[emoji];
+      } else {
+        reactions[emoji] = users;
+      }
+    } else {
+      reactions[emoji] = [...users, userId];
+    }
+
+    transaction.update(messageRef, { reactions });
+  });
+}
+
+export async function deleteMessage(postId: string, messageId: string): Promise<void> {
+  await deleteDoc(doc(getDb(), 'posts', postId, 'messages', messageId));
+}
+
 export function subscribeToMessages(
   postId: string,
   callback: (messages: Message[]) => void,
@@ -1266,7 +1305,7 @@ export function subscribeToMessages(
     ),
     (snap) => {
       const messages = snap?.docs?.map((d) => d.data() as Message) ?? [];
-      callback(messages);
+      callback(normalizeMessageList(messages));
     },
     (_error) => {
       // Firestore subscription error — return empty to avoid crash
@@ -1527,6 +1566,62 @@ export async function addPrivateNoteThreadMessage(
   await setDoc(
     doc(getDb(), 'posts', postId, 'privateNotes', noteId, 'messages', message.id),
     message,
+  );
+}
+
+export async function updatePrivateNoteThreadMessageText(
+  postId: string,
+  noteId: string,
+  messageId: string,
+  text: string,
+): Promise<void> {
+  await updateDoc(
+    doc(getDb(), 'posts', postId, 'privateNotes', noteId, 'messages', messageId),
+    { text },
+  );
+}
+
+export async function togglePrivateNoteThreadMessageReaction(
+  postId: string,
+  noteId: string,
+  messageId: string,
+  userId: string,
+  emoji: string,
+): Promise<void> {
+  await runTransaction(getDb(), async (transaction) => {
+    const messageRef = doc(getDb(), 'posts', postId, 'privateNotes', noteId, 'messages', messageId);
+    const messageSnap = await transaction.get(messageRef);
+    if (!messageSnap.exists) {
+      return;
+    }
+
+    const message = messageSnap.data() as Message;
+    const reactions = { ...(message.reactions ?? {}) };
+    const users = [...(reactions[emoji] ?? [])];
+    const existingIndex = users.indexOf(userId);
+
+    if (existingIndex >= 0) {
+      users.splice(existingIndex, 1);
+      if (users.length === 0) {
+        delete reactions[emoji];
+      } else {
+        reactions[emoji] = users;
+      }
+    } else {
+      reactions[emoji] = [...users, userId];
+    }
+
+    transaction.update(messageRef, { reactions });
+  });
+}
+
+export async function deletePrivateNoteThreadMessage(
+  postId: string,
+  noteId: string,
+  messageId: string,
+): Promise<void> {
+  await deleteDoc(
+    doc(getDb(), 'posts', postId, 'privateNotes', noteId, 'messages', messageId),
   );
 }
 

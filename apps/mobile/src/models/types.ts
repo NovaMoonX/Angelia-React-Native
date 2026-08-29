@@ -222,6 +222,10 @@ export interface Message {
   text: string;
   timestamp: number;
   parentId: string | null;
+  /** Top-level thread anchor; null for root messages. */
+  rootId?: string | null;
+  /** Original top-level comment when replying at depth 2. */
+  grandparentId?: string | null;
   reactions: Record<string, string[]>;
   /** System messages (e.g. "joined with 🎉") have no real author interaction. */
   isSystem?: boolean;

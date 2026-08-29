@@ -1,9 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
+import { MessageReactionRow } from '@/components/conversation/MessageReactionRow';
 import { useAppSelector } from '@/store/hooks';
 import { getRelativeTime } from '@/lib/timeUtils';
 import { useTheme } from '@/hooks/useTheme';
+import { isPersistedMessage } from '@/lib/message/messageReaction.utils';
 import type { Message } from '@/models/types';
 
 interface ConversationMessageProps {
@@ -13,10 +16,13 @@ interface ConversationMessageProps {
   continuationDepths?: number[];
   depth?: number;
   parentText?: string | null;
+  currentUserId?: string | null;
+  showReactions?: boolean;
   onSinglePress?: () => void;
-  onLongPress?: () => void;
-  onDoublePress?: () => void;
-  onSwipeRight?: () => void;
+  onOpenActions?: () => void;
+  onAvatarPress?: () => void;
+  onToggleReaction?: (emoji: string) => void;
+  onOpenReactionPicker?: () => void;
 }
 
 export function ConversationMessage({
@@ -26,15 +32,18 @@ export function ConversationMessage({
   continuationDepths = [],
   depth = 0,
   parentText,
+  currentUserId = null,
+  showReactions = true,
   onSinglePress,
-  onLongPress,
-  onDoublePress,
+  onOpenActions,
+  onAvatarPress,
+  onToggleReaction,
+  onOpenReactionPicker,
 }: ConversationMessageProps) {
   const author = useAppSelector((state) =>
     state.users.users.find((u) => u.id === message.authorId),
   );
   const { theme } = useTheme();
-  const lastPressAtRef = useRef(0);
   const singlePressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -46,10 +55,21 @@ export function ConversationMessage({
     };
   }, []);
 
+  const canOpenAuthorProfile =
+    Boolean(author && currentUserId && author.id !== currentUserId && onAvatarPress);
+
+  const avatarNode = (
+    <Avatar user={author} size="sm" style={styles.avatar} />
+  );
+
   if (message.isSystem) {
     return (
       <View style={styles.systemRow}>
-        <Avatar user={author} size="sm" />
+        {canOpenAuthorProfile ? (
+          <Pressable onPress={onAvatarPress}>{avatarNode}</Pressable>
+        ) : (
+          avatarNode
+        )}
         <Text style={[styles.systemText, { color: theme.mutedForeground }]}>
           {author?.firstName ?? 'Someone'} {message.text}
         </Text>
@@ -62,34 +82,29 @@ export function ConversationMessage({
   const rowPaddingLeft = BASE_LEFT_PADDING + clampedDepth * INDENT;
   const avatarCenterX = BASE_LEFT_PADDING + clampedDepth * INDENT + AVATAR_SIZE / 2;
   const parentAvatarCenterX = BASE_LEFT_PADDING + parentDepth * INDENT + AVATAR_SIZE / 2;
+  const canInteract = Boolean(onOpenActions) && isPersistedMessage(message);
+  const canShowReactions =
+    showReactions &&
+    isPersistedMessage(message) &&
+    Boolean(onToggleReaction && onOpenReactionPicker);
 
   return (
     <Pressable
-      onLongPress={onLongPress}
+      onLongPress={onOpenActions}
       onPress={() => {
-        if (!onSinglePress && !onDoublePress) return;
-        const now = Date.now();
-        if (now - lastPressAtRef.current < 280) {
-          if (singlePressTimeoutRef.current) {
-            clearTimeout(singlePressTimeoutRef.current);
-            singlePressTimeoutRef.current = null;
-          }
-          onDoublePress?.();
-          lastPressAtRef.current = 0;
+        if (!onSinglePress) {
           return;
         }
-        lastPressAtRef.current = now;
         if (singlePressTimeoutRef.current) {
           clearTimeout(singlePressTimeoutRef.current);
         }
         singlePressTimeoutRef.current = setTimeout(() => {
           singlePressTimeoutRef.current = null;
-          onSinglePress?.();
-        }, 320);
+          onSinglePress();
+        }, 0);
       }}
       style={[styles.container, { paddingLeft: rowPaddingLeft }]}
     >
-      {/* Vertical stem from this message down toward its replies */}
       {hasReplies && (
         <View
           style={[
@@ -102,19 +117,16 @@ export function ConversationMessage({
         />
       )}
 
-      {/* Connector line for threaded replies */}
       {isThreaded && (
-        <>
-          <View
-            style={[
-              styles.connectorElbow,
-              {
-                borderColor: theme.border,
-                left: parentAvatarCenterX,
-              },
-            ]}
-          />
-        </>
+        <View
+          style={[
+            styles.connectorElbow,
+            {
+              borderColor: theme.border,
+              left: parentAvatarCenterX,
+            },
+          ]}
+        />
       )}
 
       {continuationDepths.map((continuationDepth) => {
@@ -133,15 +145,13 @@ export function ConversationMessage({
         );
       })}
 
-      {/* 36×36 Avatar anchor */}
-      <Avatar
-        user={author}
-        size="sm"
-        style={styles.avatar}
-      />
+      {canOpenAuthorProfile ? (
+        <Pressable onPress={onAvatarPress}>{avatarNode}</Pressable>
+      ) : (
+        avatarNode
+      )}
 
       <View style={styles.body}>
-        {/* Header: Name | Timestamp */}
         <View style={styles.headerLine}>
           <Text style={[styles.displayName, { color: theme.foreground }]}>
             {author?.firstName ?? 'Unknown'}
@@ -149,19 +159,41 @@ export function ConversationMessage({
           <Text style={[styles.timestamp, { color: theme.mutedForeground }]}>
             {getRelativeTime(message.timestamp)}
           </Text>
+          {canInteract ? (
+            <Pressable
+              onPress={onOpenActions}
+              hitSlop={10}
+              style={styles.actionsButton}
+            >
+              <Feather name="more-horizontal" size={16} color={theme.mutedForeground} />
+            </Pressable>
+          ) : null}
         </View>
 
-        {/* Parent message quote (for replies) */}
         {isThreaded && parentText != null && (
-          <Text style={[styles.parentQuote, { color: theme.mutedForeground, borderLeftColor: theme.border }]} numberOfLines={2}>
-            {parentText.length > 80 ? parentText.slice(0, 80) + '…' : parentText}
+          <Text
+            style={[
+              styles.parentQuote,
+              { color: theme.mutedForeground, borderLeftColor: theme.border },
+            ]}
+            numberOfLines={2}
+          >
+            {parentText.length > 80 ? `${parentText.slice(0, 80)}…` : parentText}
           </Text>
         )}
 
-        {/* Message text */}
         <Text style={[styles.messageText, { color: theme.foreground }]}>
           {message.text}
         </Text>
+
+        {canShowReactions ? (
+          <MessageReactionRow
+            reactions={message.reactions ?? {}}
+            currentUserId={currentUserId}
+            onToggleReaction={onToggleReaction!}
+            onOpenReactionPicker={onOpenReactionPicker!}
+          />
+        ) : null}
       </View>
     </Pressable>
   );
@@ -211,7 +243,7 @@ const styles = StyleSheet.create({
   },
   headerLine: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     gap: 6,
     marginBottom: 2,
   },
@@ -221,6 +253,10 @@ const styles = StyleSheet.create({
   },
   timestamp: {
     fontSize: 12,
+    flex: 1,
+  },
+  actionsButton: {
+    padding: 2,
   },
   messageText: {
     fontSize: 16,

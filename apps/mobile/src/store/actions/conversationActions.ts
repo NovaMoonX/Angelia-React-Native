@@ -4,12 +4,24 @@ import type { CommentReplyNotification, ConversationMessageNotification, Message
 import {
   addMessage as firestoreAddMessage,
   updateMessageText as firestoreUpdateMessageText,
+  toggleMessageReaction as firestoreToggleMessageReaction,
+  deleteMessage as firestoreDeleteMessage,
   createAppNotification,
 } from '@/services/firebase/firestore';
-import { addMessageOptimistic, updateMessageTextOptimistic } from '@/store/slices/conversationSlice';
+import {
+  addMessageOptimistic,
+  updateMessageTextOptimistic,
+  updateMessageReactionsOptimistic,
+  removeMessageOptimistic,
+  setMessages,
+} from '@/store/slices/conversationSlice';
+import { toggleMessageReactionMap } from '@/lib/message/messageReaction.utils';
 import { generateId } from '@/utils/generateId';
 import { buildTextPreview } from '@/lib/message/messagePreview.utils';
+import { resolveMessageLineage } from '@/lib/conversation/threadLineage';
 import { isDemoActive } from './globalActions';
+
+const pendingMessageReactionKeys = new Set<string>();
 
 /**
  * Send a chat message to a post's conversation.
@@ -58,12 +70,16 @@ export const sendMessage = createAsyncThunk(
     const joinEmoji = latestReactionEmoji ?? '✨';
     const now = Date.now();
 
+    const messageId = generateId('nano');
+    const lineage = resolveMessageLineage(parentId, new Map(existingMessages.map((item) => [item.id, item])));
     const message: Message = {
-      id: generateId('nano'),
+      id: messageId,
       authorId: user.id,
       text: text.trim(),
       timestamp: now,
       parentId,
+      rootId: lineage.rootId,
+      grandparentId: lineage.grandparentId,
       reactions: {},
     };
     const joinMessage: Message | null = shouldSendJoinMessage
@@ -231,6 +247,96 @@ export const editMessage = createAsyncThunk(
       return rejectWithValue(
         err instanceof Error ? err.message : 'Failed to edit message',
       );
+    }
+  },
+);
+
+export const toggleConversationMessageReaction = createAsyncThunk(
+  'conversation/toggleMessageReaction',
+  async (
+    {
+      postId,
+      messageId,
+      emoji,
+    }: { postId: string; messageId: string; emoji: string },
+    { getState, dispatch, rejectWithValue },
+  ) => {
+    const state = getState() as RootState;
+    const user = state.users.currentUser;
+    if (!user) {
+      return rejectWithValue('User not authenticated');
+    }
+
+    const existingMessages = state.conversation.messagesByPost[postId] ?? [];
+    const targetMessage = existingMessages.find((message) => message.id === messageId);
+    if (!targetMessage || targetMessage.isSystem) {
+      return rejectWithValue('Message not found');
+    }
+
+    const reactionKey = `${postId}:${messageId}:${emoji}`;
+    if (pendingMessageReactionKeys.has(reactionKey)) {
+      return rejectWithValue('Reaction already in progress');
+    }
+
+    const previousReactions = targetMessage.reactions ?? {};
+    const nextReactions = toggleMessageReactionMap(previousReactions, user.id, emoji);
+
+    pendingMessageReactionKeys.add(reactionKey);
+    dispatch(updateMessageReactionsOptimistic({ postId, messageId, reactions: nextReactions }));
+
+    if (isDemoActive(getState)) {
+      pendingMessageReactionKeys.delete(reactionKey);
+      return { postId, messageId, emoji };
+    }
+
+    try {
+      await firestoreToggleMessageReaction(postId, messageId, user.id, emoji);
+      return { postId, messageId, emoji };
+    } catch (err) {
+      dispatch(updateMessageReactionsOptimistic({ postId, messageId, reactions: previousReactions }));
+      return rejectWithValue(err instanceof Error ? err.message : 'Failed to update reaction');
+    } finally {
+      pendingMessageReactionKeys.delete(reactionKey);
+    }
+  },
+);
+
+export const deleteConversationMessage = createAsyncThunk(
+  'conversation/deleteMessage',
+  async (
+    { postId, messageId }: { postId: string; messageId: string },
+    { getState, dispatch, rejectWithValue },
+  ) => {
+    const state = getState() as RootState;
+    const user = state.users.currentUser;
+    if (!user) {
+      return rejectWithValue('User not authenticated');
+    }
+
+    const existingMessages = state.conversation.messagesByPost[postId] ?? [];
+    const targetMessage = existingMessages.find((message) => message.id === messageId);
+    if (!targetMessage) {
+      return rejectWithValue('Message not found');
+    }
+    if (targetMessage.authorId !== user.id) {
+      return rejectWithValue('You can only delete your own messages');
+    }
+    if (targetMessage.isSystem) {
+      return rejectWithValue('System messages cannot be deleted');
+    }
+
+    dispatch(removeMessageOptimistic({ postId, messageId }));
+
+    if (isDemoActive(getState)) {
+      return { postId, messageId };
+    }
+
+    try {
+      await firestoreDeleteMessage(postId, messageId);
+      return { postId, messageId };
+    } catch (err) {
+      dispatch(setMessages({ postId, messages: existingMessages }));
+      return rejectWithValue(err instanceof Error ? err.message : 'Failed to delete message');
     }
   },
 );
