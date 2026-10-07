@@ -15,12 +15,14 @@ import { useNavigation, type EventArg } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ConversationMessage } from '@/components/conversation/ConversationMessage';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { PrivateNoteScreenState } from '@/components/PrivateNoteScreenState';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { selectPostById } from '@/store/slices/postsSlice';
 import { selectAllUsersMapById } from '@/store/slices/usersSlice';
 import { selectPrivateNoteById } from '@/store/slices/privateNotesSlice';
 import { useTheme } from '@/hooks/useTheme';
 import { usePrivateNoteThread } from '@/hooks/usePrivateNoteThread';
+import { usePrivateNoteById } from '@/hooks/usePrivateNoteById';
 import { sendPrivateNoteReply } from '@/store/actions/privateNoteThreadActions';
 import { markUserInboxReadForPost } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
@@ -46,7 +48,12 @@ export default function PrivateNoteThreadScreen() {
   const post = useAppSelector((state) => selectPostById(state, postId ?? ''));
   const currentUser = useAppSelector((state) => state.users.currentUser);
   const usersMap = useAppSelector(selectAllUsersMapById);
-  const note = useAppSelector((state) => selectPrivateNoteById(state, postId ?? '', noteId ?? ''));
+  const postsLoaded = useAppSelector((state) => { return state.posts.loaded; });
+  const storeNote = useAppSelector((state) => selectPrivateNoteById(state, postId ?? '', noteId ?? ''));
+  // Opened from a push notification or inbox item, nothing has put this note in Redux yet,
+  // so load it directly. The Redux copy (list screens, demo mode) still wins when present.
+  const { note: fetchedNote, loaded: noteLoaded } = usePrivateNoteById({ postId, noteId });
+  const note = storeNote ?? fetchedNote;
   const { messages: threadMessages, loaded } = usePrivateNoteThread({ postId, noteId });
 
   const [messageText, setMessageText] = useState('');
@@ -59,13 +66,14 @@ export default function PrivateNoteThreadScreen() {
     (currentUser.id === note.hostId || currentUser.id === note.authorId);
 
   const goBack = useCallback(() => {
-    if (!postId) {
-      router.replace('/(protected)/feed');
-      return;
-    }
     isRoutingAwayRef.current = true;
     if (isFromNotifications(from)) {
       router.dismissTo('/(protected)/notifications');
+      return;
+    }
+    if (!postId || !post || !note) {
+      // Nothing to go "back" to (post/note deleted or never loaded) — land somewhere real.
+      router.dismissTo('/(protected)/feed');
       return;
     }
     if (isHost) {
@@ -79,7 +87,7 @@ export default function PrivateNoteThreadScreen() {
       pathname: '/(protected)/private-notes-sender/[postId]',
       params: { postId },
     });
-  }, [from, isHost, postId, router]);
+  }, [from, isHost, note, post, postId, router]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener(
@@ -178,7 +186,17 @@ export default function PrivateNoteThreadScreen() {
   }, [loaded, rows.length]);
 
   if (!post || !currentUser || !note || !isParticipant) {
-    return <View style={[styles.centered, { backgroundColor: theme.background }]} />;
+    const stillLoading = !currentUser
+      || (!note && !noteLoaded)
+      || (!post && !postsLoaded);
+    return (
+      <PrivateNoteScreenState
+        headerTitle="Private note"
+        status={stillLoading ? 'loading' : 'unavailable'}
+        onBack={goBack}
+        backLabel={isFromNotifications(from) ? 'Back to Notifications' : 'Back to Feed'}
+      />
+    );
   }
 
   const headerTitle = otherParticipant
@@ -267,9 +285,6 @@ export default function PrivateNoteThreadScreen() {
 }
 
 const styles = StyleSheet.create({
-  centered: {
-    flex: 1,
-  },
   listContainer: {
     flex: 1,
   },

@@ -14,6 +14,7 @@ import { usePrivateNoteThreadsForPost } from '@/hooks/usePrivateNoteThreadsForPo
 import { usePrivateNoteConversationsNotice } from '@/hooks/usePrivateNoteConversationsNotice';
 import { usePrivateNoteUnreadForPost } from '@/hooks/usePrivateNoteUnreadForPost';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { PrivateNoteScreenState } from '@/components/PrivateNoteScreenState';
 import { isFromNotifications } from '@/lib/navigation/entryNavigation.utils';
 import { markUserInboxReadForPost } from '@/services/firebase/firestore';
 import { dismissNotificationsByData } from '@/services/notifications';
@@ -25,19 +26,22 @@ export default function PrivateNotesScreen() {
 	const router = useRouter();
 	const navigation = useNavigation();
 	const isRoutingToPostRef = React.useRef(false);
+	const post = useAppSelector((state) => selectPostById(state, postId ?? ''));
+	const postsLoaded = useAppSelector((state) => { return state.posts.loaded; });
 
 	const goToPostDetails = React.useCallback(() => {
-		if (!postId) {
-			router.replace('/(protected)/feed');
-			return;
-		}
 		isRoutingToPostRef.current = true;
 		if (isFromNotifications(from)) {
 			router.dismissTo('/(protected)/notifications');
 			return;
 		}
+		if (!postId || !post) {
+			// The post is gone — post details would just be another dead end.
+			router.dismissTo('/(protected)/feed');
+			return;
+		}
 		router.dismissTo({ pathname: '/(protected)/post/[id]', params: { id: postId } });
-	}, [from, postId, router]);
+	}, [from, post, postId, router]);
 
 	useEffect(() => {
 		const unsubscribe = navigation.addListener('beforeRemove', (event: EventArg<'beforeRemove', true, { action: { type: string } }>) => {
@@ -51,7 +55,6 @@ export default function PrivateNotesScreen() {
 		return unsubscribe;
 	}, [goToPostDetails, navigation]);
 
-	const post = useAppSelector((state) => selectPostById(state, postId ?? ''));
 	const currentUser = useAppSelector((state) => state.users.currentUser);
 	const usersMap = useAppSelector(selectAllUsersMapById);
 
@@ -118,8 +121,16 @@ export default function PrivateNotesScreen() {
 	);
 
 	if (!post || !currentUser || !isHost) {
+		// Post still loading (cold start from a push) vs. genuinely unavailable. A non-host is
+		// already being redirected to post details by the effect above.
+		const stillLoading = !currentUser || (!post && !postsLoaded);
 		return (
-			<View style={[styles.centered, { backgroundColor: theme.background }]} />
+			<PrivateNoteScreenState
+				headerTitle="Private Notes"
+				status={stillLoading ? 'loading' : 'unavailable'}
+				onBack={goToPostDetails}
+				backLabel={isFromNotifications(from) ? 'Back to Notifications' : 'Back to Feed'}
+			/>
 		);
 	}
 
@@ -168,9 +179,6 @@ export default function PrivateNotesScreen() {
 }
 
 const styles = StyleSheet.create({
-	centered: {
-		flex: 1,
-	},
 	content: {
 		paddingHorizontal: 20,
 		paddingTop: 16,
