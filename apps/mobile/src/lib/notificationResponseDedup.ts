@@ -77,16 +77,39 @@ export async function markNotificationResponseHandled(
 }
 
 /**
- * Returns true when this notification response should trigger navigation.
- * Dedupes within the current session and across cold starts via AsyncStorage.
+ * Atomically claims a notification response. Returns true for exactly one caller —
+ * the one that should navigate. Dedupes within the current session and across cold
+ * starts via AsyncStorage.
+ *
+ * The check-and-add runs synchronously after the (shared) storage load resolves, so
+ * two handlers racing on the same tap (the module-level listener and the cold-start
+ * fallback) can never both win.
  */
 export async function consumeNotificationResponse(
   response: Notifications.NotificationResponse,
 ): Promise<boolean> {
-  if (await isNotificationResponseHandled(response)) {
+  await ensurePersistedKeysLoaded();
+
+  const key = getNotificationResponseKey(response);
+  if (handledNotificationKeys.has(key)) {
     return false;
   }
 
-  await markNotificationResponseHandled(response);
+  handledNotificationKeys.add(key);
+  void persistHandledKeys();
   return true;
+}
+
+/**
+ * Gives back a claim made by `consumeNotificationResponse` when navigation never
+ * happened (e.g. the navigator never became ready), so another handler may retry.
+ */
+export async function releaseNotificationResponse(
+  response: Notifications.NotificationResponse,
+): Promise<void> {
+  await ensurePersistedKeysLoaded();
+
+  if (handledNotificationKeys.delete(getNotificationResponseKey(response))) {
+    void persistHandledKeys();
+  }
 }

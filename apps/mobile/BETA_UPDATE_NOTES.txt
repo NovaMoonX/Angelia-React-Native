@@ -1,20 +1,14 @@
 Beta update notes
 
-Last updated: 2026-06-08
+Last updated: 2026-10-07
 Current version: 1.0.9
-Next version:
-Related PR: feature/activity-expiry-inbox
+Next version: (not yet chosen — bump app.config.js + APP_VERSION at release prep)
+Related PR: claude/fervent-knuth-g6g5wq
 
 Use this file as the source for the next beta update modal. Keep it short, warm, and focused on what changed for beta testers.
 
-Current branch highlights (1.0.9):
-- Private notes now show up right away when you're viewing your post — no more reloading the app to see a note someone just sent you.
-- Tap any private note to open a back-and-forth conversation with the other person, just like post conversations.
-- Post details now highlights when someone replied to a private note, with a chevron showing notes are tappable.
-- New reactions on your posts stay unread until you open post detail — scrolling past cards in Post Activity no longer clears them.
-- Feed and Post Activity now have expiring-soon filters so you can spot posts about to expire; on Feed, a separate row below status filters highlights ones you haven't reacted to yet.
-- Notifications splits inbox into Activity on your posts and Activity, with post snippets and per-section Mark all seen.
-- Post creation tips stay dismissed once you close them — they won't pop back up when you start a new post.
-- Notifications for deleted posts and circles are cleaned up automatically.
-- Circle post notification settings now list every connected person's Daily Circle, with search and collapsed circle cards.
-- Inbox activity marks as seen when you land on the right screen (post detail, conversation, or private notes).
+Current branch highlights:
+- Tapping a private note reply notification now opens the conversation instead of a blank screen — whether you got the ping from a push, the Notifications inbox, or after reopening the app.
+- Private note screens now show a friendly loading state (and a clear "this isn't available" message with a way back) instead of going blank.
+- Tapping any notification now lands in the right place every time, including right after the app launches from a closed state.
+- Daily reminder taps now open post creation with the prompt shown as a hint above your draft (the wind-down reminder too) instead of filling your draft with the prompt text.

@@ -238,8 +238,9 @@ display name in the toast/push copy.
 ```
 
 > **Note:** Tapping the push routes to `/(protected)/private-notes-host/[YOUR_POST_ID]`.
-> The screen will redirect back if `YOUR_POST_ID` is not a real post you authored
-> or if there are no notes stored under it — expected in testing mode.
+> If `YOUR_POST_ID` is not a real post you authored, the screen shows a "This private
+> note isn't available" message with a way back (it never renders blank). With no notes
+> stored under the post you'll see the "No private notes yet" empty state.
 
 ---
 
@@ -247,6 +248,11 @@ display name in the toast/push copy.
 
 You should receive this when the Host or the note author sends a reply in an
 existing private note conversation. Tapping routes directly to that thread.
+
+**Cold-start check (regression for the blank-screen bug):** force-quit the app, send
+this notification, then tap the push. The thread should briefly show a spinner and then
+the conversation. Repeat with a `noteId` that does not exist — you should see
+"This private note isn't available" with a back button, not a blank screen.
 
 Replace `YOUR_USER_ID`, `YOUR_POST_ID`, and `YOUR_NOTE_ID` with real values from
 a private note you can access (as Host or as the note author).

@@ -8,6 +8,7 @@ import { PrivateNoteConversationsNotice } from '@/components/PrivateNoteConversa
 import { PrivateNoteListCard } from '@/components/PrivateNoteListCard';
 import { PrivateNoteModal } from '@/components/PrivateNoteModal';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { PrivateNoteScreenState } from '@/components/PrivateNoteScreenState';
 import { useAppSelector } from '@/store/hooks';
 import { selectPostById, selectPostAuthor } from '@/store/slices/postsSlice';
 import { useTheme } from '@/hooks/useTheme';
@@ -27,15 +28,18 @@ export default function PrivateNotesSenderScreen() {
 	const router = useRouter();
 	const navigation = useNavigation();
 	const isRoutingToPostRef = React.useRef(false);
+	const post = useAppSelector((state) => selectPostById(state, postId ?? ''));
+	const postsLoaded = useAppSelector((state) => { return state.posts.loaded; });
 
 	const goToPostDetails = React.useCallback(() => {
-		if (!postId) {
-			router.replace('/(protected)/feed');
+		isRoutingToPostRef.current = true;
+		if (!postId || !post) {
+			// The post is gone — post details would just be another dead end.
+			router.dismissTo('/(protected)/feed');
 			return;
 		}
-		isRoutingToPostRef.current = true;
 		router.dismissTo({ pathname: '/(protected)/post/[id]', params: { id: postId } });
-	}, [postId, router]);
+	}, [post, postId, router]);
 
 	React.useEffect(() => {
 		const unsubscribe = navigation.addListener('beforeRemove', (event: EventArg<'beforeRemove', true, { action: { type: string } }>) => {
@@ -49,7 +53,6 @@ export default function PrivateNotesSenderScreen() {
 		return unsubscribe;
 	}, [goToPostDetails, navigation]);
 
-	const post = useAppSelector((state) => selectPostById(state, postId ?? ''));
 	const currentUser = useAppSelector((state) => state.users.currentUser);
 	const author = useAppSelector((state) =>
 		selectPostAuthor(state, post?.authorId ?? ''),
@@ -85,9 +88,24 @@ export default function PrivateNotesSenderScreen() {
 		});
 	}, [dismissNotice, postId, router]);
 
+	// A host has no "sent notes" — send them to the host view of the post instead.
+	// (Navigating belongs in an effect, never in render.)
+	React.useEffect(() => {
+		if (post && currentUser && isHost) {
+			goToPostDetails();
+		}
+	}, [currentUser, goToPostDetails, isHost, post]);
+
 	if (!post || !currentUser || isHost) {
-		goToPostDetails();
-		return null;
+		const stillLoading = !currentUser || (!post && !postsLoaded);
+		return (
+			<PrivateNoteScreenState
+				headerTitle="Your Notes"
+				status={stillLoading ? 'loading' : 'unavailable'}
+				onBack={goToPostDetails}
+				backLabel="Back to Feed"
+			/>
+		);
 	}
 
 	return (

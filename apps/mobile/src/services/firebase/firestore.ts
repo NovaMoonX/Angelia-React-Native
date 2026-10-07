@@ -1516,6 +1516,33 @@ export function subscribeToPrivateNotesForPost(
 
 
 /**
+ * Subscribes to a single private note document at
+ * `posts/{postId}/privateNotes/{noteId}`.
+ *
+ * Used by the thread screen so it can open straight from a push notification or
+ * inbox item without first visiting the post's notes list. The callback receives
+ * `null` when the note does not exist or the caller is not allowed to read it
+ * (Firestore rules limit reads to the Host and the note's author).
+ */
+export function subscribeToPrivateNote(
+  postId: string,
+  noteId: string,
+  callback: (note: PrivateNote | null) => void,
+  onError?: () => void,
+): () => void {
+  return onSnapshot(
+    doc(getDb(), 'posts', postId, 'privateNotes', noteId),
+    (snap) => {
+      if (!snap) return;
+      callback(snap.exists ? (snap.data() as PrivateNote) : null);
+    },
+    (_error) => {
+      onError?.();
+    },
+  );
+}
+
+/**
  * Writes a reply in a private note thread.
  * Stored at `posts/{postId}/privateNotes/{noteId}/messages/{messageId}`.
  */

@@ -187,6 +187,44 @@ Use the iPhone when:
 
 ---
 
+## Feature 6: Notification Tap Routing & Private Note Blank Screen Fix
+
+**Branch:** claude/fervent-knuth-g6g5wq (start of the next version — see `/docs/2026/10/07/NOTIFICATION_TAP_ROUTING.md`)
+
+**Devices:** Android primary. iPhone required for the iOS `trigger.payload` push shape and for two-account note replies.
+
+### Setup
+
+- [ ] Two accounts: A = post Host, B = Circle member who can send private notes on A's post
+- [ ] B has sent A at least one private note, and A has replied once so a thread exists
+- [ ] Push notifications are enabled on the device receiving the tap
+
+### Android
+
+- [ ] Force-quit A's app. As B, reply in the private note thread. Tap A's "Private Note Reply" push → spinner, then the thread opens (not blank)
+- [ ] Repeat as B: force-quit B, have A reply, tap B's push → thread opens (B is the note author / sender)
+- [ ] With the app in the background (not quit), repeat both → thread opens
+- [ ] With the app in the foreground, tap the system banner → thread opens
+- [ ] Open the Notifications inbox → tap the "replied in a private note" row → thread opens
+- [ ] Back arrow from a thread opened via a push/inbox → returns to Notifications
+- [ ] Tap a "Private Note" push as A (force-quit) → Private Notes list for that post opens
+- [ ] Delete the post (or use a `noteId` that doesn't exist via NOTIFICATION_TESTING.md Scenario F2) and tap the push → "This private note isn't available" with a working back button
+- [ ] Tap each other push type from a force-quit state: new post, reaction, conversation message, comment reply, connection request/accepted, join request/accepted, circle invite → each opens its screen
+- [ ] Daily reminder tap (midday and wind-down) → post creation opens with the prompt as a hint banner and an **empty** draft
+
+### iPhone
+
+- [ ] Repeat the force-quit private note reply tap (iOS delivers custom keys via `trigger.payload`) → thread opens
+- [ ] Repeat the wind-down reminder tap → hint banner, empty draft
+
+### Edge cases
+
+- [ ] Tap the same push twice quickly → navigates once
+- [ ] Tap a push while signed out → no crash; after signing in, that tap is routed exactly once (not repeatedly on later launches)
+- [ ] Sender opens `/private-notes-sender/<postId>` for a post they host → redirected to post details with no flicker loop
+
+---
+
 ## Regression Checks
 
 - [ ] Feed loads and scrolls normally with status pills and expiring row visible
